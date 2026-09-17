@@ -17,8 +17,17 @@ export type Respuesta = { id: string; autorId: string; texto: string; creadoEn: 
 /** `reacciones`: ids de quienes reaccionaron. */
 export type Publicacion = Respuesta & { reacciones: string[]; respuestas: Respuesta[] }
 
+/**
+ * Microsegundos desde 1970. Postgres guarda microsegundos y Date solo milisegundos: comparando con Date, dos
+ * publicaciones del mismo milisegundo quedaban en otro orden que en la consulta, y el cursor de "Ver
+ * anteriores" (la última de la lista) podía no ser la más antigua, con publicaciones repetidas en la página
+ * siguiente. Acepta también la hora del navegador (`toISOString()`, milisegundos y `Z`).
+ */
 function instante(creadoEn: string): number {
-  return Date.parse(creadoEn)
+  const partes = /^(.*T\d{2}:\d{2}:\d{2})(?:\.(\d+))?(.*)$/.exec(creadoEn)
+  if (!partes) return Date.parse(creadoEn) * 1000
+  const [, hastaSegundos, fraccion = '', zona] = partes
+  return Date.parse(hastaSegundos + zona) * 1000 + Number(fraccion.padEnd(6, '0').slice(0, 6))
 }
 
 /** Más nueva primero; a igual instante, id mayor primero (igual que la consulta). */

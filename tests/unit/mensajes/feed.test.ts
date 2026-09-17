@@ -56,6 +56,30 @@ describe('armarFeed', () => {
     expect(armarFeed([pub('a', T(1)), pub('b', T(1))]).map((p) => p.id)).toEqual(['b', 'a'])
   })
 
+  it('ordena por microsegundos, como la consulta, aunque Date solo tenga milisegundos', () => {
+    const U = (microsegundos: string) => `2026-09-16T16:00:00.123${microsegundos}+00:00`
+    // Con milisegundos serían iguales y el desempate por id daría z, m, a.
+    const feed = armarFeed([
+      pub('a', U('457'), { respuestas: [fila('r2', U('999'), 'a'), fila('r1', U('001'), 'a')] }),
+      pub('z', U('456')),
+      pub('m', U('458')),
+    ])
+    expect(feed.map((p) => p.id)).toEqual(['m', 'a', 'z'])
+    expect(feed[1].respuestas.map((r) => r.id)).toEqual(['r1', 'r2'])
+    expect(cursorAnteriores(feed)).toBe(U('456'))
+  })
+
+  it('compara marcas con distinta cantidad de decimales y con la hora del navegador', () => {
+    const feed = armarFeed([
+      pub('a', '2026-09-16T16:00:00.12+00:00'),
+      pub('b', '2026-09-16T16:00:00.119999+00:00'),
+      pub('c', '2026-09-16T16:00:00+00:00'),
+      pub('d', '2026-09-16T16:00:00.1205Z'),
+      pub('e', '2026-09-16T13:00:00.121-03:00'),
+    ])
+    expect(feed.map((p) => p.id)).toEqual(['e', 'd', 'a', 'b', 'c'])
+  })
+
   it('no repite a quien reaccionó', () => {
     expect(armarFeed([pub('p1', T(1), { reacciones: ['u2', 'u2'] })])[0].reacciones).toEqual(['u2'])
   })

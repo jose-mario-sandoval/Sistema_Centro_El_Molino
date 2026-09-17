@@ -360,26 +360,58 @@ describe('consulta del feed', () => {
     expect(vacia.respuestas).toEqual([])
   })
 
-  it('pagina de a TAMANO_PAGINA con cursor, sin repetir ni saltear', async () => {
-    const base = Date.parse('2026-01-01T12:00:00Z')
+  it('trae todas las respuestas aunque pasen de 1000: max_rows no corta los recursos embebidos', async () => {
+    const publicacion = await publicar('director', 'Publicación con 1001 respuestas')
+    const respuestas = Array.from({ length: 1001 }, (_, i) => ({
+      id: randomUUID(),
+      autor_id: i % 2 === 0 ? ids.residente : ids.residente2,
+      padre_id: publicacion,
+      texto: `Respuesta masiva ${i}`,
+    }))
+    try {
+      // Una sola inserción en lote con la llave secreta.
+      const { error } = await admin.from('mensajes').insert(respuestas)
+      expect(error).toBeNull()
+
+      const { publicaciones } = await paginaComo('residente')
+      const p = publicaciones.find((x) => x.id === publicacion)
+      expect(p).toBeDefined()
+      expect(p!.respuestas).toHaveLength(1001)
+      expect(new Set(p!.respuestas.map((r) => r.id))).toEqual(new Set(respuestas.map((r) => r.id)))
+    } finally {
+      // Las respuestas caen en cascada (afterEach también limpia, pero así no dependen de él).
+      await admin.from('mensajes').delete().eq('id', publicacion)
+    }
+  })
+
+  it('pagina de a TAMANO_PAGINA con cursor, sin repetir ni saltear, aunque solo difieran los microsegundos', async () => {
+    // Todas en el mismo milisegundo (.123), distintas solo en los microsegundos: el cursor y el orden tienen
+    // que compararlos, porque Date no los ve.
+    const creadoEn = (i: number) => `2026-01-01T12:00:00.123${String(456 + i).padStart(3, '0')}+00:00`
     const filas = Array.from({ length: TAMANO_PAGINA + 2 }, (_, i) => ({
+      id: randomUUID(),
       autor_id: ids.director,
       texto: `Paginación ${i}`,
-      creado_en: new Date(base + i * 1000).toISOString(),
+      creado_en: creadoEn(i),
     }))
-    const { data: insertadas, error } = await admin.from('mensajes').insert(filas).select('id')
+    const { error } = await admin.from('mensajes').insert(filas)
     expect(error).toBeNull()
-    const nuevas = new Set(insertadas!.map((f: { id: string }) => f.id))
+    const nuevas = new Set<string>(filas.map((f) => f.id))
+    // De la más nueva (.123507) a la más antigua (.123456).
+    const esperadas = filas.map((f) => f.id).reverse()
 
     const primera = await paginaComo('administracion')
     expect(primera.publicaciones).toHaveLength(TAMANO_PAGINA)
     expect(primera.hayMas).toBe(true)
 
     const cursor = primera.publicaciones.at(-1)!.creadoEn
+    // La más antigua de la primera página es la número 50 desde la más nueva, no una cualquiera del milisegundo.
+    expect(cursor).toMatch(/^2026-01-01T12:00:00\.123458/)
     const segunda = await paginaComo('administracion', cursor)
+
     const vistas = [...primera.publicaciones, ...segunda.publicaciones].map((p) => p.id)
     expect(new Set(vistas).size).toBe(vistas.length)
-    expect(vistas.filter((id) => nuevas.has(id))).toHaveLength(TAMANO_PAGINA + 2)
+    expect(vistas.filter((id) => nuevas.has(id))).toEqual(esperadas)
   })
 })
 
