@@ -383,11 +383,11 @@ La Server Action traduce `MOL01` a un mensaje específico ("El almuerzo ya cerr�
 | Producción | `master` | proyecto `molino-produccion` | Production |
 
 - **Orden de despliegue:** migraciones primero, código después. Vercel no despliega por Git (`vercel.json`: `"git": { "deploymentEnabled": false }`), así tampoco se generan previews de ramas `feat/*` sin variables de entorno. No se usan Deploy Hooks, porque no funcionan con los despliegues Git desactivados. Al hacer push a `develop` o `master`, una GitHub Action ejecuta, en orden:
-  1. `supabase config push --yes` (ajustes de Auth desde `config.toml`, con bloques `[remotes.staging]` y `[remotes.production]` donde difieran). `enable_signup = false` debe quedar explícito en `[auth]` y en `[auth.email]`, porque la plantilla de `supabase init` trae `true`;
+  1. `supabase config push --yes` (ajustes de Auth desde `config.toml`, con bloques `[remotes.staging]` y `[remotes.production]` donde difieran; cada bloque lleva el `project_id` del proyecto escrito en el archivo, que no es secreto). `enable_signup = false` debe quedar explícito en `[auth]` y en `[auth.email]`, porque la plantilla de `supabase init` trae `true`;
   2. `supabase db push` contra el proyecto correspondiente;
   3. despliegue con la CLI de Vercel usando el token del dueño:
      - **producción (`master`):** `vercel pull --yes --environment=production` → `vercel build --prod` → `vercel deploy --prebuilt --prod`;
-     - **staging (`develop`):** `vercel pull --yes --environment=preview --git-branch=develop` (toma las variables de Preview limitadas a `develop`) → `vercel build` → `vercel deploy --prebuilt` → `vercel alias set <url del despliegue> <alias fijo de staging>`.
+     - **staging (`develop`):** `vercel pull --yes --environment=preview` (las variables de Preview son las de staging, para todas las ramas) → `vercel build` → `vercel deploy --prebuilt` → `vercel alias set <url del despliegue> <alias fijo de staging>`. Tras el primer despliegue se comprueba que staging usa el `NEXT_PUBLIC_SUPABASE_URL` de `molino-staging`.
 - **URL fija de staging:** el alias fijo (por ejemplo `molino-staging.vercel.app`) es la URL que se abre en los celulares y la que se guarda en Vault para `pg_cron` (§8.3).
 - **Errores de build y despliegue:** quedan en el log de la GitHub Action, visible para ambos colaboradores.
 - **Compatibilidad:** durante el despliegue la app anterior corre unos minutos contra el esquema nuevo, así que las migraciones deben ser compatibles hacia atrás (agregar antes de quitar; quitar columnas o funciones en un despliegue posterior).
@@ -400,7 +400,7 @@ La Server Action traduce `MOL01` a un mensaje específico ("El almuerzo ya cerr�
   - `VAPID_PRIVATE_KEY`
   - `VAPID_SUBJECT`
   - `CRON_SECRET`
-- **Repositorio público:** ningún secreto en commits; `.env*.local` en `.gitignore`. Como los despliegues los hace la Action con el token del dueño, la restricción de Vercel Hobby sobre commits de colaboradores en repos privados no aplica.
+- **Repositorio público (requisito):** ningún secreto en commits; `.env*.local` en `.gitignore`. El repo **debe seguir siendo público**: en Vercel Hobby, con un repo privado se bloquean los despliegues de commits cuyo autor es un colaborador, incluso desde la CLI con el token del dueño. En la Fase 0 se verifica desplegando un commit hecho por un colaborador; si aun así se bloquea, la vía soportada es el plan Pro.
 - **Plan Free de Supabase:** un proyecto sin actividad durante 7 días se pausa; staging es el candidato y se reactiva desde el panel.
 
 ---
@@ -476,15 +476,17 @@ Los ajustes de Auth (`supabase config push`), las extensiones y el esquema (`sup
    - bloquear force push y borrado.
 3. Crear secretos del repositorio (Settings → Secrets and variables → Actions):
    - `SUPABASE_ACCESS_TOKEN`
-   - `SUPABASE_PROJECT_REF_STAGING` y `SUPABASE_DB_PASSWORD_STAGING`
-   - `SUPABASE_PROJECT_REF_PRODUCTION` y `SUPABASE_DB_PASSWORD_PRODUCTION`
+   - `SUPABASE_DB_PASSWORD_STAGING`
+   - `SUPABASE_DB_PASSWORD_PRODUCTION`
+
+   Los identificadores de proyecto (*project ref*) no son secretos: el dueño se los pasa a los colaboradores y van escritos en `supabase/config.toml`.
 
 ### A.3 Vercel (cuando la fase 0 esté lista)
 
 1. Crear cuenta con el login de GitHub del dueño (plan Hobby) y crear el proyecto (importando el repo; `vercel.json` desactiva los despliegues por Git). *Production Branch* = `master`.
 2. Variables de entorno (§10):
    - **Production:** valores de `molino-produccion`.
-   - **Preview**, limitadas a la rama `develop`: valores de `molino-staging`.
+   - **Preview** (todas las ramas): valores de `molino-staging`.
    - Generar llaves VAPID distintas por entorno con `npx web-push generate-vapid-keys` y un `CRON_SECRET` distinto por entorno con `openssl rand -hex 32`.
 3. Desactivar *Vercel Authentication* en Deployment Protection, para que staging se pueda abrir desde celulares y lo pueda llamar `pg_cron`.
 4. Crear un token (Account Settings → Tokens) y guardar como secretos de GitHub `VERCEL_TOKEN`, `VERCEL_ORG_ID` y `VERCEL_PROJECT_ID` (los dos últimos aparecen en `.vercel/project.json` tras `vercel link`, o en Settings del proyecto).
