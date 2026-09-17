@@ -27,6 +27,44 @@ export type Database = {
         }
         Relationships: []
       }
+      eventos: {
+        Row: {
+          actualizado_en: string
+          creado_en: string
+          creado_por: string
+          fecha: string
+          hora: string | null
+          id: string
+          titulo: string
+        }
+        Insert: {
+          actualizado_en?: string
+          creado_en?: string
+          creado_por: string
+          fecha: string
+          hora?: string | null
+          id?: string
+          titulo: string
+        }
+        Update: {
+          actualizado_en?: string
+          creado_en?: string
+          creado_por?: string
+          fecha?: string
+          hora?: string | null
+          id?: string
+          titulo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "eventos_creado_por_fkey"
+            columns: ["creado_por"]
+            isOneToOne: false
+            referencedRelation: "perfiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       horas_limite: {
         Row: {
           comida: Database["public"]["Enums"]["tiempo_comida"]

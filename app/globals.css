@@ -524,3 +524,13 @@ a.icon-btn{display:inline-flex;align-items:center;justify-content:center;}
 .resumen-comidas .card{padding:14px 16px;}
 .admin-week-table td.excepcion{background:var(--accent-soft);box-shadow:inset 3px 0 0 var(--accent);}
 .admin-week-table td.sin-definir .status-note{color:var(--danger);font-weight:600;}
+
+/* ---------- Calendario (pista 04) ---------- */
+a.btn,a.icon-btn{text-decoration:none;}
+button.cal-day{border:0;border-radius:0;font:inherit;color:inherit;text-align:left;min-width:0;overflow:hidden;}
+/* La cuadrícula tiene overflow:hidden: el anillo de foco va por dentro de la celda para que no se recorte. */
+button.cal-day:focus-visible{outline-offset:-2px;}
+.cal-evento-lista{margin-bottom:14px;}
+.cal-evento-fila{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line);font-size:13.5px;}
+.cal-evento-acciones{display:flex;align-items:center;gap:6px;flex-shrink:0;}
+.cal-evento-form.editando{padding:10px 0;border-bottom:1px solid var(--line);}
