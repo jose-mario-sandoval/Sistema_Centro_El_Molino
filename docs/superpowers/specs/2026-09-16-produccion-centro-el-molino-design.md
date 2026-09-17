@@ -47,7 +47,8 @@ Este documento define cómo pasar el prototipo a una aplicación en producción 
 - **Escrituras con el cliente admin** (llave secreta de Supabase, que **solo existe en el servidor**). La Server Action primero verifica `auth.uid()` y las reglas que correspondan:
   - *Solo Director activo:* crear cuenta, poner contraseña a otra cuenta, cambiar rol de otra cuenta, desactivar/reactivar.
   - *La propia cuenta:* editar nombre, siglas y correo; cambiar contraseña; cambiar preferencias `avisar_*`; limpiar `debe_cambiar_contrasena`.
-  - *Servidor sin usuario:* leer destinatarios y `suscripciones_push` para enviar notificaciones; registrar y borrar suscripciones reasignando el `endpoint` (§8.2).
+  - *Usuario con sesión, vía `/api/push`:* registrar y borrar suscripciones de su dispositivo reasignando el `endpoint` (§8.2); se verifica la sesión antes de usar el cliente admin.
+  - *Servidor sin usuario (cron y envíos):* leer destinatarios y `suscripciones_push` para enviar notificaciones; borrar suscripciones caducadas.
 - **Esquema:** migraciones SQL versionadas en `supabase/migrations/`. Nadie cambia tablas a mano en staging ni en producción.
 - **Tipos:** generados desde la base con `supabase gen types` y guardados en el repo.
 
@@ -68,6 +69,7 @@ app/
 components/                 UI compartida (portada del diseño del prototipo)
 lib/
   supabase/                 clientes: navegador, servidor, admin
+  fechas/                   zona horaria y semana lunes–domingo
   comidas/                  lógica pura: horas límite, ventana, valor efectivo
   push/                     envío Web Push y selección de destinatarios
   validacion/               esquemas zod
@@ -229,10 +231,15 @@ Una comida cerrada sin fila queda "Sin definir" para siempre, aunque la persona 
 
 ### 6.3 Congelado al cerrar
 
-`cerrar_comidas_vencidas()` es un `PROCEDURE` (se invoca con `CALL` desde `pg_cron` cada 5 min) que recorre cada `(fecha, comida)` vencida y no cerrada, con `fecha` desde hace 7 días hasta el domingo de la semana siguiente. Por cada una, y con `COMMIT` al final de cada iteración:
+`cerrar_comidas_vencidas()` es un `PROCEDURE` que recorre cada `(fecha, comida)` vencida y no cerrada, con `fecha` desde hace 7 días hasta el domingo de la semana siguiente. Por cada una, y con `COMMIT` al final de cada iteración:
 
 - inserta en `selecciones_comida` una fila con `origen = plan` para cada Director/Residente activo que no tenga fila y sí tenga plan para ese día y comida, con `ON CONFLICT DO NOTHING` (por si alguien guardó justo al cierre);
 - inserta la fila en `comidas_cerradas`.
+
+**Restricciones para que `COMMIT` funcione dentro del procedimiento:**
+- el job de `pg_cron` (cada 5 min) ejecuta **solo** `CALL public.cerrar_comidas_vencidas()`, sin otras sentencias en el mismo comando;
+- el procedimiento **no** es `SECURITY DEFINER` ni tiene cláusula `SET` (tampoco `SET search_path`); usa nombres con esquema (`public.…`);
+- la prueba de integración hace el `CALL` fuera de cualquier transacción.
 
 Si la tarea falla un tiempo, la edición igual queda bloqueada por hora y Administración ve el valor efectivo calculado desde el plan. Si falla más de 7 días, las comidas de esa brecha quedan sin cerrar y siguen mostrando el plan; se acepta como caso límite.
 
@@ -328,8 +335,8 @@ La Server Action traduce `MOL01` a un mensaje específico ("El almuerzo ya cerr�
 
 ### 8.3 Tareas programadas (`pg_cron`, cada 5 minutos)
 
-1. **`cerrar_comidas_vencidas()`**: función SQL ejecutada directamente en Postgres (§6.3).
-2. **Recordatorios:** `pg_net` hace POST a `<URL de la app>/api/cron/recordatorios` con cabecera `Authorization: Bearer <CRON_SECRET>` y `timeout_milliseconds` de 10000. La URL y el secreto se guardan en Supabase Vault, nunca en migraciones. En staging, la URL es la dirección fija de la rama (`<proyecto>-git-develop-<cuenta>.vercel.app`), no la de un despliegue puntual. La ruta:
+1. **`CALL public.cerrar_comidas_vencidas()`**: procedimiento SQL ejecutado directamente en Postgres (§6.3).
+2. **Recordatorios:** `pg_net` hace POST a `<URL de la app>/api/cron/recordatorios` con cabecera `Authorization: Bearer <CRON_SECRET>` y `timeout_milliseconds` de 10000. La URL y el secreto se guardan en Supabase Vault, nunca en migraciones. En staging, la URL es el alias fijo de staging (§10), no la de un despliegue puntual. La ruta:
    - rechaza sin secreto válido;
    - busca `(fecha, comida)` cuyo cierre ocurre dentro de los próximos 60 minutos y no están en `avisos_enviados`;
    - inserta primero en `avisos_enviados` (si la inserción choca, otra corrida ya lo tomó);
@@ -375,10 +382,14 @@ La Server Action traduce `MOL01` a un mensaje específico ("El almuerzo ya cerr�
 | Staging | `develop` | proyecto `molino-staging` | Preview de la rama `develop` con variables de staging |
 | Producción | `master` | proyecto `molino-produccion` | Production |
 
-- **Orden de despliegue:** migraciones primero, código después. Los despliegues automáticos de Vercel por Git se desactivan (`vercel.json`: `"git": { "deploymentEnabled": false }`), así tampoco se generan previews de ramas `feat/*` sin variables de entorno. Al hacer push a `develop` o `master`, una GitHub Action:
-  1. ejecuta `supabase config push` (ajustes de Auth desde `config.toml`, con bloques `[remotes.staging]` y `[remotes.production]` donde difieran);
-  2. ejecuta `supabase db push` contra el proyecto correspondiente;
-  3. llama al *Deploy Hook* de Vercel de esa rama.
+- **Orden de despliegue:** migraciones primero, código después. Vercel no despliega por Git (`vercel.json`: `"git": { "deploymentEnabled": false }`), así tampoco se generan previews de ramas `feat/*` sin variables de entorno. No se usan Deploy Hooks, porque no funcionan con los despliegues Git desactivados. Al hacer push a `develop` o `master`, una GitHub Action ejecuta, en orden:
+  1. `supabase config push --yes` (ajustes de Auth desde `config.toml`, con bloques `[remotes.staging]` y `[remotes.production]` donde difieran). `enable_signup = false` debe quedar explícito en `[auth]` y en `[auth.email]`, porque la plantilla de `supabase init` trae `true`;
+  2. `supabase db push` contra el proyecto correspondiente;
+  3. despliegue con la CLI de Vercel usando el token del dueño:
+     - **producción (`master`):** `vercel pull --yes --environment=production` → `vercel build --prod` → `vercel deploy --prebuilt --prod`;
+     - **staging (`develop`):** `vercel pull --yes --environment=preview --git-branch=develop` (toma las variables de Preview limitadas a `develop`) → `vercel build` → `vercel deploy --prebuilt` → `vercel alias set <url del despliegue> <alias fijo de staging>`.
+- **URL fija de staging:** el alias fijo (por ejemplo `molino-staging.vercel.app`) es la URL que se abre en los celulares y la que se guarda en Vault para `pg_cron` (§8.3).
+- **Errores de build y despliegue:** quedan en el log de la GitHub Action, visible para ambos colaboradores.
 - **Compatibilidad:** durante el despliegue la app anterior corre unos minutos contra el esquema nuevo, así que las migraciones deben ser compatibles hacia atrás (agregar antes de quitar; quitar columnas o funciones en un despliegue posterior).
 - **Datos:** no se migran datos del prototipo. Cada entorno arranca vacío más `crear-director`; staging puede cargar datos de ejemplo con un script aparte.
 - **Variables de entorno** (por entorno):
@@ -389,7 +400,7 @@ La Server Action traduce `MOL01` a un mensaje específico ("El almuerzo ya cerr�
   - `VAPID_PRIVATE_KEY`
   - `VAPID_SUBJECT`
   - `CRON_SECRET`
-- **Repositorio público:** ningún secreto en commits; `.env*.local` en `.gitignore`. El repo debe seguir siendo público: en Vercel Hobby, un repo privado bloquea los despliegues de commits de colaboradores.
+- **Repositorio público:** ningún secreto en commits; `.env*.local` en `.gitignore`. Como los despliegues los hace la Action con el token del dueño, la restricción de Vercel Hobby sobre commits de colaboradores en repos privados no aplica.
 - **Plan Free de Supabase:** un proyecto sin actividad durante 7 días se pausa; staging es el candidato y se reactiva desde el panel.
 
 ---
@@ -470,15 +481,15 @@ Los ajustes de Auth (`supabase config push`), las extensiones y el esquema (`sup
 
 ### A.3 Vercel (cuando la fase 0 esté lista)
 
-1. Crear cuenta con el login de GitHub del dueño (plan Hobby) e importar el repo; *Production Branch* = `master`.
+1. Crear cuenta con el login de GitHub del dueño (plan Hobby) y crear el proyecto (importando el repo; `vercel.json` desactiva los despliegues por Git). *Production Branch* = `master`.
 2. Variables de entorno (§10):
    - **Production:** valores de `molino-produccion`.
    - **Preview**, limitadas a la rama `develop`: valores de `molino-staging`.
    - Generar llaves VAPID distintas por entorno con `npx web-push generate-vapid-keys` y un `CRON_SECRET` distinto por entorno con `openssl rand -hex 32`.
 3. Desactivar *Vercel Authentication* en Deployment Protection, para que staging se pueda abrir desde celulares y lo pueda llamar `pg_cron`.
-4. Crear dos *Deploy Hooks* (Settings → Git → Deploy Hooks): uno para `master` y otro para `develop`. Guardar sus URLs como secretos de GitHub `VERCEL_DEPLOY_HOOK_PRODUCTION` y `VERCEL_DEPLOY_HOOK_STAGING`.
-5. Guardar en Supabase Vault de cada proyecto la URL de la app (en staging, la dirección fija de la rama `develop`) y su `CRON_SECRET` (snippet SQL provisto en el repo).
+4. Crear un token (Account Settings → Tokens) y guardar como secretos de GitHub `VERCEL_TOKEN`, `VERCEL_ORG_ID` y `VERCEL_PROJECT_ID` (los dos últimos aparecen en `.vercel/project.json` tras `vercel link`, o en Settings del proyecto).
+5. Guardar en Supabase Vault de cada proyecto la URL de la app (en staging, el alias fijo de §10) y su `CRON_SECRET` (snippet SQL provisto en el repo).
 
 **Limitaciones del plan Hobby:**
 - Es para uso no comercial; confirmar que aplica al centro, o pasar a Pro (20 USD/mes).
-- Solo el dueño accede al panel de Vercel (logs y variables); los colaboradores ven el estado del despliegue en los PR de GitHub.
+- Solo el dueño accede al panel de Vercel (variables y logs de ejecución). Los colaboradores ven el resultado de cada despliegue en el log de la GitHub Action.
