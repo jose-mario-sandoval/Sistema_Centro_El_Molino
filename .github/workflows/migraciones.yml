@@ -1,0 +1,34 @@
+name: Migraciones producción
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'supabase/migrations/**'
+      - 'supabase/config.toml'
+  workflow_dispatch:
+
+concurrency:
+  group: migraciones-produccion
+  cancel-in-progress: false
+
+jobs:
+  migraciones:
+    if: ${{ vars.SUPABASE_PROJECT_REF != '' }}
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Vincular proyecto Supabase
+        run: npx supabase link --project-ref "${{ vars.SUPABASE_PROJECT_REF }}"
+      - name: Ajustes de Auth
+        run: npx supabase config push --yes
+      - name: Migraciones
+        run: npx supabase db push --yes
