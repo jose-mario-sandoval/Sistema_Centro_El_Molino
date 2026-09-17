@@ -310,3 +310,111 @@ revoke execute on function public.guardar_seleccion(date, public.tiempo_comida, 
 revoke execute on function public.volver_a_plan(date, public.tiempo_comida) from public, anon;
 grant execute on function public.guardar_seleccion(date, public.tiempo_comida, public.estado_comida, text) to authenticated;
 grant execute on function public.volver_a_plan(date, public.tiempo_comida) to authenticated;
+
+-- ---------- Congelado al cerrar (spec §6.3) ----------
+-- Restricciones para que COMMIT funcione: sin security definer, sin cláusula SET,
+-- nombres con esquema, y el job de pg_cron ejecuta solo el CALL.
+create or replace procedure public.cerrar_comidas_vencidas(p_ahora timestamptz default now())
+language plpgsql
+as $$
+declare
+  v_zona text := public.zona_horaria_app();
+  v_hoy date := (p_ahora at time zone v_zona)::date;
+  v_desde date := v_hoy - 7;
+  v_hasta date := (v_hoy - (extract(isodow from v_hoy)::int - 1)) + 13;
+  v_vencida record;
+begin
+  for v_vencida in
+    select d.fecha, hl.comida
+      from (
+        select v_desde + g.n as fecha
+          from pg_catalog.generate_series(0, v_hasta - v_desde) as g(n)
+      ) d
+      cross join public.horas_limite hl
+     where ((d.fecha + hl.dia_relativo) + hl.hora) at time zone v_zona <= p_ahora
+       and not exists (
+         select 1
+           from public.comidas_cerradas c
+          where c.fecha = d.fecha and c.comida = hl.comida
+       )
+     order by d.fecha, hl.comida
+  loop
+    -- Directores/Residentes activos sin fila y con plan para ese día y comida.
+    insert into public.selecciones_comida (usuario_id, fecha, comida, estado, nota, origen)
+    select p.usuario_id, v_vencida.fecha, v_vencida.comida, p.estado, p.nota, 'plan'::public.origen_seleccion
+      from public.plan_semanal p
+      join public.perfiles pf on pf.id = p.usuario_id
+     where pf.activo
+       and pf.rol in ('director', 'residente')
+       and p.dia_semana = extract(isodow from v_vencida.fecha)::smallint
+       and p.comida = v_vencida.comida
+    on conflict (usuario_id, fecha, comida) do nothing;
+
+    insert into public.comidas_cerradas (fecha, comida)
+    values (v_vencida.fecha, v_vencida.comida)
+    on conflict (fecha, comida) do nothing;
+
+    commit;
+  end loop;
+end;
+$$;
+
+-- ---------- Job de pg_cron cada 5 minutos (spec §8.3) ----------
+-- La pista 06-A también habilita pg_cron; "if not exists" evita depender del orden de las migraciones.
+create extension if not exists pg_cron with schema pg_catalog;
+
+do $$
+begin
+  if exists (select 1 from cron.job where jobname = 'cerrar-comidas-vencidas') then
+    perform cron.unschedule('cerrar-comidas-vencidas');
+  end if;
+end;
+$$;
+
+-- Solo el CALL en el comando: si hubiera otras sentencias, el COMMIT del procedimiento fallaría.
+select cron.schedule(
+  'cerrar-comidas-vencidas',
+  '*/5 * * * *',
+  'CALL public.cerrar_comidas_vencidas()'
+);
+
+-- ---------- Recordatorios: quién tiene la comida "Sin definir" (spec §6.2, §8.2; índice §4) ----------
+-- Directores/Residentes activos sin fila en selecciones_comida y, además,
+-- sin plan para ese día y comida, o con la comida ya cerrada (el plan deja de contar).
+create or replace function public.comidas_sin_definir(p_fecha date, p_comida public.tiempo_comida)
+returns setof uuid
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select pf.id
+    from public.perfiles pf
+   where pf.activo
+     and pf.rol in ('director', 'residente')
+     and not exists (
+       select 1
+         from public.selecciones_comida s
+        where s.usuario_id = pf.id
+          and s.fecha = p_fecha
+          and s.comida = p_comida
+     )
+     and (
+       not exists (
+         select 1
+           from public.plan_semanal p
+          where p.usuario_id = pf.id
+            and p.dia_semana = extract(isodow from p_fecha)::smallint
+            and p.comida = p_comida
+       )
+       or exists (
+         select 1
+           from public.comidas_cerradas c
+          where c.fecha = p_fecha
+            and c.comida = p_comida
+       )
+     )
+$$;
+
+revoke execute on function public.comidas_sin_definir(date, public.tiempo_comida) from public, anon, authenticated;
+grant execute on function public.comidas_sin_definir(date, public.tiempo_comida) to service_role;
