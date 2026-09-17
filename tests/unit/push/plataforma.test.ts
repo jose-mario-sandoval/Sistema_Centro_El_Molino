@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { base64UrlABytes, esIOS, evaluarSoporte, type EntornoNavegador } from '@/lib/push/plataforma'
+import {
+  base64UrlABytes,
+  esIOS,
+  evaluarSoporte,
+  mismaLlaveServidor,
+  type EntornoNavegador,
+} from '@/lib/push/plataforma'
 
 const UA_IPHONE =
   'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1'
@@ -64,5 +70,19 @@ describe('evaluarSoporte', () => {
 describe('base64UrlABytes', () => {
   it('decodifica base64url sin relleno', () => {
     expect(Array.from(base64UrlABytes('AQID-_8'))).toEqual([1, 2, 3, 251, 255])
+  })
+})
+
+describe('mismaLlaveServidor', () => {
+  const esperada = base64UrlABytes('AQID-_8')
+
+  it('reconoce la misma llave', () => {
+    expect(mismaLlaveServidor(new Uint8Array([1, 2, 3, 251, 255]).buffer, esperada)).toBe(true)
+  })
+
+  it('detecta un cambio de llave VAPID y una suscripción sin llave', () => {
+    expect(mismaLlaveServidor(new Uint8Array([1, 2, 3, 251, 254]).buffer, esperada)).toBe(false)
+    expect(mismaLlaveServidor(new Uint8Array([1, 2, 3]).buffer, esperada)).toBe(false)
+    expect(mismaLlaveServidor(null, esperada)).toBe(false)
   })
 })

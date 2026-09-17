@@ -5,9 +5,15 @@ import { enviarRecordatorio } from '@/lib/push/avisos'
 import { comidasPorAvisar, horasLimiteDesdeFilas, type ComidaPorAvisar } from '@/lib/push/recordatorios'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 
+/** Los envíos de after() ocurren después de responder 202: hay que darles margen (por defecto son 15 s). */
+export const maxDuration = 60
+
 /** Llamada por pg_cron + pg_net cada 5 minutos (public.llamar_recordatorios). */
 export async function POST(request: NextRequest) {
-  if (!secretoCronValido(request.headers.get('authorization'), process.env.CRON_SECRET)) {
+  const secreto = process.env.CRON_SECRET
+  // Sin la variable, la ruta rechaza todo: queda en los logs para que el dueño lo note (spec §9.1).
+  if (!secreto) console.error('[cron] recordatorios: falta CRON_SECRET; no se atiende ninguna llamada')
+  if (!secretoCronValido(request.headers.get('authorization'), secreto)) {
     return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
   }
 
@@ -46,8 +52,9 @@ export async function POST(request: NextRequest) {
   }
 
   if (tomadas.length > 0) {
+    // En paralelo: enviarRecordatorio nunca lanza, y en serie varias comidas podrían no llegar a enviarse.
     after(async () => {
-      for (const c of tomadas) await enviarRecordatorio(c.fecha, c.comida, c.cierre)
+      await Promise.all(tomadas.map((c) => enviarRecordatorio(c.fecha, c.comida, c.cierre)))
     })
   }
 

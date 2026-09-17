@@ -26,6 +26,17 @@ export function evaluarSoporte(e: EntornoNavegador): SoportePush {
   return 'disponible'
 }
 
+/**
+ * ¿La suscripción del navegador usa la llave VAPID actual?
+ * `actual` son los bytes de PushSubscription.options.applicationServerKey. Si el servidor cambió
+ * de llave, la suscripción vieja sigue existiendo pero ya no recibe nada: hay que rehacerla.
+ */
+export function mismaLlaveServidor(actual: ArrayBuffer | null | undefined, esperada: Uint8Array): boolean {
+  if (!actual) return false
+  const bytes = new Uint8Array(actual)
+  return bytes.length === esperada.length && bytes.every((byte, i) => byte === esperada[i])
+}
+
 /** Llave pública VAPID (base64url) → bytes para pushManager.subscribe. */
 export function base64UrlABytes(base64Url: string): Uint8Array<ArrayBuffer> {
   const relleno = '='.repeat((4 - (base64Url.length % 4)) % 4)

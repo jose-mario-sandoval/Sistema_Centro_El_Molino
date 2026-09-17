@@ -8,6 +8,9 @@ self.addEventListener('install', (event) => {
     caches
       .open(CACHE)
       .then((cache) => cache.add(new Request(PAGINA_SIN_CONEXION, { cache: 'reload' })))
+      // Si la página no se puede guardar (sin conexión, error del servidor), el service worker se instala igual:
+      // las notificaciones no dependen del caché y solo se pierde la pantalla "Sin conexión" hasta la próxima visita.
+      .catch(() => {})
       .then(() => self.skipWaiting()),
   )
 })
@@ -50,9 +53,20 @@ self.addEventListener('push', (event) => {
   )
 })
 
+/** Solo se abren URLs de esta app: una carga con otro origen no puede llevar a un sitio ajeno. */
+function destinoSeguro(url) {
+  const inicio = new URL('/', self.location.origin).href
+  try {
+    const candidata = new URL(url || '/', self.location.origin)
+    return candidata.origin === self.location.origin ? candidata.href : inicio
+  } catch {
+    return inicio
+  }
+}
+
 self.addEventListener('notificationclick', (event) => {
   event.notification.close()
-  const destino = new URL((event.notification.data && event.notification.data.url) || '/', self.location.origin).href
+  const destino = destinoSeguro(event.notification.data && event.notification.data.url)
 
   event.waitUntil(
     (async () => {

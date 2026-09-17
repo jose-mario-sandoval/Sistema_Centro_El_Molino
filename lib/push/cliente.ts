@@ -1,4 +1,4 @@
-import { base64UrlABytes, evaluarSoporte, type SoportePush } from './plataforma'
+import { base64UrlABytes, evaluarSoporte, mismaLlaveServidor, type SoportePush } from './plataforma'
 
 /*
  * Funciones del navegador (navigator, window, fetch): solo se importan desde Client Components.
@@ -8,6 +8,19 @@ import { base64UrlABytes, evaluarSoporte, type SoportePush } from './plataforma'
 export type EstadoDispositivo = 'sin-llave' | Exclude<SoportePush, 'disponible'> | 'inactivo' | 'activo'
 
 export type ResultadoPush = { ok: true } | { ok: false; error: string }
+
+/** Máximo que se espera a que el service worker quede activo antes de dar el error. */
+const ESPERA_SERVICE_WORKER_MS = 10_000
+
+class ErrorTiempoAgotado extends Error {}
+
+/** Rechaza si `promesa` no termina a tiempo: evita quedarse en "Activando…" para siempre. */
+function conTiempoLimite<T>(promesa: Promise<T>, ms: number, queEsperaba: string): Promise<T> {
+  return new Promise<T>((resolver, rechazar) => {
+    const temporizador = setTimeout(() => rechazar(new ErrorTiempoAgotado(queEsperaba)), ms)
+    promesa.then(resolver, rechazar).finally(() => clearTimeout(temporizador))
+  })
+}
 
 function leerSoporte(): SoportePush {
   const nav = navigator as Navigator & { standalone?: boolean }
@@ -48,6 +61,8 @@ export async function revisarEsteDispositivo(llavePublica: string): Promise<Esta
   try {
     const suscripcion = await suscripcionActual()
     if (!suscripcion || Notification.permission !== 'granted') return 'inactivo'
+    // Con otra llave VAPID la suscripción ya no recibe nada: se muestra como inactiva para rehacerla.
+    if (!mismaLlaveServidor(suscripcion.options.applicationServerKey, base64UrlABytes(llavePublica))) return 'inactivo'
     await enviarAlServidor('POST', suscripcion.toJSON())
     return 'activo'
   } catch (error) {
@@ -66,19 +81,30 @@ export async function activarEsteDispositivo(llavePublica: string): Promise<Resu
 
   try {
     await navigator.serviceWorker.register('/sw.js', { scope: '/', updateViaCache: 'none' })
-    const registro = await navigator.serviceWorker.ready
-    const suscripcion =
-      (await registro.pushManager.getSubscription()) ??
-      (await registro.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: base64UrlABytes(llavePublica),
-      }))
+    const registro = await conTiempoLimite(
+      navigator.serviceWorker.ready,
+      ESPERA_SERVICE_WORKER_MS,
+      'el service worker no llegó a activarse',
+    )
+
+    const llave = base64UrlABytes(llavePublica)
+    let suscripcion = await registro.pushManager.getSubscription()
+    if (suscripcion && !mismaLlaveServidor(suscripcion.options.applicationServerKey, llave)) {
+      // La llave VAPID del servidor cambió: la suscripción vieja no sirve y hay que rehacerla.
+      await suscripcion.unsubscribe().catch(() => {})
+      suscripcion = null
+    }
+    suscripcion ??= await registro.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: llave })
+
     if (!(await enviarAlServidor('POST', suscripcion.toJSON()))) {
       return { ok: false, error: 'No se pudo registrar este dispositivo. Intentá de nuevo.' }
     }
     return { ok: true }
   } catch (error) {
     console.error('[push] no se pudo activar este dispositivo', error)
+    if (error instanceof ErrorTiempoAgotado) {
+      return { ok: false, error: 'La app tardó demasiado en prepararse. Recargá la página e intentá de nuevo.' }
+    }
     return { ok: false, error: 'No se pudieron activar las notificaciones en este dispositivo.' }
   }
 }
@@ -88,10 +114,21 @@ export async function desactivarEsteDispositivo(): Promise<ResultadoPush> {
   try {
     const suscripcion = await suscripcionActual()
     if (!suscripcion) return { ok: true }
-    const borrada = await enviarAlServidor('DELETE', { endpoint: suscripcion.endpoint }).catch(() => false)
+
+    // En paralelo: al cerrar sesión el total está acotado a 4 segundos (BotonCerrarSesion).
+    const [enServidor, enNavegador] = await Promise.allSettled([
+      enviarAlServidor('DELETE', { endpoint: suscripcion.endpoint }),
+      suscripcion.unsubscribe(),
+    ])
+
     // Aunque el servidor falle, se anula igual: al próximo envío responderá 410 y se borrará (spec §8.2).
-    if (!borrada) console.error('[push] el servidor no confirmó la baja de este dispositivo')
-    await suscripcion.unsubscribe()
+    if (enServidor.status === 'rejected' || !enServidor.value) {
+      console.error('[push] el servidor no confirmó la baja de este dispositivo')
+    }
+    if (enNavegador.status === 'rejected') {
+      console.error('[push] no se pudo anular la suscripción en el navegador', enNavegador.reason)
+      return { ok: false, error: 'No se pudieron desactivar las notificaciones. Intentá de nuevo.' }
+    }
     return { ok: true }
   } catch (error) {
     console.error('[push] no se pudo desactivar este dispositivo', error)
