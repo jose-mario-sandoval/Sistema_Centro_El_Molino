@@ -34,6 +34,10 @@ jobs:
   base-de-datos:
     name: base-de-datos
     runs-on: ubuntu-latest
+    env:
+      # Pista 06: valores de prueba, no son secretos (solo valen para la base temporal de CI).
+      CRON_SECRET: prueba-ci
+      VAPID_SUBJECT: mailto:ci@example.com
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -53,6 +57,11 @@ jobs:
         run: npx supabase start -x studio,imgproxy,edge-runtime,logflare,vector
       - name: Variables de la base temporal
         run: node scripts/ci/entorno-supabase-local.mjs >> "$GITHUB_ENV"
+      - name: Llaves VAPID de prueba
+        # Antes de "Build para e2e": NEXT_PUBLIC_VAPID_PUBLIC_KEY se incrusta en el build.
+        run: |
+          npx web-push generate-vapid-keys --json > "$RUNNER_TEMP/vapid.json"
+          node -e "const k = require(process.argv[1]); console.log('NEXT_PUBLIC_VAPID_PUBLIC_KEY=' + k.publicKey); console.log('VAPID_PRIVATE_KEY=' + k.privateKey)" "$RUNNER_TEMP/vapid.json" >> "$GITHUB_ENV"
       - name: Generar tipos desde la base temporal
         run: npx supabase gen types typescript --local --schema public > database.types.ts
       - uses: actions/upload-artifact@v7
