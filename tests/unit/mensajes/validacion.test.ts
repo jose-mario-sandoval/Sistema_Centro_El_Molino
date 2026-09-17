@@ -14,8 +14,9 @@ describe('esquemaPublicacion', () => {
     expect(esquemaPublicacion.parse({ texto: '  Hola casa \n' })).toEqual({ texto: 'Hola casa' })
   })
 
-  it('rechaza vacío, solo espacios o ausente con un mensaje junto al campo', () => {
-    for (const texto of ['', '   ', null]) {
+  it('rechaza vacío, solo espacios (incluidos saltos de línea y tabs) o ausente con un mensaje junto al campo', () => {
+    // Igual que el check de la tabla (texto ~ '\S'): lo que la base rechaza no pasa la validación.
+    for (const texto of ['', '   ', '\n', '\t\t', ' \r\n\t ', null]) {
       const r = esquemaPublicacion.safeParse({ texto })
       expect(r.success).toBe(false)
       expect(camposConError(r.error!)).toEqual({ texto: 'Escribí un mensaje.' })

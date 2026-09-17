@@ -71,8 +71,10 @@ describe('mensajes: publicar y responder', () => {
 
   it('acepta hasta 2000 caracteres y rechaza textos vacíos o más largos', async () => {
     const residente = await clienteComo('residente')
-    const vacio = await residente.from('mensajes').insert({ autor_id: ids.residente, texto: '   ' })
-    expect(vacio.error?.code).toBe('23514')
+    for (const texto of ['', '   ', '\n\t \r\n']) {
+      const vacio = await residente.from('mensajes').insert({ autor_id: ids.residente, texto })
+      expect(vacio.error?.code).toBe('23514')
+    }
     const largo = await residente.from('mensajes').insert({ autor_id: ids.residente, texto: 'a'.repeat(2001) })
     expect(largo.error?.code).toBe('23514')
     const justo = await residente.from('mensajes').insert({ autor_id: ids.residente, texto: 'a'.repeat(2000) })
@@ -286,7 +288,7 @@ describe('registro_moderacion: RLS', () => {
       .delete()
       .eq('texto_eliminado', 'Registro protegido')
       .select('id')
-    expect(borrado.data).toEqual([])
+    expect(borrado.error?.code).toBe('42501')
     expect(await registroCon('Registro protegido')).toHaveLength(1)
   })
 })

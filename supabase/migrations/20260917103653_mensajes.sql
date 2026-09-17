@@ -8,7 +8,8 @@ create table public.mensajes (
   id uuid primary key default gen_random_uuid(),
   autor_id uuid not null references public.perfiles (id) on delete cascade,
   padre_id uuid references public.mensajes (id) on delete cascade,
-  texto text not null check (char_length(texto) between 1 and 2000 and btrim(texto) <> ''),
+  -- '\S': al menos un carácter que no sea espacio, tab ni salto de línea (btrim solo quita espacios).
+  texto text not null check (texto ~ '\S' and char_length(texto) <= 2000),
   creado_en timestamptz not null default now()
 );
 
@@ -45,6 +46,8 @@ create index registro_moderacion_autor_idx on public.registro_moderacion (autor_
 
 -- ---------- Respuestas de un solo nivel (MOL03) ----------
 -- Si el padre no existe, este trigger no dice nada y la FK responde 23503.
+-- Solo en INSERT: los mensajes no se editan (authenticated no tiene UPDATE). Validar también un UPDATE de
+-- padre_id exigiría revisar además que el mensaje no tenga respuestas y no sea su propio padre.
 create or replace function public.validar_padre_mensaje()
 returns trigger
 language plpgsql
@@ -64,7 +67,7 @@ end;
 $$;
 
 create trigger mensajes_un_nivel
-  before insert or update of padre_id on public.mensajes
+  before insert on public.mensajes
   for each row execute function public.validar_padre_mensaje();
 
 -- ---------- Reacciones solo en publicaciones (MOL03) ----------
@@ -183,8 +186,6 @@ grant select, insert, delete on table public.mensajes to authenticated;
 grant select, insert, update, delete on table public.mensajes to service_role;
 grant select, insert, delete on table public.reacciones to authenticated;
 grant select, insert, update, delete on table public.reacciones to service_role;
--- delete (no solo select): así un DELETE sin política aplicable afecta 0 filas sin error
--- (spec §6.4), en vez de fallar con 42501 en la capa de permisos antes de llegar a RLS.
--- insert queda sin GRANT: solo el trigger security definer escribe en esta tabla.
-grant select, delete on table public.registro_moderacion to authenticated;
+-- Solo lectura: el trigger security definer es el único que escribe y nadie borra entradas.
+grant select on table public.registro_moderacion to authenticated;
 grant select, insert, update, delete on table public.registro_moderacion to service_role;
