@@ -16,6 +16,7 @@
     "test:integracion": "vitest run --project integracion",
     "test:e2e": "playwright test",
     "db:tipos": "supabase gen types typescript --linked --schema public > lib/supabase/database.types.ts",
+    "db:aplicar": "node --env-file=.env.local scripts/aplicar-migraciones.mjs",
     "crear-director": "tsx --env-file=.env.local scripts/crear-director.ts",
     "datos-demo": "tsx --env-file=.env.local scripts/datos-demo.ts",
     "limpiar-datos-demo": "tsx --env-file=.env.local scripts/limpiar-datos-demo.ts"
