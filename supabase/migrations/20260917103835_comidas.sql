@@ -214,3 +214,99 @@ create policy "comidas_cerradas: lectura para usuarios activos"
   on public.comidas_cerradas for select
   to authenticated
   using ((select public.soy_activo()));
+
+-- ---------- Guardar una selección (spec §6.4) ----------
+-- security invoker: RLS sigue aplicando. La función solo agrega errores con código propio.
+create or replace function public.guardar_seleccion(
+  p_fecha date,
+  p_comida public.tiempo_comida,
+  p_estado public.estado_comida,
+  p_nota text
+)
+returns void
+language plpgsql
+security invoker
+set search_path = ''
+as $$
+declare
+  v_usuario uuid := auth.uid();
+  v_rol public.rol := public.mi_rol();
+  v_nota text := nullif(btrim(p_nota), '');
+  v_plan_estado public.estado_comida;
+  v_plan_nota text;
+  v_hay_plan boolean;
+begin
+  -- mi_rol() es null si la cuenta está inactiva.
+  if v_rol is null or v_rol not in ('director', 'residente') then
+    raise exception 'Solo Directores y Residentes eligen sus comidas'
+      using errcode = '42501';
+  end if;
+
+  if not public.comida_editable(p_fecha, p_comida) then
+    raise exception 'La comida % del % ya cerró o está fuera de la semana editable', p_comida, p_fecha
+      using errcode = 'MOL01';
+  end if;
+
+  if not public.nota_valida(p_estado, v_nota) then
+    raise exception 'Nota inválida para el estado %', p_estado
+      using errcode = 'MOL04';
+  end if;
+
+  select p.estado, p.nota
+    into v_plan_estado, v_plan_nota
+    from public.plan_semanal p
+   where p.usuario_id = v_usuario
+     and p.dia_semana = extract(isodow from p_fecha)::smallint
+     and p.comida = p_comida;
+  v_hay_plan := found;
+
+  if v_hay_plan and v_plan_estado = p_estado and v_plan_nota is not distinct from v_nota then
+    -- Igual al plan: no hace falta excepción.
+    delete from public.selecciones_comida s
+     where s.usuario_id = v_usuario
+       and s.fecha = p_fecha
+       and s.comida = p_comida;
+  else
+    insert into public.selecciones_comida (usuario_id, fecha, comida, estado, nota, origen)
+    values (v_usuario, p_fecha, p_comida, p_estado, v_nota, 'persona')
+    on conflict (usuario_id, fecha, comida) do update
+      set estado = excluded.estado,
+          nota = excluded.nota,
+          origen = 'persona',
+          actualizado_en = now();
+  end if;
+end;
+$$;
+
+-- ---------- Volver al plan (spec §6.4) ----------
+create or replace function public.volver_a_plan(p_fecha date, p_comida public.tiempo_comida)
+returns void
+language plpgsql
+security invoker
+set search_path = ''
+as $$
+declare
+  v_rol public.rol := public.mi_rol();
+begin
+  if v_rol is null or v_rol not in ('director', 'residente') then
+    raise exception 'Solo Directores y Residentes eligen sus comidas'
+      using errcode = '42501';
+  end if;
+
+  if not public.comida_editable(p_fecha, p_comida) then
+    raise exception 'La comida % del % ya cerró o está fuera de la semana editable', p_comida, p_fecha
+      using errcode = 'MOL01';
+  end if;
+
+  delete from public.selecciones_comida s
+   where s.usuario_id = auth.uid()
+     and s.fecha = p_fecha
+     and s.comida = p_comida
+     and s.origen = 'persona';
+end;
+$$;
+
+revoke execute on function public.guardar_seleccion(date, public.tiempo_comida, public.estado_comida, text) from public, anon;
+revoke execute on function public.volver_a_plan(date, public.tiempo_comida) from public, anon;
+grant execute on function public.guardar_seleccion(date, public.tiempo_comida, public.estado_comida, text) to authenticated;
+grant execute on function public.volver_a_plan(date, public.tiempo_comida) to authenticated;
