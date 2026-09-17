@@ -126,6 +126,24 @@ test('sin conexión, publicar avisa y conserva el texto; al volver la conexión 
   await expect(page.getByLabel('Nuevo mensaje')).toHaveValue('')
 })
 
+test('al conectarse recarga lo publicado después de generar la página', async ({ page }) => {
+  const texto = textoUnico('antes de suscribirse')
+  await iniciarSesion(page, 'administracion')
+
+  // El mensaje se crea cuando la página ya se generó y antes de abrir el WebSocket de Realtime:
+  // no viene en el HTML ni llega como evento; solo lo trae la recarga del primer SUBSCRIBED.
+  let sembrado: Promise<void> | undefined
+  await page.routeWebSocket(/\/realtime\/v1\/websocket/, async (ws) => {
+    sembrado ??= sembrarMensaje('residente', texto)
+    await sembrado
+    ws.connectToServer()
+  })
+  await page.goto('/mensajes')
+  await expect(page.locator('.feed-mensajes')).toHaveAttribute('data-conexion', 'en-vivo', { timeout: 20_000 })
+  await expect(tarjeta(page, texto)).toBeVisible()
+  await expect(tarjeta(page, texto)).toContainText('Residente Prueba')
+})
+
 test('otra sesión recibe el mensaje en tiempo real sin recargar', async ({ page, browser, baseURL }) => {
   const texto = textoUnico('tiempo real')
   await iniciarSesion(page, 'administracion')

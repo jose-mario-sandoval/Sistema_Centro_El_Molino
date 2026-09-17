@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
   agregarAnteriores,
-  alternarReaccionLocal,
   aplicarBorradoMensaje,
   aplicarInsercionMensaje,
   armarFeed,
@@ -88,6 +87,30 @@ describe('eventos de tiempo real', () => {
     const antes = base()
     expect(aplicarInsercionMensaje(antes, fila('p3', T(3)))).toBe(antes)
     expect(aplicarInsercionMensaje(antes, fila('r1', T(4), 'p1'))).toBe(antes)
+    expect(aplicarInsercionMensaje(antes, fila('p3', T(3)), { desdeEvento: true })).toBe(antes)
+    expect(aplicarInsercionMensaje(antes, fila('r1', T(4), 'p1'), { desdeEvento: true })).toBe(antes)
+  })
+
+  it('el evento de un mensaje propio ya agregado corrige su hora con la de la base', () => {
+    // Publicación propia agregada con la hora del navegador (adelantada): queda arriba de p3.
+    const propio = aplicarInsercionMensaje(base(), fila('p2', T(9)))
+    expect(propio.map((p) => p.id)).toEqual(['p2', 'p3', 'p1'])
+    const confirmado = aplicarInsercionMensaje(propio, fila('p2', T(2)), { desdeEvento: true })
+    expect(confirmado.map((p) => p.id)).toEqual(['p3', 'p2', 'p1'])
+    expect(confirmado[1].creadoEn).toBe(T(2))
+
+    // Respuesta propia: se reordena dentro del hilo.
+    const respuesta = aplicarInsercionMensaje(base(), fila('r2', T(9), 'p1'))
+    const hilo = aplicarInsercionMensaje(respuesta, fila('r2', T(2), 'p1'), { desdeEvento: true })
+    expect(hilo.find((p) => p.id === 'p1')!.respuestas.map((r) => [r.id, r.creadoEn])).toEqual([
+      ['r2', T(2)],
+      ['r1', T(4)],
+    ])
+  })
+
+  it('el mensaje propio repetido no pisa la hora que ya vino de la base', () => {
+    const confirmado = aplicarInsercionMensaje(base(), fila('p2', T(2)), { desdeEvento: true })
+    expect(aplicarInsercionMensaje(confirmado, fila('p2', T(9)))).toBe(confirmado)
   })
 
   it('INSERT de respuesta la agrega en orden cronológico bajo su publicación', () => {
@@ -131,18 +154,11 @@ describe('reacciones', () => {
     expect(fijarReaccion(antes, 'p1', 'u2', false)[0].reacciones).toEqual([])
   })
 
-  it('alternarReaccionLocal pone o quita y devuelve el estado final', () => {
-    const quitada = alternarReaccionLocal(base(), 'p1', 'u2')
-    expect(quitada.presente).toBe(false)
-    expect(tieneReaccion(quitada.feed, 'p1', 'u2')).toBe(false)
-    const puesta = alternarReaccionLocal(base(), 'p1', 'u3')
-    expect(puesta.presente).toBe(true)
-    expect(tieneReaccion(puesta.feed, 'p1', 'u3')).toBe(true)
-  })
-
   it('revertir un cambio optimista deja el estado original', () => {
     const antes = base()
-    const { feed, presente } = alternarReaccionLocal(antes, 'p1', 'u3')
-    expect(fijarReaccion(feed, 'p1', 'u3', !presente)).toEqual(antes)
+    const presente = !tieneReaccion(antes, 'p1', 'u3')
+    const optimista = fijarReaccion(antes, 'p1', 'u3', presente)
+    expect(tieneReaccion(optimista, 'p1', 'u3')).toBe(true)
+    expect(fijarReaccion(optimista, 'p1', 'u3', !presente)).toEqual(antes)
   })
 })

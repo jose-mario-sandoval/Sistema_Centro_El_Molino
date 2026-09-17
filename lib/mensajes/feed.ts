@@ -61,18 +61,32 @@ export function cursorAnteriores(publicaciones: Publicacion[]): string | null {
   return publicaciones.at(-1)?.creadoEn ?? null
 }
 
-/** Evento INSERT de `mensajes` (o mensaje propio recién creado). Devuelve el mismo arreglo si no cambia nada. */
-export function aplicarInsercionMensaje(feed: Publicacion[], fila: MensajeFila): Publicacion[] {
+/**
+ * INSERT de `mensajes`: evento de tiempo real (`desdeEvento`) o mensaje propio recién creado. Idempotente.
+ * Si el mensaje ya está (el propio llega primero desde la acción), solo el evento lo actualiza: trae el
+ * creado_en de la base, que reemplaza la hora provisional del navegador. Devuelve el mismo arreglo si no cambia nada.
+ */
+export function aplicarInsercionMensaje(
+  feed: Publicacion[],
+  fila: MensajeFila,
+  { desdeEvento = false }: { desdeEvento?: boolean } = {},
+): Publicacion[] {
+  const yaEsta = (m: Respuesta | undefined) => m !== undefined && (!desdeEvento || m.creadoEn === fila.creado_en)
+
   const padreId = fila.padre_id
   if (padreId === null) {
-    if (feed.some((p) => p.id === fila.id)) return feed
-    return [...feed, aPublicacion(fila)].sort(compararPublicaciones)
+    const existente = feed.find((p) => p.id === fila.id)
+    if (yaEsta(existente)) return feed
+    if (!existente) return [...feed, aPublicacion(fila)].sort(compararPublicaciones)
+    return feed.map((p) => (p.id === fila.id ? { ...p, ...aRespuesta(fila) } : p)).sort(compararPublicaciones)
   }
   let cambio = false
   const siguiente = feed.map((p) => {
-    if (p.id !== padreId || p.respuestas.some((r) => r.id === fila.id)) return p
+    if (p.id !== padreId) return p
+    if (yaEsta(p.respuestas.find((r) => r.id === fila.id))) return p
     cambio = true
-    return { ...p, respuestas: [...p.respuestas, aRespuesta(fila)].sort(compararRespuestas) }
+    const otras = p.respuestas.filter((r) => r.id !== fila.id)
+    return { ...p, respuestas: [...otras, aRespuesta(fila)].sort(compararRespuestas) }
   })
   return cambio ? siguiente : feed
 }
@@ -95,7 +109,7 @@ export function tieneReaccion(feed: Publicacion[], mensajeId: string, usuarioId:
 
 /**
  * Deja la reacción de `usuarioId` presente o ausente. Idempotente: sirve para los eventos
- * INSERT/DELETE de `reacciones` (clave mensaje_id + usuario_id), el cambio optimista y su reversión.
+ * INSERT/DELETE de `reacciones` (clave mensaje_id + usuario_id), el cambio optimista al tocar 👍 y su reversión.
  */
 export function fijarReaccion(feed: Publicacion[], mensajeId: string, usuarioId: string, presente: boolean): Publicacion[] {
   let cambio = false
@@ -108,14 +122,4 @@ export function fijarReaccion(feed: Publicacion[], mensajeId: string, usuarioId:
     }
   })
   return cambio ? siguiente : feed
-}
-
-/** Cambio optimista al tocar 👍: devuelve el feed nuevo y el estado final que hay que pedir al servidor. */
-export function alternarReaccionLocal(
-  feed: Publicacion[],
-  mensajeId: string,
-  usuarioId: string,
-): { feed: Publicacion[]; presente: boolean } {
-  const presente = !tieneReaccion(feed, mensajeId, usuarioId)
-  return { feed: fijarReaccion(feed, mensajeId, usuarioId, presente), presente }
 }
