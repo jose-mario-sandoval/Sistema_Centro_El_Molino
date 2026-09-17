@@ -83,6 +83,45 @@ export type Database = {
         }
         Relationships: []
       }
+      mensajes: {
+        Row: {
+          autor_id: string
+          creado_en: string
+          id: string
+          padre_id: string | null
+          texto: string
+        }
+        Insert: {
+          autor_id: string
+          creado_en?: string
+          id?: string
+          padre_id?: string | null
+          texto: string
+        }
+        Update: {
+          autor_id?: string
+          creado_en?: string
+          id?: string
+          padre_id?: string | null
+          texto?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mensajes_autor_id_fkey"
+            columns: ["autor_id"]
+            isOneToOne: false
+            referencedRelation: "perfiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mensajes_padre_id_fkey"
+            columns: ["padre_id"]
+            isOneToOne: false
+            referencedRelation: "mensajes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       perfiles: {
         Row: {
           activo: boolean
@@ -148,6 +187,81 @@ export type Database = {
           {
             foreignKeyName: "plan_semanal_usuario_id_fkey"
             columns: ["usuario_id"]
+            isOneToOne: false
+            referencedRelation: "perfiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reacciones: {
+        Row: {
+          creado_en: string
+          mensaje_id: string
+          usuario_id: string
+        }
+        Insert: {
+          creado_en?: string
+          mensaje_id: string
+          usuario_id: string
+        }
+        Update: {
+          creado_en?: string
+          mensaje_id?: string
+          usuario_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reacciones_mensaje_id_fkey"
+            columns: ["mensaje_id"]
+            isOneToOne: false
+            referencedRelation: "mensajes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reacciones_usuario_id_fkey"
+            columns: ["usuario_id"]
+            isOneToOne: false
+            referencedRelation: "perfiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      registro_moderacion: {
+        Row: {
+          autor_id: string
+          eliminado_en: string
+          era_respuesta: boolean
+          id: string
+          moderador_id: string
+          texto_eliminado: string
+        }
+        Insert: {
+          autor_id: string
+          eliminado_en?: string
+          era_respuesta: boolean
+          id?: string
+          moderador_id: string
+          texto_eliminado: string
+        }
+        Update: {
+          autor_id?: string
+          eliminado_en?: string
+          era_respuesta?: boolean
+          id?: string
+          moderador_id?: string
+          texto_eliminado?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "registro_moderacion_autor_id_fkey"
+            columns: ["autor_id"]
+            isOneToOne: false
+            referencedRelation: "perfiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "registro_moderacion_moderador_id_fkey"
+            columns: ["moderador_id"]
             isOneToOne: false
             referencedRelation: "perfiles"
             referencedColumns: ["id"]
