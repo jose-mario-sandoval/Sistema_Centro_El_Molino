@@ -79,9 +79,13 @@ export async function obtenerPlanesDeTodos(): Promise<PersonaConPlan[]> {
   const ids = personas.map((persona) => persona.id)
   const filas = await supabase
     .from('plan_semanal')
-    .select('usuario_id, dia_semana, comida, estado, nota')
+    .select('usuario_id, dia_semana, comida, estado, nota', { count: 'exact' })
     .in('usuario_id', ids)
   if (filas.error) throw filas.error
+  // PostgREST corta en max_rows (config.toml): si faltan filas, fallar en vez de mostrar planes incompletos.
+  if (filas.count !== null && filas.count > filas.data.length) {
+    throw new Error(`Planes semanales truncados: llegaron ${filas.data.length} de ${filas.count} filas.`)
+  }
 
   return personas.map((persona) => ({
     id: persona.id,

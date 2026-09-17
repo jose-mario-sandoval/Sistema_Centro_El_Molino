@@ -1,7 +1,8 @@
 'use client'
 
-import { Fragment, useState, useTransition } from 'react'
+import { Fragment, useRef, useState, useTransition } from 'react'
 import { useAviso } from '@/components/ui/avisos'
+import { fallo, type Resultado } from '@/lib/acciones/resultado'
 import { LARGO_MAXIMO_NOTA, mensajeNota, normalizarNota, notaValida } from '@/lib/comidas/notas'
 import { NOMBRES_DIA } from '@/lib/comidas/semana'
 import {
@@ -19,7 +20,12 @@ import { estiloEstado } from './insignia-estado'
 
 function CeldaPlan({ dia, comida, inicial }: { dia: number; comida: TiempoComida; inicial: ValorComida | null }) {
   const aviso = useAviso()
-  const [guardado, setGuardado] = useState<ValorComida | null>(inicial)
+  // Refs (no estado) porque solo se leen al guardar, también desde guardados que terminan después:
+  // confirmado = último valor que aceptó el servidor; pedido = último valor enviado (o confirmado).
+  const confirmado = useRef<ValorComida | null>(inicial)
+  const pedido = useRef<ValorComida | null>(inicial)
+  // Número del último guardado iniciado en esta celda: una falla solo revierte si no hubo otro después.
+  const ultimoGuardado = useRef(0)
   const [estado, setEstado] = useState<EstadoComida | ''>(inicial?.estado ?? '')
   const [nota, setNota] = useState(inicial?.nota ?? '')
   const [pendiente, iniciar] = useTransition()
@@ -31,24 +37,36 @@ function CeldaPlan({ dia, comida, inicial }: { dia: number; comida: TiempoComida
     const notaFinal = nuevoEstado === '' ? null : normalizarNota(nuevoEstado, nuevaNota)
     // Un estado que lleva nota se guarda recién cuando la nota es válida.
     if (nuevoEstado !== '' && !notaValida(nuevoEstado, notaFinal)) return
-    if ((guardado?.estado ?? '') === nuevoEstado && (guardado?.nota ?? null) === notaFinal) return
+    // Se compara con lo último pedido: si hay un guardado en curso, volver al valor anterior también se guarda.
+    if ((pedido.current?.estado ?? '') === nuevoEstado && (pedido.current?.nota ?? null) === notaFinal) return
 
-    const anterior = guardado
+    const nuevo = nuevoEstado === '' ? null : { estado: nuevoEstado, nota: notaFinal }
+    pedido.current = nuevo
+    const numero = ++ultimoGuardado.current
     iniciar(async () => {
-      const resultado = await guardarPlan({
-        diaSemana: dia,
-        comida,
-        estado: nuevoEstado === '' ? null : nuevoEstado,
-        nota: notaFinal,
-      })
+      let resultado: Resultado<null>
+      try {
+        resultado = await guardarPlan({
+          diaSemana: dia,
+          comida,
+          estado: nuevo?.estado ?? null,
+          nota: notaFinal,
+        })
+      } catch {
+        // Sin conexión o error inesperado: aviso y se revierte, sin pasar a la pantalla de error (spec §9.1).
+        resultado = fallo('No se pudo guardar. Revisá tu conexión e intentá de nuevo.')
+      }
       if (resultado.ok) {
-        setGuardado(nuevoEstado === '' ? null : { estado: nuevoEstado, nota: notaFinal })
+        confirmado.current = nuevo
         aviso('Plan semanal actualizado')
         return
       }
-      setEstado(anterior?.estado ?? '')
-      setNota(anterior?.nota ?? '')
       aviso(resultado.error)
+      // Si la persona ya eligió otra cosa después, no pisamos esa elección con el valor anterior.
+      if (numero !== ultimoGuardado.current) return
+      pedido.current = confirmado.current
+      setEstado(confirmado.current?.estado ?? '')
+      setNota(confirmado.current?.nota ?? '')
     })
   }
 

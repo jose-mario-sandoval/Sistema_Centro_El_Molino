@@ -26,10 +26,17 @@ async function mensajeDeError(
   datos: { fecha?: FechaISO; comida: TiempoComida; estado?: EstadoComida | null },
 ): Promise<string> {
   switch (error.code) {
-    case 'MOL01':
-      return datos.fecha
-        ? mensajeComidaCerrada({ fecha: datos.fecha, comida: datos.comida, ahora: new Date(), horas: await obtenerHorasLimite() })
-        : ERROR_GENERAL
+    case 'MOL01': {
+      if (!datos.fecha) return ERROR_GENERAL
+      try {
+        const horas = await obtenerHorasLimite()
+        return mensajeComidaCerrada({ fecha: datos.fecha, comida: datos.comida, ahora: new Date(), horas })
+      } catch (errorHoras) {
+        // Sin horas límite no armamos el mensaje detallado, pero la acción no debe romperse.
+        console.error('Comidas: no se pudieron leer las horas límite', errorHoras)
+        return ERROR_GENERAL
+      }
+    }
     case 'MOL04':
     case '23514':
       return datos.estado ? mensajeNota(datos.estado) : ERROR_GENERAL
@@ -83,8 +90,8 @@ export async function guardarSeleccion(entrada: unknown): Promise<Resultado<null
     p_nota: nota as string,
   })
   if (error) {
-    // MOL01: la ventana se cerró justo antes de guardar. Revalidamos igual para
-    // que el refresco del cliente (spec §6.4) traiga el estado real, no el caché.
+    // MOL01: la ventana se cerró justo antes de guardar. Revalidamos igual: la respuesta
+    // de la acción trae la vista con el estado real (spec §6.4), sin refresco extra del cliente.
     if (error.code === 'MOL01') revalidatePath('/comidas', 'layout')
     return fallo(await mensajeDeError(error, { fecha, comida, estado }))
   }
@@ -105,8 +112,8 @@ export async function volverAPlan(entrada: unknown): Promise<Resultado<null>> {
   const supabase = await crearClienteServidor()
   const { error } = await supabase.rpc('volver_a_plan', { p_fecha: fecha, p_comida: comida })
   if (error) {
-    // MOL01: la ventana se cerró justo antes de guardar. Revalidamos igual para
-    // que el refresco del cliente (spec §6.4) traiga el estado real, no el caché.
+    // MOL01: la ventana se cerró justo antes de guardar. Revalidamos igual: la respuesta
+    // de la acción trae la vista con el estado real (spec §6.4), sin refresco extra del cliente.
     if (error.code === 'MOL01') revalidatePath('/comidas', 'layout')
     return fallo(await mensajeDeError(error, { fecha, comida }))
   }

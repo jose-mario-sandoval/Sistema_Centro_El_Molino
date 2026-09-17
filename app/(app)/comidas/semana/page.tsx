@@ -3,6 +3,7 @@ import { obtenerDiaParaAdministracion, obtenerSemanaPropia } from '@/lib/comidas
 import { diaPedido, semanaPedida, tipoSemana } from '@/lib/comidas/semana'
 import { fechaISOEn } from '@/lib/fechas'
 import { NavegacionSemana } from '../_componentes/navegacion-semana'
+import { RefrescarAlVolver } from '../_componentes/refrescar-al-volver'
 import { SemanaAdministracion } from '../_componentes/semana-administracion'
 import { SemanaPersona } from '../_componentes/semana-persona'
 
@@ -30,6 +31,8 @@ export default async function PaginaSemana({
   const dias = await obtenerSemanaPropia(perfil.id, lunes)
   return (
     <>
+      {/* Al volver a la pestaña, trae cierres y cambios hechos mientras tanto. */}
+      <RefrescarAlVolver />
       <NavegacionSemana lunes={lunes} hoy={hoy} />
       <SemanaPersona dias={dias} tipo={tipoSemana(lunes, hoy)} />
     </>

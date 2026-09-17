@@ -1,9 +1,8 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
 import { useId, useOptimistic, useState, useTransition } from 'react'
 import { useAviso } from '@/components/ui/avisos'
-import type { Resultado } from '@/lib/acciones/resultado'
+import { fallo, type Resultado } from '@/lib/acciones/resultado'
 import { LARGO_MAXIMO_NOTA, mensajeNota, normalizarNota, notaValida } from '@/lib/comidas/notas'
 import {
   ESTADOS_COMIDA,
@@ -24,7 +23,6 @@ function textoOrigen(valor: ValorEfectivo): string {
 }
 
 export function ComidaDelDia({ fecha, etiquetaDia, datos }: { fecha: FechaISO; etiquetaDia: string; datos: ComidaDeSemana }) {
-  const router = useRouter()
   const aviso = useAviso()
   const idNota = useId()
   const [valor, aplicarValor] = useOptimistic(datos.valor)
@@ -38,17 +36,18 @@ export function ComidaDelDia({ fecha, etiquetaDia, datos }: { fecha: FechaISO; e
   function ejecutar(optimista: ValorEfectivo, accion: () => Promise<Resultado<null>>) {
     iniciar(async () => {
       aplicarValor(optimista)
-      const resultado = await accion()
-      if (!resultado.ok) {
-        // MOL01: la ventana se cerró entre que se cargó la página y se ejecutó la acción.
-        // Refrescamos para traer el estado real del servidor (spec §6.4).
-        aviso(resultado.error)
-        setBorrador(null)
-        router.refresh()
-        return
+      let resultado: Resultado<null>
+      try {
+        resultado = await accion()
+      } catch {
+        // Sin conexión o error inesperado: aviso y se revierte, sin pasar a la pantalla de error (spec §9.1).
+        resultado = fallo('No se pudo guardar. Revisá tu conexión e intentá de nuevo.')
       }
+      // No hace falta router.refresh(): la acción revalida /comidas al guardar y también ante MOL01
+      // (la ventana cerró mientras la página estaba abierta), y su respuesta ya trae la vista real
+      // (spec §6.4). Al terminar la transición, el valor optimista se reemplaza por ese estado.
+      if (!resultado.ok) aviso(resultado.error)
       setBorrador(null)
-      router.refresh()
     })
   }
 
