@@ -62,3 +62,62 @@ export function agregarAnteriores(actual: Publicacion[], anteriores: Publicacion
 export function cursorAnteriores(publicaciones: Publicacion[]): string | null {
   return publicaciones.at(-1)?.creadoEn ?? null
 }
+
+/** Evento INSERT de `mensajes` (o mensaje propio recién creado). Devuelve el mismo arreglo si no cambia nada. */
+export function aplicarInsercionMensaje(feed: Publicacion[], fila: MensajeFila): Publicacion[] {
+  const padreId = fila.padre_id
+  if (padreId === null) {
+    if (feed.some((p) => p.id === fila.id)) return feed
+    return [...feed, aPublicacion(fila)].sort(compararPublicaciones)
+  }
+  let cambio = false
+  const siguiente = feed.map((p) => {
+    if (p.id !== padreId || p.respuestas.some((r) => r.id === fila.id)) return p
+    cambio = true
+    return { ...p, respuestas: [...p.respuestas, aRespuesta(fila)].sort(compararRespuestas) }
+  })
+  return cambio ? siguiente : feed
+}
+
+/** Evento DELETE de `mensajes`: trae solo el id (spec §7). */
+export function aplicarBorradoMensaje(feed: Publicacion[], id: string): Publicacion[] {
+  if (feed.some((p) => p.id === id)) return feed.filter((p) => p.id !== id)
+  let cambio = false
+  const siguiente = feed.map((p) => {
+    if (!p.respuestas.some((r) => r.id === id)) return p
+    cambio = true
+    return { ...p, respuestas: p.respuestas.filter((r) => r.id !== id) }
+  })
+  return cambio ? siguiente : feed
+}
+
+export function tieneReaccion(feed: Publicacion[], mensajeId: string, usuarioId: string): boolean {
+  return feed.find((p) => p.id === mensajeId)?.reacciones.includes(usuarioId) ?? false
+}
+
+/**
+ * Deja la reacción de `usuarioId` presente o ausente. Idempotente: sirve para los eventos
+ * INSERT/DELETE de `reacciones` (clave mensaje_id + usuario_id), el cambio optimista y su reversión.
+ */
+export function fijarReaccion(feed: Publicacion[], mensajeId: string, usuarioId: string, presente: boolean): Publicacion[] {
+  let cambio = false
+  const siguiente = feed.map((p) => {
+    if (p.id !== mensajeId || p.reacciones.includes(usuarioId) === presente) return p
+    cambio = true
+    return {
+      ...p,
+      reacciones: presente ? [...p.reacciones, usuarioId] : p.reacciones.filter((u) => u !== usuarioId),
+    }
+  })
+  return cambio ? siguiente : feed
+}
+
+/** Cambio optimista al tocar 👍: devuelve el feed nuevo y el estado final que hay que pedir al servidor. */
+export function alternarReaccionLocal(
+  feed: Publicacion[],
+  mensajeId: string,
+  usuarioId: string,
+): { feed: Publicacion[]; presente: boolean } {
+  const presente = !tieneReaccion(feed, mensajeId, usuarioId)
+  return { feed: fijarReaccion(feed, mensajeId, usuarioId, presente), presente }
+}
