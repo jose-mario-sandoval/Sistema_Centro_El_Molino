@@ -20,8 +20,10 @@ export function NavegacionSemana({ lunes, hoy }: { lunes: FechaISO; hoy: FechaIS
           ›
         </Link>
       ) : (
-        <span className="icon-btn" aria-disabled="true" aria-label="Semana siguiente (no disponible)">
-          ›
+        // aria-label no se anuncia de forma confiable en un <span> sin rol: texto oculto a la vista.
+        <span className="icon-btn" aria-disabled="true">
+          <span aria-hidden="true">›</span>
+          <span className="sr-only">Semana siguiente (no disponible)</span>
         </span>
       )}
       {tipo !== 'actual' && (

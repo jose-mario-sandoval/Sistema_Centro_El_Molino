@@ -102,7 +102,7 @@ test('un residente cambia el almuerzo y Administración lo ve en Semana', async 
   await page.goto(`/comidas/semana?semana=${lunesSiguiente}&dia=${miercolesSiguiente}`)
   await expect(page.getByRole('link', { name: `Mié ${fechaCorta(miercolesSiguiente)}`, exact: true })).toHaveAttribute(
     'aria-current',
-    'date',
+    'true',
   )
 
   const resumen = page.locator('[data-resumen="almuerzo"]')

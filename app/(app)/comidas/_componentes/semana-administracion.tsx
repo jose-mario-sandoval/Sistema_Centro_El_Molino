@@ -27,7 +27,7 @@ export function SemanaAdministracion({ lunes, hoy, datos }: { lunes: FechaISO; h
               key={fecha}
               href={`/comidas/semana?semana=${lunes}&dia=${fecha}`}
               className={`status-chip${elegido ? ' selected' : ''}`}
-              aria-current={elegido ? 'date' : undefined}
+              aria-current={elegido ? 'true' : undefined}
             >
               {nombreDia(fecha).slice(0, 3)} {fechaCorta(fecha)}
               {fecha === hoy ? ' · hoy' : ''}
@@ -77,7 +77,9 @@ export function SemanaAdministracion({ lunes, hoy, datos }: { lunes: FechaISO; h
             <tbody>
               {datos.filas.map((fila) => (
                 <tr key={fila.id}>
-                  <td className="namecell">{fila.nombre}</td>
+                  <th scope="row" className="namecell">
+                    {fila.nombre}
+                  </th>
                   {TIEMPOS_COMIDA.map((comida) => {
                     const valor = fila.valores[comida]
                     const clase = !valor ? 'sin-definir' : valor.origen === 'persona' ? 'excepcion' : undefined

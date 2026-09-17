@@ -25,7 +25,9 @@ export function PlanAdministracion({ personas }: { personas: PersonaConPlan[] })
             <tbody>
               {personas.map((persona) => (
                 <tr key={persona.id}>
-                  <td className="namecell">{persona.nombre}</td>
+                  <th scope="row" className="namecell">
+                    {persona.nombre}
+                  </th>
                   {NOMBRES_DIA.map((nombre, i) => (
                     <td key={nombre}>
                       {TIEMPOS_COMIDA.map((comida) => (

@@ -58,6 +58,8 @@ export function ComidaDelDia({ fecha, etiquetaDia, datos }: { fecha: FechaISO; e
   }
 
   function elegir(estado: EstadoComida) {
+    // Mientras se guarda, los chips siguen enfocables (aria-disabled) pero ignoran los clics.
+    if (pendiente) return
     if (INFO_ESTADO[estado].nota) {
       setBorrador({ estado, nota: valor?.estado === estado ? (valor.nota ?? '') : '' })
       return
@@ -113,7 +115,9 @@ export function ComidaDelDia({ fecha, etiquetaDia, datos }: { fecha: FechaISO; e
               className={`status-chip${marcado ? ' selected' : ''}`}
               style={marcado ? estiloEstado(estado) : undefined}
               aria-pressed={marcado}
-              disabled={!editable || pendiente}
+              // Comida cerrada: disabled. Guardando: aria-disabled, para no perder el foco del teclado.
+              disabled={!editable}
+              aria-disabled={pendiente || undefined}
               onClick={() => elegir(estado)}
             >
               {INFO_ESTADO[estado].etiqueta}
@@ -132,6 +136,7 @@ export function ComidaDelDia({ fecha, etiquetaDia, datos }: { fecha: FechaISO; e
             value={borrador.nota}
             onChange={(e) => setBorrador({ ...borrador, nota: e.target.value })}
             required
+            autoFocus
           />
           <button type="submit" className="btn small" disabled={pendiente}>
             Guardar
