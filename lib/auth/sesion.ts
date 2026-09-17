@@ -9,13 +9,17 @@ import type { Tabla } from '@/lib/supabase/tipos'
 export type Perfil = Tabla<'perfiles'>
 export type { Rol }
 
-/** Perfil del usuario con sesión, o null si no hay sesión o la cuenta está inactiva (RLS no lo deja leer). */
+/**
+ * Perfil del usuario con sesión, o null si no hay sesión o la cuenta está inactiva (RLS no lo deja leer).
+ * Un error de la base se lanza (lo muestra el error.tsx de la sección): no es lo mismo que una cuenta inactiva.
+ */
 export const obtenerPerfilActual = cache(async (): Promise<Perfil | null> => {
   const supabase = await crearClienteServidor()
   const { data } = await supabase.auth.getClaims()
   const id = data?.claims?.sub
   if (!id) return null
-  const { data: perfil } = await supabase.from('perfiles').select('*').eq('id', id).maybeSingle()
+  const { data: perfil, error } = await supabase.from('perfiles').select('*').eq('id', id).maybeSingle()
+  if (error) throw error
   if (!perfil || !perfil.activo) return null
   return perfil
 })
@@ -40,7 +44,8 @@ export async function perfilParaAccion(
   ...roles: Rol[]
 ): Promise<{ ok: true; perfil: Perfil } | ReturnType<typeof fallo>> {
   const perfil = await obtenerPerfilActual()
-  if (!perfil || perfil.debe_cambiar_contrasena) return fallo('Tu sesión expiró. Volvé a iniciar sesión.')
+  if (!perfil) return fallo('Tu sesión expiró. Volvé a iniciar sesión.')
+  if (perfil.debe_cambiar_contrasena) return fallo('Tenés que cambiar tu contraseña antes de continuar.')
   if (roles.length > 0 && !roles.includes(perfil.rol)) return fallo('No tenés permiso para hacer esto.')
   return { ok: true, perfil }
 }

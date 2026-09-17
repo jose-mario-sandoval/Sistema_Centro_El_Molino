@@ -23,6 +23,8 @@ export async function crearCuenta(admin: SupabaseClient<Database>, datos: DatosC
     email_confirm: true,
   })
   if (error || !data.user) {
+    // Se registra el error original (logs de Vercel o consola del script); al usuario le llega un mensaje simple.
+    console.error('crearCuenta: Auth no creó el usuario', error)
     const repetido = error?.code === 'email_exists'
     return { ok: false, error: repetido ? 'Ya existe una cuenta con ese correo.' : 'No se pudo crear la cuenta.' }
   }
@@ -36,7 +38,12 @@ export async function crearCuenta(admin: SupabaseClient<Database>, datos: DatosC
     debe_cambiar_contrasena: datos.debeCambiarContrasena,
   })
   if (errorPerfil) {
-    await admin.auth.admin.deleteUser(data.user.id)
+    console.error('crearCuenta: no se pudo insertar el perfil', errorPerfil)
+    const { error: errorBorrado } = await admin.auth.admin.deleteUser(data.user.id)
+    if (errorBorrado) {
+      // Queda un usuario de Auth sin perfil: hay que borrarlo a mano desde el panel de Supabase.
+      console.error(`crearCuenta: no se pudo borrar el usuario de Auth sin perfil (id ${data.user.id})`, errorBorrado)
+    }
     return { ok: false, error: 'No se pudo crear el perfil de la cuenta.' }
   }
 

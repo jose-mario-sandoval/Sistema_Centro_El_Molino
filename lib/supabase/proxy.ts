@@ -18,10 +18,12 @@ export async function actualizarSesion(request: NextRequest) {
         getAll() {
           return request.cookies.getAll()
         },
-        setAll(cookiesAGuardar) {
+        setAll(cookiesAGuardar, cabeceras) {
           cookiesAGuardar.forEach(({ name, value }) => request.cookies.set(name, value))
           respuesta = NextResponse.next({ request })
           cookiesAGuardar.forEach(({ name, value, options }) => respuesta.cookies.set(name, value, options))
+          // @supabase/ssr manda Cache-Control/Expires/Pragma para que ninguna caché comparta la sesión.
+          Object.entries(cabeceras ?? {}).forEach(([clave, valor]) => respuesta.headers.set(clave, valor))
         },
       },
     },
@@ -33,6 +35,12 @@ export async function actualizarSesion(request: NextRequest) {
   const ruta = request.nextUrl.pathname
 
   if (!conSesion && !esPublica(ruta)) {
+    // Server Action: un redirect aquí rompe la respuesta de la acción en el cliente.
+    // Se deja pasar para que la acción devuelva su propio fallo(...) o haga redirect().
+    if (request.headers.has('next-action')) return respuesta
+
+    if (ruta.startsWith('/api/')) return NextResponse.json({ error: 'Sin sesión' }, { status: 401 })
+
     const url = request.nextUrl.clone()
     url.pathname = '/login'
     url.search = ''

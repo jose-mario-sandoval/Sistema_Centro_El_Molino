@@ -22,14 +22,18 @@ export async function iniciarSesion(_previo: Resultado<null> | null, formData: F
     return fallo('Correo o contraseña incorrectos.')
   }
 
-  const { data: perfil } = await supabase
+  const { data: perfil, error: errorPerfil } = await supabase
     .from('perfiles')
     .select('activo, debe_cambiar_contrasena')
     .eq('id', data.user.id)
     .maybeSingle()
 
+  // Un error de la base no significa cuenta desactivada: se conserva la sesión y se pide reintentar.
+  if (errorPerfil) return fallo('No se pudo iniciar sesión. Intentá de nuevo.')
+
   if (!perfil || !perfil.activo) {
-    await supabase.auth.signOut()
+    // 'local': cierra solo esta sesión, sin invalidar las de otros dispositivos.
+    await supabase.auth.signOut({ scope: 'local' })
     return fallo('Tu cuenta está desactivada. Hablá con el Director.')
   }
 
