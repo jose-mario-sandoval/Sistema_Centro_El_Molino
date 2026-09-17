@@ -183,5 +183,8 @@ grant select, insert, delete on table public.mensajes to authenticated;
 grant select, insert, update, delete on table public.mensajes to service_role;
 grant select, insert, delete on table public.reacciones to authenticated;
 grant select, insert, update, delete on table public.reacciones to service_role;
-grant select on table public.registro_moderacion to authenticated;
+-- delete (no solo select): así un DELETE sin política aplicable afecta 0 filas sin error
+-- (spec §6.4), en vez de fallar con 42501 en la capa de permisos antes de llegar a RLS.
+-- insert queda sin GRANT: solo el trigger security definer escribe en esta tabla.
+grant select, delete on table public.registro_moderacion to authenticated;
 grant select, insert, update, delete on table public.registro_moderacion to service_role;
