@@ -112,6 +112,9 @@ test('sin conexión, publicar avisa y conserva el texto; al volver la conexión 
   const texto = textoUnico('sin conexión')
   await iniciarSesion(page, 'residente')
   await page.goto('/mensajes')
+  // Primero que termine la recarga del primer SUBSCRIBED: si no, el corte también la hace fallar y la
+  // prueba depende de cuándo llega.
+  await expect(page.locator('.feed-mensajes')).toHaveAttribute('data-conexion', 'en-vivo', { timeout: 20_000 })
 
   await page.getByLabel('Nuevo mensaje').fill(texto)
   await context.setOffline(true)
