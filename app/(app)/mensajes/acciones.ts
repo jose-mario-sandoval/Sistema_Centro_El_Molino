@@ -31,7 +31,10 @@ export async function publicarMensaje(_previo: ResultadoId | null, formData: For
     .insert({ autor_id: sesion.perfil.id, texto: entrada.data.texto })
     .select('id')
     .single()
-  if (error) return fallo('No se pudo publicar el mensaje. Intentá de nuevo.')
+  if (error) {
+    console.error('publicarMensaje', error)
+    return fallo('No se pudo publicar el mensaje. Intentá de nuevo.')
+  }
 
   revalidatePath('/mensajes')
   return exito({ id: data.id })
@@ -54,6 +57,7 @@ export async function responderMensaje(_previo: ResultadoId | null, formData: Fo
   if (error) {
     if (error.code === 'MOL03') return fallo('Solo se puede responder a publicaciones.')
     if (error.code === '23503') return fallo('La publicación ya no existe.')
+    console.error('responderMensaje', error)
     return fallo('No se pudo enviar la respuesta. Intentá de nuevo.')
   }
 
@@ -61,7 +65,11 @@ export async function responderMensaje(_previo: ResultadoId | null, formData: Fo
   return exito({ id: data.id })
 }
 
-/** `presente` es el estado final deseado: idempotente ante doble clic y reversiones (decisión 3). */
+/**
+ * `presente` es el estado final deseado: idempotente ante doble clic y reversiones (decisión 3).
+ * Excepción deliberada al índice §3.3: sin revalidatePath. La interfaz optimista y el tiempo real ya muestran
+ * el cambio, y revalidar volvería a renderizar la página entera en el servidor por cada 👍.
+ */
 export async function alternarReaccion(entrada: unknown): Promise<Resultado<{ presente: boolean }>> {
   const sesion = await perfilParaAccion()
   if (!sesion.ok) return sesion
@@ -77,6 +85,7 @@ export async function alternarReaccion(entrada: unknown): Promise<Resultado<{ pr
     if (error && error.code !== '23505') {
       if (error.code === 'MOL03') return fallo('Solo se puede reaccionar a publicaciones.')
       if (error.code === '23503') return fallo('El mensaje ya no existe.')
+      console.error('alternarReaccion', error)
       return fallo('No se pudo guardar tu reacción. Intentá de nuevo.')
     }
   } else {
@@ -85,10 +94,12 @@ export async function alternarReaccion(entrada: unknown): Promise<Resultado<{ pr
       .delete()
       .eq('mensaje_id', mensajeId)
       .eq('usuario_id', sesion.perfil.id)
-    if (error) return fallo('No se pudo quitar tu reacción. Intentá de nuevo.')
+    if (error) {
+      console.error('alternarReaccion', error)
+      return fallo('No se pudo quitar tu reacción. Intentá de nuevo.')
+    }
   }
 
-  revalidatePath('/mensajes')
   return exito({ presente })
 }
 
@@ -102,7 +113,10 @@ export async function borrarMensaje(entrada: unknown): Promise<ResultadoId> {
 
   const supabase = await crearClienteServidor()
   const { data, error } = await supabase.from('mensajes').delete().eq('id', datos.data.id).select('id')
-  if (error) return fallo('No se pudo eliminar el mensaje. Intentá de nuevo.')
+  if (error) {
+    console.error('borrarMensaje', error)
+    return fallo('No se pudo eliminar el mensaje. Intentá de nuevo.')
+  }
   if (data.length === 0) return fallo('No se pudo eliminar: el mensaje ya no existe o no tenés permiso.')
 
   revalidatePath('/mensajes')
@@ -119,7 +133,8 @@ export async function cargarMensajes(entrada: unknown): Promise<Resultado<Pagina
 
   try {
     return exito(await listarPublicaciones(datos.data.antesDe))
-  } catch {
+  } catch (error) {
+    console.error('cargarMensajes', error)
     return fallo('No se pudieron cargar los mensajes. Revisá tu conexión.')
   }
 }
@@ -131,7 +146,8 @@ export async function cargarPerfiles(): Promise<Resultado<PerfilResumen[]>> {
 
   try {
     return exito(await listarPerfiles())
-  } catch {
+  } catch (error) {
+    console.error('cargarPerfiles', error)
     return fallo('No se pudieron cargar los perfiles.')
   }
 }
