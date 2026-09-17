@@ -12,17 +12,34 @@ export function FilaCuenta({
   esPropia,
   alPonerContrasena,
   alDesactivar,
+  alConfirmarRol,
 }: {
   cuenta: Cuenta
   esPropia: boolean
   alPonerContrasena: () => void
   alDesactivar: () => void
+  /** Dar o quitar el rol Director pasa por una confirmación; el resto de los cambios de rol se aplica directo. */
+  alConfirmarRol: (rol: Rol) => void
 }) {
   const aviso = useAviso()
   const [rol, setRolOptimista] = useOptimistic(cuenta.rol)
   const [pendiente, iniciarTransicion] = useTransition()
 
+  // Mientras corre una acción de la fila se ignoran clics y cambios, pero sin `disabled`:
+  // un control deshabilitado pierde el foco y quien usa el teclado vuelve al principio de la página.
+  function siLibre(accion: () => void) {
+    return () => {
+      if (!pendiente) accion()
+    }
+  }
+
   function cambiarRol(nuevo: Rol) {
+    if (pendiente || nuevo === rol) return
+    if (nuevo === 'director' || rol === 'director') {
+      // El select es controlado: sigue mostrando el rol vigente hasta que se confirme.
+      alConfirmarRol(nuevo)
+      return
+    }
     iniciarTransicion(async () => {
       setRolOptimista(nuevo)
       const resultado = await llamarAccion(() => cambiarRolCuenta({ id: cuenta.id, rol: nuevo }))
@@ -47,8 +64,9 @@ export function FilaCuenta({
       <td>
         <select
           aria-label={`Rol de ${cuenta.nombre}`}
+          aria-busy={pendiente}
           value={rol}
-          disabled={esPropia || pendiente}
+          disabled={esPropia}
           onChange={(e) => cambiarRol(e.target.value as Rol)}
         >
           {ROLES.map((r) => (
@@ -65,15 +83,33 @@ export function FilaCuenta({
       <td>
         {!esPropia && (
           <div className="acciones-cuenta">
-            <button type="button" className="btn ghost small" onClick={alPonerContrasena} disabled={pendiente}>
+            <button
+              type="button"
+              className="btn ghost small"
+              aria-label={`Contraseña temporal de ${cuenta.nombre}`}
+              aria-busy={pendiente}
+              onClick={siLibre(alPonerContrasena)}
+            >
               Contraseña temporal
             </button>
             {cuenta.activo ? (
-              <button type="button" className="btn ghost small" onClick={alDesactivar} disabled={pendiente}>
+              <button
+                type="button"
+                className="btn ghost small"
+                aria-label={`Desactivar a ${cuenta.nombre}`}
+                aria-busy={pendiente}
+                onClick={siLibre(alDesactivar)}
+              >
                 Desactivar
               </button>
             ) : (
-              <button type="button" className="btn small" onClick={reactivar} disabled={pendiente}>
+              <button
+                type="button"
+                className="btn small"
+                aria-label={`Reactivar a ${cuenta.nombre}`}
+                aria-busy={pendiente}
+                onClick={siLibre(reactivar)}
+              >
                 Reactivar
               </button>
             )}

@@ -3,6 +3,7 @@
 import { useCallback, useState } from 'react'
 import type { Cuenta } from '@/lib/configuraciones/tipos'
 import { FilaCuenta } from './fila-cuenta'
+import { ModalCambiarRol, type CambioDeRol } from './modal-cambiar-rol'
 import { ModalContrasenaTemporal } from './modal-contrasena-temporal'
 import { ModalDesactivarCuenta } from './modal-desactivar-cuenta'
 import { ModalNuevaCuenta } from './modal-nueva-cuenta'
@@ -11,10 +12,12 @@ export function SeccionGestionUsuarios({ cuentas, idPropio }: { cuentas: Cuenta[
   const [creando, setCreando] = useState(false)
   const [conContrasena, setConContrasena] = useState<Cuenta | null>(null)
   const [aDesactivar, setADesactivar] = useState<Cuenta | null>(null)
+  const [cambioDeRol, setCambioDeRol] = useState<CambioDeRol | null>(null)
 
   const cerrarCreacion = useCallback(() => setCreando(false), [])
   const cerrarContrasena = useCallback(() => setConContrasena(null), [])
   const cerrarDesactivacion = useCallback(() => setADesactivar(null), [])
+  const cerrarCambioDeRol = useCallback(() => setCambioDeRol(null), [])
 
   return (
     <section className="settings-section" aria-labelledby="titulo-gestion-usuarios">
@@ -43,6 +46,7 @@ export function SeccionGestionUsuarios({ cuentas, idPropio }: { cuentas: Cuenta[
                   esPropia={cuenta.id === idPropio}
                   alPonerContrasena={() => setConContrasena(cuenta)}
                   alDesactivar={() => setADesactivar(cuenta)}
+                  alConfirmarRol={(rol) => setCambioDeRol({ cuenta, rol })}
                 />
               ))}
             </tbody>
@@ -57,6 +61,7 @@ export function SeccionGestionUsuarios({ cuentas, idPropio }: { cuentas: Cuenta[
       <ModalNuevaCuenta abierto={creando} alCerrar={cerrarCreacion} />
       <ModalContrasenaTemporal cuenta={conContrasena} alCerrar={cerrarContrasena} />
       <ModalDesactivarCuenta cuenta={aDesactivar} alCerrar={cerrarDesactivacion} />
+      <ModalCambiarRol cambio={cambioDeRol} alCerrar={cerrarCambioDeRol} />
     </section>
   )
 }

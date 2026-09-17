@@ -15,6 +15,18 @@ export function FormularioMiCuenta(props: { nombre: string; siglas: string; corr
   const [siglas, setSiglas] = useState(props.siglas)
   const [correo, setCorreo] = useState(props.correo)
   const campos = estado && !estado.ok ? estado.campos : undefined
+
+  // Tras guardar, los campos muestran lo que quedó en la base (sin espacios, siglas en mayúsculas,
+  // correo en minúsculas). Se ajusta durante el render al llegar un resultado nuevo, sin efecto.
+  const [estadoAplicado, setEstadoAplicado] = useState(estado)
+  if (estado !== estadoAplicado) {
+    setEstadoAplicado(estado)
+    if (estado?.ok) {
+      setNombre(estado.data.nombre)
+      setSiglas(estado.data.siglas)
+      setCorreo(estado.data.correo)
+    }
+  }
   useAvisoDeResultado(estado, 'Cuenta actualizada.')
 
   return (

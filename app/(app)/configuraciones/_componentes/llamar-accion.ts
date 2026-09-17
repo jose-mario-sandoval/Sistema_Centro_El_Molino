@@ -1,16 +1,18 @@
 import { fallo, type Resultado } from '@/lib/acciones/resultado'
 
-export const MENSAJE_SIN_CONEXION = 'No se pudo conectar. Revisá tu conexión o recargá la página.'
+export const MENSAJE_ACCION_FALLIDA = 'No se pudo completar la acción. Revisá tu conexión o recargá la página.'
 
 /**
- * Llama una Server Action sin dejar que un rechazo de la promesa (sin red, o "Failed to find Server Action"
- * después de un despliegue) llegue al error boundary: lo convierte en un fallo que se muestra como aviso.
+ * Llama una Server Action sin dejar que un rechazo de la promesa (sin red, "Failed to find Server Action"
+ * después de un despliegue o un error inesperado del servidor) llegue al error boundary:
+ * lo registra en la consola y lo convierte en un fallo que se muestra como aviso.
  */
 export async function llamarAccion<T>(llamada: () => Promise<Resultado<T>>): Promise<Resultado<T>> {
   try {
     return await llamada()
-  } catch {
-    return fallo(MENSAJE_SIN_CONEXION)
+  } catch (error) {
+    console.error('No se pudo completar la Server Action', error)
+    return fallo(MENSAJE_ACCION_FALLIDA)
   }
 }
 

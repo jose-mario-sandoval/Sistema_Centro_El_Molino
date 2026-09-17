@@ -15,23 +15,26 @@ export function Modal({
   titulo,
   abierto,
   alCerrar,
+  bloquearCierre = false,
   children,
 }: {
   titulo: string
   abierto: boolean
   alCerrar: () => void
+  /** Ignora Escape y el clic en el fondo (p. ej. mientras corre una acción); los botones del contenido deciden. */
+  bloquearCierre?: boolean
   children: React.ReactNode
 }) {
   const dialogo = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    if (!abierto) return
+    if (!abierto || bloquearCierre) return
     const alTeclear = (e: KeyboardEvent) => {
       if (e.key === 'Escape') alCerrar()
     }
     window.addEventListener('keydown', alTeclear)
     return () => window.removeEventListener('keydown', alTeclear)
-  }, [abierto, alCerrar])
+  }, [abierto, bloquearCierre, alCerrar])
 
   // Foco accesible: al abrir entra al diálogo; al cerrar vuelve al elemento que lo tenía.
   // Depende solo de `abierto` para no robar el foco en cada render (alCerrar suele ser una función nueva).
@@ -54,7 +57,7 @@ export function Modal({
     <div
       className="modal-backdrop"
       onClick={(e) => {
-        if (e.target === e.currentTarget) alCerrar()
+        if (e.target === e.currentTarget && !bloquearCierre) alCerrar()
       }}
     >
       <div ref={dialogo} className="modal" role="dialog" aria-modal="true" aria-label={titulo} tabIndex={-1}>

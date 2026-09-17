@@ -12,7 +12,8 @@ export function ModalDesactivarCuenta({ cuenta, alCerrar }: { cuenta: Cuenta | n
   const [pendiente, iniciarTransicion] = useTransition()
 
   function confirmar() {
-    if (!cuenta) return
+    // Sin `disabled` en el botón mientras corre: conserva el foco del teclado.
+    if (!cuenta || pendiente) return
     iniciarTransicion(async () => {
       const resultado = await llamarAccion(() => cambiarEstadoCuenta({ id: cuenta.id, activo: false }))
       aviso(resultado.ok ? `Cuenta desactivada: ${cuenta.nombre}.` : resultado.error)
@@ -21,7 +22,7 @@ export function ModalDesactivarCuenta({ cuenta, alCerrar }: { cuenta: Cuenta | n
   }
 
   return (
-    <Modal titulo="Desactivar cuenta" abierto={cuenta !== null} alCerrar={alCerrar}>
+    <Modal titulo="Desactivar cuenta" abierto={cuenta !== null} alCerrar={alCerrar} bloquearCierre={pendiente}>
       {cuenta && (
         <>
           <p>
@@ -35,7 +36,7 @@ export function ModalDesactivarCuenta({ cuenta, alCerrar }: { cuenta: Cuenta | n
             <button type="button" className="btn ghost" onClick={alCerrar} disabled={pendiente}>
               Cancelar
             </button>
-            <button type="button" className="btn danger" onClick={confirmar} disabled={pendiente}>
+            <button type="button" className="btn danger" onClick={confirmar} aria-busy={pendiente}>
               {pendiente ? 'Desactivando…' : 'Desactivar'}
             </button>
           </div>
