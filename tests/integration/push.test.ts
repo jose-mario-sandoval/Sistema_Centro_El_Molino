@@ -194,7 +194,8 @@ describe('historial de pg_cron', () => {
     expect(rows).toEqual([
       {
         schedule: '15 3 * * *',
-        command: "delete from cron.job_run_details where end_time < now() - interval '7 days'",
+        command:
+          "delete from cron.job_run_details where coalesce(end_time, start_time) < now() - interval '7 days'",
         active: true,
       },
     ])

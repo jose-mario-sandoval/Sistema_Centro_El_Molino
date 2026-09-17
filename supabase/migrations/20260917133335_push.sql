@@ -120,6 +120,8 @@ select cron.schedule(
 -- ---------- Limpieza diaria del historial de pg_cron ----------
 -- Los jobs de cierre y recordatorios corren cada 5 minutos: sin limpieza, cron.job_run_details
 -- crece unas 576 filas por día. Se conservan los últimos 7 días para diagnosticar.
+-- Se filtra por coalesce(end_time, start_time): end_time es null mientras la corrida está en
+-- curso y en las que quedaron colgadas, que sin el coalesce nunca se borrarían.
 -- Horario de pg_cron en UTC: 03:15 UTC = 21:15 en El Salvador.
 do $$
 begin
@@ -132,5 +134,5 @@ $$;
 select cron.schedule(
   'limpiar-historial-cron',
   '15 3 * * *',
-  $$delete from cron.job_run_details where end_time < now() - interval '7 days'$$
+  $$delete from cron.job_run_details where coalesce(end_time, start_time) < now() - interval '7 days'$$
 );

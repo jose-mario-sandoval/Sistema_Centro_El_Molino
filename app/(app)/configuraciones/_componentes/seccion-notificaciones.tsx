@@ -36,7 +36,12 @@ export function SeccionNotificaciones({
   return (
     <section className="settings-section" aria-labelledby="titulo-notificaciones">
       <h2 id="titulo-notificaciones">Notificaciones</h2>
-      <div className="desc">Avisos de mensajes nuevos y recordatorios antes de la hora límite.</div>
+      {/* Administración no recibe recordatorios de hora límite (spec §8.2): no se los menciona. */}
+      <div className="desc">
+        {conComidas
+          ? 'Avisos de mensajes nuevos y recordatorios antes de la hora límite.'
+          : 'Avisos de mensajes nuevos.'}
+      </div>
 
       <div className="card" style={{ marginBottom: 14 }}>
         <div className="section-title">Notificaciones en este dispositivo</div>
