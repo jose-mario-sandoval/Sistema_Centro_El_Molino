@@ -89,3 +89,49 @@ $$;
 create trigger reacciones_solo_publicaciones
   before insert or update of mensaje_id on public.reacciones
   for each row execute function public.validar_reaccion_publicacion();
+
+-- ---------- RLS (spec §5.2) ----------
+alter table public.mensajes enable row level security;
+alter table public.reacciones enable row level security;
+alter table public.registro_moderacion enable row level security;
+
+create policy "mensajes: lectura para usuarios activos"
+  on public.mensajes for select
+  to authenticated
+  using ((select public.soy_activo()));
+
+create policy "mensajes: publicar como uno mismo"
+  on public.mensajes for insert
+  to authenticated
+  with check ((select public.soy_activo()) and autor_id = (select auth.uid()));
+
+-- mi_rol() ya exige cuenta activa.
+create policy "mensajes: borra el autor o el Director"
+  on public.mensajes for delete
+  to authenticated
+  using (
+    (select public.soy_activo())
+    and (autor_id = (select auth.uid()) or (select public.mi_rol()) = 'director')
+  );
+-- Sin política de UPDATE: los mensajes no se editan (spec §1).
+
+create policy "reacciones: lectura para usuarios activos"
+  on public.reacciones for select
+  to authenticated
+  using ((select public.soy_activo()));
+
+create policy "reacciones: reaccionar como uno mismo"
+  on public.reacciones for insert
+  to authenticated
+  with check ((select public.soy_activo()) and usuario_id = (select auth.uid()));
+
+create policy "reacciones: quitar la propia"
+  on public.reacciones for delete
+  to authenticated
+  using ((select public.soy_activo()) and usuario_id = (select auth.uid()));
+
+create policy "registro_moderacion: lectura solo del Director"
+  on public.registro_moderacion for select
+  to authenticated
+  using ((select public.mi_rol()) = 'director');
+-- Sin políticas de escritura: solo el trigger (security definer) inserta.
