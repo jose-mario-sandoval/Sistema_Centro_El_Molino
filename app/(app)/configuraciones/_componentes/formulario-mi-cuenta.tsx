@@ -4,10 +4,13 @@ import { useActionState, useState } from 'react'
 import { BotonEnvio } from '@/components/ui/boton-envio'
 import { ETIQUETA_ROL, ROLES, type Rol } from '@/lib/perfiles/roles'
 import { guardarMiCuenta } from '../acciones'
+import { accionDeFormulario } from './llamar-accion'
 import { useAvisoDeResultado } from './usar-aviso-resultado'
 
+const guardarMiCuentaSegura = accionDeFormulario(guardarMiCuenta)
+
 export function FormularioMiCuenta(props: { nombre: string; siglas: string; correo: string; rol: Rol }) {
-  const [estado, accion] = useActionState(guardarMiCuenta, null)
+  const [estado, accion] = useActionState(guardarMiCuentaSegura, null)
   const [nombre, setNombre] = useState(props.nombre)
   const [siglas, setSiglas] = useState(props.siglas)
   const [correo, setCorreo] = useState(props.correo)

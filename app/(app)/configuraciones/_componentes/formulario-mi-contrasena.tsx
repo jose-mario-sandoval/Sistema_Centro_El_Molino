@@ -3,10 +3,13 @@
 import { useActionState } from 'react'
 import { BotonEnvio } from '@/components/ui/boton-envio'
 import { cambiarMiContrasena } from '../acciones'
+import { accionDeFormulario } from './llamar-accion'
 import { useAvisoDeResultado } from './usar-aviso-resultado'
 
+const cambiarMiContrasenaSegura = accionDeFormulario(cambiarMiContrasena)
+
 export function FormularioMiContrasena() {
-  const [estado, accion] = useActionState(cambiarMiContrasena, null)
+  const [estado, accion] = useActionState(cambiarMiContrasenaSegura, null)
   const campos = estado && !estado.ok ? estado.campos : undefined
   useAvisoDeResultado(estado, 'Contraseña actualizada.')
 
