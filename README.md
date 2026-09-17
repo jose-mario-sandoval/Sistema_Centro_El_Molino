@@ -13,9 +13,9 @@ Next.js 16 (App Router) + TypeScript · Supabase (Postgres, Auth, Realtime, pg_c
 ## Puesta en marcha (sin Docker)
 
 1. Node 24 y `npm ci`.
-2. Copiar `.env.example` a `.env.local` y completar con los datos del proyecto de Supabase.
+2. Copiar `.env.example` a `.env.local` y completar con los datos del proyecto de Supabase. `CONTRASENA_DEMO` es la contraseña de las cuentas demo: elegir una propia (mínimo 12 caracteres; el comando para generarla está en `.env.example`) y no compartirla fuera del equipo.
 3. `npm run datos-demo -- --confirmar` (solo antes del lanzamiento) y `npm run dev`.
-4. Entrar con `residente@demo.test` / `demo-molino-2026` (u otra cuenta demo: `director@`, `sacerdote@`, `numerario@`, `administracion@`).
+4. Entrar con `residente@demo.test` y la contraseña de `CONTRASENA_DEMO` (u otra cuenta demo: `director@`, `sacerdote@`, `numerario@`, `administracion@`).
 
 ## Scripts
 
@@ -27,7 +27,7 @@ Next.js 16 (App Router) + TypeScript · Supabase (Postgres, Auth, Realtime, pg_c
 | `npm run db:aplicar` | Aplica migraciones al proyecto por el Session pooler (`.env.local`) |
 | `npm run db:tipos` | Regenera tipos desde el proyecto (requiere CLI logueada; alternativa: artefacto `database-types` de CI) |
 | `npm run crear-director -- --nombre "…" --siglas XX --correo …` | Crea un Director con contraseña temporal |
-| `npm run datos-demo -- --confirmar` | Cuentas y datos demo (`@demo.test`) |
+| `npm run datos-demo -- --confirmar` | Cuentas y datos demo (`@demo.test`) con la contraseña de `CONTRASENA_DEMO`; a las cuentas que ya existen se la actualiza (sirve para rotarla) |
 | `npm run limpiar-datos-demo -- --confirmar` | Borra todo lo demo (checklist de lanzamiento) |
 
 ## Reglas de trabajo

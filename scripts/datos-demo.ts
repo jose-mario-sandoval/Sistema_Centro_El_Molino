@@ -1,5 +1,5 @@
 import { crearClienteScript, exigirConfirmacion } from './cliente-script'
-import { CONTRASENA_DEMO, DOMINIO_DEMO, type Sembrador } from './demo/tipos'
+import { DOMINIO_DEMO, type Sembrador } from './demo/tipos'
 import { asegurarUsuariosDemo } from './demo/usuarios'
 
 /** Cada pista agrega aquí su sembrador (spec §10, índice §4). */
@@ -17,7 +17,7 @@ async function main() {
     await s.sembrar(admin, usuarios)
   }
 
-  console.log(`Listo. Contraseña de todas las cuentas demo: ${CONTRASENA_DEMO}`)
+  console.log('Listo. Contraseña: la de CONTRASENA_DEMO en .env.local')
 }
 
 main().catch((e) => {
