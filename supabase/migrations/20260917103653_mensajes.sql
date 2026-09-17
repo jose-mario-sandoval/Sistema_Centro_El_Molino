@@ -135,3 +135,53 @@ create policy "registro_moderacion: lectura solo del Director"
   to authenticated
   using ((select public.mi_rol()) = 'director');
 -- Sin políticas de escritura: solo el trigger (security definer) inserta.
+
+-- ---------- Registro de moderación (spec §5.3) ----------
+-- Por qué no pg_trigger_depth(): en un AFTER ROW trigger, las filas borradas por ON DELETE CASCADE
+-- también ven profundidad 1 (la acción RI encola sus AFTER triggers en la sentencia externa).
+-- Regla: una respuesta cuya publicación ya no existe se borró en cascada y no se registra.
+-- Los AFTER triggers corren al final de la sentencia, con la cascada ya aplicada y visible.
+create or replace function public.registrar_moderacion()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  -- Sin usuario (servidor, scripts, limpieza demo) o borrado propio: no es moderación.
+  if (select auth.uid()) is null or old.autor_id = (select auth.uid()) then
+    return old;
+  end if;
+
+  -- Respuesta borrada en cascada al borrar su publicación.
+  if old.padre_id is not null and not exists (
+    select 1 from public.mensajes m where m.id = old.padre_id
+  ) then
+    return old;
+  end if;
+
+  insert into public.registro_moderacion (moderador_id, autor_id, texto_eliminado, era_respuesta)
+  values ((select auth.uid()), old.autor_id, old.texto, old.padre_id is not null);
+  return old;
+end;
+$$;
+
+create trigger mensajes_registro_moderacion
+  after delete on public.mensajes
+  for each row execute function public.registrar_moderacion();
+
+-- ---------- Tiempo real (spec §7) ----------
+-- Los eventos DELETE traen solo la clave primaria (identidad de réplica por defecto):
+-- mensajes → id; reacciones → (mensaje_id, usuario_id).
+alter publication supabase_realtime add table public.mensajes, public.reacciones;
+
+-- ---------- Permisos explícitos ----------
+-- Supabase ya no expone automáticamente las tablas nuevas de public (desde 2026-05-30).
+-- CI corre con auto_expose_new_tables = false (igual que producción): sin estos GRANT,
+-- las pruebas de integración y e2e fallan con 42501.
+grant select, insert, delete on table public.mensajes to authenticated;
+grant select, insert, update, delete on table public.mensajes to service_role;
+grant select, insert, delete on table public.reacciones to authenticated;
+grant select, insert, update, delete on table public.reacciones to service_role;
+grant select on table public.registro_moderacion to authenticated;
+grant select, insert, update, delete on table public.registro_moderacion to service_role;
