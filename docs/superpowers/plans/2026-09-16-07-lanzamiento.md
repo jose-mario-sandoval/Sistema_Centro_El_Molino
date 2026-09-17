@@ -1,298 +1,216 @@
-# Lanzamiento — plan de implementación
+# Lanzamiento — checklist
 
-> **Para agentes:** SUB-SKILL REQUERIDO: usar superpowers:executing-plans para recorrer este checklist tarea por tarea. Los pasos usan casillas (`- [ ]`) para el seguimiento. Varias tareas las ejecuta el **dueño del repo** en paneles web: el agente prepara y verifica, no ingresa credenciales.
+> **Para agentes:** SUB-SKILL REQUERIDO: usar superpowers:executing-plans para recorrer este checklist. Varias tareas se hacen en paneles web (Vercel, Supabase, GitHub) con la cuenta de una persona: el agente prepara y verifica, **no** ingresa credenciales.
 
-**Objetivo:** pasar de "todo mergeado" a "el centro usa la app", con el proyecto limpio de datos demo, producción desplegada automáticamente y notificaciones verificadas.
+**Objetivo:** pasar de "todo mergeado en `master`" a "el centro usa la app":
+- desplegar en Vercel importando el repo y cargando las variables;
+- cerrar la configuración de Supabase;
+- verificar notificaciones;
+- limpiar los datos demo y crear las cuentas reales.
 
-**Arquitectura:** sin código nuevo. Configuración de GitHub, Vercel y Supabase (spec Anexo A), verificaciones con `curl`, SQL de solo lectura y pruebas manuales en celulares.
+**Estado de partida (2026-09-17):**
+- **Código:** Fase 0, Comidas, Calendario, Configuraciones, Mensajes y PWA/push, todos mergeados en `master` con CI en verde.
+- **Migraciones aplicadas al proyecto `ekjoyicwscxlixwzwrle`** con `npm run db:aplicar`: `base`, `comidas`, `calendario`, `mensajes` y `push`. No hay que ejecutar SQL de esquema.
+- **Datos demo cargados:** 5 cuentas `@demo.test`, planes, eventos y mensajes. Contraseña: `CONTRASENA_DEMO` en `.env.local`.
+- **Variables para Vercel preparadas en `.env.vercel.local`** (local, ignorado por git): llaves VAPID y `CRON_SECRET`.
 
-**Stack:** GitHub Actions, Vercel (Hobby), Supabase (proyecto único), CLI `supabase` y `gh`.
-
-**Referencias:** spec §10, §11 (checklist de lanzamiento), Anexo A · índice [`2026-09-16-00-indice.md`](2026-09-16-00-indice.md).
-
-**Requisito previo:** planes 01 a 06 mergeados en `master` y CI en verde.
-
-### Pendientes técnicos registrados (revisión de la Fase 0)
-
-Resolver antes de definir `SUPABASE_PROJECT_REF` (Action de migraciones) o, a más tardar, antes del lanzamiento:
-
-- [ ] **`[remotes.produccion]` en `supabase/config.toml`** con `project_id = "ekjoyicwscxlixwzwrle"`, `site_url` del dominio de producción, `additional_redirect_urls = []` y los límites de Auth de producción. La Action de migraciones falla a propósito mientras no exista (guardia en `migraciones.yml`). La primera vez, `npx supabase config push` sin `--yes` para revisar el diff.
-- [ ] **Límites de Auth:** `signInWithPassword` y los refrescos salen del servidor de Vercel, así que todo el centro comparte los límites por IP (30 inicios de sesión y 150 refrescos cada 5 min). Subirlos en *Authentication → Rate Limits* (o en `[remotes.produccion.auth.rate_limit]`).
-- [ ] **Registro público:** desactivar "Allow new users to sign up" (`[auth] enable_signup = false`). `[auth.email] enable_signup` debe quedar en `true`.
-- [ ] **GRANT de UPDATE por columnas en `horas_limite`:** migración nueva con `revoke update on public.horas_limite from authenticated; grant update (dia_relativo, hora) on public.horas_limite to authenticated;`.
-- [ ] **Enums TS contra la base:** agregar una verificación de tipos que falle si `lib/comidas/tipos.ts` diverge de `Enum<'estado_comida'>`, `Enum<'tiempo_comida'>` y `Enum<'origen_seleccion'>`.
-- [ ] **Claves JWT asimétricas** en *Project Settings → JWT Keys*, para que `getClaims()` no llame a Auth en cada request.
-- [ ] **Rotar secretos compartidos durante el desarrollo:** contraseña de base de datos y llaves de API (migrar a *publishable/secret keys* y desactivar las JWT heredadas); después actualizar `.env.local` y Vercel.
-- [ ] **`supabase/setup-cli` fijado por SHA** en `migraciones.yml` y `permissions: contents: read` en `ci.yml`.
+**Referencias:** spec §8, §10, §11; índice [`2026-09-16-00-indice.md`](2026-09-16-00-indice.md) §5.
 
 ---
 
-### Tarea 1: Configuración de GitHub (dueño del repo)
+### Tarea 1: Importar el repo en Vercel
 
-**Archivos:** ninguno.
+- [ ] **Paso 1: Elegir quién importa**
+  - **Opción A (recomendada): el dueño del repo (`jose-mario-sandoval`) importa desde su cuenta de Vercel.** Vercel instala su GitHub App en esa cuenta y cada push a `master` despliega solo.
+  - **Opción B: importa un colaborador desde su cuenta de Vercel.** El dueño tiene que autorizar la GitHub App de Vercel sobre el repo (GitHub → Settings → Applications → Vercel → Repository access). Sin esa autorización el repo no aparece en la lista de Vercel.
+  - **Opción C: sin GitHub App.** Desde la computadora del colaborador: `npx vercel login`, `npx vercel link`, cargar las variables (paso 3) y `npx vercel --prod`. Funciona, pero no despliega automáticamente con cada push.
 
-- [ ] **Paso 1: Proteger `master`**
+- [ ] **Paso 2: Crear el proyecto**
 
-*Settings → Rules → Rulesets → New branch ruleset*:
-- objetivo: `master`;
-- exigir pull request con 1 aprobación;
-- exigir los checks `calidad` y `base-de-datos`;
-- bloquear force push y borrado.
+  *Add New → Project* → `Sistema_Centro_El_Molino` → framework **Next.js**, directorio raíz `./`, build y output por defecto. `vercel.json` fija la región `pdx1`, junto a la base en us-west-2.
 
-- [ ] **Paso 2: Secretos y variable de Actions**
+- [ ] **Paso 3: Variables de entorno (Production y Preview)**
 
-*Settings → Secrets and variables → Actions*:
-- **Secrets:** `SUPABASE_ACCESS_TOKEN`, `SUPABASE_DB_PASSWORD`, `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID` (los tres de Vercel salen de la tarea 2).
-- **Variables:** `SUPABASE_PROJECT_REF`.
+  | Variable | Valor |
+  |---|---|
+  | `NEXT_PUBLIC_SUPABASE_URL` | `https://ekjoyicwscxlixwzwrle.supabase.co` |
+  | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | la de `.env.local` (anon) |
+  | `SUPABASE_SECRET_KEY` | la de `.env.local` (service_role) |
+  | `NEXT_PUBLIC_VAPID_PUBLIC_KEY` | la de `.env.vercel.local` |
+  | `VAPID_PRIVATE_KEY` | la de `.env.vercel.local` |
+  | `VAPID_SUBJECT` | `mailto:` con un correo de contacto real del centro (reemplazar el de ejemplo) |
+  | `CRON_SECRET` | la de `.env.vercel.local` |
 
-- [ ] **Paso 3: Verificar desde la terminal**
+  **No** cargar `SUPABASE_DB_PASSWORD`, `SUPABASE_POOLER_HOST` ni `CONTRASENA_DEMO`: son solo para la computadora de desarrollo.
 
-```bash
-gh secret list
-gh variable list
-gh api repos/jose-mario-sandoval/Sistema_Centro_El_Molino/rulesets --jq '.[].name'
-```
+- [ ] **Paso 4: Desplegar y anotar la URL de producción**
 
-Esperado: aparecen los 5 secretos, la variable `SUPABASE_PROJECT_REF` y el ruleset de `master`.
+  Esperado: el build termina en verde y la URL `https://<proyecto>.vercel.app/login` muestra "Centro El Molino".
 
----
+- [ ] **Paso 5: Desactivar la protección de despliegues**
 
-### Tarea 2: Proyecto en Vercel (dueño del repo)
+  *Settings → Deployment Protection → Vercel Authentication: Disabled*. Sin esto, los celulares piden una cuenta de Vercel y `pg_cron` no puede llamar a `/api/cron/recordatorios`.
 
-**Archivos:** ninguno.
+- [ ] **Paso 6: Verificar desde la terminal**
 
-- [ ] **Paso 1: Crear el proyecto**
+  ```bash
+  curl -s -o /dev/null -w "%{http_code}\n" https://<url-produccion>/login
+  curl -s -o /dev/null -w "%{http_code}\n" -X POST https://<url-produccion>/api/cron/recordatorios
+  curl -s https://<url-produccion>/manifest.webmanifest | head -c 120
+  ```
 
-1. Entrar a Vercel con el login de GitHub del dueño (plan Hobby).
-2. *Add New → Project* e importar `Sistema_Centro_El_Molino`, framework Next.js.
-3. *Settings → Git*: Production Branch = `master` (los despliegues por Git quedan desactivados por `vercel.json`).
-
-- [ ] **Paso 2: Variables de entorno de Production**
-
-*Settings → Environment Variables*, entorno **Production**:
-
-| Variable | Valor |
-|---|---|
-| `NEXT_PUBLIC_SUPABASE_URL` | Project URL de Supabase |
-| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | anon / publishable key |
-| `SUPABASE_SECRET_KEY` | service_role / secret key |
-| `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` | salida de `npx web-push generate-vapid-keys` |
-| `VAPID_SUBJECT` | `mailto:` de contacto del centro |
-| `CRON_SECRET` | salida de `openssl rand -hex 32` |
-
-Las llaves VAPID y el `CRON_SECRET` de producción los genera el dueño en su computadora; **no** son los de `.env.local` de los colaboradores.
-
-- [ ] **Paso 3: Desactivar la protección de despliegues**
-
-*Settings → Deployment Protection*: desactivar **Vercel Authentication**, para que el centro abra la app sin cuenta de Vercel y `pg_cron` pueda llamar a `/api/cron/recordatorios`.
-
-- [ ] **Paso 4: Token e identificadores para la Action**
-
-1. *Account Settings → Tokens*: crear `github-actions-molino`.
-2. `VERCEL_ORG_ID` y `VERCEL_PROJECT_ID`: *Project Settings → General* (o `.vercel/project.json` tras `npx vercel link`).
-3. Cargar los tres como secretos de GitHub (tarea 1, paso 2).
+  Esperado: `200`, `401` y un JSON que empieza con `{"name":"Centro El Molino"`.
 
 ---
 
-### Tarea 3: Primer despliegue automático
+### Tarea 2: Supabase — Vault y tareas programadas
 
-**Archivos:** ninguno.
+- [ ] **Paso 1: Cargar URL y secreto en Vault**
 
-- [ ] **Paso 1: Disparar la Action**
+  *Supabase → SQL Editor*: pegar el contenido de `supabase/snippets/configurar-vault.sql`, reemplazar la URL de producción (Tarea 1) y el `CRON_SECRET` (el mismo que se cargó en Vercel), y ejecutar.
 
-```bash
-gh workflow run "Desplegar producción" --ref master
-gh run watch
-```
+- [ ] **Paso 2: Verificar los jobs**
 
-Esperado: pasos *Vincular proyecto Supabase*, *Ajustes de Auth*, *Migraciones*, *Build* y *Desplegar* en verde. El log de *Desplegar* termina con la URL de producción.
+  ```sql
+  select jobname, schedule, active from cron.job order by jobname;
+  ```
 
-- [ ] **Paso 2: Anotar la URL de producción**
+  Esperado: `cerrar-comidas-vencidas` (`*/5 * * * *`), `limpiar-historial-cron` (diario) y `recordatorios-hora-limite` (`*/5 * * * *`), todos activos.
 
-```bash
-gh run view --log | grep -Eo "https://[a-z0-9-]+\.vercel\.app" | tail -1
-```
+- [ ] **Paso 3: Verificar que el cron llega a la app (esperar ~10 min)**
 
-Esperado: algo como `https://sistema-centro-el-molino.vercel.app`. Usar el dominio de producción del proyecto, no la URL de un despliegue puntual.
+  ```sql
+  select j.jobname, d.status, d.return_message, d.start_time
+  from cron.job_run_details d join cron.job j using (jobid)
+  order by d.start_time desc limit 6;
 
-- [ ] **Paso 3: Verificar que un commit de un colaborador también despliega**
+  select status_code, created from net._http_response order by created desc limit 3;
+  ```
 
-Mergear un PR cuyo autor sea un colaborador (no el dueño) y revisar que la Action termine en verde (spec §10: requisito de repo público en Vercel Hobby).
-
-Esperado: despliegue exitoso. Si falla con "Git author must have access", confirmar que el repo es público; si lo es y aun así falla, la vía soportada es el plan Pro.
-
----
-
-### Tarea 4: Supabase: Vault, cron y Auth
-
-**Archivos:** ninguno (se usa `supabase/snippets/configurar-vault.sql` del plan 06).
-
-- [ ] **Paso 1: Guardar URL y secreto en Vault**
-
-En *Supabase → SQL Editor*, abrir el contenido de `supabase/snippets/configurar-vault.sql`, reemplazar la URL de producción (tarea 3) y el `CRON_SECRET` de Vercel, y ejecutar.
-
-- [ ] **Paso 2: Verificar las tareas programadas**
-
-```sql
-select jobname, schedule, active from cron.job order by jobname;
-```
-
-Esperado: `cerrar-comidas-vencidas` y `recordatorios-hora-limite`, ambos `*/5 * * * *` y `active = true`.
-
-Después de 10 minutos:
-
-```sql
-select j.jobname, d.status, d.start_time
-from cron.job_run_details d join cron.job j using (jobid)
-order by d.start_time desc limit 6;
-
-select status_code, created from net._http_response order by created desc limit 3;
-```
-
-Esperado: corridas `succeeded` y respuestas `202` de `/api/cron/recordatorios`.
-
-- [ ] **Paso 3: Verificar que el registro público está cerrado**
-
-```bash
-curl -s -X POST "$NEXT_PUBLIC_SUPABASE_URL/auth/v1/signup" \
-  -H "apikey: $NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY" -H "Content-Type: application/json" \
-  -d '{"email":"intruso@example.com","password":"12345678"}'
-```
-
-(Con las variables de `.env.local` cargadas en la terminal.) Esperado: error `signup_disabled` / "Signups not allowed for this instance". Confirmar también en *Authentication → Sign In / Providers* que "Allow new users to sign up" está desactivado.
-
-- [ ] **Paso 4: Verificar que el cron rechaza llamadas sin secreto**
-
-```bash
-curl -s -o /dev/null -w "%{http_code}\n" -X POST https://<url-produccion>/api/cron/recordatorios
-```
-
-Esperado: `401`.
+  Esperado: corridas `succeeded` y respuestas `202`. Si aparece `401`, el `CRON_SECRET` de Vault no coincide con el de Vercel.
 
 ---
 
-### Tarea 5: Prueba de notificaciones con cuentas propias
+### Tarea 3: Supabase — ajustes de Auth y API (panel)
 
-**Archivos:** ninguno.
+- [ ] **Registro público:** *Authentication → Sign In / Providers*: desactivar **"Allow new users to sign up"**. Dejar **Email habilitado**, porque de él depende el login.
+- [ ] **Límites de Auth:** todos los inicios de sesión salen desde Vercel, así que el centro entero comparte los límites por IP. En *Authentication → Rate Limits*, subir los inicios de sesión y los refrescos de token (por ejemplo, a 300 y 1000 cada 5 min).
+- [ ] **API:** *Project Settings → Data API → Max rows* debe seguir en **1000** (Mensajes lo asume).
+- [ ] **Verificar el registro cerrado:**
 
-- [ ] **Paso 1: Android (Chrome)**
+  ```bash
+  curl -s -X POST "https://ekjoyicwscxlixwzwrle.supabase.co/auth/v1/signup" \
+    -H "apikey: <anon key>" -H "Content-Type: application/json" \
+    -d '{"email":"intruso@example.com","password":"12345678"}'
+  ```
 
-1. Abrir la URL de producción con una cuenta demo de rol residente y "Instalar app".
-2. *Configuraciones → Notificaciones en este dispositivo → Activar*.
-3. Desde otra cuenta demo, publicar un mensaje.
-
-Esperado: llega la notificación y al tocarla abre `/mensajes`.
-
-- [ ] **Paso 2: iPhone (iOS 16.4 o superior)**
-
-1. En Safari, abrir la URL, verificar que aparecen las instrucciones de instalación y "Agregar a pantalla de inicio".
-2. Abrir desde el ícono, activar notificaciones y repetir la publicación desde otra cuenta.
-
-Esperado: llega la notificación.
-
-- [ ] **Paso 3: Recordatorio de hora límite**
-
-1. Con la cuenta demo `director@demo.test`, poner temporalmente la hora límite de la cena a ~65 minutos de la hora actual.
-2. Borrar el plan de cena de hoy de una cuenta demo de prueba (queda "Sin definir").
-3. Esperar a que llegue el recordatorio (entre 55 y 60 minutos antes del cierre).
-4. Restaurar la hora límite original (16:00, mismo día).
-
-Esperado: la notificación llega solo a la cuenta con la cena "Sin definir".
-
-- [ ] **Paso 4: Cerrar sesión da de baja el dispositivo**
-
-Cerrar sesión en el celular y publicar otro mensaje desde otra cuenta.
-
-Esperado: no llega notificación a ese dispositivo.
+  Esperado: error `signup_disabled`.
 
 ---
 
-### Tarea 6: Limpieza de datos demo
+### Tarea 4: Prueba en producción con cuentas demo
 
-**Archivos:** ninguno.
-
-- [ ] **Paso 1: Borrar todo lo demo**
-
-```bash
-npm run limpiar-datos-demo -- --confirmar
-```
-
-Esperado: `Borrada: …@demo.test` por cada cuenta y `Cuentas demo borradas: 5` (o las que existan).
-
-- [ ] **Paso 2: Verificar que no quedó nada**
-
-En *SQL Editor*:
-
-```sql
-select
-  (select count(*) from public.perfiles) as perfiles,
-  (select count(*) from public.mensajes) as mensajes,
-  (select count(*) from public.eventos) as eventos,
-  (select count(*) from public.plan_semanal) as planes,
-  (select count(*) from public.selecciones_comida) as selecciones,
-  (select count(*) from public.suscripciones_push) as suscripciones;
-```
-
-Esperado: todo en `0`. Si queda algo de pruebas hechas con cuentas no demo, borrar esas cuentas desde *Authentication → Users* (el cascade limpia su contenido).
-
-- [ ] **Paso 3: Limpiar historial de cierres y avisos de desarrollo**
-
-```sql
-delete from public.comidas_cerradas;
-delete from public.avisos_enviados;
-```
-
-Esperado: `DELETE n`. La tarea de cierre vuelve a crear solo lo que corresponda.
+- [ ] **Paso 1: Recorrido por rol**
+  - `residente@demo.test`: Plan semanal, cambiar una comida de la semana siguiente, "Volver a mi plan", publicar y reaccionar en Mensajes, Calendario en solo lectura, cambiar el propio nombre.
+  - `administracion@demo.test`: la Semana muestra el resumen y el cambio del residente resaltado.
+  - `director@demo.test`: crear, editar y eliminar un evento; borrar un mensaje ajeno y verlo en el Registro; cambiar una hora límite y restaurarla; crear una cuenta de prueba con contraseña temporal y verificar que pide cambiarla.
+- [ ] **Paso 2: Instalar la PWA**
+  - En Android (Chrome): "Instalar app".
+  - En iPhone (Safari): *Compartir → Agregar a pantalla de inicio*.
+- [ ] **Paso 3: Notificaciones**
+  - **Activar:** en la app instalada, *Configuraciones → Notificaciones en este dispositivo → Activar*.
+  - **Aviso de mensaje:** publicar desde otra cuenta. Debe llegar la notificación y abrir `/mensajes`.
+  - **Recordatorio:**
+    1. Elegir una comida cuyo cierre todavía no pasó y dejarla "Sin definir" para la cuenta del dispositivo (quitarla de su Plan semanal).
+    2. Poner su hora límite a unos 65 minutos de ahora.
+    3. Esperar el recordatorio.
+    4. Restaurar la hora.
+  - **Cerrar sesión:** después de cerrar sesión en el dispositivo, no debe llegar ningún aviso más.
 
 ---
 
-### Tarea 7: Primer Director real y cuentas del centro
+### Tarea 5: Limpieza y cuentas reales
 
-**Archivos:** ninguno.
+- [ ] **Paso 1: Borrar los datos demo**
 
-- [ ] **Paso 1: Crear el Director**
+  ```bash
+  npm run limpiar-datos-demo -- --confirmar
+  ```
 
-```bash
-npm run crear-director -- --nombre "<Nombre real>" --siglas <XX> --correo <correo real>
-```
+  Borra las cuentas `@demo.test` y, en cascada, sus planes, selecciones, mensajes, eventos y suscripciones.
 
-Esperado: `Director creado` y una contraseña temporal. Entregarla en persona, no por chat.
+- [ ] **Paso 2: Vaciar tablas de estado del desarrollo** (SQL Editor)
 
-- [ ] **Paso 2: Primer ingreso del Director**
+  ```sql
+  delete from public.comidas_cerradas;
+  delete from public.avisos_enviados;
+  select
+    (select count(*) from public.perfiles) as perfiles,
+    (select count(*) from public.mensajes) as mensajes,
+    (select count(*) from public.eventos) as eventos,
+    (select count(*) from public.plan_semanal) as planes,
+    (select count(*) from public.selecciones_comida) as selecciones,
+    (select count(*) from public.suscripciones_push) as suscripciones;
+  ```
 
-El Director entra, elige su contraseña y revisa *Configuraciones → Horas límite* (desayuno 21:00 del día anterior, almuerzo 10:00, cena 16:00, o las que decida).
+  Esperado: todo en `0`. Si quedaron cuentas de prueba que no son demo, borrarlas en *Authentication → Users*.
 
-- [ ] **Paso 3: Cuentas del resto del centro**
+- [ ] **Paso 3: Primer Director real**
 
-Desde *Gestión de usuarios*, el Director crea las cuentas de Directores, Residentes y Administración con contraseñas temporales.
+  ```bash
+  npm run crear-director -- --nombre "<Nombre>" --siglas <XX> --correo <correo>
+  ```
 
-Esperado: cada persona, al entrar, debe elegir su contraseña.
+  Entregar la contraseña temporal en persona. Al entrar se pide elegir una nueva.
+
+- [ ] **Paso 4:** el Director revisa las horas límite y crea las cuentas del centro desde *Configuraciones → Gestión de usuarios*.
 
 ---
 
-### Tarea 8: Cierre administrativo
+### Tarea 6: Seguridad y cierre
 
-**Archivos:** ninguno.
+- [ ] **Rotar los secretos que se compartieron por chat durante el desarrollo:**
+  - la contraseña de la base (*Project Settings → Database*); después actualizar `SUPABASE_DB_PASSWORD` en `.env.local`;
+  - las llaves de API: migrar a las nuevas *publishable/secret keys* y desactivar las JWT heredadas (*Project Settings → API Keys*); después actualizar `.env.local` y las variables de Vercel y redesplegar.
+- [ ] **Claves JWT asimétricas** (*Project Settings → JWT Keys*), para que `getClaims()` no llame a Auth en cada request.
+- [ ] **Propiedad:** si el proyecto de Supabase o de Vercel está en una cuenta personal, transferirlo a una organización del centro o del dueño.
+- [ ] **Plan Hobby de Vercel:** confirmar que el uso es no comercial; si no, pasar a Pro.
+- [ ] **Proteger `master`** en GitHub (PR con aprobación y checks `calidad` y `base-de-datos`).
+- [ ] **Regla posterior al lanzamiento:**
+  - `datos-demo` ya no se ejecuta;
+  - toda migración pasa primero por CI y se aplica con `npm run db:aplicar` inmediatamente después del merge (o con la Action, cuando tenga secretos y `[remotes.produccion]`);
+  - las pruebas de notificaciones se hacen solo con cuentas propias.
 
-- [ ] **Paso 1: Propiedad del proyecto de Supabase**
+---
 
-Si el proyecto está en una cuenta personal de un colaborador, transferirlo a una organización del centro o del dueño: *Project Settings → General → Transfer project* (spec Anexo A.1).
+### Seguimiento (no bloquea el lanzamiento)
 
-- [ ] **Paso 2: Plan Hobby de Vercel**
+Menores detectados en las revisiones de código, para PRs posteriores:
 
-Confirmar que el uso del centro es no comercial. Si no, pasar el proyecto a Pro antes de dar acceso.
-
-- [ ] **Paso 3: Instrucciones para el centro**
-
-Enviar a las personas del centro (por el canal habitual del centro) un mensaje breve con:
-- la URL;
-- que la contraseña inicial es temporal;
-- cómo instalar la app en Android ("Instalar app") y en iPhone ("Compartir → Agregar a pantalla de inicio");
-- cómo activar las notificaciones en *Configuraciones*.
-
-- [ ] **Paso 4: Regla posterior al lanzamiento**
-
-Recordar a ambos colaboradores (spec §10):
-- `npm run datos-demo` **ya no se ejecuta**;
-- las pruebas de notificaciones se hacen solo con cuentas propias;
-- toda migración pasa primero por CI.
+- **Comidas:**
+  - no perder la nota ante un error de red;
+  - incrementar el contador de guardado del plan también al cambiar el estado;
+  - esperar a que termine el guardado en las aserciones e2e;
+  - devolver el foco al chip al cerrar el editor.
+- **Mensajes:**
+  - no ejecutar `router.refresh()` con texto escrito;
+  - fallback de `crypto.randomUUID()` en contextos no seguros;
+  - conservar el id de envío al cerrar la caja de respuesta;
+  - e2e de persistencia de reacciones.
+- **Calendario:**
+  - devolver el foco al diálogo si el evento en edición desaparece;
+  - mover `FECHA_MINIMA`/`FECHA_MAXIMA` a un módulo propio;
+  - revisar si se abre el teclado del celular al abrir un día vacío.
+- **Configuraciones:**
+  - revertir el correo ante un error ambiguo de Auth;
+  - `aria-disabled` en los botones pendientes y en `BotonEnvio`;
+  - límite de 72 bytes, no de 72 caracteres, en las contraseñas;
+  - mover `MENSAJE_CORREO_REPETIDO` a `lib/cuentas/`;
+  - separar `acciones.ts`;
+  - unificar `llamar-accion.ts` local con `lib/acciones/llamar.ts`.
+- **Fase 0 / plataforma:**
+  - `GRANT UPDATE` por columnas en `horas_limite`;
+  - verificación de tipos de los enums de TS contra la base;
+  - `[remotes.produccion]` en `config.toml` antes de activar la Action de migraciones;
+  - `setup-cli` fijado por SHA;
+  - `permissions: contents: read` en `ci.yml`.
