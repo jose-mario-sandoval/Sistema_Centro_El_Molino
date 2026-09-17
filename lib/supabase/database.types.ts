@@ -9,6 +9,24 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      comidas_cerradas: {
+        Row: {
+          cerrada_en: string
+          comida: Database["public"]["Enums"]["tiempo_comida"]
+          fecha: string
+        }
+        Insert: {
+          cerrada_en?: string
+          comida: Database["public"]["Enums"]["tiempo_comida"]
+          fecha: string
+        }
+        Update: {
+          cerrada_en?: string
+          comida?: Database["public"]["Enums"]["tiempo_comida"]
+          fecha?: string
+        }
+        Relationships: []
+      }
       horas_limite: {
         Row: {
           comida: Database["public"]["Enums"]["tiempo_comida"]
@@ -66,13 +84,121 @@ export type Database = {
         }
         Relationships: []
       }
+      plan_semanal: {
+        Row: {
+          comida: Database["public"]["Enums"]["tiempo_comida"]
+          dia_semana: number
+          estado: Database["public"]["Enums"]["estado_comida"]
+          nota: string | null
+          usuario_id: string
+        }
+        Insert: {
+          comida: Database["public"]["Enums"]["tiempo_comida"]
+          dia_semana: number
+          estado: Database["public"]["Enums"]["estado_comida"]
+          nota?: string | null
+          usuario_id: string
+        }
+        Update: {
+          comida?: Database["public"]["Enums"]["tiempo_comida"]
+          dia_semana?: number
+          estado?: Database["public"]["Enums"]["estado_comida"]
+          nota?: string | null
+          usuario_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "plan_semanal_usuario_id_fkey"
+            columns: ["usuario_id"]
+            isOneToOne: false
+            referencedRelation: "perfiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      selecciones_comida: {
+        Row: {
+          actualizado_en: string
+          comida: Database["public"]["Enums"]["tiempo_comida"]
+          estado: Database["public"]["Enums"]["estado_comida"]
+          fecha: string
+          nota: string | null
+          origen: Database["public"]["Enums"]["origen_seleccion"]
+          usuario_id: string
+        }
+        Insert: {
+          actualizado_en?: string
+          comida: Database["public"]["Enums"]["tiempo_comida"]
+          estado: Database["public"]["Enums"]["estado_comida"]
+          fecha: string
+          nota?: string | null
+          origen: Database["public"]["Enums"]["origen_seleccion"]
+          usuario_id: string
+        }
+        Update: {
+          actualizado_en?: string
+          comida?: Database["public"]["Enums"]["tiempo_comida"]
+          estado?: Database["public"]["Enums"]["estado_comida"]
+          fecha?: string
+          nota?: string | null
+          origen?: Database["public"]["Enums"]["origen_seleccion"]
+          usuario_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "selecciones_comida_usuario_id_fkey"
+            columns: ["usuario_id"]
+            isOneToOne: false
+            referencedRelation: "perfiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      comida_editable: {
+        Args: {
+          p_ahora?: string
+          p_comida: Database["public"]["Enums"]["tiempo_comida"]
+          p_fecha: string
+        }
+        Returns: boolean
+      }
+      comidas_sin_definir: {
+        Args: {
+          p_comida: Database["public"]["Enums"]["tiempo_comida"]
+          p_fecha: string
+        }
+        Returns: string[]
+      }
+      guardar_seleccion: {
+        Args: {
+          p_comida: Database["public"]["Enums"]["tiempo_comida"]
+          p_estado: Database["public"]["Enums"]["estado_comida"]
+          p_fecha: string
+          p_nota: string
+        }
+        Returns: undefined
+      }
       mi_rol: { Args: never; Returns: Database["public"]["Enums"]["rol"] }
+      nota_valida: {
+        Args: {
+          p_estado: Database["public"]["Enums"]["estado_comida"]
+          p_nota: string
+        }
+        Returns: boolean
+      }
       soy_activo: { Args: never; Returns: boolean }
+      volver_a_plan: {
+        Args: {
+          p_comida: Database["public"]["Enums"]["tiempo_comida"]
+          p_fecha: string
+        }
+        Returns: undefined
+      }
       zona_horaria_app: { Args: never; Returns: string }
     }
     Enums: {
