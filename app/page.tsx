@@ -1,3 +1,5 @@
+import { redirect } from 'next/navigation'
+
 export default function Inicio() {
-  return <p>Centro El Molino</p>
+  redirect('/comidas/semana')
 }
