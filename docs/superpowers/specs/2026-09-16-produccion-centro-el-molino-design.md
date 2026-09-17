@@ -46,7 +46,7 @@ Este documento define cómo pasar el prototipo a una aplicación en producción 
 - **Escrituras con la sesión del usuario (RLS aplica):** Server Actions que validan la entrada con `zod`. Las selecciones de comida se guardan llamando a funciones SQL `guardar_seleccion` y `volver_a_plan` (§6.4).
 - **Escrituras con el cliente admin** (llave secreta de Supabase, que **solo existe en el servidor**). La Server Action primero verifica `auth.uid()` y las reglas que correspondan:
   - *Solo Director activo:* crear cuenta, poner contraseña a otra cuenta, cambiar rol de otra cuenta, desactivar/reactivar.
-  - *La propia cuenta:* editar nombre, siglas y correo; cambiar contraseña; cambiar preferencias `avisar_*`; limpiar `debe_cambiar_contrasena`.
+  - *La propia cuenta:* editar nombre, siglas y correo; cambiar preferencias `avisar_*`; limpiar `debe_cambiar_contrasena`. (Cambiar la **propia** contraseña no usa el cliente admin: tras verificar la actual se hace `updateUser` con la sesión del usuario, para no cerrar la sesión abierta.)
   - *Usuario con sesión, vía `/api/push`:* registrar y borrar suscripciones de su dispositivo reasignando el `endpoint` (§8.2); se verifica la sesión antes de usar el cliente admin.
   - *Servidor sin usuario (cron y envíos):* leer destinatarios y `suscripciones_push` para enviar notificaciones; borrar suscripciones caducadas.
 - **Esquema:** migraciones SQL versionadas en `supabase/migrations/`. Nadie cambia tablas a mano en el proyecto de Supabase.
@@ -150,7 +150,7 @@ Valores iniciales: desayuno `-1, 21:00`; almuerzo `0, 10:00`; cena `0, 16:00`.
 - **Supabase Auth con correo y contraseña.** Registro público desactivado, confirmación de correo desactivada. La app no envía correos.
 - **Crear cuenta (Director):** el servidor crea el usuario en Auth (ya confirmado) y su fila en `perfiles`. Si falla la creación del perfil, borra el usuario de Auth.
 - **Primer Director de cada entorno:** `npm run crear-director` (usa la llave secreta; se ejecuta una vez).
-- **Middleware/proxy de Next.js:** refresca la sesión y redirige a `/login` si no hay sesión o si el perfil está inactivo; redirige a `/cambiar-contrasena` si `debe_cambiar_contrasena`.
+- **Proxy de Next.js (`proxy.ts`):** refresca la sesión y redirige a `/login` si no hay sesión. **Layout y páginas de la app** (`exigirPerfil`): redirigen a `/login` si el perfil está inactivo y a `/cambiar-contrasena` si `debe_cambiar_contrasena`. La página `/login` solo redirige hacia la app si el perfil está activo; así una cuenta desactivada con cookies vigentes no entra en un bucle de redirecciones.
 - **Desactivar (Director):** primero `activo = false` en `perfiles` (el trigger de §3.3 puede rechazarlo); después bloqueo (`ban`) del usuario en Supabase Auth, lo que invalida la renovación de sesión en dispositivos ya abiertos. Si el `ban` falla, se revierte `activo`. Reactivar revierte ambas cosas en el mismo orden. Un usuario desactivado no aparece en vistas de comidas, no recibe avisos y no puede iniciar sesión; sus mensajes se conservan.
 - **Contraseñas:**
   - Mínimo 8 caracteres.
