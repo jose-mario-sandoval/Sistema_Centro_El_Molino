@@ -1,10 +1,12 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
+import { after } from 'next/server'
 import { exito, fallo, type Resultado } from '@/lib/acciones/resultado'
 import { perfilParaAccion } from '@/lib/auth/sesion'
 import { listarPublicaciones, type PaginaFeed } from '@/lib/mensajes/consultas'
 import { listarPerfiles, type PerfilResumen } from '@/lib/perfiles/consultas'
+import { avisarNuevaPublicacion, avisarNuevaRespuesta } from '@/lib/push/avisos'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { camposConError } from '@/lib/validacion/auth'
 import {
@@ -60,6 +62,8 @@ export async function publicarMensaje(_previo: ResultadoId | null, formData: For
   }
 
   revalidatePath('/mensajes')
+  // Pista 06: aviso push solo aquí (mensaje recién insertado), nunca en el reintento 23505 de arriba.
+  after(() => avisarNuevaPublicacion(id))
   return exito({ id })
 }
 
@@ -91,6 +95,8 @@ export async function responderMensaje(_previo: ResultadoId | null, formData: Fo
   }
 
   revalidatePath('/mensajes')
+  // Pista 06: ver publicarMensaje.
+  after(() => avisarNuevaRespuesta(id))
   return exito({ id })
 }
 
