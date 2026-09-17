@@ -53,6 +53,27 @@ comment on table public.selecciones_comida is
 
 create index selecciones_comida_fecha_comida_idx on public.selecciones_comida (fecha, comida);
 
+-- Lo que escribe una persona con su sesión siempre es una excepción propia: "plan" queda
+-- reservado para el congelado de cerrar_comidas_vencidas (pg_cron) y el servidor con la llave
+-- secreta. También se fija actualizado_en para que no se pueda falsear desde el cliente.
+create or replace function public.selecciones_comida_forzar_origen()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  if current_user = 'authenticated' then
+    new.origen := 'persona';
+    new.actualizado_en := now();
+  end if;
+  return new;
+end;
+$$;
+
+create trigger selecciones_comida_forzar_origen
+  before insert or update on public.selecciones_comida
+  for each row execute function public.selecciones_comida_forzar_origen();
+
 -- ---------- Cierre definitivo ----------
 create table public.comidas_cerradas (
   fecha date not null,

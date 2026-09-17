@@ -259,6 +259,38 @@ describe('selecciones_comida: RLS', () => {
     ])
   })
 
+  it('con su sesión siempre guarda origen "persona" y actualizado_en del servidor (trigger)', async () => {
+    const residente = await clienteComo('residente')
+    const falsa = { origen: 'plan', actualizado_en: '2000-01-01T00:00:00Z' }
+    const alta = await residente.from('selecciones_comida').insert({ ...fila('residente', FECHA_ABIERTA), ...falsa })
+    expect(alta.error).toBeNull()
+    const leer = async () => {
+      const { data, error } = await admin
+        .from('selecciones_comida')
+        .select('estado, origen, actualizado_en')
+        .eq('usuario_id', ids.residente)
+        .eq('fecha', FECHA_ABIERTA)
+        .eq('comida', 'almuerzo')
+        .single()
+      if (error) throw error
+      return data
+    }
+    const insertada = await leer()
+    expect(insertada).toMatchObject({ estado: 'no', origen: 'persona' })
+    expect(Date.parse(insertada.actualizado_en)).toBeGreaterThan(Date.parse('2020-01-01T00:00:00Z'))
+
+    const edicion = await residente
+      .from('selecciones_comida')
+      .update({ estado: 'bolsa', ...falsa })
+      .eq('usuario_id', ids.residente)
+      .eq('fecha', FECHA_ABIERTA)
+      .eq('comida', 'almuerzo')
+    expect(edicion.error).toBeNull()
+    const editada = await leer()
+    expect(editada).toMatchObject({ estado: 'bolsa', origen: 'persona' })
+    expect(Date.parse(editada.actualizado_en)).toBeGreaterThan(Date.parse('2020-01-01T00:00:00Z'))
+  })
+
   it('rechaza insertar en una comida vencida o fuera de la ventana', async () => {
     const residente = await clienteComo('residente')
     for (const fecha of [AYER, FUERA_DE_VENTANA]) {
@@ -573,6 +605,69 @@ describe('cerrar_comidas_vencidas', () => {
     // La cena todavía no venció: ni cerrada ni congelada.
     expect(await estaCerrada(MIERCOLES_2030, 'cena')).toBe(false)
   })
+
+  it(
+    'el job real de pg_cron ejecuta el CALL con COMMIT y congela el plan',
+    async () => {
+      await ponerPlan('residente', DIA_ABIERTA, 'almuerzo', SI)
+
+      await conPostgres(async (c) => {
+        // Job temporal con el mismo tipo de comando que el real (solo el CALL), pero con un instante
+        // fijo de 2030 para no depender de la hora del runner ni tocar comidas de la semana real.
+        const { rows } = await c.query<{ jobid: string }>(
+          "select cron.schedule('prueba-cierre-ci', '2 seconds', $$CALL public.cerrar_comidas_vencidas('2030-01-16T12:00:00-06:00')$$) as jobid",
+        )
+        const jobid = rows[0].jobid
+        try {
+          type Corrida = { status: string; return_message: string | null }
+          let corrida: Corrida | undefined
+          // Espera la primera corrida terminada (bien o mal): si falló, no seguimos esperando.
+          await expect
+            .poll(
+              async () => {
+                const terminadas = await c.query<Corrida>(
+                  `select status, return_message from cron.job_run_details
+                    where jobid = $1 and status in ('succeeded', 'failed')
+                    order by runid limit 1`,
+                  [jobid],
+                )
+                corrida = terminadas.rows[0]
+                return corrida?.status ?? 'pendiente'
+              },
+              { timeout: 30_000, interval: 500 },
+            )
+            .toBeOneOf(['succeeded', 'failed'])
+          expect(corrida?.status, `pg_cron: ${corrida?.return_message}`).toBe('succeeded')
+
+          expect(await estaCerrada(MIERCOLES_2030, 'almuerzo')).toBe(true)
+          expect(await leerSelecciones(MIERCOLES_2030, 'almuerzo')).toEqual([
+            { usuario_id: ids.residente, estado: 'si', nota: null, origen: 'plan' },
+          ])
+        } finally {
+          await c.query("select cron.unschedule('prueba-cierre-ci')")
+          // Una corrida ya lanzada podría volver a cerrar 2030 después de la limpieza del afterEach:
+          // esperamos a que no quede ninguna en curso ni recién iniciada.
+          await expect
+            .poll(
+              async () => {
+                const estado = await c.query<{ en_curso: number; reciente: boolean }>(
+                  `select (count(*) filter (where status not in ('succeeded', 'failed')))::int as en_curso,
+                          coalesce(max(start_time) > now() - interval '3 seconds', false) as reciente
+                     from cron.job_run_details
+                    where jobid = $1`,
+                  [jobid],
+                )
+                return estado.rows[0]
+              },
+              { timeout: 30_000, interval: 500 },
+            )
+            .toEqual({ en_curso: 0, reciente: false })
+          await c.query('delete from cron.job_run_details where jobid = $1', [jobid])
+        }
+      })
+    },
+    120_000,
+  )
 
   it('solo cierra comidas vencidas desde 7 días antes', async () => {
     await llamarCierre(MEDIODIA_2030)
