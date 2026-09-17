@@ -33,7 +33,7 @@ Este documento define cómo pasar el prototipo a una aplicación en producción 
 
 **Piezas:**
 
-- **Next.js + TypeScript en Vercel.** Server Components para leer, Server Actions para modificar. Despliegue de `master` desde GitHub Actions (§10).
+- **Next.js + TypeScript en Vercel.** Server Components para leer, Server Actions para modificar. Despliegue de `master` con la integración de Git de Vercel (§10 y adaptaciones del índice de planes §5).
 - **Supabase:**
   - Postgres con Row Level Security (RLS) como barrera real de permisos.
   - Auth (correo y contraseña) con sesión en cookies vía `@supabase/ssr`.
@@ -380,6 +380,8 @@ La Server Action traduce `MOL01` a un mensaje específico ("El almuerzo ya cerr�
 
 ## 10. Entornos y despliegue
 
+> **Adaptación vigente (2026-09-16):** Vercel despliega por su integración con Git (región `pdx1`); la Action solo aplica migraciones cuando haya secretos, y mientras tanto se usan `npm run db:aplicar` (Session pooler) y los tipos generados por CI. Detalle en `docs/superpowers/plans/2026-09-16-00-indice.md` §5. Donde esta sección menciona Vercel CLI o `vercel.json` con despliegues por Git desactivados, manda la adaptación.
+
 | Entorno | Rama | Supabase | Vercel |
 |---|---|---|---|
 | Desarrollo | cualquiera | el proyecto único (producción), vía `.env.local` | `next dev` en cada computadora |
@@ -401,7 +403,7 @@ La Server Action traduce `MOL01` a un mensaje específico ("El almuerzo ya cerr�
   2. **PR de funcionalidad:** empieza regenerando los tipos (`npm run db:tipos`, que lee el esquema del proyecto) y construye las pantallas contra la base ya actualizada.
 - **Orden de despliegue:** migraciones primero, código después. Vercel no despliega por Git (`vercel.json`: `"git": { "deploymentEnabled": false }`). Al hacer push a `master`, la GitHub Action ejecuta en orden:
   1. `supabase link --project-ref $SUPABASE_PROJECT_REF`;
-  2. `supabase config push --yes` (ajustes de Auth desde `config.toml`). `enable_signup = false` debe quedar explícito en `[auth]` y en `[auth.email]`, porque la plantilla de `supabase init` trae `true`;
+  2. `supabase config push --yes` (ajustes de Auth desde `config.toml`). `[auth] enable_signup = false` bloquea el registro público; `[auth.email] enable_signup` debe quedar en `true`, porque en la CLI 2.117 esa clave activa el proveedor de correo y en `false` impide iniciar sesión;
   3. `supabase db push`;
   4. `vercel pull --yes --environment=production` → `vercel build --prod` → `vercel deploy --prebuilt --prod`, con el token del dueño.
 - **Errores de build y despliegue:** quedan en el log de la GitHub Action, visible para ambos colaboradores.
