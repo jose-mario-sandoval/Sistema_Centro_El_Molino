@@ -1,6 +1,7 @@
 import { crearClienteScript, exigirConfirmacion } from './cliente-script'
 import { sembrarCalendario } from './demo/calendario'
 import { sembrarComidas } from './demo/comidas'
+import { sembrarMensajes } from './demo/mensajes'
 import { DOMINIO_DEMO, type Sembrador } from './demo/tipos'
 import { asegurarUsuariosDemo } from './demo/usuarios'
 
@@ -8,6 +9,7 @@ import { asegurarUsuariosDemo } from './demo/usuarios'
 const SEMBRADORES: { nombre: string; sembrar: Sembrador }[] = [
   { nombre: 'comidas', sembrar: sembrarComidas },
   { nombre: 'calendario', sembrar: sembrarCalendario },
+  { nombre: 'mensajes', sembrar: sembrarMensajes },
 ]
 
 async function main() {
