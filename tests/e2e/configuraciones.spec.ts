@@ -9,6 +9,8 @@ import {
 } from '../soporte/usuarios-prueba'
 
 const CORREO_CUENTA_NUEVA = 'cuenta-nueva@prueba.test'
+const CORREO_DESECHABLE = 'correo-original@prueba.test'
+const CORREO_DESECHABLE_NUEVO = 'correo-cambiado@prueba.test'
 const FORMATO_TEMPORAL = /^[a-hjkmnp-z2-9]{4}-[a-hjkmnp-z2-9]{4}-[a-hjkmnp-z2-9]{4}$/
 
 async function iniciarSesion(page: Page, correo: string, contrasena: string = CONTRASENA_PRUEBA) {
@@ -25,12 +27,46 @@ async function abrirConfiguracionesComo(page: Page, clave: ClaveUsuario) {
   await expect(page.getByRole('heading', { name: 'Configuraciones' })).toBeVisible()
 }
 
-async function borrarCuentaNueva() {
+/** Borra las cuentas con esos correos: por perfil y también usuarios de Auth sin perfil (pruebas cortadas a mitad). */
+async function borrarCuentas(correos: string[]) {
   const admin = clienteAdminPrueba()
-  const { data } = await admin.from('perfiles').select('id').eq('correo', CORREO_CUENTA_NUEVA).maybeSingle()
-  if (!data) return
-  const { error } = await admin.auth.admin.deleteUser(data.id)
+  const ids = new Set<string>()
+
+  const { data: perfiles, error } = await admin.from('perfiles').select('id').in('correo', correos)
   if (error) throw error
+  for (const { id } of perfiles) ids.add(id)
+
+  const { data: usuarios, error: errorUsuarios } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 })
+  if (errorUsuarios) throw errorUsuarios
+  for (const usuario of usuarios.users) {
+    if (usuario.email && correos.includes(usuario.email)) ids.add(usuario.id)
+  }
+
+  // Borrar el usuario de Auth borra su perfil (on delete cascade).
+  for (const id of ids) {
+    const { error: errorBorrado } = await admin.auth.admin.deleteUser(id)
+    if (errorBorrado) throw errorBorrado
+  }
+}
+
+/** Cuenta propia de una sola prueba, lista para entrar (sin cambio de contraseña pendiente). */
+async function crearCuentaDesechable(correo: string) {
+  const admin = clienteAdminPrueba()
+  const { data, error } = await admin.auth.admin.createUser({
+    email: correo,
+    password: CONTRASENA_PRUEBA,
+    email_confirm: true,
+  })
+  if (error) throw error
+  const { error: errorPerfil } = await admin.from('perfiles').insert({
+    id: data.user.id,
+    nombre: 'Cuenta Desechable',
+    siglas: 'CD',
+    correo,
+    rol: 'residente',
+    debe_cambiar_contrasena: false,
+  })
+  if (errorPerfil) throw errorPerfil
 }
 
 async function restaurarHorasLimite() {
@@ -43,7 +79,7 @@ async function restaurarHorasLimite() {
 
 // Corre también si la prueba falla: un reintento de CI empieza limpio.
 test.afterEach(async () => {
-  await borrarCuentaNueva()
+  await borrarCuentas([CORREO_CUENTA_NUEVA, CORREO_DESECHABLE, CORREO_DESECHABLE_NUEVO])
   await restaurarHorasLimite()
   await asegurarUsuariosPrueba()
 })
@@ -62,8 +98,33 @@ test('un residente cambia su nombre y lo ve en la barra lateral', async ({ page 
   await page.getByLabel('Siglas', { exact: true }).fill('rr')
   await page.getByRole('button', { name: 'Guardar cambios' }).click()
   await expect(page.getByText('Cuenta actualizada.')).toBeVisible()
+  // El formulario muestra los valores tal como quedaron guardados.
+  await expect(page.getByLabel('Siglas', { exact: true })).toHaveValue('RR')
   await expect(page.locator('.sidebar')).toContainText('Residente Renombrado')
   await expect(page.locator('.sidebar .avatar')).toHaveText('RR')
+})
+
+test('una persona cambia su propio correo y después entra solo con el nuevo', async ({ page }) => {
+  await crearCuentaDesechable(CORREO_DESECHABLE)
+  await iniciarSesion(page, CORREO_DESECHABLE)
+  await expect(page).toHaveURL(/\/comidas\/semana$/)
+  await page.goto('/configuraciones')
+
+  const correo = page.getByLabel('Correo', { exact: true })
+  await expect(correo).toHaveValue(CORREO_DESECHABLE)
+  await correo.fill('Correo-Cambiado@Prueba.TEST')
+  await page.getByRole('button', { name: 'Guardar cambios' }).click()
+  await expect(page.getByText('Cuenta actualizada.')).toBeVisible()
+  await expect(correo).toHaveValue(CORREO_DESECHABLE_NUEVO)
+
+  await page.getByRole('button', { name: 'Cerrar sesión' }).click()
+  await expect(page).toHaveURL(/\/login$/)
+  await iniciarSesion(page, CORREO_DESECHABLE)
+  await expect(page.getByText('Correo o contraseña incorrectos.')).toBeVisible()
+  await expect(page).toHaveURL(/\/login$/)
+
+  await iniciarSesion(page, CORREO_DESECHABLE_NUEVO)
+  await expect(page).toHaveURL(/\/comidas\/semana$/)
 })
 
 test('cambiar la propia contraseña pide la actual y no cierra la sesión', async ({ page }) => {
@@ -112,6 +173,7 @@ test('el Director crea una cuenta con contraseña temporal y la persona debe cam
   await expect(dialogo.getByRole('status')).toHaveText(`Cuenta creada para Cuenta Nueva (${CORREO_CUENTA_NUEVA}).`)
   await expect(dialogo).toContainText(temporal)
   await dialogo.getByRole('button', { name: 'Listo' }).click()
+  await expect(dialogo).toBeHidden()
 
   const fila = page.getByRole('row', { name: /Cuenta Nueva/ })
   await expect(fila).toContainText('CN')
@@ -123,11 +185,50 @@ test('el Director crea una cuenta con contraseña temporal y la persona debe cam
   await expect(page).toHaveURL(/\/cambiar-contrasena$/)
 })
 
+test('el Director pone una contraseña temporal a una cuenta existente y la persona debe cambiarla', async ({
+  page,
+  context,
+}) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write'])
+  await abrirConfiguracionesComo(page, 'director')
+  await page.getByRole('button', { name: 'Contraseña temporal de Residente Dos' }).click()
+
+  const dialogo = page.getByRole('dialog', { name: 'Contraseña temporal' })
+  const campo = dialogo.getByRole('textbox', { name: 'Contraseña temporal' })
+  await expect(dialogo).toContainText(`Residente Dos (${USUARIOS_PRUEBA.residente2.correo})`)
+  await dialogo.getByRole('button', { name: 'Generar' }).click()
+  await expect(campo).toHaveValue(FORMATO_TEMPORAL)
+  const temporal = await campo.inputValue()
+
+  await dialogo.getByRole('button', { name: 'Guardar contraseña' }).click()
+  await expect(dialogo.getByRole('status')).toHaveText('Contraseña temporal asignada a Residente Dos.')
+  await expect(dialogo).toContainText(temporal)
+
+  // El foco pasa a "Listo" y solo ese botón cierra el paso: Escape no descarta la contraseña.
+  const listo = dialogo.getByRole('button', { name: 'Listo' })
+  await expect(listo).toBeFocused()
+  await page.keyboard.press('Escape')
+  await expect(dialogo).toBeVisible()
+
+  await dialogo.getByRole('button', { name: 'Copiar' }).click()
+  await expect(page.getByText('Contraseña copiada.')).toBeVisible()
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(temporal)
+
+  await listo.click()
+  await expect(dialogo).toBeHidden()
+  await expect(page.getByRole('row', { name: /Residente Dos/ })).toContainText('Cambio de contraseña pendiente')
+
+  await page.getByRole('button', { name: 'Cerrar sesión' }).click()
+  await expect(page).toHaveURL(/\/login$/)
+  await iniciarSesion(page, USUARIOS_PRUEBA.residente2.correo, temporal)
+  await expect(page).toHaveURL(/\/cambiar-contrasena$/)
+})
+
 test('el Director desactiva una cuenta, que ya no puede entrar, y la reactiva', async ({ page, browser }) => {
   await abrirConfiguracionesComo(page, 'director')
   const fila = page.getByRole('row', { name: /Residente Dos/ })
 
-  await fila.getByRole('button', { name: 'Desactivar' }).click()
+  await fila.getByRole('button', { name: 'Desactivar a Residente Dos' }).click()
   const dialogo = page.getByRole('dialog', { name: 'Desactivar cuenta' })
   await expect(dialogo).toContainText('Residente Dos')
   await dialogo.getByRole('button', { name: 'Desactivar' }).click()
@@ -139,7 +240,7 @@ test('el Director desactiva una cuenta, que ya no puede entrar, y la reactiva', 
   await iniciarSesion(otra, USUARIOS_PRUEBA.residente2.correo)
   await expect(otra.getByText('Tu cuenta está desactivada. Hablá con el Director.')).toBeVisible()
 
-  await fila.getByRole('button', { name: 'Reactivar' }).click()
+  await fila.getByRole('button', { name: 'Reactivar a Residente Dos' }).click()
   await expect(fila.getByText('Activa', { exact: true })).toBeVisible()
 
   await iniciarSesion(otra, USUARIOS_PRUEBA.residente2.correo)
@@ -155,12 +256,40 @@ test('el Director cambia el rol de otra cuenta pero no el propio', async ({ page
   await expect(page.getByLabel('Rol', { exact: true })).toBeDisabled()
   const propia = page.getByRole('row', { name: /Directora Prueba/ })
   await expect(propia.getByRole('combobox', { name: 'Rol de Directora Prueba' })).toBeDisabled()
-  await expect(propia.getByRole('button', { name: 'Desactivar' })).toHaveCount(0)
+  await expect(propia.getByRole('button', { name: 'Desactivar a Directora Prueba' })).toHaveCount(0)
 
   await page.getByRole('combobox', { name: 'Rol de Residente Dos' }).selectOption('administracion')
   await expect(page.getByText('Rol actualizado para Residente Dos.')).toBeVisible()
   await page.reload()
   await expect(page.getByRole('combobox', { name: 'Rol de Residente Dos' })).toHaveValue('administracion')
+})
+
+test('dar o quitar el rol Director pide confirmación', async ({ page }) => {
+  await abrirConfiguracionesComo(page, 'director')
+  const rol = page.getByRole('combobox', { name: 'Rol de Residente Dos' })
+  const dialogo = page.getByRole('dialog', { name: 'Cambiar rol' })
+
+  // Cancelar deja el rol como estaba.
+  await rol.selectOption('director')
+  await expect(dialogo).toContainText('¿Dar el rol Director a Residente Dos?')
+  await expect(rol).toHaveValue('residente')
+  await dialogo.getByRole('button', { name: 'Cancelar' }).click()
+  await expect(dialogo).toBeHidden()
+  await expect(rol).toHaveValue('residente')
+
+  await rol.selectOption('director')
+  await dialogo.getByRole('button', { name: 'Dar rol Director' }).click()
+  await expect(dialogo).toBeHidden()
+  await expect(page.getByText('Rol actualizado para Residente Dos.')).toBeVisible()
+  await expect(rol).toHaveValue('director')
+
+  await rol.selectOption('residente')
+  await expect(dialogo).toContainText('¿Quitar el rol Director a Residente Dos? Pasará a tener el rol Residente.')
+  await dialogo.getByRole('button', { name: 'Quitar rol Director' }).click()
+  await expect(dialogo).toBeHidden()
+  await expect(rol).toHaveValue('residente')
+  await page.reload()
+  await expect(page.getByRole('combobox', { name: 'Rol de Residente Dos' })).toHaveValue('residente')
 })
 
 test('el Director cambia la hora límite del almuerzo', async ({ page }) => {
