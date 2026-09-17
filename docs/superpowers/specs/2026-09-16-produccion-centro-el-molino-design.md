@@ -20,7 +20,7 @@ Este documento define cómo pasar el prototipo a una aplicación en producción 
 | Valor por defecto | Si la persona no cambia nada, aplica su **Plan semanal** |
 | Hora límite | **Una por comida**, configurable por el Director (hora + mismo día o día anterior) |
 | Ventana editable | Semana **actual y siguiente**, mientras la comida no haya cerrado |
-| Zona horaria | `America/El_Salvador` (UTC-6, sin horario de verano), constante configurable |
+| Zona horaria | `America/El_Salvador` (UTC-6, sin horario de verano), definida una vez en SQL y una vez en TS, con prueba que verifica que coinciden |
 | Calendario | **Solo el Director** crea, edita y elimina eventos; los demás solo ven |
 | Recuperar contraseña | La cambia el Director (contraseña temporal); **la app no envía correos** |
 | Eliminar cuenta | Se reemplaza por **desactivar / reactivar** |
@@ -43,8 +43,11 @@ Este documento define cómo pasar el prototipo a una aplicación en producción 
 **Flujo de datos:**
 
 - **Lecturas:** Server Components con el cliente Supabase de servidor usando la sesión del usuario; RLS filtra según el rol.
-- **Escrituras:** Server Actions que validan la entrada con `zod` y escriben con la sesión del usuario (RLS aplica).
-- **Operaciones privilegiadas** (crear cuenta, cambiar correo, poner contraseña, cambiar rol, desactivar/reactivar): Server Actions que primero verifican que quien llama es Director activo y luego usan el cliente admin (llave secreta de Supabase). La llave secreta **solo existe en el servidor**.
+- **Escrituras con la sesión del usuario (RLS aplica):** Server Actions que validan la entrada con `zod`. Las selecciones de comida se guardan llamando a funciones SQL `guardar_seleccion` y `volver_a_plan` (§6.4).
+- **Escrituras con el cliente admin** (llave secreta de Supabase, que **solo existe en el servidor**). La Server Action primero verifica `auth.uid()` y las reglas que correspondan:
+  - *Solo Director activo:* crear cuenta, poner contraseña a otra cuenta, cambiar rol de otra cuenta, desactivar/reactivar.
+  - *La propia cuenta:* editar nombre, siglas y correo; cambiar contraseña; cambiar preferencias `avisar_*`; limpiar `debe_cambiar_contrasena`.
+  - *Servidor sin usuario:* leer destinatarios y `suscripciones_push` para enviar notificaciones; registrar y borrar suscripciones reasignando el `endpoint` (§8.2).
 - **Esquema:** migraciones SQL versionadas en `supabase/migrations/`. Nadie cambia tablas a mano en staging ni en producción.
 - **Tipos:** generados desde la base con `supabase gen types` y guardados en el repo.
 
@@ -131,8 +134,9 @@ Valores iniciales: desayuno `-1, 21:00`; almuerzo `0, 10:00`; cena `0, 16:00`.
 ### 3.3 Reglas de integridad
 
 - `nota` obligatoria (no vacía) cuando `estado` es `temprano`, `tarde` o `enfermo`, en `plan_semanal` y `selecciones_comida`. Para `temprano` y `tarde` la nota es una hora `HH:MM` (validada en la app; la UI usa selector de hora). Para los demás estados `nota` se guarda nula.
-- Solo usuarios con rol `director` o `residente` pueden tener filas en `plan_semanal` y `selecciones_comida`.
-- Siempre debe existir **al menos un Director activo**: un trigger sobre `perfiles` rechaza cualquier cambio de `rol` o `activo` que deje cero Directores activos.
+- Solo usuarios con rol `director` o `residente` pueden crear o modificar filas en `plan_semanal` y `selecciones_comida`. Si alguien pasa a `administracion`, sus filas se conservan pero dejan de mostrarse (las vistas listan solo Directores/Residentes activos); si vuelve a un rol con comidas, reaparecen.
+- Siempre debe existir **al menos un Director activo**: un trigger sobre `perfiles` toma `pg_advisory_xact_lock` y rechaza cualquier cambio de `rol` o `activo` que deje cero Directores activos. El bloqueo evita que dos Directores se degraden mutuamente al mismo tiempo.
+- La zona horaria vive en la función SQL `zona_horaria_app()` (devuelve `'America/El_Salvador'`) y en la constante `ZONA_HORARIA` de `lib/fechas/`; una prueba de integración verifica que coinciden.
 
 ---
 
@@ -142,14 +146,15 @@ Valores iniciales: desayuno `-1, 21:00`; almuerzo `0, 10:00`; cena `0, 16:00`.
 - **Crear cuenta (Director):** el servidor crea el usuario en Auth (ya confirmado) y su fila en `perfiles`. Si falla la creación del perfil, borra el usuario de Auth.
 - **Primer Director de cada entorno:** `npm run crear-director` (usa la llave secreta; se ejecuta una vez).
 - **Middleware/proxy de Next.js:** refresca la sesión y redirige a `/login` si no hay sesión o si el perfil está inactivo; redirige a `/cambiar-contrasena` si `debe_cambiar_contrasena`.
-- **Desactivar (Director):** `activo = false` y bloqueo (`ban`) del usuario en Supabase Auth, lo que invalida la renovación de sesión en dispositivos ya abiertos. Reactivar revierte ambas cosas. Un usuario desactivado no aparece en vistas de comidas, no recibe avisos y no puede iniciar sesión; sus mensajes se conservan.
+- **Desactivar (Director):** primero `activo = false` en `perfiles` (el trigger de §3.3 puede rechazarlo); después bloqueo (`ban`) del usuario en Supabase Auth, lo que invalida la renovación de sesión en dispositivos ya abiertos. Si el `ban` falla, se revierte `activo`. Reactivar revierte ambas cosas en el mismo orden. Un usuario desactivado no aparece en vistas de comidas, no recibe avisos y no puede iniciar sesión; sus mensajes se conservan.
 - **Contraseñas:**
   - Mínimo 8 caracteres.
-  - Cambio propio en Configuraciones: pide la contraseña actual y la verifica antes de actualizar.
+  - Cambio propio en Configuraciones: pide la contraseña actual y la verifica con `signInWithPassword` usando un cliente Supabase **sin persistencia de sesión** (no toca las cookies de la sesión abierta) antes de actualizar.
   - El Director puede poner una contraseña a otra cuenta; queda `debe_cambiar_contrasena = true` y en el siguiente ingreso la persona debe elegir una nueva.
-- **Cambiar correo:** por el servidor con el cliente admin, sin confirmación por correo; se valida formato y unicidad, y se actualiza también `perfiles.correo`.
+- **Perfil propio:** cada usuario edita **su propio** nombre, siglas y correo, como en el README. El Director **no** edita nombre, siglas ni correo de otras cuentas; sobre otras cuentas solo cambia rol, contraseña y estado activo.
+- **Cambiar correo:** por el servidor con el cliente admin, sin confirmación por correo; se valida formato y unicidad, y se actualiza también `perfiles.correo`. El nuevo correo es el que se usa para iniciar sesión.
 - **Roles:** solo el Director cambia roles, nunca el propio. Nadie puede desactivarse a sí mismo.
-- **Perfil propio:** nombre y siglas los edita cada usuario (por el servidor).
+- **Rutas públicas del proxy** (no redirigen a `/login`): `/login`, `/api/cron/*` (se protege con `CRON_SECRET`), `/sw.js`, `/manifest.webmanifest`, íconos y la página "Sin conexión".
 
 ---
 
@@ -180,9 +185,9 @@ Funciones auxiliares `security definer`: `mi_rol()` y `soy_activo()` leen el per
 
 | Tabla | SELECT | INSERT / UPDATE / DELETE |
 |---|---|---|
-| `perfiles` | Todos los activos | Sin políticas: solo el servidor con cliente admin |
+| `perfiles` | Cualquier usuario activo ve **todas** las filas, incluidas las inactivas (para mostrar autores de mensajes antiguos y listar cuentas a reactivar). Las vistas de comidas y los destinatarios push filtran `activo = true` explícitamente | Sin políticas: solo el servidor con cliente admin |
 | `plan_semanal` | Propio; `administracion` ve todo | Propio, si rol es `director` o `residente` |
-| `selecciones_comida` | Propio; `administracion` ve todo | Propio, si rol es `director`/`residente` **y** `comida_editable(fecha, comida, now())` |
+| `selecciones_comida` | Propio; `administracion` ve todo | Propio, si rol es `director`/`residente` **y** `comida_editable(fecha, comida, now())`. Las escrituras de la app pasan por `guardar_seleccion` / `volver_a_plan` (§6.4) |
 | `horas_limite` | Todos | UPDATE solo `director` |
 | `comidas_cerradas` | Todos | Nadie (solo tareas programadas) |
 | `mensajes` | Todos | INSERT con `autor_id = auth.uid()`; DELETE si es autor o `director` |
@@ -217,23 +222,31 @@ Funciones auxiliares `security definer`: `mi_rol()` y `soy_activo()` leen el per
 Para una persona, fecha y comida:
 
 1. Fila en `selecciones_comida` si existe.
-2. Si no, fila de `plan_semanal` del día de la semana correspondiente.
+2. Si no, y la comida **no** está en `comidas_cerradas`, fila de `plan_semanal` del día de la semana correspondiente.
 3. Si no, **"Sin definir"**.
+
+Una comida cerrada sin fila queda "Sin definir" para siempre, aunque la persona cree su plan después; así el historial no cambia. Por eso `valorEfectivo` recibe si la comida está cerrada.
 
 ### 6.3 Congelado al cerrar
 
-La tarea `cerrar_comidas_vencidas()` (cada 5 min) hace, en una transacción por `(fecha, comida)` vencida y no cerrada:
+`cerrar_comidas_vencidas()` es un `PROCEDURE` (se invoca con `CALL` desde `pg_cron` cada 5 min) que recorre cada `(fecha, comida)` vencida y no cerrada, con `fecha` desde hace 7 días hasta el domingo de la semana siguiente. Por cada una, y con `COMMIT` al final de cada iteración:
 
-- inserta en `selecciones_comida` una fila con `origen = plan` para cada Director/Residente activo que no tenga fila y sí tenga plan para ese día y comida;
+- inserta en `selecciones_comida` una fila con `origen = plan` para cada Director/Residente activo que no tenga fila y sí tenga plan para ese día y comida, con `ON CONFLICT DO NOTHING` (por si alguien guardó justo al cierre);
 - inserta la fila en `comidas_cerradas`.
 
-Solo considera comidas de la ventana de ayer hasta la semana siguiente, para no procesar historia. Si la tarea falla un tiempo, la edición igual queda bloqueada por hora y Administración ve el valor efectivo calculado desde el plan.
+Si la tarea falla un tiempo, la edición igual queda bloqueada por hora y Administración ve el valor efectivo calculado desde el plan. Si falla más de 7 días, las comidas de esa brecha quedan sin cerrar y siguen mostrando el plan; se acepta como caso límite.
 
 ### 6.4 Guardar una selección
 
-- Si la selección elegida es igual al valor del plan (estado y nota), **se borra la excepción** en lugar de guardarla.
-- **"Volver a mi plan"** borra la fila con `origen = persona`.
-- Si la base rechaza por comida cerrada, la acción devuelve un error específico ("El almuerzo ya cerró a las 10:00") y la vista se refresca.
+En RLS, un `UPDATE` o `DELETE` sobre filas no permitidas afecta 0 filas **sin dar error**, y un `INSERT` rechazado da un error genérico (42501). Para poder decir por qué se rechazó, las escrituras de la app pasan por dos funciones SQL `security invoker` (RLS sigue aplicando):
+
+- **`guardar_seleccion(fecha, comida, estado, nota)`**
+  1. Verifica rol y `comida_editable(fecha, comida, now())`; si la comida no está abierta, lanza un error con código propio (`MOL01`, comida cerrada o fuera de ventana).
+  2. Valida la nota según el estado.
+  3. Si estado y nota son iguales al plan, borra la excepción; si no, hace upsert con `origen = persona`.
+- **`volver_a_plan(fecha, comida)`:** mismas verificaciones; borra la fila con `origen = persona`.
+
+La Server Action traduce `MOL01` a un mensaje específico ("El almuerzo ya cerró a las 10:00") y refresca la vista.
 
 ### 6.5 Vistas
 
@@ -261,7 +274,7 @@ Solo considera comidas de la ventana de ayer hasta la semana siguiente, para no 
   - `cierreDe(fecha, comida, horasLimite)`
   - `enVentanaEditable(fecha, ahora)`
   - `estaAbierta(fecha, comida, ahora, horasLimite, cerradas)`
-  - `valorEfectivo(seleccion, plan)`
+  - `valorEfectivo(seleccion, plan, cerrada)`
   - `resumenComida(valores)`
 - **Postgres:** `comida_editable(fecha, comida, ahora)` es la que bloquea escrituras.
 - **Paridad:** una tabla de casos compartida (JSON en `tests/fixtures/`) se ejecuta contra ambas implementaciones (ver §9).
@@ -275,9 +288,10 @@ Solo considera comidas de la ventana de ayer hasta la semana siguiente, para no 
 - **Acciones:** publicar, responder, reaccionar (solo publicaciones) y borrar (propio; Director cualquiera, con confirmación).
 - **Registro de moderación:** apartado visible solo para el Director, dentro de Mensajes.
 - **Tiempo real:**
-  - Suscripción a Postgres Changes de `mensajes` y `reacciones` mientras la página está abierta.
-  - INSERT: se agrega el elemento.
-  - DELETE: se quita por `id`.
+  - Una migración agrega `mensajes` y `reacciones` a la publicación `supabase_realtime`.
+  - Suscripción a Postgres Changes de ambas tablas mientras la página está abierta.
+  - INSERT: se agrega el elemento. El evento no trae nombre ni siglas del autor, así que la página carga los perfiles al entrar y los usa como caché; si llega un autor desconocido, recarga perfiles.
+  - DELETE: el evento trae solo la clave primaria; se quita el mensaje por `id` y la reacción por `(mensaje_id, usuario_id)`.
   - Si se pierde la conexión: indicador "Reconectando…"; al reconectar, se recarga la lista completa.
 - **Reacciones:** actualización optimista con reversión si el servidor rechaza.
 
@@ -297,7 +311,8 @@ Solo considera comidas de la ventana de ayer hasta la semana siguiente, para no 
 ### 8.2 Web Push
 
 - **Estándar:** Web Push con llaves VAPID; envío desde el servidor con `web-push`.
-- **Activación por dispositivo:** en Configuraciones → "Notificaciones en este dispositivo". Pide permiso con un gesto del usuario, guarda la suscripción en `suscripciones_push` y permite darla de baja.
+- **Activación por dispositivo:** en Configuraciones → "Notificaciones en este dispositivo". Pide permiso con un gesto del usuario, envía la suscripción a `/api/push` y permite darla de baja.
+- **Dispositivos compartidos:** `/api/push` guarda la suscripción con el cliente admin haciendo upsert por `endpoint` y asignándola al usuario actual (si el endpoint era de otra persona, pasa a ser de quien inició sesión). Al cerrar sesión, la app borra la suscripción de ese dispositivo antes de salir.
 - **iPhone:** si detecta iOS sin la app instalada, muestra instrucciones para "Agregar a pantalla de inicio" (requiere iOS 16.4+).
 - **Preferencias:** interruptores `avisar_hora_limite` y `avisar_mensajes` en el perfil.
 - **Destinatarios** (usuarios activos con la preferencia correspondiente):
@@ -314,11 +329,11 @@ Solo considera comidas de la ventana de ayer hasta la semana siguiente, para no 
 ### 8.3 Tareas programadas (`pg_cron`, cada 5 minutos)
 
 1. **`cerrar_comidas_vencidas()`**: función SQL ejecutada directamente en Postgres (§6.3).
-2. **Recordatorios:** `pg_net` hace POST a `<URL de la app>/api/cron/recordatorios` con cabecera `Authorization: Bearer <CRON_SECRET>`. La URL y el secreto se guardan en Supabase Vault, nunca en migraciones. La ruta:
+2. **Recordatorios:** `pg_net` hace POST a `<URL de la app>/api/cron/recordatorios` con cabecera `Authorization: Bearer <CRON_SECRET>` y `timeout_milliseconds` de 10000. La URL y el secreto se guardan en Supabase Vault, nunca en migraciones. En staging, la URL es la dirección fija de la rama (`<proyecto>-git-develop-<cuenta>.vercel.app`), no la de un despliegue puntual. La ruta:
    - rechaza sin secreto válido;
    - busca `(fecha, comida)` cuyo cierre ocurre dentro de los próximos 60 minutos y no están en `avisos_enviados`;
    - inserta primero en `avisos_enviados` (si la inserción choca, otra corrida ya lo tomó);
-   - envía los avisos.
+   - responde `202` de inmediato y envía los avisos con `after()`.
 
 ---
 
@@ -339,8 +354,10 @@ Solo considera comidas de la ventana de ayer hasta la semana siguiente, para no 
   - Selección de destinatarios push.
 - **Integración (Vitest + Supabase local):**
   - Iniciar sesión como cada rol del seed y verificar operaciones permitidas y prohibidas contra la base real (RLS).
-  - `comida_editable` ejecutada con la misma tabla de casos que las unitarias.
-  - Trigger de moderación, regla de Director activo mínimo y `cerrar_comidas_vencidas`.
+  - `comida_editable` ejecutada con la misma tabla de casos que las unitarias (recibe `ahora` como parámetro).
+  - `guardar_seleccion` / `volver_a_plan`, incluido el error `MOL01`.
+  - Trigger de moderación, regla de Director activo mínimo, `cerrar_comidas_vencidas` y coincidencia de `zona_horaria_app()` con `ZONA_HORARIA`.
+  - **Independencia del reloj:** RLS y `pg_cron` usan la hora real. Las pruebas que escriben selecciones preparan sus propias horas límite y usan comidas que siempre están abiertas (por ejemplo, el almuerzo del miércoles de la semana siguiente con cierre el mismo día); los casos de cierre se prueban llamando a las funciones con `ahora` explícito.
 - **Punta a punta (Playwright):**
   - Login por rol y cambio obligatorio de contraseña temporal.
   - Residente cambia una comida y Administración lo ve en Semana.
@@ -358,7 +375,11 @@ Solo considera comidas de la ventana de ayer hasta la semana siguiente, para no 
 | Staging | `develop` | proyecto `molino-staging` | Preview de la rama `develop` con variables de staging |
 | Producción | `master` | proyecto `molino-produccion` | Production |
 
-- **Migraciones:** al hacer push a `develop` o `master`, una GitHub Action ejecuta `supabase db push` contra el proyecto correspondiente. Vercel despliega en paralelo; las migraciones deben ser compatibles con la versión anterior de la app durante el despliegue (agregar antes de quitar).
+- **Orden de despliegue:** migraciones primero, código después. Los despliegues automáticos de Vercel por Git se desactivan (`vercel.json`: `"git": { "deploymentEnabled": false }`), así tampoco se generan previews de ramas `feat/*` sin variables de entorno. Al hacer push a `develop` o `master`, una GitHub Action:
+  1. ejecuta `supabase config push` (ajustes de Auth desde `config.toml`, con bloques `[remotes.staging]` y `[remotes.production]` donde difieran);
+  2. ejecuta `supabase db push` contra el proyecto correspondiente;
+  3. llama al *Deploy Hook* de Vercel de esa rama.
+- **Compatibilidad:** durante el despliegue la app anterior corre unos minutos contra el esquema nuevo, así que las migraciones deben ser compatibles hacia atrás (agregar antes de quitar; quitar columnas o funciones en un despliegue posterior).
 - **Datos:** no se migran datos del prototipo. Cada entorno arranca vacío más `crear-director`; staging puede cargar datos de ejemplo con un script aparte.
 - **Variables de entorno** (por entorno):
   - `NEXT_PUBLIC_SUPABASE_URL`
@@ -368,20 +389,32 @@ Solo considera comidas de la ventana de ayer hasta la semana siguiente, para no 
   - `VAPID_PRIVATE_KEY`
   - `VAPID_SUBJECT`
   - `CRON_SECRET`
-  - `APP_TIMEZONE` (por defecto `America/El_Salvador`)
-- **Repositorio público:** ningún secreto en commits; `.env*.local` en `.gitignore`.
+- **Repositorio público:** ningún secreto en commits; `.env*.local` en `.gitignore`. El repo debe seguir siendo público: en Vercel Hobby, un repo privado bloquea los despliegues de commits de colaboradores.
+- **Plan Free de Supabase:** un proyecto sin actividad durante 7 días se pausa; staging es el candidato y se reactiva desde el panel.
 
 ---
 
 ## 11. Trabajo en paralelo
 
 - **Ramas:** `master` (producción) y `develop` (staging), protegidas. Trabajo en ramas `feat/...` desde `develop`; PR con revisión del otro colaborador y CI en verde.
+- **Planes de implementación:** uno para la Fase 0 y uno por cada pista posterior.
 - **Fase 0, base común (un solo PR):**
-  - proyecto Next.js, clientes Supabase y migración inicial de perfiles y roles;
-  - login, cambio de contraseña obligatorio y layout con navegación por rol;
-  - CI y script `crear-director`;
+  - proyecto Next.js, clientes Supabase, `.gitattributes` (finales de línea LF) y `vercel.json`;
+  - migración inicial: todos los enums, `perfiles`, `horas_limite` con valores iniciales, `mi_rol()`, `soy_activo()`, `zona_horaria_app()` y el trigger de Director activo mínimo;
+  - `lib/fechas/` (zona horaria, semana lunes–domingo) y `lib/comidas/` con `cierreDe`, `enVentanaEditable`, `estaAbierta` y `valorEfectivo`, con sus pruebas;
+  - login, cambio de contraseña obligatorio, proxy con rutas públicas y layout con navegación por rol;
+  - CI, workflow de despliegue y script `crear-director`;
   - mover el prototipo a `docs/prototipo/`.
-- **Después, en paralelo:** Comidas · Mensajes · Calendario · Configuraciones y gestión de usuarios · PWA y push. Cada sección vive en su carpeta de `app/(app)/` y `lib/`.
+- **Después, en paralelo:**
+
+| Pista | Contenido | Depende de |
+|---|---|---|
+| Comidas | tablas de comidas, `comida_editable`, `guardar_seleccion`, `volver_a_plan`, `cerrar_comidas_vencidas`, vistas de Plan y Semana | Fase 0 |
+| Mensajes | tablas, trigger de moderación, realtime, feed y registro | Fase 0 |
+| Calendario | tabla `eventos` y vistas | Fase 0 |
+| Configuraciones | perfil propio, gestión de usuarios, pantalla de horas límite (edita `horas_limite`, creada en Fase 0) | Fase 0 |
+| PWA y push | manifest, service worker, suscripciones, preferencias, recordatorios y avisos de mensajes | Fase 0 para PWA y suscripciones; Comidas para recordatorios; Mensajes para avisos de mensajes |
+
 - **Migraciones:** siempre con `supabase migration new <nombre>`; rebase sobre `develop` antes del merge para que el orden de timestamps sea correcto.
 - **README:** se actualiza al cerrar la fase 0 con las reglas de este documento.
 
@@ -417,11 +450,11 @@ Las cuentas pertenecen al dueño del repo (`jose-mario-sandoval`), no a colabora
 ### A.1 Supabase
 
 1. Crear una organización "Centro El Molino" (plan Free).
-2. Invitar como miembros a los dos colaboradores (rol *Developer* o *Administrator*).
+2. Invitar como miembros a los dos colaboradores con rol *Developer* (no *Owner* ni *Administrator*, para no consumir su propia cuota de proyectos gratis).
 3. Crear dos proyectos en la región `East US (North Virginia)`: `molino-staging` y `molino-produccion`. Guardar la contraseña de base de datos de cada uno en un gestor de contraseñas.
 4. Generar un *Personal Access Token* (Account → Access Tokens) para CI.
 
-Los ajustes de Auth, las extensiones y el esquema se aplican desde el repo (`config.toml` y migraciones). Una vez aplicado, el dueño verifica en cada proyecto que en *Authentication → Sign In / Providers* esté desactivado "Allow new users to sign up".
+Los ajustes de Auth (`supabase config push`), las extensiones y el esquema (`supabase db push`) los aplica la GitHub Action desde el repo. Después del primer despliegue, el dueño verifica en cada proyecto que en *Authentication → Sign In / Providers* esté desactivado "Allow new users to sign up".
 
 ### A.2 GitHub
 
@@ -443,7 +476,8 @@ Los ajustes de Auth, las extensiones y el esquema se aplican desde el repo (`con
    - **Preview**, limitadas a la rama `develop`: valores de `molino-staging`.
    - Generar llaves VAPID distintas por entorno con `npx web-push generate-vapid-keys` y un `CRON_SECRET` distinto por entorno con `openssl rand -hex 32`.
 3. Desactivar *Vercel Authentication* en Deployment Protection, para que staging se pueda abrir desde celulares y lo pueda llamar `pg_cron`.
-4. Guardar en Supabase Vault de cada proyecto la URL de la app y su `CRON_SECRET` (snippet SQL provisto en el repo).
+4. Crear dos *Deploy Hooks* (Settings → Git → Deploy Hooks): uno para `master` y otro para `develop`. Guardar sus URLs como secretos de GitHub `VERCEL_DEPLOY_HOOK_PRODUCTION` y `VERCEL_DEPLOY_HOOK_STAGING`.
+5. Guardar en Supabase Vault de cada proyecto la URL de la app (en staging, la dirección fija de la rama `develop`) y su `CRON_SECRET` (snippet SQL provisto en el repo).
 
 **Limitaciones del plan Hobby:**
 - Es para uso no comercial; confirmar que aplica al centro, o pasar a Pro (20 USD/mes).
