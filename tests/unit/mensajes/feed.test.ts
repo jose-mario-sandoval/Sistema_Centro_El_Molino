@@ -9,6 +9,7 @@ import {
   fijarReaccion,
   tieneReaccion,
   type MensajeFila,
+  type PublicacionFila,
 } from '@/lib/mensajes/feed'
 
 /** Marca como la devuelve PostgREST, en el minuto indicado. */
@@ -18,47 +19,58 @@ function fila(id: string, creadoEn: string, padreId: string | null = null, autor
   return { id, autor_id: autorId, padre_id: padreId, texto: `texto ${id}`, creado_en: creadoEn }
 }
 
+/** Publicación como la devuelve la consulta del feed (respuestas y reacciones embebidas). */
+function pub(
+  id: string,
+  creadoEn: string,
+  { respuestas = [], reacciones = [], autorId = 'u1' }: { respuestas?: MensajeFila[]; reacciones?: string[]; autorId?: string } = {},
+): PublicacionFila {
+  return { ...fila(id, creadoEn, null, autorId), respuestas, reacciones: reacciones.map((usuario_id) => ({ usuario_id })) }
+}
+
 describe('armarFeed', () => {
   it('ordena publicaciones de más nueva a más antigua y respuestas en orden cronológico', () => {
-    const feed = armarFeed([fila('p1', T(1)), fila('r2', T(5), 'p1'), fila('p2', T(3)), fila('r1', T(2), 'p1')], [])
+    const feed = armarFeed([
+      pub('p1', T(1), { respuestas: [fila('r2', T(5), 'p1'), fila('r1', T(2), 'p1')] }),
+      pub('p2', T(3)),
+    ])
     expect(feed.map((p) => p.id)).toEqual(['p2', 'p1'])
     expect(feed[1].respuestas.map((r) => r.id)).toEqual(['r1', 'r2'])
     expect(feed[0].respuestas).toEqual([])
   })
 
   it('convierte las filas al formato del feed', () => {
-    const [p] = armarFeed([fila('p1', T(1), null, 'autor')], [])
-    expect(p).toEqual({ id: 'p1', autorId: 'autor', texto: 'texto p1', creadoEn: T(1), reacciones: [], respuestas: [] })
+    const [p] = armarFeed([
+      pub('p1', T(1), { autorId: 'autor', respuestas: [fila('r1', T(2), 'p1', 'otro')], reacciones: ['u2', 'u3'] }),
+    ])
+    expect(p).toEqual({
+      id: 'p1',
+      autorId: 'autor',
+      texto: 'texto p1',
+      creadoEn: T(1),
+      reacciones: ['u2', 'u3'],
+      respuestas: [{ id: 'r1', autorId: 'otro', texto: 'texto r1', creadoEn: T(2) }],
+    })
   })
 
   it('a igual instante desempata por id descendente, como la consulta', () => {
-    expect(armarFeed([fila('a', T(1)), fila('b', T(1))], []).map((p) => p.id)).toEqual(['b', 'a'])
+    expect(armarFeed([pub('a', T(1)), pub('b', T(1))]).map((p) => p.id)).toEqual(['b', 'a'])
   })
 
-  it('ignora respuestas sin publicación cargada y reacciones de mensajes desconocidos', () => {
-    const feed = armarFeed(
-      [fila('p1', T(1)), fila('huerfana', T(2), 'otra')],
-      [
-        { mensaje_id: 'p1', usuario_id: 'u2' },
-        { mensaje_id: 'otra', usuario_id: 'u3' },
-        { mensaje_id: 'p1', usuario_id: 'u2' },
-      ],
-    )
-    expect(feed).toHaveLength(1)
-    expect(feed[0].respuestas).toEqual([])
-    expect(feed[0].reacciones).toEqual(['u2'])
+  it('no repite a quien reaccionó', () => {
+    expect(armarFeed([pub('p1', T(1), { reacciones: ['u2', 'u2'] })])[0].reacciones).toEqual(['u2'])
   })
 })
 
 describe('páginas anteriores', () => {
   it('agrega sin duplicar y mantiene el orden', () => {
-    const actual = armarFeed([fila('p3', T(3)), fila('p2', T(2))], [])
-    const anteriores = armarFeed([fila('p2', T(2)), fila('p1', T(1))], [])
+    const actual = armarFeed([pub('p3', T(3)), pub('p2', T(2))])
+    const anteriores = armarFeed([pub('p2', T(2)), pub('p1', T(1))])
     expect(agregarAnteriores(actual, anteriores).map((p) => p.id)).toEqual(['p3', 'p2', 'p1'])
   })
 
   it('el cursor es el creado_en de la publicación más antigua, sin reformatear', () => {
-    const feed = armarFeed([fila('p2', T(2)), fila('p1', '2026-09-16T16:01:00.123456+00:00')], [])
+    const feed = armarFeed([pub('p2', T(2)), pub('p1', '2026-09-16T16:01:00.123456+00:00')])
     expect(cursorAnteriores(feed)).toBe('2026-09-16T16:01:00.123456+00:00')
     expect(cursorAnteriores([])).toBeNull()
   })
@@ -66,7 +78,7 @@ describe('páginas anteriores', () => {
 
 describe('eventos de tiempo real', () => {
   const base = () =>
-    armarFeed([fila('p1', T(1)), fila('p3', T(3)), fila('r1', T(4), 'p1')], [{ mensaje_id: 'p1', usuario_id: 'u2' }])
+    armarFeed([pub('p1', T(1), { respuestas: [fila('r1', T(4), 'p1')], reacciones: ['u2'] }), pub('p3', T(3))])
 
   it('INSERT de publicación la ubica por fecha', () => {
     expect(aplicarInsercionMensaje(base(), fila('p2', T(2))).map((p) => p.id)).toEqual(['p3', 'p2', 'p1'])
@@ -108,7 +120,7 @@ describe('eventos de tiempo real', () => {
 })
 
 describe('reacciones', () => {
-  const base = () => armarFeed([fila('p1', T(1))], [{ mensaje_id: 'p1', usuario_id: 'u2' }])
+  const base = () => armarFeed([pub('p1', T(1), { reacciones: ['u2'] })])
 
   it('fijarReaccion es idempotente (eventos, optimismo y reversión)', () => {
     const antes = base()

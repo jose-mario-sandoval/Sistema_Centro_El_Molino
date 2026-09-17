@@ -1,4 +1,8 @@
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { afterEach, beforeAll, describe, expect, it } from 'vitest'
+import { consultarPaginaFeed } from '@/lib/mensajes/consulta-feed'
+import { TAMANO_PAGINA } from '@/lib/mensajes/feed'
+import type { Database } from '@/lib/supabase/database.types'
 import {
   asegurarUsuariosPrueba,
   clienteAdminPrueba,
@@ -290,6 +294,65 @@ describe('registro_moderacion: RLS', () => {
       .select('id')
     expect(borrado.error?.code).toBe('42501')
     expect(await registroCon('Registro protegido')).toHaveLength(1)
+  })
+})
+
+describe('consulta del feed', () => {
+  /** La consulta de la app con la sesión de `clave` (RLS aplica). */
+  async function paginaComo(clave: ClaveUsuario, antesDe: string | null = null) {
+    const cliente = (await clienteComo(clave)) as unknown as SupabaseClient<Database>
+    return consultarPaginaFeed(cliente, antesDe)
+  }
+
+  it('trae cada publicación con sus respuestas y reacciones embebidas', async () => {
+    const conTodo = await publicar('director', 'Feed con respuestas y reacciones')
+    const primera = await publicar('residente', 'Primera respuesta', conTodo)
+    const segunda = await publicar('residente2', 'Segunda respuesta', conTodo)
+    const sola = await publicar('residente', 'Feed sin nada')
+    for (const clave of ['residente', 'residente2', 'administracion'] as const) {
+      const cliente = await clienteComo(clave)
+      const { error } = await cliente.from('reacciones').insert({ mensaje_id: conTodo, usuario_id: ids[clave] })
+      expect(error).toBeNull()
+    }
+
+    const { publicaciones } = await paginaComo('residente')
+    // Las respuestas no aparecen como publicaciones.
+    expect(publicaciones.map((p) => p.id)).not.toContain(primera)
+
+    const p = publicaciones.find((x) => x.id === conTodo)!
+    expect(p).toMatchObject({ autorId: ids.director, texto: 'Feed con respuestas y reacciones' })
+    expect(p.reacciones).toHaveLength(3)
+    expect([...p.reacciones].sort()).toEqual([ids.residente, ids.residente2, ids.administracion].sort())
+    expect(p.respuestas.map((r) => [r.id, r.autorId, r.texto])).toEqual([
+      [primera, ids.residente, 'Primera respuesta'],
+      [segunda, ids.residente2, 'Segunda respuesta'],
+    ])
+
+    const vacia = publicaciones.find((x) => x.id === sola)!
+    expect(vacia.reacciones).toEqual([])
+    expect(vacia.respuestas).toEqual([])
+  })
+
+  it('pagina de a TAMANO_PAGINA con cursor, sin repetir ni saltear', async () => {
+    const base = Date.parse('2026-01-01T12:00:00Z')
+    const filas = Array.from({ length: TAMANO_PAGINA + 2 }, (_, i) => ({
+      autor_id: ids.director,
+      texto: `Paginación ${i}`,
+      creado_en: new Date(base + i * 1000).toISOString(),
+    }))
+    const { data: insertadas, error } = await admin.from('mensajes').insert(filas).select('id')
+    expect(error).toBeNull()
+    const nuevas = new Set(insertadas!.map((f: { id: string }) => f.id))
+
+    const primera = await paginaComo('administracion')
+    expect(primera.publicaciones).toHaveLength(TAMANO_PAGINA)
+    expect(primera.hayMas).toBe(true)
+
+    const cursor = primera.publicaciones.at(-1)!.creadoEn
+    const segunda = await paginaComo('administracion', cursor)
+    const vistas = [...primera.publicaciones, ...segunda.publicaciones].map((p) => p.id)
+    expect(new Set(vistas).size).toBe(vistas.length)
+    expect(vistas.filter((id) => nuevas.has(id))).toHaveLength(TAMANO_PAGINA + 2)
   })
 })
 

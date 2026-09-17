@@ -7,6 +7,11 @@ export const LARGO_MAXIMO_MENSAJE = 2000
 
 export type MensajeFila = Pick<Tabla<'mensajes'>, 'id' | 'autor_id' | 'padre_id' | 'texto' | 'creado_en'>
 export type ReaccionFila = Pick<Tabla<'reacciones'>, 'mensaje_id' | 'usuario_id'>
+/** Publicación tal como la devuelve la consulta del feed, con respuestas y reacciones embebidas. */
+export type PublicacionFila = MensajeFila & {
+  reacciones: Pick<ReaccionFila, 'usuario_id'>[]
+  respuestas: MensajeFila[]
+}
 
 export type Respuesta = { id: string; autorId: string; texto: string; creadoEn: string }
 /** `reacciones`: ids de quienes reaccionaron. */
@@ -34,22 +39,15 @@ function aPublicacion(fila: MensajeFila): Publicacion {
   return { ...aRespuesta(fila), reacciones: [], respuestas: [] }
 }
 
-/** Arma publicación → respuestas con sus reacciones. Descarta respuestas y reacciones de publicaciones no cargadas. */
-export function armarFeed(mensajes: MensajeFila[], reacciones: ReaccionFila[]): Publicacion[] {
-  const porId = new Map<string, Publicacion>()
-  for (const fila of mensajes) {
-    if (fila.padre_id === null) porId.set(fila.id, aPublicacion(fila))
-  }
-  for (const fila of mensajes) {
-    if (fila.padre_id !== null) porId.get(fila.padre_id)?.respuestas.push(aRespuesta(fila))
-  }
-  for (const r of reacciones) {
-    const publicacion = porId.get(r.mensaje_id)
-    if (publicacion && !publicacion.reacciones.includes(r.usuario_id)) publicacion.reacciones.push(r.usuario_id)
-  }
-  const publicaciones = [...porId.values()]
-  for (const p of publicaciones) p.respuestas.sort(compararRespuestas)
-  return publicaciones.sort(compararPublicaciones)
+/** Convierte las filas de la consulta (respuestas y reacciones embebidas) al formato del feed, ordenado. */
+export function armarFeed(filas: PublicacionFila[]): Publicacion[] {
+  return filas
+    .map((fila) => ({
+      ...aRespuesta(fila),
+      reacciones: [...new Set(fila.reacciones.map((r) => r.usuario_id))],
+      respuestas: fila.respuestas.map(aRespuesta).sort(compararRespuestas),
+    }))
+    .sort(compararPublicaciones)
 }
 
 /** Agrega una página de publicaciones más antiguas ("Ver anteriores") sin duplicar. */
