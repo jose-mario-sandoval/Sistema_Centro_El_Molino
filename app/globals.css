@@ -551,3 +551,11 @@ button.cal-day:focus-visible{outline-offset:-2px;}
 .contrasena-generada{display:flex;gap:8px;}
 .contrasena-generada .btn{flex-shrink:0;}
 .clave-temporal{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:17px;letter-spacing:0.04em;background:var(--surface-2);padding:10px 12px;border-radius:var(--radius);margin:12px 0;user-select:all;}
+
+/* ---------- Notificaciones (pista 06) ---------- */
+.estado-push{font-size:13.5px;color:var(--ink);margin-bottom:12px;}
+.pasos-ios{margin:6px 0 0 18px;padding:0;line-height:1.6;}
+.opcion-aviso{display:flex;gap:10px;align-items:flex-start;padding:10px 0;border-bottom:1px solid var(--line);}
+.opcion-aviso:last-of-type{border-bottom:none;}
+.opcion-aviso input[type="checkbox"]{margin-top:3px;width:16px;height:16px;accent-color:var(--accent);}
+.opcion-aviso label{font-size:14px;color:var(--ink);}
