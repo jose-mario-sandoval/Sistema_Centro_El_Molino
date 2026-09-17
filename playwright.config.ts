@@ -1,5 +1,10 @@
 import { defineConfig, devices } from '@playwright/test'
 
+// Puerto propio y sin reutilizar servidores: un `next dev` local (3000) apunta a producción
+// y las pruebas nunca deben correr contra él.
+const PUERTO = 3100
+const URL_BASE = `http://127.0.0.1:${PUERTO}`
+
 export default defineConfig({
   testDir: 'tests/e2e',
   fullyParallel: false,
@@ -8,16 +13,16 @@ export default defineConfig({
   reporter: process.env.CI ? [['github'], ['html', { open: 'never' }]] : 'list',
   globalSetup: './tests/e2e/global-setup.ts',
   use: {
-    baseURL: 'http://127.0.0.1:3000',
+    baseURL: URL_BASE,
     trace: 'retain-on-failure',
     locale: 'es-SV',
     timezoneId: 'America/El_Salvador',
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
   webServer: {
-    command: 'npm run start -- --hostname 127.0.0.1 --port 3000',
-    url: 'http://127.0.0.1:3000/login',
-    reuseExistingServer: !process.env.CI,
+    command: `npm run start -- --hostname 127.0.0.1 --port ${PUERTO}`,
+    url: `${URL_BASE}/login`,
+    reuseExistingServer: false,
     timeout: 120_000,
   },
 })

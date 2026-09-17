@@ -8,7 +8,8 @@ on:
 
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  # En master no se cancela: cada push debe quedar verificado.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   calidad:
@@ -46,13 +47,15 @@ jobs:
           sed -i 's/^sign_in_sign_ups = .*/sign_in_sign_ups = 100000/' supabase/config.toml
           sed -i 's/^token_refresh = .*/token_refresh = 100000/' supabase/config.toml
           grep -n "sign_in_sign_ups\|token_refresh" supabase/config.toml
+          # Si alguien renombra o comenta las claves, sed no cambia nada: fallar en vez de seguir con límites bajos.
+          grep -q "^sign_in_sign_ups = 100000" supabase/config.toml && grep -q "^token_refresh = 100000" supabase/config.toml || exit 1
       - name: Levantar Supabase temporal y aplicar migraciones desde cero
         run: npx supabase start -x studio,imgproxy,edge-runtime,logflare,vector
       - name: Variables de la base temporal
         run: node scripts/ci/entorno-supabase-local.mjs >> "$GITHUB_ENV"
       - name: Generar tipos desde la base temporal
         run: npx supabase gen types typescript --local --schema public > database.types.ts
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: database-types
           path: database.types.ts
@@ -69,7 +72,7 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - name: Pruebas de punta a punta
         run: npm run test:e2e
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: failure()
         with:
           name: playwright-report
