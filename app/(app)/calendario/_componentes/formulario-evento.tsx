@@ -3,7 +3,7 @@
 import { useActionState } from 'react'
 import { useAviso } from '@/components/ui/avisos'
 import { BotonEnvio } from '@/components/ui/boton-envio'
-import type { Resultado } from '@/lib/acciones/resultado'
+import { fallo, type Resultado } from '@/lib/acciones/resultado'
 import type { Evento } from '@/lib/calendario/tipos'
 import { horaHHMM, type FechaISO } from '@/lib/fechas'
 import { crearEvento, editarEvento } from '../acciones'
@@ -17,7 +17,12 @@ export function FormularioNuevoEvento({ fecha, alCerrar }: { fecha: FechaISO; al
   const aviso = useAviso()
   const [estado, accion] = useActionState(
     async (previo: Resultado<{ id: string }> | null, formData: FormData): Promise<Resultado<{ id: string }> | null> => {
-      const resultado = await crearEvento(previo, formData)
+      let resultado: Resultado<{ id: string }>
+      try {
+        resultado = await crearEvento(previo, formData)
+      } catch {
+        resultado = fallo('No se pudo guardar el evento. Revisá tu conexión e intentá de nuevo.')
+      }
       if (resultado.ok) aviso('Evento agregado.')
       else if (!resultado.campos) aviso(resultado.error)
       return resultado
@@ -55,7 +60,12 @@ export function FormularioEditarEvento({ evento, alTerminar }: { evento: Evento;
   const aviso = useAviso()
   const [estado, accion] = useActionState(
     async (previo: Resultado<null> | null, formData: FormData): Promise<Resultado<null> | null> => {
-      const resultado = await editarEvento(previo, formData)
+      let resultado: Resultado<null>
+      try {
+        resultado = await editarEvento(previo, formData)
+      } catch {
+        resultado = fallo('No se pudo guardar el evento. Revisá tu conexión e intentá de nuevo.')
+      }
       if (resultado.ok) {
         aviso('Evento actualizado.')
         alTerminar()

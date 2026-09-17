@@ -42,7 +42,7 @@ create trigger eventos_antes_de_guardar
 -- ---------- RLS ----------
 alter table public.eventos enable row level security;
 
--- Explícito (Supabase también lo concede por defecto); las políticas deciden qué filas.
+-- GRANT explícitos obligatorios (índice §3.4): Supabase ya no expone tablas nuevas; las políticas deciden qué filas.
 grant select, insert, update, delete on table public.eventos to authenticated;
 grant select, insert, update, delete on table public.eventos to service_role;
 

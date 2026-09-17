@@ -51,7 +51,10 @@ export async function editarEvento(_previo: Resultado<null> | null, formData: Fo
   const { data, error } = await supabase.from('eventos').update(cambios).eq('id', id).select('id')
   if (error) return fallo('No se pudo guardar el evento. Intentá de nuevo.')
   // RLS no da error si no hay filas afectadas (spec §6.4): 0 filas = el evento ya no existe.
-  if (data.length === 0) return fallo('El evento ya no existe.')
+  if (data.length === 0) {
+    revalidatePath('/calendario')
+    return fallo('El evento ya no existe.')
+  }
 
   revalidatePath('/calendario')
   return exito(null)
@@ -67,7 +70,10 @@ export async function eliminarEvento(entrada: unknown): Promise<Resultado<null>>
   const supabase = await crearClienteServidor()
   const { data, error } = await supabase.from('eventos').delete().eq('id', datos.data.id).select('id')
   if (error) return fallo('No se pudo eliminar el evento. Intentá de nuevo.')
-  if (data.length === 0) return fallo('El evento ya no existe.')
+  if (data.length === 0) {
+    revalidatePath('/calendario')
+    return fallo('El evento ya no existe.')
+  }
 
   revalidatePath('/calendario')
   return exito(null)

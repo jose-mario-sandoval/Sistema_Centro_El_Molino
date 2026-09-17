@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import { useAviso } from '@/components/ui/avisos'
 import { Modal } from '@/components/ui/modal'
+import { fallo } from '@/lib/acciones/resultado'
 import type { DiaConEtiqueta } from '@/lib/calendario/cuadricula'
 import type { Evento } from '@/lib/calendario/tipos'
 import { horaHHMM } from '@/lib/fechas'
@@ -24,7 +25,12 @@ function FilaEvento({
 
   function eliminar() {
     iniciar(async () => {
-      const resultado = await eliminarEvento({ id: evento.id })
+      let resultado
+      try {
+        resultado = await eliminarEvento({ id: evento.id })
+      } catch {
+        resultado = fallo('No se pudo eliminar el evento. Revisá tu conexión e intentá de nuevo.')
+      }
       if (resultado.ok) {
         aviso('Evento eliminado.')
       } else {
