@@ -99,8 +99,8 @@ describe('etiquetas en español', () => {
   })
 
   it('etiquetaDia', () => {
-    expect(etiquetaDia('2026-09-16')).toBe('Miércoles, 16 de septiembre')
-    expect(etiquetaDia('2027-01-01')).toBe('Viernes, 1 de enero')
+    expect(etiquetaDia('2026-09-16')).toBe('Miércoles, 16 de septiembre de 2026')
+    expect(etiquetaDia('2027-01-01')).toBe('Viernes, 1 de enero de 2027')
   })
 })
 

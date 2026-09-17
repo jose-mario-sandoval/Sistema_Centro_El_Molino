@@ -528,6 +528,8 @@ a.icon-btn{display:inline-flex;align-items:center;justify-content:center;}
 /* ---------- Calendario (pista 04) ---------- */
 a.btn,a.icon-btn{text-decoration:none;}
 button.cal-day{border:0;border-radius:0;font:inherit;color:inherit;text-align:left;min-width:0;overflow:hidden;}
+/* La cuadrícula tiene overflow:hidden: el anillo de foco va por dentro de la celda para que no se recorte. */
+button.cal-day:focus-visible{outline-offset:-2px;}
 .cal-evento-lista{margin-bottom:14px;}
 .cal-evento-fila{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line);font-size:13.5px;}
 .cal-evento-acciones{display:flex;align-items:center;gap:6px;flex-shrink:0;}

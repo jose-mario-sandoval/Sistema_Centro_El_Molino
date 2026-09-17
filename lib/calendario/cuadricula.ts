@@ -71,6 +71,7 @@ const formatoDia = new Intl.DateTimeFormat('es', {
   weekday: 'long',
   day: 'numeric',
   month: 'long',
+  year: 'numeric',
 })
 
 function conMayuscula(texto: string): string {
@@ -83,7 +84,7 @@ export function etiquetaMes(mes: MesISO): string {
   return conMayuscula(formatoMes.format(instanteEnZona(`${mes}-15`, '12:00')))
 }
 
-/** 'Miércoles, 16 de septiembre' */
+/** 'Miércoles, 16 de septiembre de 2026'. Con año: la cuadrícula incluye días de meses (y años) vecinos. */
 export function etiquetaDia(fecha: FechaISO): string {
   return conMayuscula(formatoDia.format(instanteEnZona(fecha, '12:00')))
 }
