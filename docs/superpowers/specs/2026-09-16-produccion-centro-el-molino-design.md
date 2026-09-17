@@ -25,7 +25,7 @@ Este documento define cómo pasar el prototipo a una aplicación en producción 
 | Recuperar contraseña | La cambia el Director (contraseña temporal); **la app no envía correos** |
 | Eliminar cuenta | Se reemplaza por **desactivar / reactivar** |
 | Editar mensajes | No se permite; solo publicar, reaccionar, responder y borrar |
-| Entornos | Local, staging (`develop`) y producción (`master`) |
+| Entornos | Un solo proyecto Supabase (ya creado) que es **producción**, sin staging. Se desarrolla desde cada computadora contra ese proyecto; sin Docker en las computadoras. Despliegue de `master` |
 
 ---
 
@@ -33,7 +33,7 @@ Este documento define cómo pasar el prototipo a una aplicación en producción 
 
 **Piezas:**
 
-- **Next.js + TypeScript en Vercel.** Server Components para leer, Server Actions para modificar. Despliegue automático por rama.
+- **Next.js + TypeScript en Vercel.** Server Components para leer, Server Actions para modificar. Despliegue de `master` desde GitHub Actions (§10).
 - **Supabase:**
   - Postgres con Row Level Security (RLS) como barrera real de permisos.
   - Auth (correo y contraseña) con sesión en cookies vía `@supabase/ssr`.
@@ -49,7 +49,7 @@ Este documento define cómo pasar el prototipo a una aplicación en producción 
   - *La propia cuenta:* editar nombre, siglas y correo; cambiar contraseña; cambiar preferencias `avisar_*`; limpiar `debe_cambiar_contrasena`.
   - *Usuario con sesión, vía `/api/push`:* registrar y borrar suscripciones de su dispositivo reasignando el `endpoint` (§8.2); se verifica la sesión antes de usar el cliente admin.
   - *Servidor sin usuario (cron y envíos):* leer destinatarios y `suscripciones_push` para enviar notificaciones; borrar suscripciones caducadas.
-- **Esquema:** migraciones SQL versionadas en `supabase/migrations/`. Nadie cambia tablas a mano en staging ni en producción.
+- **Esquema:** migraciones SQL versionadas en `supabase/migrations/`. Nadie cambia tablas a mano en el proyecto de Supabase.
 - **Tipos:** generados desde la base con `supabase gen types` y guardados en el repo.
 
 **Estructura del repo:**
@@ -75,9 +75,12 @@ lib/
   validacion/               esquemas zod
 supabase/
   migrations/
-  seed.sql                  usuarios y datos de ejemplo (solo local)
+  seed.sql                  usuarios de prueba para la base temporal de CI
   config.toml
-scripts/crear-director.ts   crea el primer Director en un entorno
+scripts/
+  crear-director.ts         crea el primer Director
+  datos-demo.ts             cuentas y datos de desarrollo (@demo.test) en el proyecto
+  limpiar-datos-demo.ts     borra todo lo creado por datos-demo (checklist de lanzamiento)
 public/manifest.webmanifest, public/sw.js, íconos
 docs/prototipo/             el HTML del prototipo, como referencia visual
 tests/                      unit/, integration/, e2e/
@@ -336,7 +339,7 @@ La Server Action traduce `MOL01` a un mensaje específico ("El almuerzo ya cerr�
 ### 8.3 Tareas programadas (`pg_cron`, cada 5 minutos)
 
 1. **`CALL public.cerrar_comidas_vencidas()`**: procedimiento SQL ejecutado directamente en Postgres (§6.3).
-2. **Recordatorios:** `pg_net` hace POST a `<URL de la app>/api/cron/recordatorios` con cabecera `Authorization: Bearer <CRON_SECRET>` y `timeout_milliseconds` de 10000. La URL y el secreto se guardan en Supabase Vault, nunca en migraciones. En staging, la URL es el alias fijo de staging (§10), no la de un despliegue puntual. La ruta:
+2. **Recordatorios:** `pg_net` hace POST a `<URL de la app>/api/cron/recordatorios` con cabecera `Authorization: Bearer <CRON_SECRET>` y `timeout_milliseconds` de 10000. La URL y el secreto se guardan en Supabase Vault, nunca en migraciones. La URL es el dominio de producción de Vercel (`<proyecto>.vercel.app` o dominio propio), no la de un despliegue puntual. La ruta:
    - rechaza sin secreto válido;
    - busca `(fecha, comida)` cuyo cierre ocurre dentro de los próximos 60 minutos y no están en `avisos_enviados`;
    - inserta primero en `avisos_enviados` (si la inserción choca, otra corrida ya lo tomó);
@@ -359,7 +362,8 @@ La Server Action traduce `MOL01` a un mensaje específico ("El almuerzo ya cerr�
   - `lib/comidas` con la tabla de casos: domingo en la noche, desayuno con cierre el día anterior al cruzar semana, límites exactos de la hora, cambio de hora límite con comidas ya cerradas, ventana actual + siguiente.
   - Esquemas `zod`.
   - Selección de destinatarios push.
-- **Integración (Vitest + Supabase local):**
+- **Dónde corren:** en las computadoras de desarrollo solo corren las unitarias (no hay Docker). Integración y punta a punta corren en GitHub Actions, que levanta una base temporal con `supabase start`. Como la única base remota es producción, el setup de esas pruebas **aborta si `NEXT_PUBLIC_SUPABASE_URL` no apunta a `127.0.0.1` o `localhost`**; así nunca pueden correr contra la base real.
+- **Integración (Vitest + Supabase temporal en CI):**
   - Iniciar sesión como cada rol del seed y verificar operaciones permitidas y prohibidas contra la base real (RLS).
   - `comida_editable` ejecutada con la misma tabla de casos que las unitarias (recibe `ahora` como parámetro).
   - `guardar_seleccion` / `volver_a_plan`, incluido el error `MOL01`.
@@ -370,7 +374,7 @@ La Server Action traduce `MOL01` a un mensaje específico ("El almuerzo ya cerr�
   - Residente cambia una comida y Administración lo ve en Semana.
   - Director borra un mensaje ajeno y aparece en el registro.
   - Residente no ve controles para crear eventos.
-- **CI (GitHub Actions) en cada PR a `develop` o `master`:** typecheck, lint, unitarias; `supabase start` + migraciones desde cero + integración; build + Playwright.
+- **CI (GitHub Actions) en cada PR a `master`:** typecheck, lint, unitarias; `supabase start` + migraciones desde cero + integración; build + Playwright.
 
 ---
 
@@ -378,43 +382,56 @@ La Server Action traduce `MOL01` a un mensaje específico ("El almuerzo ya cerr�
 
 | Entorno | Rama | Supabase | Vercel |
 |---|---|---|---|
-| Local | cualquiera | `supabase start` (Docker) + `seed.sql` | `next dev` |
-| Staging | `develop` | proyecto `molino-staging` | Preview de la rama `develop` con variables de staging |
-| Producción | `master` | proyecto `molino-produccion` | Production |
+| Desarrollo | cualquiera | el proyecto único (producción), vía `.env.local` | `next dev` en cada computadora |
+| CI | PR a `master` | base temporal `supabase start` dentro de GitHub Actions | build de verificación, sin desplegar |
+| Producción | `master` | el proyecto único | Production |
 
-- **Orden de despliegue:** migraciones primero, código después. Vercel no despliega por Git (`vercel.json`: `"git": { "deploymentEnabled": false }`), así tampoco se generan previews de ramas `feat/*` sin variables de entorno. No se usan Deploy Hooks, porque no funcionan con los despliegues Git desactivados. Al hacer push a `develop` o `master`, una GitHub Action ejecuta, en orden:
-  1. `supabase config push --yes` (ajustes de Auth desde `config.toml`, con bloques `[remotes.staging]` y `[remotes.production]` donde difieran; cada bloque lleva el `project_id` del proyecto escrito en el archivo, que no es secreto). `enable_signup = false` debe quedar explícito en `[auth]` y en `[auth.email]`, porque la plantilla de `supabase init` trae `true`;
-  2. `supabase db push` contra el proyecto correspondiente;
-  3. despliegue con la CLI de Vercel usando el token del dueño:
-     - **producción (`master`):** `vercel pull --yes --environment=production` → `vercel build --prod` → `vercel deploy --prebuilt --prod`;
-     - **staging (`develop`):** `vercel pull --yes --environment=preview` (las variables de Preview son las de staging, para todas las ramas) → `vercel build` → `vercel deploy --prebuilt` → `vercel alias set <url del despliegue> <alias fijo de staging>`. Tras el primer despliegue se comprueba que staging usa el `NEXT_PUBLIC_SUPABASE_URL` de `molino-staging`.
-- **URL fija de staging:** el alias fijo (por ejemplo `molino-staging.vercel.app`) es la URL que se abre en los celulares y la que se guarda en Vault para `pg_cron` (§8.3).
+**No hay staging** (decisión del equipo). Consecuencias y reglas que la compensan:
+
+- **Antes del lanzamiento** no hay usuarios reales, así que desarrollar contra el proyecto es seguro. Los datos de desarrollo se crean con `scripts/datos-demo.ts`, con cuentas de correo `@demo.test`, y se borran con `scripts/limpiar-datos-demo.ts` como paso obligatorio del checklist de lanzamiento (§11).
+- **Después del lanzamiento:**
+  - toda migración pasa primero por CI contra una base temporal;
+  - las pruebas de notificaciones se hacen solo con cuentas propias;
+  - las pruebas de integración y punta a punta nunca corren contra el proyecto (§9.2).
+- **Migraciones: un único camino.**
+  - Después de la Fase 0, las migraciones solo se aplican desde la GitHub Action de despliegue al hacer merge a `master`. Nadie ejecuta `supabase db push` desde su computadora.
+  - **Excepción única:** durante la Fase 0, antes de que exista la Action, las migraciones de la base común se aplican con la CLI desde la computadora de quien implementa la fase (`supabase link` + `supabase db push`).
+- **Esquema primero:** como no hay base local, una funcionalidad que necesita tablas nuevas se divide en dos PRs:
+  1. **PR de esquema:** migración y pruebas de integración, que corren en CI. Al hacer merge se aplica al proyecto.
+  2. **PR de funcionalidad:** empieza regenerando los tipos (`npm run db:tipos`, que lee el esquema del proyecto) y construye las pantallas contra la base ya actualizada.
+- **Orden de despliegue:** migraciones primero, código después. Vercel no despliega por Git (`vercel.json`: `"git": { "deploymentEnabled": false }`). Al hacer push a `master`, la GitHub Action ejecuta en orden:
+  1. `supabase link --project-ref $SUPABASE_PROJECT_REF`;
+  2. `supabase config push --yes` (ajustes de Auth desde `config.toml`). `enable_signup = false` debe quedar explícito en `[auth]` y en `[auth.email]`, porque la plantilla de `supabase init` trae `true`;
+  3. `supabase db push`;
+  4. `vercel pull --yes --environment=production` → `vercel build --prod` → `vercel deploy --prebuilt --prod`, con el token del dueño.
 - **Errores de build y despliegue:** quedan en el log de la GitHub Action, visible para ambos colaboradores.
-- **Compatibilidad:** durante el despliegue la app anterior corre unos minutos contra el esquema nuevo, así que las migraciones deben ser compatibles hacia atrás (agregar antes de quitar; quitar columnas o funciones en un despliegue posterior).
-- **Datos:** no se migran datos del prototipo. Cada entorno arranca vacío más `crear-director`; staging puede cargar datos de ejemplo con un script aparte.
-- **Variables de entorno** (por entorno):
+- **Compatibilidad:** durante el despliegue, la app anterior corre unos minutos contra el esquema nuevo, así que las migraciones deben ser compatibles hacia atrás (agregar antes de quitar; quitar columnas o funciones en un despliegue posterior).
+- **Datos:** no se migran datos del prototipo.
+- **Variables de entorno:**
   - `NEXT_PUBLIC_SUPABASE_URL`
-  - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
-  - `SUPABASE_SECRET_KEY`
+  - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (acepta la *anon key* clásica o una *publishable key*)
+  - `SUPABASE_SECRET_KEY` (acepta la *service_role key* clásica o una *secret key*)
   - `NEXT_PUBLIC_VAPID_PUBLIC_KEY`
   - `VAPID_PRIVATE_KEY`
   - `VAPID_SUBJECT`
   - `CRON_SECRET`
-- **Repositorio público (requisito):** ningún secreto en commits; `.env*.local` en `.gitignore`. El repo **debe seguir siendo público**: en Vercel Hobby, con un repo privado se bloquean los despliegues de commits cuyo autor es un colaborador, incluso desde la CLI con el token del dueño. En la Fase 0 se verifica desplegando un commit hecho por un colaborador; si aun así se bloquea, la vía soportada es el plan Pro.
-- **Plan Free de Supabase:** un proyecto sin actividad durante 7 días se pausa; staging es el candidato y se reactiva desde el panel.
+
+  En desarrollo van en `.env.local`, que cada colaborador llena en su computadora; en producción, en Vercel. `.env.example` documenta los nombres sin valores.
+- **Repositorio público (requisito):** ningún secreto en commits; `.env*.local` en `.gitignore`. El repo **debe seguir siendo público**: en Vercel Hobby, con un repo privado se bloquean los despliegues de commits cuyo autor es un colaborador, incluso desde la CLI con el token del dueño. Al terminar la Fase 0 se verifica desplegando un commit hecho por un colaborador; si aun así se bloquea, la vía soportada es el plan Pro.
+- **Plan Free de Supabase:** un proyecto sin actividad durante 7 días se pausa. Antes del lanzamiento puede pasar y se reactiva desde el panel; con uso diario del centro no ocurre.
 
 ---
 
 ## 11. Trabajo en paralelo
 
-- **Ramas:** `master` (producción) y `develop` (staging), protegidas. Trabajo en ramas `feat/...` desde `develop`; PR con revisión del otro colaborador y CI en verde.
-- **Planes de implementación:** uno para la Fase 0 y uno por cada pista posterior.
+- **Ramas:** `master` (producción), protegida. Trabajo en ramas `feat/...` desde `master`; PR con revisión del otro colaborador y CI en verde.
+- **Planes de implementación:** un documento por fase o pista en `docs/superpowers/plans/`, todos escritos antes de empezar.
 - **Fase 0, base común (un solo PR):**
-  - proyecto Next.js, clientes Supabase, `.gitattributes` (finales de línea LF) y `vercel.json`;
+  - proyecto Next.js, clientes Supabase, `.gitattributes` (finales de línea LF), `.env.example` y `vercel.json`;
   - migración inicial: todos los enums, `perfiles`, `horas_limite` con valores iniciales, `mi_rol()`, `soy_activo()`, `zona_horaria_app()` y el trigger de Director activo mínimo;
   - `lib/fechas/` (zona horaria, semana lunes–domingo) y `lib/comidas/` con `cierreDe`, `enVentanaEditable`, `estaAbierta` y `valorEfectivo`, con sus pruebas;
   - login, cambio de contraseña obligatorio, proxy con rutas públicas y layout con navegación por rol;
-  - CI, workflow de despliegue y script `crear-director`;
+  - CI, workflow de despliegue, scripts `crear-director`, `datos-demo` y `limpiar-datos-demo`;
   - mover el prototipo a `docs/prototipo/`.
 - **Después, en paralelo:**
 
@@ -426,8 +443,17 @@ La Server Action traduce `MOL01` a un mensaje específico ("El almuerzo ya cerr�
 | Configuraciones | perfil propio, gestión de usuarios, pantalla de horas límite (edita `horas_limite`, creada en Fase 0) | Fase 0 |
 | PWA y push | manifest, service worker, suscripciones, preferencias, recordatorios y avisos de mensajes | Fase 0 para PWA y suscripciones; Comidas para recordatorios; Mensajes para avisos de mensajes |
 
-- **Migraciones:** siempre con `supabase migration new <nombre>`; rebase sobre `develop` antes del merge para que el orden de timestamps sea correcto.
-- **README:** se actualiza al cerrar la fase 0 con las reglas de este documento.
+- **Migraciones:**
+  - siempre con `supabase migration new <nombre>`, que no requiere Docker;
+  - rebase sobre `master` antes del merge, para que el orden de timestamps sea correcto;
+  - aplicación solo por la Action (§10).
+- **README:** se actualiza al cerrar la Fase 0 con las reglas de este documento.
+- **Checklist de lanzamiento** (último paso, antes de dar acceso al centro):
+  1. ejecutar `limpiar-datos-demo`;
+  2. verificar que "Allow new users to sign up" está desactivado;
+  3. crear el primer Director real con `crear-director`;
+  4. verificar notificaciones con una cuenta propia en Android e iPhone;
+  5. confirmar que el plan Hobby de Vercel aplica al centro.
 
 ---
 
@@ -454,43 +480,46 @@ La Server Action traduce `MOL01` a un mensaje específico ("El almuerzo ya cerr�
 
 ---
 
-## Anexo A. Configuración de cuentas (dueño del repositorio)
+## Anexo A. Configuración de cuentas
 
-Las cuentas pertenecen al dueño del repo (`jose-mario-sandoval`), no a colaboradores individuales. Ningún secreto se comparte por chat ni se commitea: cada uno se pega directamente en el servicio que lo usa.
+El repo es del dueño (`jose-mario-sandoval`). Ningún secreto se comparte por chat ni se commitea: cada uno se pega directamente en el servicio que lo usa.
 
-### A.1 Supabase
+### A.1 Supabase (proyecto ya creado)
 
-1. Crear una organización "Centro El Molino" (plan Free).
-2. Invitar como miembros a los dos colaboradores con rol *Developer* (no *Owner* ni *Administrator*, para no consumir su propia cuota de proyectos gratis).
-3. Crear dos proyectos en la región `East US (North Virginia)`: `molino-staging` y `molino-produccion`. Guardar la contraseña de base de datos de cada uno en un gestor de contraseñas.
-4. Generar un *Personal Access Token* (Account → Access Tokens) para CI.
+1. **Propiedad:** si el proyecto está en una cuenta personal de un colaborador, antes del lanzamiento se transfiere a una organización del centro o del dueño (*Project Settings → General → Transfer project*), para que no dependa de una sola persona.
+2. **Miembros:** los dos colaboradores deben tener acceso a la organización del proyecto (rol *Developer* basta para desarrollar).
+3. **Contraseña de base de datos:** guardarla en un gestor de contraseñas. Si nadie la tiene, se restablece en *Project Settings → Database*.
+4. **Token para CI:** generar un *Personal Access Token* (*Account → Access Tokens*).
+5. **Verificación:** después del primer despliegue, confirmar en *Authentication → Sign In / Providers* que "Allow new users to sign up" está desactivado.
 
-Los ajustes de Auth (`supabase config push`), las extensiones y el esquema (`supabase db push`) los aplica la GitHub Action desde el repo. Después del primer despliegue, el dueño verifica en cada proyecto que en *Authentication → Sign In / Providers* esté desactivado "Allow new users to sign up".
+Los ajustes de Auth (`supabase config push`), las extensiones y el esquema (`supabase db push`) los aplica la GitHub Action desde el repo. La única excepción son las migraciones de la Fase 0 (§10).
 
-### A.2 GitHub
+### A.2 GitHub (dueño del repo)
 
-1. Crear la rama `develop` desde `master`.
-2. Proteger `master` y `develop` (Settings → Rules → Rulesets):
+1. **Proteger `master`** (*Settings → Rules → Rulesets*):
    - exigir PR con 1 aprobación;
    - exigir que pase el check de CI;
    - bloquear force push y borrado.
-3. Crear secretos del repositorio (Settings → Secrets and variables → Actions):
+2. **Secretos** (*Settings → Secrets and variables → Actions → Secrets*):
    - `SUPABASE_ACCESS_TOKEN`
-   - `SUPABASE_DB_PASSWORD_STAGING`
-   - `SUPABASE_DB_PASSWORD_PRODUCTION`
+   - `SUPABASE_DB_PASSWORD`
+   - `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID` (ver A.3)
+3. **Variable** (*Actions → Variables*, no es secreta): `SUPABASE_PROJECT_REF`, el identificador del proyecto que aparece en su URL.
 
-   Los identificadores de proyecto (*project ref*) no son secretos: el dueño se los pasa a los colaboradores y van escritos en `supabase/config.toml`.
+### A.3 Vercel (dueño del repo, cuando la Fase 0 esté lista)
 
-### A.3 Vercel (cuando la fase 0 esté lista)
-
-1. Crear cuenta con el login de GitHub del dueño (plan Hobby) y crear el proyecto (importando el repo; `vercel.json` desactiva los despliegues por Git). *Production Branch* = `master`.
-2. Variables de entorno (§10):
-   - **Production:** valores de `molino-produccion`.
-   - **Preview** (todas las ramas): valores de `molino-staging`.
-   - Generar llaves VAPID distintas por entorno con `npx web-push generate-vapid-keys` y un `CRON_SECRET` distinto por entorno con `openssl rand -hex 32`.
-3. Desactivar *Vercel Authentication* en Deployment Protection, para que staging se pueda abrir desde celulares y lo pueda llamar `pg_cron`.
-4. Crear un token (Account Settings → Tokens) y guardar como secretos de GitHub `VERCEL_TOKEN`, `VERCEL_ORG_ID` y `VERCEL_PROJECT_ID` (los dos últimos aparecen en `.vercel/project.json` tras `vercel link`, o en Settings del proyecto).
-5. Guardar en Supabase Vault de cada proyecto la URL de la app (en staging, el alias fijo de §10) y su `CRON_SECRET` (snippet SQL provisto en el repo).
+1. **Proyecto:**
+   - crear la cuenta con el login de GitHub del dueño (plan Hobby);
+   - crear el proyecto importando el repo (`vercel.json` desactiva los despliegues por Git);
+   - *Production Branch* = `master`.
+2. **Variables de entorno de Production (§10):**
+   - `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` y `SUPABASE_SECRET_KEY`, las mismas del proyecto;
+   - llaves VAPID generadas con `npx web-push generate-vapid-keys`;
+   - `VAPID_SUBJECT` con un `mailto:` de contacto;
+   - `CRON_SECRET` generado con `openssl rand -hex 32`.
+3. **Token para CI:** crear un token en *Account Settings → Tokens* y guardarlo como `VERCEL_TOKEN` en GitHub, junto con `VERCEL_ORG_ID` y `VERCEL_PROJECT_ID` (aparecen en `.vercel/project.json` tras `vercel link`, o en Settings del proyecto).
+4. **Vault de Supabase:** guardar la URL de producción de la app y el `CRON_SECRET` con el snippet SQL provisto en el repo.
+5. **Desarrollo local de notificaciones:** los colaboradores generan sus propias llaves VAPID y `CRON_SECRET` para `.env.local`. Con eso prueban push en `localhost` desde la computadora; los celulares se prueban contra producción con cuentas propias.
 
 **Limitaciones del plan Hobby:**
 - Es para uso no comercial; confirmar que aplica al centro, o pasar a Pro (20 USD/mes).

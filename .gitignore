@@ -1,0 +1,28 @@
+# dependencias
+node_modules/
+
+# Next.js
+.next/
+out/
+next-env.d.ts
+
+# Vercel
+.vercel/
+
+# variables de entorno (nunca se commitean)
+.env
+.env*.local
+
+# Supabase CLI
+supabase/.temp/
+supabase/.branches/
+
+# pruebas
+coverage/
+test-results/
+playwright-report/
+
+# sistema
+.DS_Store
+Thumbs.db
+*.log
