@@ -534,3 +534,20 @@ button.cal-day:focus-visible{outline-offset:-2px;}
 .cal-evento-fila{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line);font-size:13.5px;}
 .cal-evento-acciones{display:flex;align-items:center;gap:6px;flex-shrink:0;}
 .cal-evento-form.editando{padding:10px 0;border-bottom:1px solid var(--line);}
+
+/* ---------- Configuraciones (pista 05) ---------- */
+.subtitulo-seccion{font-size:15px;margin:22px 0 10px;}
+.acciones-formulario{display:flex;gap:8px;margin-top:14px;}
+.horas-limite-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;}
+@media (max-width:700px){.horas-limite-grid{grid-template-columns:1fr;}}
+.hora-limite{border:none;padding:0;margin:0;min-width:0;}
+.hora-limite legend{font-family:var(--font-display);font-weight:600;font-size:15px;margin-bottom:10px;padding:0;}
+.tabla-desplazable{overflow-x:auto;}
+.user-table select{padding:6px 8px;background:var(--bg);border:1px solid var(--line);border-radius:var(--radius);color:var(--ink);font-size:13px;}
+.user-table select:disabled{opacity:0.6;cursor:not-allowed;}
+.user-table [aria-busy="true"],.modal-foot [aria-busy="true"]{opacity:0.7;cursor:progress;}
+.user-table tr.inactiva td{color:var(--ink-faint);}
+.acciones-cuenta{display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end;}
+.contrasena-generada{display:flex;gap:8px;}
+.contrasena-generada .btn{flex-shrink:0;}
+.clave-temporal{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:17px;letter-spacing:0.04em;background:var(--surface-2);padding:10px 12px;border-radius:var(--radius);margin:12px 0;user-select:all;}

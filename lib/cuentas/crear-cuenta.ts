@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { MENSAJE_CORREO_REPETIDO } from '@/lib/configuraciones/errores'
 import type { Rol } from '@/lib/perfiles/roles'
 import type { Database } from '@/lib/supabase/database.types'
 
@@ -26,7 +27,7 @@ export async function crearCuenta(admin: SupabaseClient<Database>, datos: DatosC
     // Se registra el error original (logs de Vercel o consola del script); al usuario le llega un mensaje simple.
     console.error('crearCuenta: Auth no creó el usuario', error)
     const repetido = error?.code === 'email_exists'
-    return { ok: false, error: repetido ? 'Ya existe una cuenta con ese correo.' : 'No se pudo crear la cuenta.' }
+    return { ok: false, error: repetido ? MENSAJE_CORREO_REPETIDO : 'No se pudo crear la cuenta.' }
   }
 
   const { error: errorPerfil } = await admin.from('perfiles').insert({

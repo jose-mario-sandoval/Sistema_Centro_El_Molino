@@ -44,6 +44,14 @@ describe('esquemaContrasenaNueva', () => {
     expect(camposConError(r.error!)).toEqual({ nueva: 'La contraseña debe tener al menos 8 caracteres.' })
   })
 
+  it('rechaza más de 72 caracteres (límite de Supabase Auth)', () => {
+    const larga = 'x'.repeat(72)
+    expect(esquemaContrasenaNueva.safeParse({ nueva: larga, confirmacion: larga }).success).toBe(true)
+    const r = esquemaContrasenaNueva.safeParse({ nueva: `${larga}x`, confirmacion: `${larga}x` })
+    expect(r.success).toBe(false)
+    expect(camposConError(r.error!)).toEqual({ nueva: 'La contraseña puede tener hasta 72 caracteres.' })
+  })
+
   it('marca la confirmación cuando no coincide', () => {
     const r = esquemaContrasenaNueva.safeParse({ nueva: 'clave-larga-1', confirmacion: 'clave-larga-2' })
     expect(r.success).toBe(false)
