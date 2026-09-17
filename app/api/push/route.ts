@@ -3,12 +3,34 @@ import { perfilParaAccion } from '@/lib/auth/sesion'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { esquemaBajaPush, esquemaSuscripcionPush } from '@/lib/validacion/push'
 
+/** Tope de dispositivos por cuenta: acota cuántos envíos genera un solo aviso. */
+const MAXIMO_POR_CUENTA = 10
+
 async function leerJson(request: NextRequest): Promise<unknown> {
   try {
     return await request.json()
   } catch {
     return null
   }
+}
+
+/** Deja como máximo MAXIMO_POR_CUENTA suscripciones: borra las más viejas. No interrumpe el alta. */
+async function limitarDispositivos(admin: ReturnType<typeof crearClienteAdmin>, usuarioId: string): Promise<void> {
+  const { data, error } = await admin
+    .from('suscripciones_push')
+    .select('id')
+    .eq('usuario_id', usuarioId)
+    .order('creado_en', { ascending: false })
+    .order('id', { ascending: false })
+  if (error) {
+    console.error('[push] no se pudieron contar las suscripciones', error)
+    return
+  }
+  if (data.length <= MAXIMO_POR_CUENTA) return
+
+  const sobrantes = data.slice(MAXIMO_POR_CUENTA).map((s) => s.id)
+  const { error: errorBorrado } = await admin.from('suscripciones_push').delete().in('id', sobrantes)
+  if (errorBorrado) console.error('[push] no se pudieron borrar las suscripciones más viejas', errorBorrado)
 }
 
 /** Registra la suscripción de este dispositivo o la reasigna a la cuenta con sesión. */
@@ -20,7 +42,8 @@ export async function POST(request: NextRequest) {
   if (!entrada.success) return NextResponse.json({ error: 'La suscripción no es válida.' }, { status: 400 })
 
   const { endpoint, keys } = entrada.data
-  const { error } = await crearClienteAdmin()
+  const admin = crearClienteAdmin()
+  const { error } = await admin
     .from('suscripciones_push')
     .upsert(
       { usuario_id: permiso.perfil.id, endpoint, p256dh: keys.p256dh, auth: keys.auth },
@@ -31,6 +54,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'No se pudo registrar este dispositivo.' }, { status: 500 })
   }
 
+  await limitarDispositivos(admin, permiso.perfil.id)
   return new NextResponse(null, { status: 204 })
 }
 

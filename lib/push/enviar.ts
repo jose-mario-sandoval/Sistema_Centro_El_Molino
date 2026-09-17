@@ -2,11 +2,15 @@ import 'server-only'
 import { sendNotification, setVapidDetails } from 'web-push'
 import { variableEntorno } from '@/lib/entorno'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
+import { esEndpointPushPermitido } from '@/lib/validacion/push'
 import type { CargaPush } from './mensajes-push'
 
-export type ResumenEnvio = { enviadas: number; caducadas: number; fallidas: number }
+export type ResumenEnvio = { enviadas: number; caducadas: number; fallidas: number; descartadas: number }
 
 const DOCE_HORAS = 12 * 60 * 60
+
+/** Tiempo máximo de cada petición al servicio push: sin esto, after() puede quedarse colgado. */
+const ESPERA_ENVIO_MS = 10_000
 
 let vapidConfigurado = false
 
@@ -29,13 +33,22 @@ function codigoHttp(error: unknown): number | null {
   return null
 }
 
+/** Host del endpoint, para los logs. Nunca se registran las llaves de la suscripción. */
+function hostDe(endpoint: string): string {
+  try {
+    return new URL(endpoint).host
+  } catch {
+    return '(endpoint inválido)'
+  }
+}
+
 /** Envía `carga` a todos los dispositivos de `usuarioIds`. Borra las suscripciones caducadas (404/410, spec §8.2). */
 export async function enviarAUsuarios(
   usuarioIds: string[],
   carga: CargaPush,
   opciones: { ttlSegundos?: number } = {},
 ): Promise<ResumenEnvio> {
-  const resumen: ResumenEnvio = { enviadas: 0, caducadas: 0, fallidas: 0 }
+  const resumen: ResumenEnvio = { enviadas: 0, caducadas: 0, fallidas: 0, descartadas: 0 }
   const ids = [...new Set(usuarioIds)]
   if (ids.length === 0) return resumen
 
@@ -53,13 +66,24 @@ export async function enviarAUsuarios(
   configurarVapid()
   const cuerpo = JSON.stringify(carga)
   const caducadas: string[] = []
+  const descartadas: string[] = []
 
   await Promise.all(
     suscripciones.map(async (s) => {
+      // Segunda barrera después de la validación de /api/push: nunca se llama a un host desconocido.
+      if (!esEndpointPushPermitido(s.endpoint)) {
+        descartadas.push(s.id)
+        console.error('[push] endpoint de un servicio desconocido: se borra la suscripción', {
+          suscripcion: s.id,
+          host: hostDe(s.endpoint),
+        })
+        return
+      }
       try {
         await sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, cuerpo, {
           TTL: opciones.ttlSegundos ?? DOCE_HORAS,
           urgency: 'high',
+          timeout: ESPERA_ENVIO_MS,
         })
         resumen.enviadas++
       } catch (errorEnvio) {
@@ -74,10 +98,14 @@ export async function enviarAUsuarios(
     }),
   )
 
-  if (caducadas.length > 0) {
-    const { error: errorBorrado } = await admin.from('suscripciones_push').delete().in('id', caducadas)
-    if (errorBorrado) console.error('[push] no se pudieron borrar suscripciones caducadas', errorBorrado)
-    else resumen.caducadas = caducadas.length
+  const porBorrar = [...caducadas, ...descartadas]
+  if (porBorrar.length > 0) {
+    const { error: errorBorrado } = await admin.from('suscripciones_push').delete().in('id', porBorrar)
+    if (errorBorrado) console.error('[push] no se pudieron borrar suscripciones', errorBorrado)
+    else {
+      resumen.caducadas = caducadas.length
+      resumen.descartadas = descartadas.length
+    }
   }
 
   return resumen
