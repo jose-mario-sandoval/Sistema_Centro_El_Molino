@@ -2,6 +2,7 @@
 
 import { startTransition, useActionState, useRef } from 'react'
 import { useAviso } from '@/components/ui/avisos'
+import { llamarAccion } from '@/lib/acciones/llamar'
 import type { Resultado } from '@/lib/acciones/resultado'
 import { LARGO_MAXIMO_MENSAJE } from '@/lib/mensajes/feed'
 import { responderMensaje } from '../acciones'
@@ -17,7 +18,9 @@ export function FormularioRespuesta({
   const formulario = useRef<HTMLFormElement>(null)
   const [estado, accion, pendiente] = useActionState(
     async (previo: Resultado<{ id: string }> | null, formData: FormData) => {
-      const resultado = await responderMensaje(previo, formData)
+      // Si la acción no llega al servidor, vuelve un fallo (no un error que tire la sección) y el formulario
+      // no se reinicia (onSubmit con preventDefault, sin `action`): el texto escrito queda para reintentar.
+      const resultado = await llamarAccion(() => responderMensaje(previo, formData))
       if (resultado.ok) {
         formulario.current?.reset()
         alResponder(resultado.data.id, String(formData.get('texto')).trim())

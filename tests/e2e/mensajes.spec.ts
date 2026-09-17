@@ -108,6 +108,24 @@ test('un residente no ve "Eliminar" en mensajes ajenos ni el registro', async ({
   await expect(page.getByRole('table')).toHaveCount(0)
 })
 
+test('sin conexión, publicar avisa y conserva el texto; al volver la conexión se publica', async ({ page, context }) => {
+  const texto = textoUnico('sin conexión')
+  await iniciarSesion(page, 'residente')
+  await page.goto('/mensajes')
+
+  await page.getByLabel('Nuevo mensaje').fill(texto)
+  await context.setOffline(true)
+  await page.getByRole('button', { name: 'Publicar' }).click()
+  await expect(page.locator('.toast')).toContainText('No se pudo conectar')
+  await expect(page.getByLabel('Nuevo mensaje')).toHaveValue(texto)
+
+  // La sección sigue funcionando (no la reemplazó error.tsx).
+  await context.setOffline(false)
+  await page.getByRole('button', { name: 'Publicar' }).click()
+  await expect(tarjeta(page, texto)).toBeVisible()
+  await expect(page.getByLabel('Nuevo mensaje')).toHaveValue('')
+})
+
 test('otra sesión recibe el mensaje en tiempo real sin recargar', async ({ page, browser, baseURL }) => {
   const texto = textoUnico('tiempo real')
   await iniciarSesion(page, 'administracion')
