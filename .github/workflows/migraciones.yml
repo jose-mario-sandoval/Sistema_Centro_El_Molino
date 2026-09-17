@@ -33,6 +33,9 @@ jobs:
           SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
           SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
         run: supabase link --project-ref "$SUPABASE_PROJECT_REF"
+      - name: Verificar ajustes de producción en config.toml
+        # Sin este bloque, config push subiría site_url de localhost y los límites de Auth locales.
+        run: grep -qF '[remotes.produccion]' supabase/config.toml || { echo "::error::Falta [remotes.produccion] en supabase/config.toml (site_url y límites de Auth). Ver plan 07."; exit 1; }
       - name: Ajustes de Auth
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}

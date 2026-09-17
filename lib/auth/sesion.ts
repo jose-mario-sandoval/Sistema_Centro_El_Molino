@@ -11,7 +11,7 @@ export type { Rol }
 
 /**
  * Perfil del usuario con sesión, o null si no hay sesión o la cuenta está inactiva (RLS no lo deja leer).
- * Un error de la base se lanza (lo muestra el error.tsx de la sección): no es lo mismo que una cuenta inactiva.
+ * Un error de la base se lanza (lo muestra app/error.tsx o el error.tsx de la sección): no es lo mismo que una cuenta inactiva.
  */
 export const obtenerPerfilActual = cache(async (): Promise<Perfil | null> => {
   const supabase = await crearClienteServidor()

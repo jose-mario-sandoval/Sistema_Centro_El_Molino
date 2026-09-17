@@ -35,11 +35,13 @@ export async function actualizarSesion(request: NextRequest) {
   const ruta = request.nextUrl.pathname
 
   if (!conSesion && !esPublica(ruta)) {
-    // Server Action: un redirect aquí rompe la respuesta de la acción en el cliente.
-    // Se deja pasar para que la acción devuelva su propio fallo(...) o haga redirect().
-    if (request.headers.has('next-action')) return respuesta
-
     if (ruta.startsWith('/api/')) return NextResponse.json({ error: 'Sin sesión' }, { status: 401 })
+
+    // Server Action (POST con next-action): un redirect aquí rompe la respuesta en el cliente.
+    // Se deja pasar para que la acción devuelva su propio fallo(...) o haga redirect().
+    // Por eso el proxy NO es la barrera de autenticación: toda página llama a exigirPerfil()
+    // y toda acción o ruta a perfilParaAccion() (índice §3.3).
+    if (request.method === 'POST' && request.headers.has('next-action')) return respuesta
 
     const url = request.nextUrl.clone()
     url.pathname = '/login'

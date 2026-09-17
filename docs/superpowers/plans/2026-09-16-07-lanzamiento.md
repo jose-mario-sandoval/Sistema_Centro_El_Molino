@@ -12,6 +12,19 @@
 
 **Requisito previo:** planes 01 a 06 mergeados en `master` y CI en verde.
 
+### Pendientes técnicos registrados (revisión de la Fase 0)
+
+Resolver antes de definir `SUPABASE_PROJECT_REF` (Action de migraciones) o, a más tardar, antes del lanzamiento:
+
+- [ ] **`[remotes.produccion]` en `supabase/config.toml`** con `project_id = "ekjoyicwscxlixwzwrle"`, `site_url` del dominio de producción, `additional_redirect_urls = []` y los límites de Auth de producción. La Action de migraciones falla a propósito mientras no exista (guardia en `migraciones.yml`). La primera vez, `npx supabase config push` sin `--yes` para revisar el diff.
+- [ ] **Límites de Auth:** `signInWithPassword` y los refrescos salen del servidor de Vercel, así que todo el centro comparte los límites por IP (30 inicios de sesión y 150 refrescos cada 5 min). Subirlos en *Authentication → Rate Limits* (o en `[remotes.produccion.auth.rate_limit]`).
+- [ ] **Registro público:** desactivar "Allow new users to sign up" (`[auth] enable_signup = false`). `[auth.email] enable_signup` debe quedar en `true`.
+- [ ] **GRANT de UPDATE por columnas en `horas_limite`:** migración nueva con `revoke update on public.horas_limite from authenticated; grant update (dia_relativo, hora) on public.horas_limite to authenticated;`.
+- [ ] **Enums TS contra la base:** agregar una verificación de tipos que falle si `lib/comidas/tipos.ts` diverge de `Enum<'estado_comida'>`, `Enum<'tiempo_comida'>` y `Enum<'origen_seleccion'>`.
+- [ ] **Claves JWT asimétricas** en *Project Settings → JWT Keys*, para que `getClaims()` no llame a Auth en cada request.
+- [ ] **Rotar secretos compartidos durante el desarrollo:** contraseña de base de datos y llaves de API (migrar a *publishable/secret keys* y desactivar las JWT heredadas); después actualizar `.env.local` y Vercel.
+- [ ] **`supabase/setup-cli` fijado por SHA** en `migraciones.yml` y `permissions: contents: read` en `ci.yml`.
+
 ---
 
 ### Tarea 1: Configuración de GitHub (dueño del repo)

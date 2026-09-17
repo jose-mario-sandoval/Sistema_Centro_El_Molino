@@ -13,7 +13,7 @@ Next.js 16 (App Router) + TypeScript · Supabase (Postgres, Auth, Realtime, pg_c
 ## Puesta en marcha (sin Docker)
 
 1. Node 24 y `npm ci`.
-2. Copiar `.env.example` a `.env.local` y completar con los datos del proyecto de Supabase. `CONTRASENA_DEMO` es la contraseña de las cuentas demo: elegir una propia (mínimo 12 caracteres; el comando para generarla está en `.env.example`) y no compartirla fuera del equipo.
+2. Copiar `.env.example` a `.env.local` y completar con los datos del proyecto de Supabase. `CONTRASENA_DEMO` es la contraseña de las cuentas demo: es **un solo valor para todo el equipo** (mínimo 12 caracteres; el comando para generarla está en `.env.example`), compartido por un gestor de contraseñas. Ejecutar `datos-demo` con otro valor la cambia para todos.
 3. `npm run datos-demo -- --confirmar` (solo antes del lanzamiento) y `npm run dev`.
 4. Entrar con `residente@demo.test` y la contraseña de `CONTRASENA_DEMO` (u otra cuenta demo: `director@`, `sacerdote@`, `numerario@`, `administracion@`).
 
