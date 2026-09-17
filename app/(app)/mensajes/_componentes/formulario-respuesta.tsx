@@ -6,6 +6,7 @@ import { llamarAccion } from '@/lib/acciones/llamar'
 import type { Resultado } from '@/lib/acciones/resultado'
 import { LARGO_MAXIMO_MENSAJE } from '@/lib/mensajes/feed'
 import { responderMensaje } from '../acciones'
+import { useIdEnvio } from './use-id-envio'
 
 export function FormularioRespuesta({
   padreId,
@@ -16,12 +17,14 @@ export function FormularioRespuesta({
 }) {
   const aviso = useAviso()
   const formulario = useRef<HTMLFormElement>(null)
+  const idEnvio = useIdEnvio()
   const [estado, accion, pendiente] = useActionState(
     async (previo: Resultado<{ id: string }> | null, formData: FormData) => {
       // Si la acción no llega al servidor, vuelve un fallo (no un error que tire la sección) y el formulario
       // no se reinicia (onSubmit con preventDefault, sin `action`): el texto escrito queda para reintentar.
       const resultado = await llamarAccion(() => responderMensaje(previo, formData))
       if (resultado.ok) {
+        idEnvio.confirmar(resultado.data.id)
         formulario.current?.reset()
         alResponder(resultado.data.id, String(formData.get('texto')).trim())
       } else if (!resultado.campos?.texto) {
@@ -42,6 +45,7 @@ export function FormularioRespuesta({
         onSubmit={(e) => {
           e.preventDefault()
           const datos = new FormData(e.currentTarget)
+          idEnvio.asignar(datos)
           startTransition(() => accion(datos))
         }}
       >

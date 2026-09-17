@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { consultarPaginaFeed } from '@/lib/mensajes/consulta-feed'
@@ -90,6 +91,32 @@ describe('mensajes: publicar y responder', () => {
     const respuesta = await publicar('residente', 'Respuesta', publicacion)
     const { data } = await admin.from('mensajes').select('padre_id').eq('id', respuesta).single()
     expect(data!.padre_id).toBe(publicacion)
+  })
+
+  it('con el id del navegador, repetir el envío choca con 23505 sin duplicar (base de la idempotencia)', async () => {
+    const residente = await clienteComo('residente')
+    const id = randomUUID()
+    const fila = { id, autor_id: ids.residente, texto: 'Envío repetido' }
+    expect((await residente.from('mensajes').insert(fila)).error).toBeNull()
+    expect((await residente.from('mensajes').insert(fila)).error?.code).toBe('23505')
+
+    const respuesta = { id: randomUUID(), autor_id: ids.residente, padre_id: id, texto: 'Respuesta repetida' }
+    expect((await residente.from('mensajes').insert(respuesta)).error).toBeNull()
+    expect((await residente.from('mensajes').insert(respuesta)).error?.code).toBe('23505')
+
+    const { count } = await admin
+      .from('mensajes')
+      .select('*', { count: 'exact', head: true })
+      .in('id', [id, respuesta.id])
+    expect(count).toBe(2)
+    // Lo que verifica la acción antes de tomar el 23505 como éxito: el mensaje es de quien envía.
+    const { data } = await residente
+      .from('mensajes')
+      .select('id')
+      .eq('id', id)
+      .eq('autor_id', ids.residente)
+      .is('padre_id', null)
+    expect(data).toEqual([{ id }])
   })
 
   it('rechaza responder a una respuesta (MOL03)', async () => {

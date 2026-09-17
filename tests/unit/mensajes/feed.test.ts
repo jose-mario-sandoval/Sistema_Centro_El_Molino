@@ -113,6 +113,13 @@ describe('eventos de tiempo real', () => {
     expect(aplicarInsercionMensaje(confirmado, fila('p2', T(9)))).toBe(confirmado)
   })
 
+  it('un reintento idempotente (mismo id, otra hora del navegador) no duplica el mensaje propio', () => {
+    const propio = aplicarInsercionMensaje(base(), fila('p2', T(8)))
+    expect(aplicarInsercionMensaje(propio, fila('p2', T(9)))).toBe(propio)
+    const respuesta = aplicarInsercionMensaje(base(), fila('r2', T(8), 'p1'))
+    expect(aplicarInsercionMensaje(respuesta, fila('r2', T(9), 'p1'))).toBe(respuesta)
+  })
+
   it('INSERT de respuesta la agrega en orden cronológico bajo su publicación', () => {
     const feed = aplicarInsercionMensaje(base(), fila('r0', T(2), 'p1'))
     expect(feed.find((p) => p.id === 'p1')!.respuestas.map((r) => r.id)).toEqual(['r0', 'r1'])

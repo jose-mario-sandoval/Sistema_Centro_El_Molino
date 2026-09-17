@@ -10,32 +10,44 @@ import {
 } from '@/lib/validacion/mensajes'
 
 describe('esquemaPublicacion', () => {
+  const id = randomUUID()
+
   it('recorta espacios', () => {
-    expect(esquemaPublicacion.parse({ texto: '  Hola casa \n' })).toEqual({ texto: 'Hola casa' })
+    expect(esquemaPublicacion.parse({ id, texto: '  Hola casa \n' })).toEqual({ id, texto: 'Hola casa' })
   })
 
   it('rechaza vacío, solo espacios (incluidos saltos de línea y tabs) o ausente con un mensaje junto al campo', () => {
     // Igual que el check de la tabla (texto ~ '\S'): lo que la base rechaza no pasa la validación.
     for (const texto of ['', '   ', '\n', '\t\t', ' \r\n\t ', null]) {
-      const r = esquemaPublicacion.safeParse({ texto })
+      const r = esquemaPublicacion.safeParse({ id, texto })
       expect(r.success).toBe(false)
       expect(camposConError(r.error!)).toEqual({ texto: 'Escribí un mensaje.' })
     }
   })
 
   it('acepta 2000 caracteres y rechaza 2001', () => {
-    expect(esquemaPublicacion.safeParse({ texto: 'a'.repeat(2000) }).success).toBe(true)
-    const r = esquemaPublicacion.safeParse({ texto: 'a'.repeat(2001) })
+    expect(esquemaPublicacion.safeParse({ id, texto: 'a'.repeat(2000) }).success).toBe(true)
+    const r = esquemaPublicacion.safeParse({ id, texto: 'a'.repeat(2001) })
     expect(camposConError(r.error!)).toEqual({ texto: 'El mensaje no puede tener más de 2000 caracteres.' })
+  })
+
+  it('exige el id generado en el navegador (UUID)', () => {
+    for (const malo of [null, '', 'no-es-uuid', 42]) {
+      const r = esquemaPublicacion.safeParse({ id: malo, texto: 'Hola' })
+      expect(camposConError(r.error!)).toEqual({ id: 'Mensaje inválido.' })
+    }
   })
 })
 
 describe('esquemaRespuesta', () => {
-  it('exige el id de la publicación', () => {
+  it('exige el id de la respuesta y el de la publicación', () => {
     const id = randomUUID()
-    expect(esquemaRespuesta.parse({ padreId: id, texto: ' Gracias ' })).toEqual({ padreId: id, texto: 'Gracias' })
-    const r = esquemaRespuesta.safeParse({ padreId: 'no-es-uuid', texto: 'Gracias' })
+    const padreId = randomUUID()
+    expect(esquemaRespuesta.parse({ id, padreId, texto: ' Gracias ' })).toEqual({ id, padreId, texto: 'Gracias' })
+    const r = esquemaRespuesta.safeParse({ id, padreId: 'no-es-uuid', texto: 'Gracias' })
     expect(camposConError(r.error!)).toEqual({ padreId: 'Mensaje inválido.' })
+    const sinId = esquemaRespuesta.safeParse({ padreId, texto: 'Gracias' })
+    expect(camposConError(sinId.error!)).toEqual({ id: 'Mensaje inválido.' })
   })
 })
 

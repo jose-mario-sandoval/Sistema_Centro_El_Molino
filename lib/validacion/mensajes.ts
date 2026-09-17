@@ -9,11 +9,11 @@ const texto = z
 
 const idMensaje = z.uuid({ error: 'Mensaje inválido.' })
 
-/** Formulario "Publicar". */
-export const esquemaPublicacion = z.object({ texto })
+/** Formulario "Publicar". `id`: lo genera el navegador para que reintentar no duplique (lib/mensajes/envio.ts). */
+export const esquemaPublicacion = z.object({ id: idMensaje, texto })
 
-/** Formulario de respuesta bajo una publicación. */
-export const esquemaRespuesta = z.object({ padreId: idMensaje, texto })
+/** Formulario de respuesta bajo una publicación. `id`: igual que en la publicación. */
+export const esquemaRespuesta = z.object({ id: idMensaje, padreId: idMensaje, texto })
 
 /** `presente`: estado final deseado de la reacción propia (idempotente). */
 export const esquemaReaccion = z.object({

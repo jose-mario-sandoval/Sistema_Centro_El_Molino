@@ -16,45 +16,74 @@ import {
 } from '@/lib/validacion/mensajes'
 
 type ResultadoId = Resultado<{ id: string }>
+type ClienteServidor = Awaited<ReturnType<typeof crearClienteServidor>>
 
-/** Contrato con la pista 06: devuelve el id de la publicación creada. */
+/**
+ * 23505 al insertar con el id que generó el navegador: es un reintento de un envío que sí se guardó (se
+ * perdió la respuesta) si ese mensaje ya es de quien envía y cuelga del mismo padre. Si no, el id no es de
+ * este envío y no se informa como creado.
+ */
+async function esReintentoGuardado(
+  supabase: ClienteServidor,
+  { id, autorId, padreId }: { id: string; autorId: string; padreId: string | null },
+): Promise<boolean> {
+  const consulta = supabase.from('mensajes').select('id').eq('id', id).eq('autor_id', autorId)
+  const { data, error } = await (padreId === null ? consulta.is('padre_id', null) : consulta.eq('padre_id', padreId))
+    .maybeSingle()
+  if (error) console.error('esReintentoGuardado', error)
+  return data !== null
+}
+
+/**
+ * Contrato con la pista 06: devuelve el id de la publicación creada. Idempotente: el id lo genera el
+ * navegador y se repite al reintentar (lib/mensajes/envio.ts).
+ */
 export async function publicarMensaje(_previo: ResultadoId | null, formData: FormData): Promise<ResultadoId> {
   const sesion = await perfilParaAccion()
   if (!sesion.ok) return sesion
 
-  const entrada = esquemaPublicacion.safeParse({ texto: formData.get('texto') })
+  const entrada = esquemaPublicacion.safeParse({ id: formData.get('id'), texto: formData.get('texto') })
   if (!entrada.success) return fallo('Revisá el mensaje.', camposConError(entrada.error))
+  const { id, texto } = entrada.data
+  const autorId = sesion.perfil.id
 
   const supabase = await crearClienteServidor()
-  const { data, error } = await supabase
-    .from('mensajes')
-    .insert({ autor_id: sesion.perfil.id, texto: entrada.data.texto })
-    .select('id')
-    .single()
+  const { error } = await supabase.from('mensajes').insert({ id, autor_id: autorId, texto })
   if (error) {
+    // Reintento de un envío ya guardado: éxito sin duplicar. No se revalida ni se avisa de nuevo; eso ya
+    // lo hizo el envío que guardó el mensaje.
+    if (error.code === '23505' && (await esReintentoGuardado(supabase, { id, autorId, padreId: null }))) {
+      return exito({ id })
+    }
     console.error('publicarMensaje', error)
     return fallo('No se pudo publicar el mensaje. Intentá de nuevo.')
   }
 
   revalidatePath('/mensajes')
-  return exito({ id: data.id })
+  return exito({ id })
 }
 
-/** Contrato con la pista 06: devuelve el id de la respuesta creada. */
+/** Contrato con la pista 06: devuelve el id de la respuesta creada. Idempotente como publicarMensaje. */
 export async function responderMensaje(_previo: ResultadoId | null, formData: FormData): Promise<ResultadoId> {
   const sesion = await perfilParaAccion()
   if (!sesion.ok) return sesion
 
-  const entrada = esquemaRespuesta.safeParse({ padreId: formData.get('padreId'), texto: formData.get('texto') })
+  const entrada = esquemaRespuesta.safeParse({
+    id: formData.get('id'),
+    padreId: formData.get('padreId'),
+    texto: formData.get('texto'),
+  })
   if (!entrada.success) return fallo('Revisá la respuesta.', camposConError(entrada.error))
+  const { id, padreId, texto } = entrada.data
+  const autorId = sesion.perfil.id
 
   const supabase = await crearClienteServidor()
-  const { data, error } = await supabase
-    .from('mensajes')
-    .insert({ autor_id: sesion.perfil.id, padre_id: entrada.data.padreId, texto: entrada.data.texto })
-    .select('id')
-    .single()
+  const { error } = await supabase.from('mensajes').insert({ id, autor_id: autorId, padre_id: padreId, texto })
   if (error) {
+    // Ver publicarMensaje.
+    if (error.code === '23505' && (await esReintentoGuardado(supabase, { id, autorId, padreId }))) {
+      return exito({ id })
+    }
     if (error.code === 'MOL03') return fallo('Solo se puede responder a publicaciones.')
     if (error.code === '23503') return fallo('La publicación ya no existe.')
     console.error('responderMensaje', error)
@@ -62,7 +91,7 @@ export async function responderMensaje(_previo: ResultadoId | null, formData: Fo
   }
 
   revalidatePath('/mensajes')
-  return exito({ id: data.id })
+  return exito({ id })
 }
 
 /**
