@@ -33,14 +33,18 @@ export function ComidaDelDia({ fecha, etiquetaDia, datos }: { fecha: FechaISO; e
 
   const nombre = ETIQUETA_TIEMPO[datos.comida]
   const editable = datos.abierta
-  const estadoMarcado = borrador?.estado ?? valor?.estado ?? null
+  const estadoMarcado = (editable ? borrador?.estado : undefined) ?? valor?.estado ?? null
 
   function ejecutar(optimista: ValorEfectivo, accion: () => Promise<Resultado<null>>) {
     iniciar(async () => {
       aplicarValor(optimista)
       const resultado = await accion()
       if (!resultado.ok) {
+        // MOL01: la ventana se cerró entre que se cargó la página y se ejecutó la acción.
+        // Refrescamos para traer el estado real del servidor (spec §6.4).
         aviso(resultado.error)
+        setBorrador(null)
+        router.refresh()
         return
       }
       setBorrador(null)

@@ -156,9 +156,16 @@ test('"Volver a mi plan" quita el cambio y restaura el plan', async ({ page }) =
   await expect(almuerzo.getByText('según tu plan', { exact: true })).toBeVisible()
   await expect(almuerzo.getByRole('button', { name: 'Sí comer' })).toHaveAttribute('aria-pressed', 'true')
   await expect(almuerzo.getByRole('button', { name: 'Volver a mi plan' })).toHaveCount(0)
+  // Filtramos por fecha y comida del caso: el job de cierre de cada 5 minutos puede
+  // insertar selecciones de otras comidas para este usuario y volver flaky el poll.
   await expect
     .poll(async () => {
-      const { data } = await admin.from('selecciones_comida').select('estado').eq('usuario_id', ids.residente)
+      const { data } = await admin
+        .from('selecciones_comida')
+        .select('estado')
+        .eq('usuario_id', ids.residente)
+        .eq('fecha', miercolesSiguiente)
+        .eq('comida', 'almuerzo')
       return data
     })
     .toEqual([])

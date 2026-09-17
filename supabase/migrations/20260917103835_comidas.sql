@@ -359,6 +359,10 @@ begin
 end;
 $$;
 
+-- Nadie debe poder ejecutarlo desde la API; solo pg_cron (que corre como postgres,
+-- a quien esta revocación no afecta) o una conexión directa con privilegios.
+revoke execute on procedure public.cerrar_comidas_vencidas(timestamptz) from public, anon, authenticated;
+
 -- ---------- Job de pg_cron cada 5 minutos (spec §8.3) ----------
 -- La pista 06-A también habilita pg_cron; "if not exists" evita depender del orden de las migraciones.
 create extension if not exists pg_cron with schema pg_catalog;

@@ -71,10 +71,16 @@ export async function obtenerSemanaPropia(usuarioId: string, lunes: FechaISO): P
 /** Plan semanal de cada Director/Residente activo (Administración, solo lectura). */
 export async function obtenerPlanesDeTodos(): Promise<PersonaConPlan[]> {
   const supabase = await crearClienteServidor()
-  const [personas, filas] = await Promise.all([
-    listarPerfiles({ soloActivos: true, roles: ROLES_CON_COMIDAS }),
-    supabase.from('plan_semanal').select('usuario_id, dia_semana, comida, estado, nota'),
-  ])
+  const personas = await listarPerfiles({ soloActivos: true, roles: ROLES_CON_COMIDAS })
+  if (personas.length === 0) return []
+
+  // Acotamos a las personas activas ya listadas: evita traer filas de usuarios
+  // inactivos o sin rol de comidas cuando la tabla crece.
+  const ids = personas.map((persona) => persona.id)
+  const filas = await supabase
+    .from('plan_semanal')
+    .select('usuario_id, dia_semana, comida, estado, nota')
+    .in('usuario_id', ids)
   if (filas.error) throw filas.error
 
   return personas.map((persona) => ({

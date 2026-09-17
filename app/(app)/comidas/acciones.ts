@@ -82,7 +82,12 @@ export async function guardarSeleccion(entrada: unknown): Promise<Resultado<null
     // La función acepta null; los tipos generados declaran text como string.
     p_nota: nota as string,
   })
-  if (error) return fallo(await mensajeDeError(error, { fecha, comida, estado }))
+  if (error) {
+    // MOL01: la ventana se cerró justo antes de guardar. Revalidamos igual para
+    // que el refresco del cliente (spec §6.4) traiga el estado real, no el caché.
+    if (error.code === 'MOL01') revalidatePath('/comidas', 'layout')
+    return fallo(await mensajeDeError(error, { fecha, comida, estado }))
+  }
 
   revalidatePath('/comidas', 'layout')
   return exito(null)
@@ -99,7 +104,12 @@ export async function volverAPlan(entrada: unknown): Promise<Resultado<null>> {
   const { fecha, comida } = datos.data
   const supabase = await crearClienteServidor()
   const { error } = await supabase.rpc('volver_a_plan', { p_fecha: fecha, p_comida: comida })
-  if (error) return fallo(await mensajeDeError(error, { fecha, comida }))
+  if (error) {
+    // MOL01: la ventana se cerró justo antes de guardar. Revalidamos igual para
+    // que el refresco del cliente (spec §6.4) traiga el estado real, no el caché.
+    if (error.code === 'MOL01') revalidatePath('/comidas', 'layout')
+    return fallo(await mensajeDeError(error, { fecha, comida }))
+  }
 
   revalidatePath('/comidas', 'layout')
   return exito(null)
