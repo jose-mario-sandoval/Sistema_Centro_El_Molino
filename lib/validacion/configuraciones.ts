@@ -1,9 +1,7 @@
 import { z } from 'zod'
 import type { HorasLimite } from '@/lib/comidas/tipos'
 import { ROLES } from '@/lib/perfiles/roles'
-import { esquemaContrasenaNueva } from '@/lib/validacion/auth'
-
-const MENSAJE_MINIMO_CONTRASENA = 'La contraseña debe tener al menos 8 caracteres.'
+import { esquemaContrasenaNueva, MENSAJE_MAXIMO_CONTRASENA, MENSAJE_MINIMO_CONTRASENA } from '@/lib/validacion/auth'
 
 // Límites iguales a los checks de la tabla perfiles (Fase 0, migración base).
 const nombre = z.string().trim().min(1, 'Ingresá el nombre.').max(120, 'El nombre puede tener hasta 120 caracteres.')
@@ -14,7 +12,7 @@ const siglas = z
   .max(6, 'Las siglas pueden tener hasta 6 caracteres.')
   .toUpperCase()
 const correo = z.string().trim().toLowerCase().email('Ingresá un correo válido.')
-const contrasenaTemporal = z.string().min(8, MENSAJE_MINIMO_CONTRASENA)
+const contrasenaTemporal = z.string().min(8, MENSAJE_MINIMO_CONTRASENA).max(72, MENSAJE_MAXIMO_CONTRASENA)
 const idCuenta = z.uuid('Cuenta inválida.')
 const rol = z.enum(ROLES, { error: 'Elegí un rol.' })
 

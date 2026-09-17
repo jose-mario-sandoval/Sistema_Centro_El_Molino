@@ -52,6 +52,15 @@ describe('esquemaCambioContrasenaPropia', () => {
     ).toEqual({ nueva: 'La contraseña debe tener al menos 8 caracteres.' })
   })
 
+  it('acepta hasta 72 caracteres', () => {
+    const larga = 'b'.repeat(72)
+    expect(esquemaCambioContrasenaPropia.safeParse({ ...valido, nueva: larga, confirmacion: larga }).success).toBe(true)
+    const demasiado = 'b'.repeat(73)
+    expect(
+      campos(esquemaCambioContrasenaPropia.safeParse({ ...valido, nueva: demasiado, confirmacion: demasiado })),
+    ).toEqual({ nueva: 'La contraseña puede tener hasta 72 caracteres.' })
+  })
+
   it('exige que la confirmación coincida', () => {
     expect(campos(esquemaCambioContrasenaPropia.safeParse({ ...valido, confirmacion: 'otra-cosa-3' }))).toEqual({
       confirmacion: 'Las contraseñas no coinciden.',
@@ -121,9 +130,22 @@ describe('esquemaNuevaCuenta', () => {
       contrasena: 'La contraseña debe tener al menos 8 caracteres.',
     })
   })
+
+  it('acepta hasta 72 caracteres de contraseña temporal (límite de Supabase Auth)', () => {
+    expect(esquemaNuevaCuenta.safeParse({ ...datos, contrasena: 'a'.repeat(72) }).success).toBe(true)
+    expect(campos(esquemaNuevaCuenta.safeParse({ ...datos, contrasena: 'a'.repeat(73) }))).toEqual({
+      contrasena: 'La contraseña puede tener hasta 72 caracteres.',
+    })
+  })
 })
 
 describe('acciones sobre otras cuentas', () => {
+  it('contraseña temporal: entre 8 y 72 caracteres', () => {
+    expect(campos(esquemaContrasenaTemporal.safeParse({ id: ID, contrasena: 'c'.repeat(73) }))).toEqual({
+      contrasena: 'La contraseña puede tener hasta 72 caracteres.',
+    })
+  })
+
   it('contraseña temporal: exige un id de cuenta válido', () => {
     expect(esquemaContrasenaTemporal.safeParse({ id: ID, contrasena: 'abcd-efgh-jkmn' }).success).toBe(true)
     expect(campos(esquemaContrasenaTemporal.safeParse({ id: 'no-es-uuid', contrasena: 'abcd-efgh-jkmn' }))).toEqual({
