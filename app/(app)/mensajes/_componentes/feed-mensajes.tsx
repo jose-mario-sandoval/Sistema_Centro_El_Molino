@@ -1,6 +1,6 @@
 'use client'
 
-import { REALTIME_SUBSCRIBE_STATES } from '@supabase/supabase-js'
+import { REALTIME_SUBSCRIBE_STATES, type RealtimeChannel } from '@supabase/supabase-js'
 import { useEffect, useEffectEvent, useRef, useState, useTransition } from 'react'
 import { useAviso } from '@/components/ui/avisos'
 import type { PaginaFeed } from '@/lib/mensajes/consultas'
@@ -93,51 +93,70 @@ export function FeedMensajes({
     const supabase = crearClienteNavegador()
     let cancelado = false
     let reintento: ReturnType<typeof setTimeout> | undefined
+    let canal: RealtimeChannel | undefined
 
-    const canal = supabase
-      // wait: SUBSCRIBED llega recién cuando el servidor confirma la suscripción a Postgres Changes,
-      // así "en-vivo" garantiza que ya no se pierden eventos.
-      .channel(`mensajes-${Math.random().toString(36).slice(2)}`, {
-        config: { postgres_changes_options: { wait: true } },
-      })
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'mensajes' }, (payload) => {
-        alInsertarMensaje(payload.new as MensajeFila)
-      })
-      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'mensajes' }, (payload) => {
-        const { id } = payload.old as Partial<MensajeFila>
-        if (id) setPublicaciones((feed) => aplicarBorradoMensaje(feed, id))
-      })
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'reacciones' }, (payload) => {
-        const { mensaje_id, usuario_id } = payload.new as ReaccionFila
-        setPublicaciones((feed) => fijarReaccion(feed, mensaje_id, usuario_id, true))
-      })
-      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'reacciones' }, (payload) => {
-        const { mensaje_id, usuario_id } = payload.old as Partial<ReaccionFila>
-        if (mensaje_id && usuario_id) setPublicaciones((feed) => fijarReaccion(feed, mensaje_id, usuario_id, false))
-      })
-      .subscribe((estado) => {
+    async function suscribir() {
+      // El join del canal se arma al llamar a subscribe() y lleva el token que Realtime tenga en ese momento.
+      // Sin esperar a la sesión sale solo con la llave pública (rol anon): RLS no deja ver las filas y los
+      // eventos llegan vacíos ("Error 401"). setAuth() sin argumento toma el token de la sesión actual.
+      try {
+        await supabase.realtime.setAuth()
+      } catch {
+        // Sin token no llegarían eventos: se reintenta igual que con un canal cerrado.
         if (cancelado) return
-        if (estado === REALTIME_SUBSCRIBE_STATES.SUBSCRIBED) {
-          setConexion('en-vivo')
-          if (huboCaida.current) {
-            huboCaida.current = false
-            void recargarTodo()
-          }
-          return
-        }
-        // CHANNEL_ERROR y TIMED_OUT: el cliente reintenta solo. CLOSED: se crea un canal nuevo.
         huboCaida.current = true
         setConexion('reconectando')
-        if (estado === REALTIME_SUBSCRIBE_STATES.CLOSED) {
-          clearTimeout(reintento)
-          reintento = setTimeout(() => setIntentoCanal((n) => n + 1), 3000)
-        }
-      })
+        reintento = setTimeout(() => setIntentoCanal((n) => n + 1), 3000)
+        return
+      }
+      if (cancelado) return
+
+      canal = supabase
+        // wait: SUBSCRIBED llega recién cuando el servidor confirma la suscripción a Postgres Changes,
+        // así "en-vivo" garantiza que ya no se pierden eventos.
+        .channel(`mensajes-${Math.random().toString(36).slice(2)}`, {
+          config: { postgres_changes_options: { wait: true } },
+        })
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'mensajes' }, (payload) => {
+          alInsertarMensaje(payload.new as MensajeFila)
+        })
+        .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'mensajes' }, (payload) => {
+          const { id } = payload.old as Partial<MensajeFila>
+          if (id) setPublicaciones((feed) => aplicarBorradoMensaje(feed, id))
+        })
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'reacciones' }, (payload) => {
+          const { mensaje_id, usuario_id } = payload.new as ReaccionFila
+          setPublicaciones((feed) => fijarReaccion(feed, mensaje_id, usuario_id, true))
+        })
+        .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'reacciones' }, (payload) => {
+          const { mensaje_id, usuario_id } = payload.old as Partial<ReaccionFila>
+          if (mensaje_id && usuario_id) setPublicaciones((feed) => fijarReaccion(feed, mensaje_id, usuario_id, false))
+        })
+        .subscribe((estado) => {
+          if (cancelado) return
+          if (estado === REALTIME_SUBSCRIBE_STATES.SUBSCRIBED) {
+            setConexion('en-vivo')
+            if (huboCaida.current) {
+              huboCaida.current = false
+              void recargarTodo()
+            }
+            return
+          }
+          // CHANNEL_ERROR y TIMED_OUT: el cliente reintenta solo. CLOSED: se crea un canal nuevo.
+          huboCaida.current = true
+          setConexion('reconectando')
+          if (estado === REALTIME_SUBSCRIBE_STATES.CLOSED) {
+            clearTimeout(reintento)
+            reintento = setTimeout(() => setIntentoCanal((n) => n + 1), 3000)
+          }
+        })
+    }
+    void suscribir()
 
     return () => {
       cancelado = true
       clearTimeout(reintento)
-      void supabase.removeChannel(canal)
+      if (canal) void supabase.removeChannel(canal)
     }
   }, [intentoCanal])
 
