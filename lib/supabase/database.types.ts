@@ -9,6 +9,24 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      avisos_enviados: {
+        Row: {
+          comida: Database["public"]["Enums"]["tiempo_comida"]
+          enviado_en: string
+          fecha: string
+        }
+        Insert: {
+          comida: Database["public"]["Enums"]["tiempo_comida"]
+          enviado_en?: string
+          fecha: string
+        }
+        Update: {
+          comida?: Database["public"]["Enums"]["tiempo_comida"]
+          enviado_en?: string
+          fecha?: string
+        }
+        Relationships: []
+      }
       comidas_cerradas: {
         Row: {
           cerrada_en: string
@@ -306,6 +324,41 @@ export type Database = {
           },
         ]
       }
+      suscripciones_push: {
+        Row: {
+          auth: string
+          creado_en: string
+          endpoint: string
+          id: string
+          p256dh: string
+          usuario_id: string
+        }
+        Insert: {
+          auth: string
+          creado_en?: string
+          endpoint: string
+          id?: string
+          p256dh: string
+          usuario_id: string
+        }
+        Update: {
+          auth?: string
+          creado_en?: string
+          endpoint?: string
+          id?: string
+          p256dh?: string
+          usuario_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "suscripciones_push_usuario_id_fkey"
+            columns: ["usuario_id"]
+            isOneToOne: false
+            referencedRelation: "perfiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -335,6 +388,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      llamar_recordatorios: { Args: never; Returns: number }
       mi_rol: { Args: never; Returns: Database["public"]["Enums"]["rol"] }
       nota_valida: {
         Args: {

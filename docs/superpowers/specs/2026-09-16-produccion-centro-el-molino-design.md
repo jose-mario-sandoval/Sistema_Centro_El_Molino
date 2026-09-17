@@ -344,6 +344,7 @@ La Server Action traduce `MOL01` a un mensaje específico ("El almuerzo ya cerr�
    - busca `(fecha, comida)` cuyo cierre ocurre dentro de los próximos 60 minutos y no están en `avisos_enviados`;
    - inserta primero en `avisos_enviados` (si la inserción choca, otra corrida ya lo tomó);
    - responde `202` de inmediato y envía los avisos con `after()`.
+3. **Limpieza del historial (una vez al día, 03:15 UTC):** un tercer job borra de `cron.job_run_details` las corridas con `coalesce(end_time, start_time)` de más de 7 días, porque los dos jobs anteriores corren cada 5 minutos y ese historial crece unas 576 filas por día sin que nadie lo purgue.
 
 ---
 
