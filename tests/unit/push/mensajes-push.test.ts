@@ -17,6 +17,17 @@ describe('recortar', () => {
     expect(texto).toHaveLength(LARGO_MAXIMO_CUERPO)
     expect(texto.endsWith('…')).toBe(true)
   })
+
+  it('cuenta caracteres completos y no parte un emoji por la mitad', () => {
+    const texto = recortar('🎉'.repeat(200))
+    expect(Array.from(texto)).toHaveLength(LARGO_MAXIMO_CUERPO)
+    expect(texto.endsWith('🎉…')).toBe(true)
+  })
+
+  it('no recorta un texto de emojis que cabe entero', () => {
+    const cabe = '🎉'.repeat(LARGO_MAXIMO_CUERPO)
+    expect(recortar(cabe)).toBe(cabe)
+  })
 })
 
 describe('mensajes', () => {

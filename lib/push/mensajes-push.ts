@@ -20,9 +20,12 @@ const formatoHora = new Intl.DateTimeFormat('en-US', {
   minute: '2-digit',
 })
 
+/** Corta por caracteres completos (code points): cortar por índice partiría emojis y acentos compuestos. */
 export function recortar(texto: string, maximo = LARGO_MAXIMO_CUERPO): string {
   const limpio = texto.replace(/\s+/g, ' ').trim()
-  return limpio.length <= maximo ? limpio : `${limpio.slice(0, maximo - 1).trimEnd()}…`
+  const caracteres = Array.from(limpio)
+  if (caracteres.length <= maximo) return limpio
+  return `${caracteres.slice(0, maximo - 1).join('').trimEnd()}…`
 }
 
 function horaLocal(instante: Date): string {

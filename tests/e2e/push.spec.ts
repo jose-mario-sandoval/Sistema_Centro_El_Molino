@@ -69,6 +69,101 @@ test.describe('cron de recordatorios', () => {
   })
 })
 
+test.describe('/api/push', () => {
+  const ENDPOINT_PROPIO = 'https://fcm.googleapis.com/fcm/send/e2e-propio'
+  const ENDPOINT_AJENO = 'https://fcm.googleapis.com/fcm/send/e2e-ajeno'
+  const ENDPOINT_DESCONOCIDO = 'https://atacante.example/push/e2e'
+  const LLAVES = { p256dh: 'p256dh-de-prueba', auth: 'auth-de-prueba' }
+
+  let admin: ReturnType<typeof clienteAdminPrueba>
+
+  test.beforeAll(() => {
+    admin = clienteAdminPrueba()
+  })
+
+  test.afterEach(async () => {
+    await admin
+      .from('suscripciones_push')
+      .delete()
+      .in('endpoint', [ENDPOINT_PROPIO, ENDPOINT_AJENO, ENDPOINT_DESCONOCIDO])
+  })
+
+  async function idDe(clave: 'residente' | 'residente2'): Promise<string> {
+    const { data } = await admin.from('perfiles').select('id').eq('correo', USUARIOS_PRUEBA[clave].correo).single()
+    expect(data, `falta el usuario de prueba ${clave}`).not.toBeNull()
+    return data!.id
+  }
+
+  /** Dueño actual del dispositivo, o null si la suscripción no existe. */
+  async function duenoDe(endpoint: string): Promise<string | null> {
+    const { data } = await admin.from('suscripciones_push').select('usuario_id').eq('endpoint', endpoint).maybeSingle()
+    return data?.usuario_id ?? null
+  }
+
+  test('sin sesión responde 401', async ({ request }) => {
+    const alta = await request.post('/api/push', {
+      data: { endpoint: ENDPOINT_PROPIO, keys: LLAVES },
+      maxRedirects: 0,
+    })
+    expect(alta.status()).toBe(401)
+    expect(await duenoDe(ENDPOINT_PROPIO)).toBeNull()
+
+    const baja = await request.delete('/api/push', { data: { endpoint: ENDPOINT_PROPIO }, maxRedirects: 0 })
+    expect(baja.status()).toBe(401)
+  })
+
+  test('registra el dispositivo y lo reasigna a la cuenta con sesión', async ({ page }) => {
+    const residente = await idDe('residente')
+    const residente2 = await idDe('residente2')
+    await iniciarSesion(page, USUARIOS_PRUEBA.residente.correo)
+
+    const alta = await page.request.post('/api/push', {
+      data: { endpoint: ENDPOINT_PROPIO, keys: LLAVES, expirationTime: null },
+      maxRedirects: 0,
+    })
+    expect(alta.status()).toBe(204)
+    expect(await duenoDe(ENDPOINT_PROPIO)).toBe(residente)
+
+    // Dispositivo compartido: quedó a nombre de otra cuenta y esta sesión lo vuelve a tomar.
+    await admin.from('suscripciones_push').update({ usuario_id: residente2 }).eq('endpoint', ENDPOINT_PROPIO)
+    const reasignacion = await page.request.post('/api/push', {
+      data: { endpoint: ENDPOINT_PROPIO, keys: LLAVES },
+      maxRedirects: 0,
+    })
+    expect(reasignacion.status()).toBe(204)
+    expect(await duenoDe(ENDPOINT_PROPIO)).toBe(residente)
+  })
+
+  test('la baja solo borra la suscripción de la cuenta con sesión', async ({ page }) => {
+    const residente = await idDe('residente')
+    const residente2 = await idDe('residente2')
+    await admin.from('suscripciones_push').insert([
+      { usuario_id: residente, endpoint: ENDPOINT_PROPIO, ...LLAVES },
+      { usuario_id: residente2, endpoint: ENDPOINT_AJENO, ...LLAVES },
+    ])
+    await iniciarSesion(page, USUARIOS_PRUEBA.residente.correo)
+
+    const ajena = await page.request.delete('/api/push', { data: { endpoint: ENDPOINT_AJENO }, maxRedirects: 0 })
+    expect(ajena.status()).toBe(204)
+    expect(await duenoDe(ENDPOINT_AJENO)).toBe(residente2)
+
+    const propia = await page.request.delete('/api/push', { data: { endpoint: ENDPOINT_PROPIO }, maxRedirects: 0 })
+    expect(propia.status()).toBe(204)
+    expect(await duenoDe(ENDPOINT_PROPIO)).toBeNull()
+  })
+
+  test('rechaza endpoints que no son de un servicio push conocido', async ({ page }) => {
+    await iniciarSesion(page, USUARIOS_PRUEBA.residente.correo)
+
+    const respuesta = await page.request.post('/api/push', {
+      data: { endpoint: ENDPOINT_DESCONOCIDO, keys: LLAVES },
+      maxRedirects: 0,
+    })
+    expect(respuesta.status()).toBe(400)
+    expect(await duenoDe(ENDPOINT_DESCONOCIDO)).toBeNull()
+  })
+})
+
 test.describe('Configuraciones', () => {
   test('muestra la sección de notificaciones y guarda las preferencias', async ({ page }) => {
     const admin = clienteAdminPrueba()
