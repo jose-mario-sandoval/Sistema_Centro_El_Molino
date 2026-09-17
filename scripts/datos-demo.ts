@@ -1,4 +1,5 @@
 import { crearClienteScript, exigirConfirmacion } from './cliente-script'
+import { sembrarCalendario } from './demo/calendario'
 import { sembrarComidas } from './demo/comidas'
 import { DOMINIO_DEMO, type Sembrador } from './demo/tipos'
 import { asegurarUsuariosDemo } from './demo/usuarios'
@@ -6,6 +7,7 @@ import { asegurarUsuariosDemo } from './demo/usuarios'
 /** Cada pista agrega aquí su sembrador (spec §10, índice §4). */
 const SEMBRADORES: { nombre: string; sembrar: Sembrador }[] = [
   { nombre: 'comidas', sembrar: sembrarComidas },
+  { nombre: 'calendario', sembrar: sembrarCalendario },
 ]
 
 async function main() {
