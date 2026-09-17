@@ -19,6 +19,10 @@ export const DIAS_CUADRICULA = 42
 
 export const DIAS_SEMANA_CORTOS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'] as const
 
+/** Rango de fechas de eventos: el mismo que exigen zod (lib/validacion/calendario.ts) y el check de la base. */
+export const FECHA_MINIMA: FechaISO = '2000-01-01'
+export const FECHA_MAXIMA: FechaISO = '2099-12-31'
+
 const PATRON_MES = /^20\d{2}-(0[1-9]|1[0-2])$/
 
 /** Valida el parámetro ?mes= (años 2000–2099). */

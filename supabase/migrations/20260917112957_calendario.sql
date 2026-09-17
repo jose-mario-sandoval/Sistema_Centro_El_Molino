@@ -5,8 +5,10 @@
 
 create table public.eventos (
   id uuid primary key default gen_random_uuid(),
-  titulo text not null check (length(btrim(titulo)) between 1 and 120),
-  fecha date not null,
+  -- El título llega recortado (zod): la base rechaza espacios al inicio o al final.
+  titulo text not null check (titulo = btrim(titulo) and length(titulo) between 1 and 120),
+  -- Mismo rango que acepta la app (lib/validacion/calendario.ts y ?mes=).
+  fecha date not null check (fecha between '2000-01-01' and '2099-12-31'),
   hora time,
   creado_por uuid not null references public.perfiles (id) on delete cascade,
   creado_en timestamptz not null default now(),
@@ -43,7 +45,13 @@ create trigger eventos_antes_de_guardar
 alter table public.eventos enable row level security;
 
 -- GRANT explícitos obligatorios (índice §3.4): Supabase ya no expone tablas nuevas; las políticas deciden qué filas.
-grant select, insert, update, delete on table public.eventos to authenticated;
+-- anon no tiene nada que hacer aquí: sin privilegios, ni siquiera llega a las políticas.
+revoke all on table public.eventos from anon;
+grant select, insert, delete on table public.eventos to authenticated;
+-- UPDATE solo en las columnas que edita el Director. creado_por, creado_en y actualizado_en
+-- quedan fuera (el trigger BEFORE UPDATE igual puede fijarlas: el privilegio se revisa sobre el SET).
+revoke update on table public.eventos from authenticated;
+grant update (titulo, fecha, hora) on table public.eventos to authenticated;
 grant select, insert, update, delete on table public.eventos to service_role;
 
 create policy "eventos: lectura para usuarios activos"

@@ -24,6 +24,17 @@ describe('esquemaEvento', () => {
     expect(camposInvalidos(esquemaEvento, { ...VALIDO, titulo: 'x'.repeat(120) })).toEqual([])
   })
 
+  it('acepta las fechas límite del rango', () => {
+    expect(camposInvalidos(esquemaEvento, { ...VALIDO, fecha: '2000-01-01' })).toEqual([])
+    expect(camposInvalidos(esquemaEvento, { ...VALIDO, fecha: '2099-12-31' })).toEqual([])
+  })
+
+  it.each(['1999-12-31', '2100-01-01', '0001-01-01', '9999-12-31'])('rechaza la fecha fuera de rango %s', (fecha) => {
+    const resultado = esquemaEvento.safeParse({ ...VALIDO, fecha })
+    expect(resultado.success).toBe(false)
+    expect(camposConError(resultado.error!)).toEqual({ fecha: 'Fecha fuera de rango.' })
+  })
+
   it('ignora campos desconocidos', () => {
     expect(esquemaEvento.parse({ ...VALIDO, id: ID, creado_por: ID })).toEqual(VALIDO)
   })
