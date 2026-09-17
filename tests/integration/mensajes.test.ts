@@ -360,27 +360,34 @@ describe('consulta del feed', () => {
     expect(vacia.respuestas).toEqual([])
   })
 
-  it('trae todas las respuestas aunque pasen de 1000: max_rows no corta los recursos embebidos', async () => {
-    const publicacion = await publicar('director', 'Publicación con 1001 respuestas')
-    const respuestas = Array.from({ length: 1001 }, (_, i) => ({
-      id: randomUUID(),
-      autor_id: i % 2 === 0 ? ids.residente : ids.residente2,
-      padre_id: publicacion,
-      texto: `Respuesta masiva ${i}`,
-    }))
+  it('trae todas las respuestas aunque una publicación pase de max_rows (1000) o la página entera lo supere', async () => {
+    // PostgREST corta cada lista embebida en max_rows: la de 1001 se completa aparte. La de 600 muestra que
+    // el corte es por publicación y no sobre el total embebido de la página (1601).
+    const conMuchas = await publicar('director', 'Publicación con 1001 respuestas')
+    const conVarias = await publicar('residente', 'Publicación con 600 respuestas')
+    const respuestas = (padreId: string, cantidad: number) =>
+      Array.from({ length: cantidad }, (_, i) => ({
+        id: randomUUID(),
+        autor_id: i % 2 === 0 ? ids.residente : ids.residente2,
+        padre_id: padreId,
+        texto: `Respuesta masiva ${i}`,
+      }))
+    const deMuchas = respuestas(conMuchas, 1001)
+    const deVarias = respuestas(conVarias, 600)
     try {
-      // Una sola inserción en lote con la llave secreta.
-      const { error } = await admin.from('mensajes').insert(respuestas)
+      // Una sola inserción en lote con la llave secreta; todas quedan con el mismo creado_en.
+      const { error } = await admin.from('mensajes').insert([...deMuchas, ...deVarias])
       expect(error).toBeNull()
 
       const { publicaciones } = await paginaComo('residente')
-      const p = publicaciones.find((x) => x.id === publicacion)
-      expect(p).toBeDefined()
-      expect(p!.respuestas).toHaveLength(1001)
-      expect(new Set(p!.respuestas.map((r) => r.id))).toEqual(new Set(respuestas.map((r) => r.id)))
+      const idsDe = (id: string) => publicaciones.find((p) => p.id === id)?.respuestas.map((r) => r.id)
+      expect(idsDe(conMuchas)).toHaveLength(1001)
+      expect(new Set(idsDe(conMuchas))).toEqual(new Set(deMuchas.map((r) => r.id)))
+      expect(idsDe(conVarias)).toHaveLength(600)
+      expect(new Set(idsDe(conVarias))).toEqual(new Set(deVarias.map((r) => r.id)))
     } finally {
-      // Las respuestas caen en cascada (afterEach también limpia, pero así no dependen de él).
-      await admin.from('mensajes').delete().eq('id', publicacion)
+      // Las respuestas caen en cascada (afterEach también limpia, pero así no depende de él).
+      await admin.from('mensajes').delete().in('id', [conMuchas, conVarias])
     }
   })
 
