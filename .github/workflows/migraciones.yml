@@ -1,0 +1,47 @@
+name: Migraciones producción
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'supabase/migrations/**'
+      - 'supabase/config.toml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: migraciones-produccion
+  cancel-in-progress: false
+
+jobs:
+  migraciones:
+    if: ${{ vars.SUPABASE_PROJECT_REF != '' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      # Sin npm ci: ninguna dependencia del proyecto corre con los secretos de producción.
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.117.0
+      - name: Vincular proyecto Supabase
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
+        run: supabase link --project-ref "$SUPABASE_PROJECT_REF"
+      - name: Verificar ajustes de producción en config.toml
+        # Sin este bloque, config push subiría site_url de localhost y los límites de Auth locales.
+        run: grep -qF '[remotes.produccion]' supabase/config.toml || { echo "::error::Falta [remotes.produccion] en supabase/config.toml (site_url y límites de Auth). Ver plan 07."; exit 1; }
+      - name: Ajustes de Auth
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: supabase config push --yes
+      - name: Migraciones
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: supabase db push --yes

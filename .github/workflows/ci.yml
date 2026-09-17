@@ -1,0 +1,80 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [master]
+  push:
+    branches: [master]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  # En master no se cancela: cada push debe quedar verificado.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  calidad:
+    name: calidad
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ci
+          SUPABASE_SECRET_KEY: ci
+
+  base-de-datos:
+    name: base-de-datos
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Subir límites de Auth solo en CI (todas las pruebas inician sesión desde la misma IP)
+        # Nunca cambiar estos valores en el config.toml commiteado: `config push` los aplicaría a producción.
+        run: |
+          sed -i 's/^sign_in_sign_ups = .*/sign_in_sign_ups = 100000/' supabase/config.toml
+          sed -i 's/^token_refresh = .*/token_refresh = 100000/' supabase/config.toml
+          grep -n "sign_in_sign_ups\|token_refresh" supabase/config.toml
+          # Si alguien renombra o comenta las claves, sed no cambia nada: fallar en vez de seguir con límites bajos.
+          grep -q "^sign_in_sign_ups = 100000" supabase/config.toml && grep -q "^token_refresh = 100000" supabase/config.toml || exit 1
+      - name: Levantar Supabase temporal y aplicar migraciones desde cero
+        run: npx supabase start -x studio,imgproxy,edge-runtime,logflare,vector
+      - name: Variables de la base temporal
+        run: node scripts/ci/entorno-supabase-local.mjs >> "$GITHUB_ENV"
+      - name: Generar tipos desde la base temporal
+        run: npx supabase gen types typescript --local --schema public > database.types.ts
+      - uses: actions/upload-artifact@v7
+        with:
+          name: database-types
+          path: database.types.ts
+          retention-days: 14
+      - name: Avisar si los tipos commiteados están desactualizados
+        run: |
+          if ! diff -q database.types.ts lib/supabase/database.types.ts > /dev/null; then
+            echo "::warning::lib/supabase/database.types.ts difiere de los tipos generados. Descargá el artefacto database-types (índice §5.3)."
+          fi
+      - name: Pruebas de integración
+        run: npm run test:integracion
+      - name: Build para e2e
+        run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - name: Pruebas de punta a punta
+        run: npm run test:e2e
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: playwright-report
+          path: playwright-report
+          retention-days: 7
