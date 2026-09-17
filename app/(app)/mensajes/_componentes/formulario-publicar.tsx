@@ -1,0 +1,53 @@
+'use client'
+
+import { startTransition, useActionState, useRef } from 'react'
+import { useAviso } from '@/components/ui/avisos'
+import type { Resultado } from '@/lib/acciones/resultado'
+import { LARGO_MAXIMO_MENSAJE } from '@/lib/mensajes/feed'
+import { publicarMensaje } from '../acciones'
+
+export function FormularioPublicar({ alPublicar }: { alPublicar: (id: string, texto: string) => void }) {
+  const aviso = useAviso()
+  const formulario = useRef<HTMLFormElement>(null)
+  const [estado, accion, pendiente] = useActionState(
+    async (previo: Resultado<{ id: string }> | null, formData: FormData) => {
+      const resultado = await publicarMensaje(previo, formData)
+      if (resultado.ok) {
+        alPublicar(resultado.data.id, String(formData.get('texto')).trim())
+        formulario.current?.reset()
+      } else if (!resultado.campos) {
+        aviso(resultado.error)
+      }
+      return resultado
+    },
+    null,
+  )
+  const errorTexto = estado && !estado.ok ? estado.campos?.texto : undefined
+
+  return (
+    <form
+      ref={formulario}
+      className="compose"
+      noValidate
+      onSubmit={(e) => {
+        e.preventDefault()
+        const datos = new FormData(e.currentTarget)
+        startTransition(() => accion(datos))
+      }}
+    >
+      <textarea
+        name="texto"
+        aria-label="Nuevo mensaje"
+        placeholder="¿Qué querés compartir con la casa?"
+        maxLength={LARGO_MAXIMO_MENSAJE}
+        aria-invalid={errorTexto ? true : undefined}
+      />
+      {errorTexto && <div className="campo-error">{errorTexto}</div>}
+      <div className="compose-foot">
+        <button type="submit" className="btn" disabled={pendiente} aria-busy={pendiente}>
+          {pendiente ? 'Publicando…' : 'Publicar'}
+        </button>
+      </div>
+    </form>
+  )
+}
