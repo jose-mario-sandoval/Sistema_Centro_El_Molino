@@ -1,4 +1,4 @@
-# Centro El Molino para la cuminacion con administración
+# Centro El Molino para la comunicacion con administracion
 
 Sistema web interno del centro: comidas, mensajes, calendario y configuraciones.
 
