@@ -39,7 +39,7 @@ export function Estructura({
             </div>
           </div>
           <div className="sidebar-actions">
-            <BotonApariencia conTexto hacia="arriba" />
+            <BotonApariencia conTexto hacia="arriba" guardarEnCuenta />
             <BotonCerrarSesion />
           </div>
         </div>
@@ -51,7 +51,7 @@ export function Estructura({
           </span>
           <span className="name">El Molino</span>
           <div className="topbar-acciones">
-            <BotonApariencia />
+            <BotonApariencia guardarEnCuenta />
             <div className="avatar" title={nombre}>
               {siglas}
             </div>

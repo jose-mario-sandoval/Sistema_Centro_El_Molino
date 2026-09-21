@@ -38,7 +38,17 @@ export async function asegurarUsuariosPrueba(): Promise<Record<ClaveUsuario, str
       await admin.auth.admin.updateUserById(existente.id, { password: CONTRASENA_PRUEBA, ban_duration: 'none' })
       const { error } = await admin
         .from('perfiles')
-        .update({ activo: true, rol: u.rol, nombre: u.nombre, siglas: u.siglas, debe_cambiar_contrasena: false })
+        .update({
+          activo: true,
+          rol: u.rol,
+          nombre: u.nombre,
+          siglas: u.siglas,
+          debe_cambiar_contrasena: false,
+          // Sin apariencia guardada: cada prueba parte de la cuenta "sin elegir".
+          apariencia_tema: null,
+          apariencia_contraste: null,
+          apariencia_texto: null,
+        })
         .eq('id', existente.id)
       if (error) throw error
       ids[clave] = existente.id

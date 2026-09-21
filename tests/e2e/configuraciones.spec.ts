@@ -104,6 +104,40 @@ test('un residente cambia su nombre y lo ve en la barra lateral', async ({ page 
   await expect(page.locator('.sidebar .avatar')).toHaveText('RR')
 })
 
+test('la apariencia se guarda en la cuenta y llega a un dispositivo nuevo', async ({ page, browser, baseURL }) => {
+  const { correo } = USUARIOS_PRUEBA.residente
+  await abrirConfiguracionesComo(page, 'residente')
+
+  await page.getByRole('button', { name: 'Muy grande', exact: true }).click()
+  await page.getByRole('button', { name: 'Alto', exact: true }).click()
+  await expect(page.locator('html')).toHaveAttribute('data-texto', 'enorme')
+  await expect(page.locator('html')).toHaveAttribute('data-contraste', 'alto')
+
+  // Quedó guardada en la cuenta, no solo en este dispositivo.
+  await expect
+    .poll(async () => {
+      const { data } = await clienteAdminPrueba()
+        .from('perfiles')
+        .select('apariencia_texto, apariencia_contraste, apariencia_tema')
+        .eq('correo', correo)
+        .single()
+      return data
+    })
+    .toEqual({ apariencia_texto: 'enorme', apariencia_contraste: 'alto', apariencia_tema: null })
+
+  // Un dispositivo nuevo (contexto sin nada guardado) la recibe al iniciar sesión.
+  const dispositivoNuevo = await browser.newContext({ baseURL })
+  try {
+    const otra = await dispositivoNuevo.newPage()
+    await iniciarSesion(otra, correo)
+    await expect(otra).toHaveURL(/\/comidas\/semana$/)
+    await expect(otra.locator('html')).toHaveAttribute('data-texto', 'enorme')
+    await expect(otra.locator('html')).toHaveAttribute('data-contraste', 'alto')
+  } finally {
+    await dispositivoNuevo.close()
+  }
+})
+
 test('una persona cambia su propio correo y después entra solo con el nuevo', async ({ page }) => {
   await crearCuentaDesechable(CORREO_DESECHABLE)
   await iniciarSesion(page, CORREO_DESECHABLE)

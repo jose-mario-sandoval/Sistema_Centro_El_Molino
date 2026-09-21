@@ -68,6 +68,55 @@ export function atributosApariencia(a: Apariencia): AtributosApariencia {
   }
 }
 
+/** Columnas de `perfiles` donde la cuenta guarda cada ajuste. Nulo = la persona no eligió. */
+export type ColumnasApariencia = {
+  apariencia_tema: string | null
+  apariencia_contraste: string | null
+  apariencia_texto: string | null
+}
+
+/** Lo que la cuenta tiene guardado. Tolera columnas ausentes: la migración puede llegar después que el código. */
+export function aparienciaDeCuenta(cuenta: Partial<ColumnasApariencia>): Partial<Apariencia> {
+  return leerGuardado(
+    JSON.stringify({
+      tema: cuenta.apariencia_tema,
+      contraste: cuenta.apariencia_contraste,
+      texto: cuenta.apariencia_texto,
+    }),
+  )
+}
+
+/** Nombre de columna de cada ajuste, para escribir en `perfiles`. */
+export const COLUMNA_DE: Record<keyof Apariencia, keyof ColumnasApariencia> = {
+  tema: 'apariencia_tema',
+  contraste: 'apariencia_contraste',
+  texto: 'apariencia_texto',
+}
+
+/**
+ * Al abrir la app con sesión: la cuenta manda sobre el dispositivo, así la apariencia sigue a la
+ * persona. Lo que solo existe en el dispositivo (lo elegido antes de que hubiera cuenta) sube a
+ * la cuenta una vez, para no perderlo.
+ */
+export function conciliar(
+  dispositivo: Partial<Apariencia>,
+  cuenta: Partial<Apariencia>,
+): { aplicar: Partial<Apariencia>; subir: Partial<Apariencia> } {
+  const aplicar: Partial<Apariencia> = {}
+  const subir: Partial<Apariencia> = {}
+  for (const clave of Object.keys(COLUMNA_DE) as (keyof Apariencia)[]) {
+    const deLaCuenta = cuenta[clave]
+    const delDispositivo = dispositivo[clave]
+    // `as never`: TypeScript no puede probar que la clave y el valor son del mismo ajuste.
+    if (deLaCuenta !== undefined) {
+      if (deLaCuenta !== delDispositivo) aplicar[clave] = deLaCuenta as never
+    } else if (delDispositivo !== undefined) {
+      subir[clave] = delDispositivo as never
+    }
+  }
+  return { aplicar, subir }
+}
+
 /**
  * Se ejecuta en <head> antes de pintar, para que la página no aparezca un instante con la letra
  * chica o el tema equivocado. Es la misma regla que leerGuardado + resolverApariencia +

@@ -1,10 +1,12 @@
 'use client'
 
-import { useCallback, useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from 'react'
+import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
+import { guardarApariencia } from '@/components/app/acciones-apariencia'
 import {
   APARIENCIA_POR_DEFECTO,
   atributosApariencia,
   CLAVE_APARIENCIA,
+  conciliar,
   leerGuardado,
   resolverApariencia,
   type Apariencia,
@@ -56,7 +58,11 @@ function suscribir(avisar: () => void) {
 const instantanea = () => JSON.stringify(aparienciaActual())
 const instantaneaServidor = () => JSON.stringify(APARIENCIA_POR_DEFECTO)
 
-export function useApariencia() {
+/**
+ * `guardarEnCuenta`: además del dispositivo, guarda el cambio en la cuenta para que siga a la
+ * persona. Solo con sesión: en el login no hay cuenta a la que guardar.
+ */
+export function useApariencia(guardarEnCuenta = false) {
   const texto = useSyncExternalStore(suscribir, instantanea, instantaneaServidor)
   const apariencia = useMemo(() => JSON.parse(texto) as Apariencia, [texto])
 
@@ -70,7 +76,9 @@ export function useApariencia() {
     }
     pintar(resolverApariencia(guardado, sistemaPideContraste()))
     window.dispatchEvent(new Event(EVENTO))
-  }, [])
+    // Sin esperar la respuesta ni avisar si falla: el cambio ya se ve, y el dispositivo lo recuerda.
+    if (guardarEnCuenta) void guardarApariencia(cambio).catch(() => {})
+  }, [guardarEnCuenta])
 
   return [apariencia, cambiar] as const
 }
@@ -115,8 +123,8 @@ const GRUPOS = [
 ]
 
 /** Los tres ajustes, aplicados al instante. Se usa en Ajustes y en el panel de "Aa". */
-export function OpcionesApariencia() {
-  const [apariencia, cambiar] = useApariencia()
+export function OpcionesApariencia({ guardarEnCuenta = false }: { guardarEnCuenta?: boolean }) {
+  const [apariencia, cambiar] = useApariencia(guardarEnCuenta)
   const id = useId()
 
   return (
@@ -158,7 +166,15 @@ export function OpcionesApariencia() {
  * pantalla tampoco puede entrar a arreglarla. Nunca flota sobre contenido: vive en la barra
  * superior, en el lateral o arriba del login.
  */
-export function BotonApariencia({ conTexto = false, hacia = 'abajo' }: { conTexto?: boolean; hacia?: 'abajo' | 'arriba' }) {
+export function BotonApariencia({
+  conTexto = false,
+  hacia = 'abajo',
+  guardarEnCuenta = false,
+}: {
+  conTexto?: boolean
+  hacia?: 'abajo' | 'arriba'
+  guardarEnCuenta?: boolean
+}) {
   const [abierto, setAbierto] = useState(false)
   const id = useId()
   const boton = useRef<HTMLButtonElement>(null)
@@ -205,7 +221,7 @@ export function BotonApariencia({ conTexto = false, hacia = 'abajo' }: { conText
       </button>
       {abierto && (
         <div ref={panel} id={id} className="panel-apariencia" role="group" aria-label="Apariencia">
-          <OpcionesApariencia />
+          <OpcionesApariencia guardarEnCuenta={guardarEnCuenta} />
           <button type="button" className="btn block" onClick={() => cerrar(true)}>
             Listo
           </button>
@@ -213,4 +229,33 @@ export function BotonApariencia({ conTexto = false, hacia = 'abajo' }: { conText
       )}
     </div>
   )
+}
+
+/**
+ * Al abrir la app con sesión, la apariencia de la cuenta manda sobre la del dispositivo (así sigue
+ * a la persona entre teléfonos), y lo que solo estaba en el dispositivo sube a la cuenta una vez.
+ * Corre antes de pintar cuando la app se abre navegando desde el login.
+ */
+export function SincronizarApariencia({ cuenta }: { cuenta: Partial<Apariencia> }) {
+  // Por valor, no por identidad: el servidor manda un objeto nuevo en cada render.
+  const clave = JSON.stringify(cuenta)
+
+  useLayoutEffect(() => {
+    const deLaCuenta = JSON.parse(clave) as Partial<Apariencia>
+    const { aplicar, subir } = conciliar(leerDelDispositivo(), deLaCuenta)
+
+    if (Object.keys(aplicar).length > 0) {
+      const guardado = { ...leerDelDispositivo(), ...aplicar }
+      try {
+        localStorage.setItem(CLAVE_APARIENCIA, JSON.stringify(guardado))
+      } catch {
+        // Almacenamiento bloqueado: se aplica igual en esta visita.
+      }
+      pintar(resolverApariencia(guardado, sistemaPideContraste()))
+      window.dispatchEvent(new Event(EVENTO))
+    }
+    if (Object.keys(subir).length > 0) void guardarApariencia(subir).catch(() => {})
+  }, [clave])
+
+  return null
 }

@@ -5,9 +5,12 @@ export function SeccionApariencia() {
   return (
     <section className="settings-section" aria-labelledby="titulo-apariencia">
       <h2 id="titulo-apariencia">Apariencia</h2>
-      <div className="desc">Cómo se ve la aplicación en este dispositivo. Los cambios se aplican al instante.</div>
+      <div className="desc">
+        Cómo se ve la aplicación. Se guarda en tu cuenta, así que te acompaña en tus otros dispositivos. Los cambios se
+        aplican al instante.
+      </div>
       <div className="card">
-        <OpcionesApariencia />
+        <OpcionesApariencia guardarEnCuenta />
       </div>
     </section>
   )

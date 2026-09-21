@@ -398,10 +398,13 @@ Decisiones tomadas al portar:
   siendo `/configuraciones`.
 - **El atributo de tema es `data-theme`** (`light` / `dark`, ausente = automático), el mismo que
   ya esperaban los estilos anteriores.
-- **Las preferencias viven en el dispositivo** (`localStorage`), y un script en `<head>` las aplica
-  antes de pintar, así nadie ve un instante de letra chica. Una prueba unitaria verifica que ese
-  script y la lógica en TypeScript den lo mismo en todas las combinaciones. Guardarlas también en
-  el perfil, para que sigan a la persona entre dispositivos, queda para después.
+- **Las preferencias viven en el dispositivo y también en la cuenta.** `localStorage` las aplica
+  antes de pintar (un script en `<head>`), así nadie ve un instante de letra chica; una prueba
+  unitaria verifica que ese script y la lógica en TypeScript den lo mismo en todas las
+  combinaciones. La cuenta (`perfiles.apariencia_*`, opcionales: nulo = nunca eligió) hace que
+  sigan a la persona entre dispositivos. Al abrir la app con sesión **la cuenta manda**, y lo que
+  solo estaba en el dispositivo sube una vez para no perderse (`conciliar` en `lib/apariencia.ts`).
+  En el login no hay cuenta: ahí solo se guarda en el dispositivo.
 - **El diálogo de un día del calendario enfoca el diálogo y no su campo de texto**, para que el
   teléfono no abra el teclado sin que nadie lo pida (defecto anotado en el checklist de lanzamiento).
 - **Dos reglas más que salieron de verificar la app** en 320px con letra "Muy grande": la barra
