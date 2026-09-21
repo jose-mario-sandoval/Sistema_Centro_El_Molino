@@ -24,7 +24,7 @@ async function abrirConfiguracionesComo(page: Page, clave: ClaveUsuario) {
   await iniciarSesion(page, USUARIOS_PRUEBA[clave].correo)
   await expect(page).toHaveURL(/\/comidas\/semana$/)
   await page.goto('/configuraciones')
-  await expect(page.getByRole('heading', { name: 'Configuraciones' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Ajustes', level: 1 })).toBeVisible()
 }
 
 /** Borra las cuentas con esos correos: por perfil y también usuarios de Auth sin perfil (pruebas cortadas a mitad). */

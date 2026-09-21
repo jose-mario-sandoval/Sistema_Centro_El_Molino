@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation'
+import { BotonApariencia } from '@/components/ui/apariencia'
 import { obtenerPerfilActual } from '@/lib/auth/sesion'
 import { FormularioLogin } from './formulario-login'
 
@@ -9,17 +10,21 @@ export default async function PaginaLogin() {
 
   return (
     <div id="login-screen">
+      {/* Antes de entrar: quien no puede leer la pantalla tampoco puede iniciar sesión. */}
+      <div className="login-apariencia">
+        <BotonApariencia />
+      </div>
       <div className="login-wrap">
         <div className="login-intro">
-          <div className="eyebrow">Sistema interno</div>
+          <span className="monograma" aria-hidden="true">
+            EM
+          </span>
           <h1>Centro El Molino</h1>
           <p>Comida, mensajes y calendario, coordinados entre las dos partes de la casa.</p>
-          <p>Iniciá sesión con tu cuenta para continuar.</p>
         </div>
-        <div>
-          <div className="login-card">
-            <FormularioLogin />
-          </div>
+        <div className="login-card">
+          <p className="login-indicacion">Iniciá sesión con tu cuenta para continuar.</p>
+          <FormularioLogin />
         </div>
       </div>
     </div>

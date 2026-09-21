@@ -5,24 +5,39 @@ import { useAviso } from '@/components/ui/avisos'
 import { fallo, type Resultado } from '@/lib/acciones/resultado'
 import { LARGO_MAXIMO_NOTA, mensajeNota, normalizarNota, notaValida } from '@/lib/comidas/notas'
 import {
-  ESTADOS_COMIDA,
   ETIQUETA_TIEMPO,
   INFO_ESTADO,
   type EstadoComida,
+  type TiempoComida,
   type ValorComida,
   type ValorEfectivo,
 } from '@/lib/comidas/tipos'
 import { valorTrasGuardar, type ComidaDeSemana } from '@/lib/comidas/vista'
 import type { FechaISO } from '@/lib/fechas'
 import { guardarSeleccion, volverAPlan } from '../acciones'
-import { estiloEstado } from './insignia-estado'
+import { textoNota } from './insignia-estado'
+import { SelectorComida } from './selector-comida'
 
-function textoOrigen(valor: ValorEfectivo): string {
-  if (!valor) return 'Sin definir'
-  return valor.origen === 'persona' ? 'cambiada' : 'según tu plan'
+const VERBO: Record<TiempoComida, string> = { desayuno: 'desayunar', almuerzo: 'almorzar', cena: 'cenar' }
+
+/** 'cierra hoy 10:00' → 'Cierra hoy 10:00' */
+function conMayuscula(texto: string): string {
+  return texto.charAt(0).toUpperCase() + texto.slice(1)
 }
 
-export function ComidaDelDia({ fecha, etiquetaDia, datos }: { fecha: FechaISO; etiquetaDia: string; datos: ComidaDeSemana }) {
+export function ComidaDelDia({
+  fecha,
+  dia,
+  etiquetaDia,
+  datos,
+}: {
+  fecha: FechaISO
+  /** 'Miércoles' */
+  dia: string
+  /** 'Miércoles 23/9' */
+  etiquetaDia: string
+  datos: ComidaDeSemana
+}) {
   const aviso = useAviso()
   const idNota = useId()
   const [valor, aplicarValor] = useOptimistic(datos.valor)
@@ -87,6 +102,7 @@ export function ComidaDelDia({ fecha, etiquetaDia, datos }: { fecha: FechaISO; e
   }
 
   const tipoNota = borrador ? INFO_ESTADO[borrador.estado].nota : null
+  const escribiendoNota = editable && borrador !== null
 
   return (
     <div
@@ -96,70 +112,57 @@ export function ComidaDelDia({ fecha, etiquetaDia, datos }: { fecha: FechaISO; e
       data-fecha={fecha}
       data-comida={datos.comida}
     >
-      <div className="comida-fila-top">
-        <span className="comida-nombre">{nombre}</span>
-        <span className="lock-note">
-          <span className={valor?.origen === 'persona' ? 'origen-cambiada' : undefined}>{textoOrigen(valor)}</span>
-          {' · '}
-          {datos.cierre}
-        </span>
-      </div>
-
-      <div className="status-row">
-        {ESTADOS_COMIDA.map((estado) => {
-          const marcado = estadoMarcado === estado
-          return (
-            <button
-              key={estado}
-              type="button"
-              className={`status-chip${marcado ? ' selected' : ''}`}
-              style={marcado ? estiloEstado(estado) : undefined}
-              aria-pressed={marcado}
-              // Comida cerrada: disabled. Guardando: aria-disabled, para no perder el foco del teclado.
-              disabled={!editable}
-              aria-disabled={pendiente || undefined}
-              onClick={() => elegir(estado)}
-            >
-              {INFO_ESTADO[estado].etiqueta}
+      <SelectorComida
+        nombre={nombre}
+        estado={valor?.estado ?? null}
+        marcado={estadoMarcado}
+        pregunta={`¿Vas a ${VERBO[datos.comida]} el ${dia.toLowerCase()}?`}
+        origen={valor ? { texto: textoOrigen(valor), cambiada: valor.origen === 'persona' } : null}
+        nota={!escribiendoNota && valor?.nota ? textoNota(valor.estado, valor.nota) : null}
+        cierre={editable ? conMayuscula(datos.cierre) : null}
+        cerrada={editable ? null : 'Cerrada: ya no se puede cambiar.'}
+        pendiente={pendiente}
+        editorAbierto={escribiendoNota}
+        alElegir={elegir}
+        alCerrar={() => setBorrador(null)}
+        editorNota={
+          escribiendoNota && (
+            <form className="note-field editor-nota" onSubmit={confirmarNota}>
+              <label htmlFor={idNota}>{tipoNota === 'hora' ? 'Hora' : 'Qué podés comer'}</label>
+              <input
+                id={idNota}
+                type={tipoNota === 'hora' ? 'time' : 'text'}
+                maxLength={tipoNota === 'texto' ? LARGO_MAXIMO_NOTA : undefined}
+                value={borrador.nota}
+                onChange={(e) => setBorrador({ ...borrador, nota: e.target.value })}
+                required
+                // La persona acaba de elegir un estado que pide nota: el teclado es lo esperado.
+                autoFocus
+              />
+              <div className="acciones-formulario">
+                <button type="submit" className="btn" disabled={pendiente}>
+                  Guardar
+                </button>
+                <button type="button" className="btn ghost" disabled={pendiente} onClick={() => setBorrador(null)}>
+                  Cancelar
+                </button>
+              </div>
+            </form>
+          )
+        }
+        acciones={
+          !escribiendoNota &&
+          valor?.origen === 'persona' && (
+            <button type="button" className="btn ghost" disabled={pendiente} onClick={volver}>
+              Volver a mi plan
             </button>
           )
-        })}
-      </div>
-
-      {editable && borrador ? (
-        <form className="note-field editor-nota" onSubmit={confirmarNota}>
-          <label htmlFor={idNota}>{tipoNota === 'hora' ? 'Hora' : 'Qué podés comer'}</label>
-          <input
-            id={idNota}
-            type={tipoNota === 'hora' ? 'time' : 'text'}
-            maxLength={tipoNota === 'texto' ? LARGO_MAXIMO_NOTA : undefined}
-            value={borrador.nota}
-            onChange={(e) => setBorrador({ ...borrador, nota: e.target.value })}
-            required
-            autoFocus
-          />
-          <button type="submit" className="btn small" disabled={pendiente}>
-            Guardar
-          </button>
-          <button type="button" className="btn ghost small" disabled={pendiente} onClick={() => setBorrador(null)}>
-            Cancelar
-          </button>
-        </form>
-      ) : (
-        valor?.nota && (
-          <div className="status-note">
-            {INFO_ESTADO[valor.estado].nota === 'hora' ? `Hora: ${valor.nota}` : valor.nota}
-          </div>
-        )
-      )}
-
-      {editable && !borrador && valor?.origen === 'persona' && (
-        <div className="acciones-comida">
-          <button type="button" className="btn ghost small" disabled={pendiente} onClick={volver}>
-            Volver a mi plan
-          </button>
-        </div>
-      )}
+        }
+      />
     </div>
   )
+}
+
+function textoOrigen(valor: NonNullable<ValorEfectivo>): string {
+  return valor.origen === 'persona' ? 'cambiada' : 'según tu plan'
 }

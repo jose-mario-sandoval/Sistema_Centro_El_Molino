@@ -126,7 +126,7 @@ export function ModalDia({
   }
 
   return (
-    <Modal titulo={dia.etiqueta} abierto alCerrar={alCerrar}>
+    <Modal titulo={dia.etiqueta} abierto alCerrar={alCerrar} enfocarDialogo>
       <div ref={lista} className="cal-evento-lista">
         {eventos.length === 0 ? (
           <div className="empty-state">No hay eventos este día.</div>

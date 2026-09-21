@@ -373,20 +373,38 @@ de pantalla real (VoiceOver o TalkBack).
 
 ---
 
-## 12. Al portar a Next.js
+## 12. En la app
 
-Fuera del alcance del prototipo, pero decidido de antemano para no improvisarlo:
+El diseño ya está en la app Next.js. Dónde vive cada pieza:
 
-- `app/globals.css` se reescribe entero. Es la única capa visual: no hay Tailwind ni librería de UI.
-- `NavegacionMovil` (hoy un `<select>` pelado) pasa a barra inferior fija de 4 destinos.
-- `plan-editable.tsx` se unifica con `comida-del-dia.tsx`.
-- `semana-administracion.tsx` pierde el scroll horizontal en favor de conteos más fichas.
-- Configuraciones gana la sección Apariencia, con el driver de `data-*` que hoy falta: los hooks
-  `[data-theme]` existen en CSS y **ningún `.tsx` los escribe**. El prototipo usa ese mismo
-  atributo (`light` / `dark`, ausente = automático), así que el port solo tiene que escribirlo.
-- El plan semanal de producción ya guarda `nota` (`plan_semanal.nota`). El componente unificado debe
-  mostrar el campo de hora o de nota también en el plan, como hace el prototipo.
-- **Tests.** Los E2E usan ~215 selectores semánticos que sobreviven un rediseño visual, pero ~15
-  locators por clase CSS se romperían: `.sidebar`, `.feed-mensajes`, `.cal-event`, `.thread`,
-  `.week-list .status-chip`, `.toast`, `.msg`, `.locked-banner`, `.sidebar .avatar`. O se conservan
-  esos nombres como anclas estables, o se actualizan los specs. Conviene decidirlo antes de empezar.
+| Pieza | Archivo |
+|---|---|
+| Tokens, relieve y todos los estilos | `app/globals.css` (única capa visual: no hay Tailwind ni librería de UI) |
+| Preferencias de apariencia: lectura, reglas y script previo al pintado | `lib/apariencia.ts` |
+| Controles de apariencia y botón "Aa" | `components/ui/apariencia.tsx` |
+| Iconos (uno por estado de comida) | `components/ui/iconos.tsx` |
+| Lateral, barra superior y barra inferior | `components/app/estructura.tsx`, `components/app/navegacion.tsx` |
+| La interacción única de comidas | `app/(app)/comidas/_componentes/selector-comida.tsx`, usado por `comida-del-dia.tsx` (Semana) y `plan-editable.tsx` (Plan semanal) |
+
+Decisiones tomadas al portar:
+
+- **Las clases que usan los E2E se conservaron como anclas** (`.sidebar`, `.msg`, `.thread`,
+  `.feed-mensajes`, `.cal-day`, `.cal-event`, `.toast`, `.locked-banner`, `.week-list`,
+  `.status-chip`), y también la tabla de Administración: en el teléfono se apila con CSS, sin
+  cambiar su estructura. Solo cambiaron los specs donde cambió la interacción (abrir las opciones
+  de una comida antes de elegir) y el título de la sección.
+- **"Configuraciones" pasó a llamarse "Ajustes"** en pantalla: "Configuraciones" no cabe en la
+  barra inferior, y "Ajustes" es el nombre que la gente ya conoce del teléfono. La ruta sigue
+  siendo `/configuraciones`.
+- **El atributo de tema es `data-theme`** (`light` / `dark`, ausente = automático), el mismo que
+  ya esperaban los estilos anteriores.
+- **Las preferencias viven en el dispositivo** (`localStorage`), y un script en `<head>` las aplica
+  antes de pintar, así nadie ve un instante de letra chica. Una prueba unitaria verifica que ese
+  script y la lógica en TypeScript den lo mismo en todas las combinaciones. Guardarlas también en
+  el perfil, para que sigan a la persona entre dispositivos, queda para después.
+- **El diálogo de un día del calendario enfoca el diálogo y no su campo de texto**, para que el
+  teléfono no abra el teclado sin que nadie lo pida (defecto anotado en el checklist de lanzamiento).
+- **Dos reglas más que salieron de verificar la app** en 320px con letra "Muy grande": la barra
+  superior (monograma y avatar) va en px y el nombre se recorta, porque si creciera con la letra no
+  entraría; y en Mensajes el avatar va en la línea del nombre, porque mensaje, hilo y respuesta
+  anidados reservaban cada uno una columna y a la respuesta le quedaban ~90px.

@@ -31,9 +31,17 @@ export function etiquetaDia(fecha: FechaISO): string {
   return `${nombreDia(fecha)} ${fechaCorta(fecha)}`
 }
 
-/** '14/9 — 20/9' */
+const MESES = [
+  'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+  'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
+] as const
+
+/** '14 al 20 de septiembre' · '28 de septiembre al 4 de octubre' */
 export function rangoSemana(lunes: FechaISO): string {
-  return `${fechaCorta(lunes)} — ${fechaCorta(sumarDias(lunes, 6))}`
+  const [, mesInicio, diaInicio] = lunes.split('-').map(Number)
+  const [, mesFin, diaFin] = sumarDias(lunes, 6).split('-').map(Number)
+  const fin = `${diaFin} de ${MESES[mesFin - 1]}`
+  return mesInicio === mesFin ? `${diaInicio} al ${fin}` : `${diaInicio} de ${MESES[mesInicio - 1]} al ${fin}`
 }
 
 export function diasDeSemana(lunes: FechaISO): FechaISO[] {
