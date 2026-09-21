@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
 const PESTANAS = [
-  { ruta: '/comidas/plan', etiqueta: 'Plan semanal' },
+  { ruta: '/comidas/plan', etiqueta: 'Plan de comida' },
   { ruta: '/comidas/semana', etiqueta: 'Semana' },
 ] as const
 
