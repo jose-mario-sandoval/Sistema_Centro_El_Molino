@@ -56,12 +56,12 @@ export function FilaCuenta({
 
   return (
     <tr className={cuenta.activo ? undefined : 'inactiva'}>
-      <td>
+      <td data-et="Nombre">
         {cuenta.nombre} <span className="role-pill">{cuenta.siglas}</span>
         {esPropia && <div className="hint">Tu cuenta</div>}
       </td>
-      <td>{cuenta.correo}</td>
-      <td>
+      <td data-et="Correo">{cuenta.correo}</td>
+      <td data-et="Rol">
         <select
           aria-label={`Rol de ${cuenta.nombre}`}
           aria-busy={pendiente}
@@ -76,11 +76,11 @@ export function FilaCuenta({
           ))}
         </select>
       </td>
-      <td>
+      <td data-et="Estado">
         <span className="role-pill">{cuenta.activo ? 'Activa' : 'Desactivada'}</span>
         {cuenta.debe_cambiar_contrasena && <div className="hint">Cambio de contraseña pendiente</div>}
       </td>
-      <td>
+      <td className="acciones-celda">
         {!esPropia && (
           <div className="acciones-cuenta">
             <button

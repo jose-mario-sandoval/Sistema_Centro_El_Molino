@@ -5,7 +5,7 @@ import { darDeBajaAlCerrarSesion } from '@/lib/push/cliente'
 import { cerrarSesion } from './acciones-sesion'
 
 /** Antes de salir, da de baja las notificaciones de este dispositivo (spec §8.2). Si falla, sale igual. */
-export function BotonCerrarSesion() {
+export function BotonCerrarSesion({ className = 'btn ghost block' }: { className?: string }) {
   async function salir() {
     // Primero la baja, mientras la sesión todavía existe (DELETE /api/push la exige).
     try {
@@ -20,7 +20,7 @@ export function BotonCerrarSesion() {
 
   return (
     <form action={salir}>
-      <BotonEnvio className="link-btn" textoPendiente="Saliendo…">
+      <BotonEnvio className={className} textoPendiente="Saliendo…">
         Cerrar sesión
       </BotonEnvio>
     </form>

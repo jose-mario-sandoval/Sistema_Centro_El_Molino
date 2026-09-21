@@ -34,7 +34,7 @@ export default async function PaginaSemana({
       {/* Al volver a la pestaña, trae cierres y cambios hechos mientras tanto. */}
       <RefrescarAlVolver />
       <NavegacionSemana lunes={lunes} hoy={hoy} />
-      <SemanaPersona dias={dias} tipo={tipoSemana(lunes, hoy)} />
+      <SemanaPersona dias={dias} tipo={tipoSemana(lunes, hoy)} lunes={lunes} />
     </>
   )
 }

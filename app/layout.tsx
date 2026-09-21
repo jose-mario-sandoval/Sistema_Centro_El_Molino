@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next'
 import { IBM_Plex_Sans, Source_Serif_4 } from 'next/font/google'
 import { RegistrarServiceWorker } from '@/components/app/registrar-sw'
 import { ProveedorAvisos } from '@/components/ui/avisos'
+import { SCRIPT_APARIENCIA } from '@/lib/apariencia'
 import './globals.css'
 
 const serif = Source_Serif_4({ subsets: ['latin'], weight: ['400', '500', '600', '700'], variable: '--fuente-serif' })
@@ -23,7 +24,13 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="es" className={`${serif.variable} ${plex.variable}`}>
+    // suppressHydrationWarning: el script de <head> pone data-theme/data-contraste/data-texto antes
+    // de que React hidrate, así que esos atributos no coinciden con el HTML del servidor a propósito.
+    <html lang="es" className={`${serif.variable} ${plex.variable}`} suppressHydrationWarning>
+      <head>
+        {/* Antes de pintar: la letra y el contraste de cada persona desde el primer instante (DESIGN.md §5). */}
+        <script dangerouslySetInnerHTML={{ __html: SCRIPT_APARIENCIA }} />
+      </head>
       <body>
         <RegistrarServiceWorker />
         <ProveedorAvisos>{children}</ProveedorAvisos>

@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { Icono } from '@/components/ui/iconos'
 import { exigirPerfil } from '@/lib/auth/sesion'
 import { listarEventosDeCuadricula } from '@/lib/calendario/consultas'
 import {
@@ -45,15 +46,15 @@ export default async function PaginaCalendario({
           <div className="month-label">{etiquetaMes(mes)}</div>
           <div className="cal-nav-btns">
             {mes !== mesDeHoy && (
-              <Link href="/calendario" className="btn ghost small">
+              <Link href="/calendario" className="btn ghost">
                 Hoy
               </Link>
             )}
             <Link href={`/calendario?mes=${mesAnterior(mes)}`} className="icon-btn" aria-label="Mes anterior">
-              ‹
+              <Icono nombre="izquierda" />
             </Link>
             <Link href={`/calendario?mes=${mesSiguiente(mes)}`} className="icon-btn" aria-label="Mes siguiente">
-              ›
+              <Icono nombre="derecha" />
             </Link>
           </div>
         </div>

@@ -13,6 +13,17 @@ export const USUARIOS_PRUEBA = {
 
 export type ClaveUsuario = keyof typeof USUARIOS_PRUEBA
 
+/**
+ * Nombres completos que `clave` no debe ver. Administración solo ve siglas: el nombre no puede
+ * aparecer ni en pantalla ni en los datos que la página lleva embebidos para hidratarse.
+ */
+export function nombresQueNoDebeVer(clave: ClaveUsuario): string[] {
+  if (clave !== 'administracion') return []
+  return Object.entries(USUARIOS_PRUEBA)
+    .filter(([otra]) => otra !== clave)
+    .map(([, u]) => u.nombre)
+}
+
 function url() {
   exigirBaseLocal()
   return process.env.NEXT_PUBLIC_SUPABASE_URL!
@@ -38,7 +49,17 @@ export async function asegurarUsuariosPrueba(): Promise<Record<ClaveUsuario, str
       await admin.auth.admin.updateUserById(existente.id, { password: CONTRASENA_PRUEBA, ban_duration: 'none' })
       const { error } = await admin
         .from('perfiles')
-        .update({ activo: true, rol: u.rol, nombre: u.nombre, siglas: u.siglas, debe_cambiar_contrasena: false })
+        .update({
+          activo: true,
+          rol: u.rol,
+          nombre: u.nombre,
+          siglas: u.siglas,
+          debe_cambiar_contrasena: false,
+          // Sin apariencia guardada: cada prueba parte de la cuenta "sin elegir".
+          apariencia_tema: null,
+          apariencia_contraste: null,
+          apariencia_texto: null,
+        })
         .eq('id', existente.id)
       if (error) throw error
       ids[clave] = existente.id

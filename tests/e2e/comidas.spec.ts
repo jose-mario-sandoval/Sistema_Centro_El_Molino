@@ -1,9 +1,10 @@
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test, type Locator, type Page } from '@playwright/test'
 import { fechaISOEn, lunesDe, sumarDias } from '../../lib/fechas'
 import {
   asegurarUsuariosPrueba,
   clienteAdminPrueba,
   CONTRASENA_PRUEBA,
+  nombresQueNoDebeVer,
   USUARIOS_PRUEBA,
   type ClaveUsuario,
 } from '../soporte/usuarios-prueba'
@@ -23,6 +24,23 @@ function fechas() {
 function fechaCorta(fecha: string): string {
   const [, mes, dia] = fecha.split('-')
   return `${Number(dia)}/${Number(mes)}`
+}
+
+/**
+ * Cada comida muestra su estado actual como un botón grande; las seis opciones aparecen al tocarlo.
+ * Las opciones se buscan con `exact`: el botón del estado se llama igual más ", cambiar".
+ */
+async function abrirOpciones(fila: Locator) {
+  await fila.locator('.estado-actual').click()
+  await expect(fila.locator('.estado-actual')).toHaveAttribute('aria-expanded', 'true')
+}
+
+/** Administración solo ve siglas: ningún nombre ajeno en pantalla ni en el HTML (datos de hidratación incluidos). */
+async function sinNombresAjenos(page: Page, clave: ClaveUsuario) {
+  const html = await page.content()
+  for (const nombre of nombresQueNoDebeVer(clave)) {
+    expect(html, `"${nombre}" no debería llegar al navegador de ${clave}`).not.toContain(nombre)
+  }
 }
 
 async function iniciarSesion(page: Page, clave: ClaveUsuario) {
@@ -73,15 +91,18 @@ test('un residente cambia el almuerzo y Administración lo ve en Semana', async 
   await page.goto(`/comidas/semana?semana=${lunesSiguiente}`)
   const almuerzo = page.locator(`[data-fecha="${miercolesSiguiente}"][data-comida="almuerzo"]`)
   await expect(almuerzo.getByText('según tu plan', { exact: true })).toBeVisible()
-  await expect(almuerzo.getByRole('button', { name: 'Sí comer' })).toHaveAttribute('aria-pressed', 'true')
+  await expect(almuerzo.locator('.estado-actual')).toContainText('Sí comer')
+  await abrirOpciones(almuerzo)
+  await expect(almuerzo.getByRole('button', { name: 'Sí comer', exact: true })).toHaveAttribute('aria-pressed', 'true')
 
-  await almuerzo.getByRole('button', { name: 'Comer tarde' }).click()
+  await almuerzo.getByRole('button', { name: 'Comer tarde', exact: true }).click()
   await almuerzo.getByLabel('Hora', { exact: true }).fill('13:30')
   await almuerzo.getByRole('button', { name: 'Guardar' }).click()
 
   await expect(almuerzo.getByText('cambiada', { exact: true })).toBeVisible()
   await expect(almuerzo.getByText('Hora: 13:30')).toBeVisible()
-  await expect(almuerzo.getByRole('button', { name: 'Comer tarde' })).toHaveAttribute('aria-pressed', 'true')
+  await expect(almuerzo.getByRole('button', { name: 'Comer tarde', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  await expect(almuerzo.locator('.estado-actual')).toContainText('Comer tarde')
 
   const admin = clienteAdminPrueba()
   await expect
@@ -109,13 +130,29 @@ test('un residente cambia el almuerzo y Administración lo ve en Semana', async 
   await expect(resumen).toContainText('1 tarde (13:30)')
   await expect(resumen).toContainText('sin definir')
 
-  const celda = page.getByRole('row', { name: /Residente Prueba/ }).locator('td[data-comida="almuerzo"]')
+  // Administración ve siglas (RP), no nombres.
+  const celda = page.getByRole('row', { name: /^RP\b/ }).locator('td[data-comida="almuerzo"]')
   await expect(celda).toContainText('Comer tarde')
   await expect(celda).toContainText('13:30')
   await expect(celda).toHaveClass(/\bexcepcion\b/)
 
-  const celdaDirectora = page.getByRole('row', { name: /Directora Prueba/ }).locator('td[data-comida="almuerzo"]')
+  const celdaDirectora = page.getByRole('row', { name: /^DP\b/ }).locator('td[data-comida="almuerzo"]')
   await expect(celdaDirectora).toContainText('Sin definir')
+  await sinNombresAjenos(page, 'administracion')
+})
+
+test('Administración ve siglas y no nombres en Semana y en Plan semanal', async ({ page }) => {
+  await planAlmuerzoMiercoles()
+  await iniciarSesion(page, 'administracion')
+
+  await page.goto('/comidas/semana')
+  await expect(page.getByRole('row', { name: /^RP\b/ })).toBeVisible()
+  await expect(page.getByRole('row', { name: /^DP\b/ })).toBeVisible()
+  await sinNombresAjenos(page, 'administracion')
+
+  await page.goto('/comidas/plan')
+  await expect(page.getByRole('row', { name: /^RP\b/ })).toBeVisible()
+  await sinNombresAjenos(page, 'administracion')
 })
 
 test('en una semana pasada el residente no puede cambiar nada', async ({ page }) => {
@@ -125,8 +162,10 @@ test('en una semana pasada el residente no puede cambiar nada', async ({ page })
   await page.goto(`/comidas/semana?semana=${lunesPasado}`)
 
   await expect(page.locator('.locked-banner')).toContainText('Semana pasada: solo consulta.')
-  await expect(page.locator('.week-list .status-chip')).toHaveCount(7 * 3 * 6)
-  await expect(page.locator('.week-list .status-chip:enabled')).toHaveCount(0)
+  // Cada comida cerrada muestra su estado sin poder abrir las opciones.
+  await expect(page.locator('.week-list .estado-actual')).toHaveCount(7 * 3)
+  await expect(page.locator('.week-list .estado-actual:enabled')).toHaveCount(0)
+  await expect(page.locator('.week-list .status-chip')).toHaveCount(0)
   await expect(page.getByRole('button', { name: 'Volver a mi plan' })).toHaveCount(0)
   await expect(page.getByRole('link', { name: 'Ir a la semana actual' })).toBeVisible()
 })
@@ -149,12 +188,13 @@ test('"Volver a mi plan" quita el cambio y restaura el plan', async ({ page }) =
   await page.goto(`/comidas/semana?semana=${lunesSiguiente}`)
   const almuerzo = page.locator(`[data-fecha="${miercolesSiguiente}"][data-comida="almuerzo"]`)
   await expect(almuerzo.getByText('cambiada', { exact: true })).toBeVisible()
-  await expect(almuerzo.getByRole('button', { name: 'No comer' })).toHaveAttribute('aria-pressed', 'true')
+  await abrirOpciones(almuerzo)
+  await expect(almuerzo.getByRole('button', { name: 'No comer', exact: true })).toHaveAttribute('aria-pressed', 'true')
 
   await almuerzo.getByRole('button', { name: 'Volver a mi plan' }).click()
 
   await expect(almuerzo.getByText('según tu plan', { exact: true })).toBeVisible()
-  await expect(almuerzo.getByRole('button', { name: 'Sí comer' })).toHaveAttribute('aria-pressed', 'true')
+  await expect(almuerzo.getByRole('button', { name: 'Sí comer', exact: true })).toHaveAttribute('aria-pressed', 'true')
   await expect(almuerzo.getByRole('button', { name: 'Volver a mi plan' })).toHaveCount(0)
   // Filtramos por fecha y comida del caso: el job de cierre de cada 5 minutos puede
   // insertar selecciones de otras comidas para este usuario y volver flaky el poll.
