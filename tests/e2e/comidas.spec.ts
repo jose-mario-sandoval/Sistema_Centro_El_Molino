@@ -58,6 +58,7 @@ async function limpiar(): Promise<Record<ClaveUsuario, string>> {
   const resultados = await Promise.all([
     admin.from('selecciones_comida').delete().in('usuario_id', Object.values(usuarios)),
     admin.from('plan_semanal').delete().in('usuario_id', Object.values(usuarios)),
+    admin.from('ausencias').delete().in('usuario_id', Object.values(usuarios)),
     admin.from('horas_limite').update({ dia_relativo: -1, hora: '21:00' }).eq('comida', 'desayuno'),
     admin.from('horas_limite').update({ dia_relativo: 0, hora: '10:00' }).eq('comida', 'almuerzo'),
     admin.from('horas_limite').update({ dia_relativo: 0, hora: '16:00' }).eq('comida', 'cena'),
@@ -209,4 +210,68 @@ test('"Volver a mi plan" quita el cambio y restaura el plan', async ({ page }) =
       return data
     })
     .toEqual([])
+})
+
+test('una persona marca su ausencia: sus comidas se cancelan solas, puede reactivar una y al quitarla vuelve su plan', async ({
+  page,
+}) => {
+  const { lunesSiguiente, miercolesSiguiente } = fechas()
+  await planAlmuerzoMiercoles()
+  await iniciarSesion(page, 'residente')
+
+  // Marca su ausencia desde el calendario. Con elegir el primer día alcanza para un solo día.
+  await page.goto('/calendario')
+  await page.getByLabel('Primer día que no voy a estar').fill(miercolesSiguiente)
+  await page.getByRole('button', { name: 'Marcar ausencia' }).click()
+  await expect(page.getByText('Ausencia marcada.')).toBeVisible()
+  await expect(page.getByRole('button', { name: /^Quitar la ausencia del / })).toBeVisible()
+
+  // Sus comidas de ese día quedaron canceladas por la ausencia, y el día lo dice.
+  await page.goto(`/comidas/semana?semana=${lunesSiguiente}`)
+  const almuerzo = page.locator(`[data-fecha="${miercolesSiguiente}"][data-comida="almuerzo"]`)
+  await expect(almuerzo.getByText('por tu ausencia', { exact: true })).toBeVisible()
+  await expect(almuerzo.locator('.estado-actual')).toContainText('No comer')
+  await expect(page.getByLabel(new RegExp(`^Miércoles ${fechaCorta(miercolesSiguiente)}`)).getByText('Ausente')).toBeVisible()
+
+  // Puede reactivar una comida puntual: su elección gana sobre la ausencia.
+  await abrirOpciones(almuerzo)
+  await almuerzo.getByRole('button', { name: 'Sí comer', exact: true }).click()
+  await expect(almuerzo.getByText('cambiada', { exact: true })).toBeVisible()
+  await expect(almuerzo.locator('.estado-actual')).toContainText('Sí comer')
+
+  // "Volver a mi ausencia" la devuelve a "No comer" por la ausencia (no a su plan).
+  await almuerzo.getByRole('button', { name: 'Volver a mi ausencia' }).click()
+  await expect(almuerzo.getByText('por tu ausencia', { exact: true })).toBeVisible()
+  await expect(almuerzo.locator('.estado-actual')).toContainText('No comer')
+
+  // Al quitar la ausencia vuelve a regir su plan semanal.
+  await page.goto('/calendario')
+  await page.getByRole('button', { name: /^Quitar la ausencia del / }).click()
+  await page.getByRole('button', { name: 'Sí, quitar' }).click()
+  await expect(page.getByText('Ausencia quitada.')).toBeVisible()
+
+  await page.goto(`/comidas/semana?semana=${lunesSiguiente}`)
+  await expect(almuerzo.getByText('según tu plan', { exact: true })).toBeVisible()
+  await expect(almuerzo.locator('.estado-actual')).toContainText('Sí comer')
+})
+
+test('Administración ve "No comer" de quien está ausente, sin saber que es una ausencia', async ({ page }) => {
+  const { lunesSiguiente, miercolesSiguiente } = fechas()
+  await planAlmuerzoMiercoles()
+  const { error } = await clienteAdminPrueba()
+    .from('ausencias')
+    .insert({ usuario_id: ids.residente, desde: miercolesSiguiente, hasta: miercolesSiguiente })
+  expect(error).toBeNull()
+
+  await iniciarSesion(page, 'administracion')
+  await page.goto(`/comidas/semana?semana=${lunesSiguiente}&dia=${miercolesSiguiente}`)
+  // La fila de la persona: por sus siglas (RP) o, en versiones que aún muestran el nombre, por este.
+  const celda = page.getByRole('row', { name: /Residente Prueba|^RP\b/ }).locator('td[data-comida="almuerzo"]')
+  await expect(celda).toContainText('No comer')
+  await expect(page.locator('[data-resumen="almuerzo"]')).toContainText('1 no')
+
+  // Las ausencias son privadas: la cocina ve el efecto, nunca el motivo ni las fechas.
+  expect(await page.content()).not.toMatch(/ausen/i)
+  await page.goto('/calendario')
+  await expect(page.getByText('Mis ausencias')).toHaveCount(0)
 })

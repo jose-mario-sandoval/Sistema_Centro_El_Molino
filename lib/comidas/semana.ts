@@ -1,4 +1,5 @@
 import { diaSemana, fechaISOEn, horaHHMM, lunesDe, sumarDias, type FechaISO } from '@/lib/fechas'
+import { rangoLegible } from '@/lib/fechas/rango'
 import { cierreDe, enVentanaEditable, estaAbierta } from './reglas'
 import { ETIQUETA_TIEMPO, type HorasLimite, type TiempoComida } from './tipos'
 
@@ -31,17 +32,9 @@ export function etiquetaDia(fecha: FechaISO): string {
   return `${nombreDia(fecha)} ${fechaCorta(fecha)}`
 }
 
-const MESES = [
-  'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
-  'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
-] as const
-
 /** '14 al 20 de septiembre' · '28 de septiembre al 4 de octubre' */
 export function rangoSemana(lunes: FechaISO): string {
-  const [, mesInicio, diaInicio] = lunes.split('-').map(Number)
-  const [, mesFin, diaFin] = sumarDias(lunes, 6).split('-').map(Number)
-  const fin = `${diaFin} de ${MESES[mesFin - 1]}`
-  return mesInicio === mesFin ? `${diaInicio} al ${fin}` : `${diaInicio} de ${MESES[mesInicio - 1]} al ${fin}`
+  return rangoLegible(lunes, sumarDias(lunes, 6))
 }
 
 export function diasDeSemana(lunes: FechaISO): FechaISO[] {

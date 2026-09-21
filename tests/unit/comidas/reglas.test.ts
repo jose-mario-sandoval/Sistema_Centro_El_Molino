@@ -54,3 +54,32 @@ describe('valorEfectivo', () => {
     expect(valorEfectivo({ seleccion: null, plan: null, cerrada: false })).toBeNull()
   })
 })
+
+describe('valorEfectivo: ausencia', () => {
+  const plan = { estado: 'si', nota: null } as const
+
+  it('la ausencia cancela la comida y gana sobre el plan', () => {
+    expect(valorEfectivo({ seleccion: null, plan, cerrada: false, ausente: true })).toEqual({
+      estado: 'no',
+      nota: null,
+      origen: 'ausencia',
+    })
+  })
+
+  it('cancela también cuando no hay plan', () => {
+    expect(valorEfectivo({ seleccion: null, plan: null, cerrada: false, ausente: true })).toMatchObject({ estado: 'no' })
+  })
+
+  it('una elección de la persona gana sobre la ausencia', () => {
+    const seleccion = { estado: 'si', nota: null, origen: 'persona' } as const
+    expect(valorEfectivo({ seleccion, plan, cerrada: false, ausente: true })).toEqual(seleccion)
+  })
+
+  it('cerrada y sin selección congelada no es "No comer": la ausencia solo cuenta mientras está abierta', () => {
+    expect(valorEfectivo({ seleccion: null, plan, cerrada: true, ausente: true })).toBeNull()
+  })
+
+  it('sin indicar la ausencia todo sigue igual', () => {
+    expect(valorEfectivo({ seleccion: null, plan, cerrada: false })).toEqual({ ...plan, origen: 'plan' })
+  })
+})

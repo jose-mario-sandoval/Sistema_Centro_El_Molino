@@ -9,6 +9,38 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      ausencias: {
+        Row: {
+          creado_en: string
+          desde: string
+          hasta: string
+          id: string
+          usuario_id: string
+        }
+        Insert: {
+          creado_en?: string
+          desde: string
+          hasta: string
+          id?: string
+          usuario_id: string
+        }
+        Update: {
+          creado_en?: string
+          desde?: string
+          hasta?: string
+          id?: string
+          usuario_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ausencias_usuario_id_fkey"
+            columns: ["usuario_id"]
+            isOneToOne: false
+            referencedRelation: "perfiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       avisos_enviados: {
         Row: {
           comida: Database["public"]["Enums"]["tiempo_comida"]
@@ -379,6 +411,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      ausentes_en: { Args: { p_fecha: string }; Returns: string[] }
       comida_editable: {
         Args: {
           p_ahora?: string
@@ -393,6 +426,10 @@ export type Database = {
           p_fecha: string
         }
         Returns: string[]
+      }
+      congelar_comidas_de: {
+        Args: { p_desde: string; p_hasta: string; p_usuario: string }
+        Returns: undefined
       }
       eventos_para_cocina: {
         Args: { p_desde: string; p_hasta: string }
@@ -439,7 +476,7 @@ export type Database = {
     }
     Enums: {
       estado_comida: "si" | "no" | "temprano" | "tarde" | "bolsa" | "enfermo"
-      origen_seleccion: "persona" | "plan"
+      origen_seleccion: "persona" | "plan" | "ausencia"
       requerimiento_cocina: "merienda" | "comida" | "materiales"
       rol: "director" | "residente" | "administracion"
       tiempo_comida: "desayuno" | "almuerzo" | "cena"
@@ -572,7 +609,7 @@ export const Constants = {
   public: {
     Enums: {
       estado_comida: ["si", "no", "temprano", "tarde", "bolsa", "enfermo"],
-      origen_seleccion: ["persona", "plan"],
+      origen_seleccion: ["persona", "plan", "ausencia"],
       requerimiento_cocina: ["merienda", "comida", "materiales"],
       rol: ["director", "residente", "administracion"],
       tiempo_comida: ["desayuno", "almuerzo", "cena"],
