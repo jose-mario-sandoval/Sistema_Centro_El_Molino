@@ -667,6 +667,32 @@ a{color:var(--acento);}
 .opcion-pastilla input:focus-visible + span{outline:3px solid var(--acento);outline-offset:3px;}
 [data-contraste="alto"] .opcion-pastilla input:checked + span{background:var(--acento-suave);border-width:3px;}
 
+/* Ausencias: punteado dorado + valija + texto. Nunca solo el color. */
+.etiqueta-ausente{
+  display:inline-flex;align-items:center;gap:.35rem;padding:.1rem .65rem;border-radius:var(--r-full);
+  border:2px dashed var(--dorado);color:var(--dorado);font-size:var(--t-xs);font-weight:700;
+}
+.etiqueta-ausente .icono{width:1.1em;height:1.1em;}
+.panel-ausencias{margin-bottom:1.25rem;}
+.panel-ausencias > .hint{margin-bottom:1rem;max-width:65ch;}
+.lista-ausencias{display:flex;flex-direction:column;gap:.6rem;margin-bottom:1.25rem;}
+.fila-ausencia{
+  display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.6rem;
+  padding:.75rem;border-radius:var(--r-sm);border:2px solid var(--borde-hundido);box-shadow:var(--hundido-suave);
+}
+.ausencia-rango{display:inline-flex;align-items:center;gap:.5rem;font-weight:700;}
+.ausencia-acciones{display:flex;flex-wrap:wrap;gap:.5rem;}
+/* Siempre a la derecha, aunque baje de línea: así todas las filas se leen igual. */
+.fila-ausencia > .btn,.fila-ausencia > .ausencia-acciones{margin-left:auto;}
+.formulario-ausencia{border-top:2px solid var(--separador);padding-top:1.25rem;}
+.aviso-ausente{
+  display:flex;align-items:center;gap:.6rem;padding:.75rem 1rem;margin-bottom:1rem;border-radius:var(--r-md);
+  border:2px dashed var(--dorado);box-shadow:var(--hundido-suave);
+  color:var(--dorado);font-size:var(--t-sm);font-weight:600;
+}
+.cal-day.ausente{border:2px dashed var(--dorado);}
+.cal-ausente-icono{width:1.1em;height:1.1em;color:var(--dorado);}
+
 /* ---------- 9. Modal y avisos -------------------------------------------- */
 
 .modal-backdrop{

@@ -63,6 +63,13 @@ const TRAZOS = {
       <path d="M17 3c-2 0-3 2-3 5s1 4 3 4v9" />
     </>
   ),
+  // Ausencia: una valija, para "no voy a estar".
+  ausencia: (
+    <>
+      <path d="M5 7h14a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2z" />
+      <path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M3 13h18" />
+    </>
+  ),
   izquierda: <path d="M15 5l-7 7 7 7" />,
   derecha: <path d="M9 5l7 7-7 7" />,
   abajo: <path d="M5 9l7 7 7-7" />,

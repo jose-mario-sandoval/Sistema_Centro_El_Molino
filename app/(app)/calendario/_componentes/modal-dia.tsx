@@ -2,6 +2,7 @@
 
 import { useRef, useState, useTransition } from 'react'
 import { useAviso } from '@/components/ui/avisos'
+import { Icono } from '@/components/ui/iconos'
 import { Modal } from '@/components/ui/modal'
 import { fallo } from '@/lib/acciones/resultado'
 import type { DiaConEtiqueta } from '@/lib/calendario/cuadricula'
@@ -104,6 +105,7 @@ export function ModalDia({
   eventos,
   puedeEditar,
   paraCocina,
+  ausente = false,
   alCerrar,
 }: {
   dia: DiaConEtiqueta
@@ -111,6 +113,8 @@ export function ModalDia({
   puedeEditar: boolean
   /** Administración: la lista es lo que debe preparar la cocina, no los eventos de la casa. */
   paraCocina: boolean
+  /** La persona marcó que no estará ese día (solo Director y Residente la conocen). */
+  ausente?: boolean
   alCerrar: () => void
 }) {
   const [editandoId, setEditandoId] = useState<string | null>(null)
@@ -132,6 +136,12 @@ export function ModalDia({
 
   return (
     <Modal titulo={dia.etiqueta} abierto alCerrar={alCerrar} enfocarDialogo>
+      {ausente && (
+        <div className="aviso-ausente">
+          <Icono nombre="ausencia" />
+          <span>Marcaste que no vas a estar este día. Tus comidas están canceladas.</span>
+        </div>
+      )}
       <div ref={lista} className="cal-evento-lista">
         {eventos.length === 0 ? (
           <div className="empty-state">

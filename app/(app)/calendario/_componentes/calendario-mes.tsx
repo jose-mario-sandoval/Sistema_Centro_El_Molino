@@ -1,16 +1,19 @@
 'use client'
 
 import { useState } from 'react'
+import { Icono } from '@/components/ui/iconos'
+import { estaAusente, type RangoAusencia } from '@/lib/ausencias/tipos'
 import { DIAS_SEMANA_CORTOS, type DiaConEtiqueta } from '@/lib/calendario/cuadricula'
 import type { Evento } from '@/lib/calendario/tipos'
 import { horaHHMM, type FechaISO } from '@/lib/fechas'
 import { InsigniasEvento } from './insignias-evento'
 import { ModalDia } from './modal-dia'
 
-function etiquetaAccesible(dia: DiaConEtiqueta, cantidad: number, paraCocina: boolean): string {
-  if (cantidad === 0) return dia.etiqueta
-  if (paraCocina) return `${dia.etiqueta}, ${cantidad} ${cantidad === 1 ? 'pedido' : 'pedidos'} para la cocina`
-  return `${dia.etiqueta}, ${cantidad} ${cantidad === 1 ? 'evento' : 'eventos'}`
+function etiquetaAccesible(dia: DiaConEtiqueta, cantidad: number, paraCocina: boolean, ausente: boolean): string {
+  const sufijo = ausente ? ', ausente' : ''
+  if (cantidad === 0) return `${dia.etiqueta}${sufijo}`
+  if (paraCocina) return `${dia.etiqueta}, ${cantidad} ${cantidad === 1 ? 'pedido' : 'pedidos'} para la cocina${sufijo}`
+  return `${dia.etiqueta}, ${cantidad} ${cantidad === 1 ? 'evento' : 'eventos'}${sufijo}`
 }
 
 function textoEvento(evento: Evento): string {
@@ -28,6 +31,7 @@ export function CalendarioMes({
   hoy,
   puedeEditar,
   paraCocina = false,
+  ausencias = [],
 }: {
   dias: DiaConEtiqueta[]
   eventosPorFecha: Record<FechaISO, Evento[]>
@@ -35,6 +39,8 @@ export function CalendarioMes({
   puedeEditar: boolean
   /** Administración: solo ve lo que debe preparar la cocina (sin título ni tipo). */
   paraCocina?: boolean
+  /** Ausencias propias (Director y Residente): sus días se marcan en la cuadrícula. */
+  ausencias?: readonly RangoAusencia[]
 }) {
   const [fechaAbierta, setFechaAbierta] = useState<FechaISO | null>(null)
   const [vista, setVista] = useState<'lista' | 'mes'>('lista')
@@ -94,7 +100,14 @@ export function CalendarioMes({
         {dias.map((dia) => {
           const eventos = eventosPorFecha[dia.fecha] ?? []
           const esHoy = dia.fecha === hoy
-          const clases = ['cal-day', dia.enMes ? '' : 'other-month', esHoy ? 'today' : '', eventos.length ? 'con-eventos' : '']
+          const ausente = estaAusente(ausencias, dia.fecha)
+          const clases = [
+            'cal-day',
+            dia.enMes ? '' : 'other-month',
+            esHoy ? 'today' : '',
+            eventos.length ? 'con-eventos' : '',
+            ausente ? 'ausente' : '',
+          ]
             .filter(Boolean)
             .join(' ')
           return (
@@ -103,11 +116,12 @@ export function CalendarioMes({
               type="button"
               className={clases}
               data-fecha={dia.fecha}
-              aria-label={etiquetaAccesible(dia, eventos.length, paraCocina)}
+              aria-label={etiquetaAccesible(dia, eventos.length, paraCocina, ausente)}
               aria-current={esHoy ? 'date' : undefined}
               onClick={() => setFechaAbierta(dia.fecha)}
             >
               <span className="daynum">{dia.dia}</span>
+              {ausente && <Icono nombre="ausencia" className="cal-ausente-icono" />}
               {eventos.map((evento) => (
                 <span key={evento.id} className="cal-event">
                   {textoEvento(evento)}
@@ -123,6 +137,7 @@ export function CalendarioMes({
           eventos={eventosPorFecha[diaAbierto.fecha] ?? []}
           puedeEditar={puedeEditar}
           paraCocina={paraCocina}
+          ausente={estaAusente(ausencias, diaAbierto.fecha)}
           alCerrar={() => setFechaAbierta(null)}
         />
       )}

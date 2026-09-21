@@ -22,7 +22,11 @@ export const INFO_ESTADO: Record<EstadoComida, { etiqueta: string; nota: TipoNot
   enfermo: { etiqueta: 'Enfermo', nota: 'texto', ayudaNota: 'Qué puede comer' },
 }
 
-export type OrigenSeleccion = 'persona' | 'plan'
+/**
+ * persona: la eligió la persona (excepción). plan: patrón habitual, o plan congelado al cerrar.
+ * ausencia: la comida quedó cancelada porque la persona no estará en la casa.
+ */
+export type OrigenSeleccion = 'persona' | 'plan' | 'ausencia'
 
 export type HoraLimite = { diaRelativo: 0 | -1; hora: string }
 export type HorasLimite = Record<TiempoComida, HoraLimite>

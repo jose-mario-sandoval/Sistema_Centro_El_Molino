@@ -26,13 +26,22 @@ export function estaAbierta(p: {
   return p.ahora.getTime() < cierreDe(p.fecha, p.comida, p.horas).getTime()
 }
 
-/** Selección → plan (solo si la comida no cerró) → "Sin definir" (null). Spec §6.2. */
+/** Lo que vale una comida cuando la persona está ausente: "No comer". */
+export const VALOR_POR_AUSENCIA: SeleccionGuardada = { estado: 'no', nota: null, origen: 'ausencia' }
+
+/**
+ * Selección → ausencia → plan → "Sin definir" (null). Spec §6.2, con las ausencias.
+ * La ausencia y el plan solo cuentan si la comida no cerró: al cerrar se congelan en una selección.
+ * Una elección de la persona gana sobre la ausencia: así reactiva una comida puntual.
+ */
 export function valorEfectivo(p: {
   seleccion: SeleccionGuardada | null
   plan: ValorComida | null
   cerrada: boolean
+  ausente?: boolean
 }): ValorEfectivo {
   if (p.seleccion) return p.seleccion
+  if (!p.cerrada && p.ausente) return VALOR_POR_AUSENCIA
   if (!p.cerrada && p.plan) return { estado: p.plan.estado, nota: p.plan.nota, origen: 'plan' }
   return null
 }

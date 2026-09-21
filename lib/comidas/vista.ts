@@ -1,5 +1,6 @@
+import { estaAusente, type RangoAusencia } from '@/lib/ausencias/tipos'
 import { diaSemana, fechaISOEn, type FechaISO } from '@/lib/fechas'
-import { estaAbierta, valorEfectivo } from './reglas'
+import { estaAbierta, VALOR_POR_AUSENCIA, valorEfectivo } from './reglas'
 import { resumenComida, type ResumenComida } from './resumen'
 import { diasDeSemana, fechaCorta, nombreDia, textoCierre } from './semana'
 import {
@@ -32,10 +33,19 @@ export type ComidaDeSemana = {
   comida: TiempoComida
   valor: ValorEfectivo
   plan: ValorComida | null
+  /** La persona está ausente ese día: la referencia de la comida es "No comer", no el plan. */
+  ausente: boolean
   abierta: boolean
   cierre: string
 }
-export type DiaDeSemana = { fecha: FechaISO; nombre: string; fechaCorta: string; esHoy: boolean; comidas: ComidaDeSemana[] }
+export type DiaDeSemana = {
+  fecha: FechaISO
+  nombre: string
+  fechaCorta: string
+  esHoy: boolean
+  ausente: boolean
+  comidas: ComidaDeSemana[]
+}
 
 /** Administración */
 export type Persona = { id: string; nombre: string }
@@ -71,29 +81,36 @@ export function armarSemanaPersona(p: {
   plan: PlanSemanal
   selecciones: FilaSeleccion[]
   cerradas: FilaCerrada[]
+  /** Ausencias propias que tocan la semana. */
+  ausencias?: readonly RangoAusencia[]
 }): DiaDeSemana[] {
   const hoy = fechaISOEn(p.ahora)
   const selecciones = new Map(p.selecciones.map((fila) => [clave(fila.fecha, fila.comida), fila]))
   const cerradas = new Set(p.cerradas.map((fila) => clave(fila.fecha, fila.comida)))
 
-  return diasDeSemana(p.lunes).map((fecha) => ({
-    fecha,
-    nombre: nombreDia(fecha),
-    fechaCorta: fechaCorta(fecha),
-    esHoy: fecha === hoy,
-    comidas: TIEMPOS_COMIDA.map((comida) => {
-      const cerrada = cerradas.has(clave(fecha, comida))
-      const plan = p.plan[diaSemana(fecha)]?.[comida] ?? null
-      const momento = { fecha, comida, ahora: p.ahora, horas: p.horas, cerrada }
-      return {
-        comida,
-        valor: valorEfectivo({ seleccion: aSeleccion(selecciones.get(clave(fecha, comida))), plan, cerrada }),
-        plan,
-        abierta: estaAbierta(momento),
-        cierre: textoCierre(momento),
-      }
-    }),
-  }))
+  return diasDeSemana(p.lunes).map((fecha) => {
+    const ausente = estaAusente(p.ausencias ?? [], fecha)
+    return {
+      fecha,
+      nombre: nombreDia(fecha),
+      fechaCorta: fechaCorta(fecha),
+      esHoy: fecha === hoy,
+      ausente,
+      comidas: TIEMPOS_COMIDA.map((comida) => {
+        const cerrada = cerradas.has(clave(fecha, comida))
+        const plan = p.plan[diaSemana(fecha)]?.[comida] ?? null
+        const momento = { fecha, comida, ahora: p.ahora, horas: p.horas, cerrada }
+        return {
+          comida,
+          valor: valorEfectivo({ seleccion: aSeleccion(selecciones.get(clave(fecha, comida))), plan, cerrada, ausente }),
+          plan,
+          ausente,
+          abierta: estaAbierta(momento),
+          cierre: textoCierre(momento),
+        }
+      }),
+    }
+  })
 }
 
 export function armarDiaAdministracion(p: {
@@ -102,6 +119,8 @@ export function armarDiaAdministracion(p: {
   planes: (FilaPlan & { usuario_id: string })[]
   selecciones: (FilaSeleccion & { usuario_id: string })[]
   cerradas: FilaCerrada[]
+  /** Ids de quienes están ausentes ese día (`ausentes_en`): para Administración solo importa que no comen. */
+  ausentes?: readonly string[]
 }): DiaAdministracion {
   const dia = diaSemana(p.fecha)
   const cerradas = new Set(p.cerradas.filter((fila) => fila.fecha === p.fecha).map((fila) => fila.comida))
@@ -119,6 +138,7 @@ export function armarDiaAdministracion(p: {
         seleccion: aSeleccion(seleccion),
         plan: plan ? { estado: plan.estado, nota: plan.nota } : null,
         cerrada: cerradas.has(comida),
+        ausente: (p.ausentes ?? []).includes(persona.id),
       })
     }
     return { id: persona.id, nombre: persona.nombre, valores }
@@ -130,8 +150,13 @@ export function armarDiaAdministracion(p: {
   return { fecha: p.fecha, filas, resumen }
 }
 
-/** Valor optimista tras guardar: igual que guardar_seleccion, si coincide con el plan no es excepción. */
-export function valorTrasGuardar(plan: ValorComida | null, valor: ValorComida): SeleccionGuardada {
-  const igualAlPlan = plan !== null && plan.estado === valor.estado && plan.nota === valor.nota
-  return { estado: valor.estado, nota: valor.nota, origen: igualAlPlan ? 'plan' : 'persona' }
+/**
+ * Valor optimista tras guardar: igual que guardar_seleccion, si coincide con la referencia no es
+ * excepción. La referencia es el plan, o "No comer" si la persona está ausente ese día.
+ */
+export function valorTrasGuardar(plan: ValorComida | null, valor: ValorComida, ausente = false): SeleccionGuardada {
+  const referencia = ausente ? VALOR_POR_AUSENCIA : plan
+  const igual = referencia !== null && referencia.estado === valor.estado && referencia.nota === valor.nota
+  if (!igual) return { estado: valor.estado, nota: valor.nota, origen: 'persona' }
+  return { estado: valor.estado, nota: valor.nota, origen: ausente ? 'ausencia' : 'plan' }
 }

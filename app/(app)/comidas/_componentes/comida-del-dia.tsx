@@ -4,6 +4,7 @@ import { useId, useOptimistic, useState, useTransition } from 'react'
 import { useAviso } from '@/components/ui/avisos'
 import { fallo, type Resultado } from '@/lib/acciones/resultado'
 import { LARGO_MAXIMO_NOTA, mensajeNota, normalizarNota, notaValida } from '@/lib/comidas/notas'
+import { VALOR_POR_AUSENCIA } from '@/lib/comidas/reglas'
 import {
   ETIQUETA_TIEMPO,
   INFO_ESTADO,
@@ -67,7 +68,7 @@ export function ComidaDelDia({
   }
 
   function guardar(nuevo: ValorComida) {
-    ejecutar(valorTrasGuardar(datos.plan, nuevo), () =>
+    ejecutar(valorTrasGuardar(datos.plan, nuevo, datos.ausente), () =>
       guardarSeleccion({ fecha, comida: datos.comida, estado: nuevo.estado, nota: nuevo.nota }),
     )
   }
@@ -96,7 +97,8 @@ export function ComidaDelDia({
   }
 
   function volver() {
-    ejecutar(datos.plan ? { ...datos.plan, origen: 'plan' } : null, () =>
+    // Volver a la referencia: si está ausente ese día, "No comer" por la ausencia; si no, su plan.
+    ejecutar(datos.ausente ? VALOR_POR_AUSENCIA : datos.plan ? { ...datos.plan, origen: 'plan' } : null, () =>
       volverAPlan({ fecha, comida: datos.comida }),
     )
   }
@@ -154,7 +156,7 @@ export function ComidaDelDia({
           !escribiendoNota &&
           valor?.origen === 'persona' && (
             <button type="button" className="btn ghost" disabled={pendiente} onClick={volver}>
-              Volver a mi plan
+              {datos.ausente ? 'Volver a mi ausencia' : 'Volver a mi plan'}
             </button>
           )
         }
@@ -164,5 +166,6 @@ export function ComidaDelDia({
 }
 
 function textoOrigen(valor: NonNullable<ValorEfectivo>): string {
-  return valor.origen === 'persona' ? 'cambiada' : 'según tu plan'
+  if (valor.origen === 'persona') return 'cambiada'
+  return valor.origen === 'ausencia' ? 'por tu ausencia' : 'según tu plan'
 }

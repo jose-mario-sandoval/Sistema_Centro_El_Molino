@@ -15,6 +15,12 @@ function Dia({ dia }: { dia: DiaDeSemana }) {
           <span className="ddate">{dia.fechaCorta}</span>
         </div>
         {dia.esHoy && <span className="etiqueta-hoy">Hoy</span>}
+        {dia.ausente && (
+          <span className="etiqueta-ausente">
+            <Icono nombre="ausencia" />
+            Ausente
+          </span>
+        )}
       </div>
       {dia.comidas.map((comida) => (
         <ComidaDelDia key={comida.comida} fecha={dia.fecha} dia={dia.nombre} etiquetaDia={etiqueta} datos={comida} />

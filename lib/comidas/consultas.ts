@@ -44,7 +44,7 @@ export async function obtenerSemanaPropia(usuarioId: string, lunes: FechaISO): P
   const domingo = sumarDias(lunes, 6)
   const supabase = await crearClienteServidor()
 
-  const [horas, plan, selecciones, cerradas] = await Promise.all([
+  const [horas, plan, selecciones, cerradas, ausencias] = await Promise.all([
     obtenerHorasLimite(),
     obtenerPlanPropio(usuarioId),
     supabase
@@ -54,9 +54,12 @@ export async function obtenerSemanaPropia(usuarioId: string, lunes: FechaISO): P
       .gte('fecha', lunes)
       .lte('fecha', domingo),
     supabase.from('comidas_cerradas').select('fecha, comida').gte('fecha', lunes).lte('fecha', domingo),
+    // Solo las propias: la política de la tabla no deja ver las de nadie más.
+    supabase.from('ausencias').select('desde, hasta').eq('usuario_id', usuarioId).lte('desde', domingo).gte('hasta', lunes),
   ])
   if (selecciones.error) throw selecciones.error
   if (cerradas.error) throw cerradas.error
+  if (ausencias.error) throw ausencias.error
 
   return armarSemanaPersona({
     lunes,
@@ -65,6 +68,7 @@ export async function obtenerSemanaPropia(usuarioId: string, lunes: FechaISO): P
     plan,
     selecciones: selecciones.data,
     cerradas: cerradas.data,
+    ausencias: ausencias.data,
   })
 }
 
@@ -97,7 +101,7 @@ export async function obtenerPlanesDeTodos(): Promise<PersonaConPlan[]> {
 /** Un día de la semana para Administración: valores de cada persona activa y resumen por comida. */
 export async function obtenerDiaParaAdministracion(fecha: FechaISO): Promise<DiaAdministracion> {
   const supabase = await crearClienteServidor()
-  const [personas, planes, selecciones, cerradas] = await Promise.all([
+  const [personas, planes, selecciones, cerradas, ausentes] = await Promise.all([
     listarPerfiles({ soloActivos: true, roles: ROLES_CON_COMIDAS }),
     supabase
       .from('plan_semanal')
@@ -105,10 +109,13 @@ export async function obtenerDiaParaAdministracion(fecha: FechaISO): Promise<Dia
       .eq('dia_semana', diaSemana(fecha)),
     supabase.from('selecciones_comida').select('usuario_id, fecha, comida, estado, nota, origen').eq('fecha', fecha),
     supabase.from('comidas_cerradas').select('fecha, comida').eq('fecha', fecha),
+    // Administración no lee la tabla de ausencias: solo sabe quién NO come ese día, sin fechas ni motivo.
+    supabase.rpc('ausentes_en', { p_fecha: fecha }),
   ])
   if (planes.error) throw planes.error
   if (selecciones.error) throw selecciones.error
   if (cerradas.error) throw cerradas.error
+  if (ausentes.error) throw ausentes.error
 
   return armarDiaAdministracion({
     fecha,
@@ -116,5 +123,6 @@ export async function obtenerDiaParaAdministracion(fecha: FechaISO): Promise<Dia
     planes: planes.data,
     selecciones: selecciones.data,
     cerradas: cerradas.data,
+    ausentes: ausentes.data,
   })
 }

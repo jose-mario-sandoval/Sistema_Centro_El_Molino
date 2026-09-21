@@ -13,7 +13,9 @@ import {
   mesSiguiente,
 } from '@/lib/calendario/cuadricula'
 import { fechaISOEn } from '@/lib/fechas'
+import { listarMisAusencias } from '@/lib/ausencias/consultas'
 import { CalendarioMes } from './_componentes/calendario-mes'
+import { PanelAusencias } from './_componentes/panel-ausencias'
 
 export default async function PaginaCalendario({
   searchParams,
@@ -28,7 +30,12 @@ export default async function PaginaCalendario({
   const mes = esMesISO(mesPedido) ? mesPedido : mesDeHoy
   const puedeEditar = perfil.rol === 'director'
 
-  const eventos = await listarEventosDeCuadricula(mes, perfil.rol)
+  // Las ausencias son de quienes comen en la casa; Administración no las marca ni las ve.
+  const conAusencias = perfil.rol !== 'administracion'
+  const [eventos, ausencias] = await Promise.all([
+    listarEventosDeCuadricula(mes, perfil.rol),
+    conAusencias ? listarMisAusencias(hoy) : Promise.resolve([]),
+  ])
   const dias = cuadriculaMes(mes).map((dia) => ({ ...dia, etiqueta: etiquetaDia(dia.fecha) }))
 
   return (
@@ -43,6 +50,7 @@ export default async function PaginaCalendario({
               : 'Vista de solo lectura de los eventos de la casa. Tocá un día para ver sus eventos.'}
         </div>
       </div>
+      {conAusencias && <PanelAusencias ausencias={ausencias} hoy={hoy} />}
       <div className="card">
         <div className="cal-head">
           <div className="month-label">{etiquetaMes(mes)}</div>
@@ -66,6 +74,7 @@ export default async function PaginaCalendario({
           hoy={hoy}
           puedeEditar={puedeEditar}
           paraCocina={perfil.rol === 'administracion'}
+          ausencias={ausencias}
         />
       </div>
     </>
