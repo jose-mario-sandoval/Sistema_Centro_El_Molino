@@ -22,6 +22,16 @@ function Tiempo({ creadoEn, ahora }: { creadoEn: string; ahora: Date }) {
   )
 }
 
+/**
+ * Administración ve siglas en lugar del nombre (lib/perfiles/visibilidad.ts): entonces `nombre` y
+ * `siglas` son lo mismo, y repetirlas al lado del avatar sería ruido. El avatar ya las lleva.
+ */
+function NombreDeAutor({ autor }: { autor: PerfilResumen | undefined }) {
+  if (!autor) return <span className="name">Cargando…</span>
+  if (autor.nombre === autor.siglas) return null
+  return <span className="name">{autor.nombre}</span>
+}
+
 function NodoRespuesta({
   respuesta,
   autor,
@@ -42,7 +52,7 @@ function NodoRespuesta({
       </div>
       <div className="msg-body">
         <div className="msg-meta">
-          <span className="name">{autor?.nombre ?? 'Cargando…'}</span>
+          <NombreDeAutor autor={autor} />
           <Tiempo creadoEn={respuesta.creadoEn} ahora={ahora} />
         </div>
         <div className="msg-text">{respuesta.texto}</div>
@@ -85,7 +95,7 @@ export function TarjetaMensaje({
         <div className="avatar">{autor?.siglas ?? '…'}</div>
         <div className="msg-body">
           <div className="msg-meta">
-            <span className="name">{autor?.nombre ?? 'Cargando…'}</span>
+            <NombreDeAutor autor={autor} />
             {autor && <span className="role-pill">{ETIQUETA_ROL[autor.rol]}</span>}
             <Tiempo creadoEn={publicacion.creadoEn} ahora={ahora} />
           </div>

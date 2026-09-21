@@ -3,6 +3,7 @@ import {
   destinatariosPublicacion,
   destinatariosRecordatorio,
   destinatariosRespuesta,
+  separarPorVisibilidad,
   type PerfilAviso,
 } from '@/lib/push/destinatarios'
 
@@ -62,5 +63,29 @@ describe('destinatariosRecordatorio', () => {
 
   it('no avisa a nadie si no hay comidas sin definir', () => {
     expect(destinatariosRecordatorio({ sinDefinir: [], perfiles })).toEqual([])
+  })
+})
+
+describe('separarPorVisibilidad', () => {
+  const roles = [
+    { id: 'a', rol: 'director' as const },
+    { id: 'b', rol: 'residente' as const },
+    { id: 'c', rol: 'administracion' as const },
+  ]
+
+  it('separa a Administración, que solo ve siglas, de quienes conocen el nombre', () => {
+    expect(separarPorVisibilidad(['a', 'b', 'c'], roles)).toEqual({ conNombre: ['a', 'b'], soloSiglas: ['c'] })
+  })
+
+  it('conserva el orden de entrada dentro de cada grupo', () => {
+    expect(separarPorVisibilidad(['c', 'b', 'a'], roles)).toEqual({ conNombre: ['b', 'a'], soloSiglas: ['c'] })
+  })
+
+  it('un destinatario sin rol conocido va con las siglas: ante la duda, lo más privado', () => {
+    expect(separarPorVisibilidad(['a', 'x'], roles)).toEqual({ conNombre: ['a'], soloSiglas: ['x'] })
+  })
+
+  it('sin destinatarios devuelve dos listas vacías', () => {
+    expect(separarPorVisibilidad([], roles)).toEqual({ conNombre: [], soloSiglas: [] })
   })
 })

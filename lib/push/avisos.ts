@@ -1,33 +1,55 @@
 import 'server-only'
 import type { TiempoComida } from '@/lib/comidas/tipos'
 import type { FechaISO } from '@/lib/fechas'
+import type { Rol } from '@/lib/perfiles/roles'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import {
   destinatariosPublicacion,
   destinatariosRecordatorio,
   destinatariosRespuesta,
+  separarPorVisibilidad,
   type PerfilAviso,
 } from './destinatarios'
-import { enviarAUsuarios } from './enviar'
-import { cargaNuevaPublicacion, cargaNuevaRespuesta, cargaRecordatorio } from './mensajes-push'
+import { enviarAUsuarios, type ResumenEnvio } from './enviar'
+import { cargaNuevaPublicacion, cargaNuevaRespuesta, cargaRecordatorio, type CargaPush } from './mensajes-push'
 
 /*
  * Nunca lanzan: se ejecutan dentro de after(), cuando la respuesta ya se envió.
  * Los errores quedan en los logs de Vercel (spec §9.1).
  */
 
-type PerfilConNombre = PerfilAviso & { nombre: string }
+type PerfilConNombre = PerfilAviso & { nombre: string; siglas: string; rol: Rol }
 
 async function leerPerfiles(): Promise<PerfilConNombre[]> {
   const { data, error } = await crearClienteAdmin()
     .from('perfiles')
-    .select('id, nombre, activo, avisar_mensajes, avisar_hora_limite')
+    .select('id, nombre, siglas, rol, activo, avisar_mensajes, avisar_hora_limite')
   if (error) throw error
   return data
 }
 
-function nombreDe(perfiles: PerfilConNombre[], id: string): string {
-  return perfiles.find((p) => p.id === id)?.nombre ?? 'Alguien'
+/**
+ * Envía el aviso de un mensaje con el autor como cada grupo lo ve en la app: con nombre para
+ * Directores y Residentes, con siglas para Administración (lib/perfiles/visibilidad.ts).
+ */
+async function enviarConAutor(
+  ids: string[],
+  perfiles: PerfilConNombre[],
+  autorId: string,
+  armar: (autor: string) => CargaPush,
+): Promise<ResumenEnvio> {
+  const autor = perfiles.find((p) => p.id === autorId)
+  const { conNombre, soloSiglas } = separarPorVisibilidad(ids, perfiles)
+  const [a, b] = await Promise.all([
+    enviarAUsuarios(conNombre, armar(autor?.nombre ?? 'Alguien')),
+    enviarAUsuarios(soloSiglas, armar(autor?.siglas ?? 'Alguien')),
+  ])
+  return {
+    enviadas: a.enviadas + b.enviadas,
+    caducadas: a.caducadas + b.caducadas,
+    fallidas: a.fallidas + b.fallidas,
+    descartadas: a.descartadas + b.descartadas,
+  }
 }
 
 /** Tras publicar: avisa a todos menos al autor. */
@@ -43,9 +65,8 @@ export async function avisarNuevaPublicacion(mensajeId: string): Promise<void> {
 
     const perfiles = await leerPerfiles()
     const ids = destinatariosPublicacion({ autorId: mensaje.autor_id, perfiles })
-    const resumen = await enviarAUsuarios(
-      ids,
-      cargaNuevaPublicacion({ id: mensaje.id, autor: nombreDe(perfiles, mensaje.autor_id), texto: mensaje.texto }),
+    const resumen = await enviarConAutor(ids, perfiles, mensaje.autor_id, (autor) =>
+      cargaNuevaPublicacion({ id: mensaje.id, autor, texto: mensaje.texto }),
     )
     console.log('[push] nueva publicación', { mensajeId, destinatarios: ids.length, ...resumen })
   } catch (error) {
@@ -80,9 +101,8 @@ export async function avisarNuevaRespuesta(respuestaId: string): Promise<void> {
       quienRespondeId: respuesta.autor_id,
       perfiles,
     })
-    const resumen = await enviarAUsuarios(
-      ids,
-      cargaNuevaRespuesta({ id: respuesta.id, autor: nombreDe(perfiles, respuesta.autor_id), texto: respuesta.texto }),
+    const resumen = await enviarConAutor(ids, perfiles, respuesta.autor_id, (autor) =>
+      cargaNuevaRespuesta({ id: respuesta.id, autor, texto: respuesta.texto }),
     )
     console.log('[push] nueva respuesta', { respuestaId, destinatarios: ids.length, ...resumen })
   } catch (error) {
