@@ -5,11 +5,12 @@ import { useAviso } from '@/components/ui/avisos'
 import { BotonEnvio } from '@/components/ui/boton-envio'
 import { fallo, type Resultado } from '@/lib/acciones/resultado'
 import { FECHA_MAXIMA, FECHA_MINIMA } from '@/lib/calendario/cuadricula'
-import type { Evento } from '@/lib/calendario/tipos'
+import type { Evento, RequerimientoCocina, TipoEvento } from '@/lib/calendario/tipos'
 import { horaHHMM, type FechaISO } from '@/lib/fechas'
 import { crearEvento, editarEvento } from '../acciones'
+import { CamposTipoYCocina } from './campos-evento'
 
-const CAMPOS_VISIBLES = ['titulo', 'fecha', 'hora'] as const
+const CAMPOS_VISIBLES = ['titulo', 'fecha', 'hora', 'tipo', 'requiere_cocina'] as const
 
 function ErrorCampo({ mensaje }: { mensaje?: string }) {
   return mensaje ? <div className="campo-error">{mensaje}</div> : null
@@ -33,6 +34,9 @@ export function FormularioNuevoEvento({ fecha, alCerrar }: { fecha: FechaISO; al
   // y tras un error el Director perdería lo que escribió (mismo patrón que el login).
   const [titulo, setTitulo] = useState('')
   const [hora, setHora] = useState('')
+  // Sin tipo elegido de entrada: es un dato que el Director tiene que decidir, no uno que se hereda.
+  const [tipo, setTipo] = useState<TipoEvento | ''>('')
+  const [requiere, setRequiere] = useState<RequerimientoCocina[]>([])
   const [estado, accion] = useActionState(
     async (previo: Resultado<{ id: string }> | null, formData: FormData): Promise<Resultado<{ id: string }> | null> => {
       let resultado: Resultado<{ id: string }>
@@ -45,6 +49,8 @@ export function FormularioNuevoEvento({ fecha, alCerrar }: { fecha: FechaISO; al
         aviso('Evento agregado.')
         setTitulo('')
         setHora('')
+        setTipo('')
+        setRequiere([])
       } else {
         const mensaje = mensajeSinCampoVisible(resultado)
         if (mensaje) aviso(mensaje)
@@ -72,6 +78,14 @@ export function FormularioNuevoEvento({ fecha, alCerrar }: { fecha: FechaISO; al
         />
         <ErrorCampo mensaje={campos?.titulo} />
       </div>
+      <CamposTipoYCocina
+        tipo={tipo}
+        alCambiarTipo={setTipo}
+        requiere={requiere}
+        alCambiarRequiere={setRequiere}
+        errorTipo={campos?.tipo}
+        errorCocina={campos?.requiere_cocina}
+      />
       <div className="field">
         <label htmlFor="nuevo-evento-hora">Hora (opcional)</label>
         <input id="nuevo-evento-hora" name="hora" type="time" value={hora} onChange={(e) => setHora(e.target.value)} />
@@ -97,6 +111,8 @@ export function FormularioEditarEvento({ evento, alTerminar }: { evento: Evento;
   const [titulo, setTitulo] = useState(evento.titulo)
   const [fecha, setFecha] = useState(evento.fecha)
   const [hora, setHora] = useState(evento.hora ? horaHHMM(evento.hora) : '')
+  const [tipo, setTipo] = useState<TipoEvento | ''>(evento.tipo ?? '')
+  const [requiere, setRequiere] = useState<RequerimientoCocina[]>(evento.requiere_cocina)
   const [estado, accion] = useActionState(
     async (previo: Resultado<null> | null, formData: FormData): Promise<Resultado<null> | null> => {
       let resultado: Resultado<null>
@@ -136,6 +152,14 @@ export function FormularioEditarEvento({ evento, alTerminar }: { evento: Evento;
         />
         <ErrorCampo mensaje={campos?.titulo} />
       </div>
+      <CamposTipoYCocina
+        tipo={tipo}
+        alCambiarTipo={setTipo}
+        requiere={requiere}
+        alCambiarRequiere={setRequiere}
+        errorTipo={campos?.tipo}
+        errorCocina={campos?.requiere_cocina}
+      />
       <div className="field">
         <label htmlFor={`${prefijo}-fecha`}>Fecha</label>
         <input

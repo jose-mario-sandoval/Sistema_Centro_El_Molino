@@ -50,6 +50,19 @@ const TRAZOS = {
       <circle cx="8" cy="17" r="2.2" />
     </>
   ),
+  // Lo que un evento le pide a la cocina: 'comida' usa el plato (`comidas`).
+  merienda: (
+    <>
+      <path d="M5 8h11v6a5 5 0 0 1-5 5H10a5 5 0 0 1-5-5V8z" />
+      <path d="M16 10h2a2 2 0 0 1 0 4h-2M8 3v2M12 3v2" />
+    </>
+  ),
+  materiales: (
+    <>
+      <path d="M6 3v6a2 2 0 0 0 2 2 2 2 0 0 0 2-2V3M8 11v10" />
+      <path d="M17 3c-2 0-3 2-3 5s1 4 3 4v9" />
+    </>
+  ),
   izquierda: <path d="M15 5l-7 7 7 7" />,
   derecha: <path d="M9 5l7 7-7 7" />,
   abajo: <path d="M5 9l7 7 7-7" />,
