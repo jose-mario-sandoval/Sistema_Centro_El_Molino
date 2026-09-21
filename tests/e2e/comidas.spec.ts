@@ -4,6 +4,7 @@ import {
   asegurarUsuariosPrueba,
   clienteAdminPrueba,
   CONTRASENA_PRUEBA,
+  nombresQueNoDebeVer,
   USUARIOS_PRUEBA,
   type ClaveUsuario,
 } from '../soporte/usuarios-prueba'
@@ -32,6 +33,14 @@ function fechaCorta(fecha: string): string {
 async function abrirOpciones(fila: Locator) {
   await fila.locator('.estado-actual').click()
   await expect(fila.locator('.estado-actual')).toHaveAttribute('aria-expanded', 'true')
+}
+
+/** Administración solo ve siglas: ningún nombre ajeno en pantalla ni en el HTML (datos de hidratación incluidos). */
+async function sinNombresAjenos(page: Page, clave: ClaveUsuario) {
+  const html = await page.content()
+  for (const nombre of nombresQueNoDebeVer(clave)) {
+    expect(html, `"${nombre}" no debería llegar al navegador de ${clave}`).not.toContain(nombre)
+  }
 }
 
 async function iniciarSesion(page: Page, clave: ClaveUsuario) {
@@ -121,13 +130,29 @@ test('un residente cambia el almuerzo y Administración lo ve en Semana', async 
   await expect(resumen).toContainText('1 tarde (13:30)')
   await expect(resumen).toContainText('sin definir')
 
-  const celda = page.getByRole('row', { name: /Residente Prueba/ }).locator('td[data-comida="almuerzo"]')
+  // Administración ve siglas (RP), no nombres.
+  const celda = page.getByRole('row', { name: /^RP\b/ }).locator('td[data-comida="almuerzo"]')
   await expect(celda).toContainText('Comer tarde')
   await expect(celda).toContainText('13:30')
   await expect(celda).toHaveClass(/\bexcepcion\b/)
 
-  const celdaDirectora = page.getByRole('row', { name: /Directora Prueba/ }).locator('td[data-comida="almuerzo"]')
+  const celdaDirectora = page.getByRole('row', { name: /^DP\b/ }).locator('td[data-comida="almuerzo"]')
   await expect(celdaDirectora).toContainText('Sin definir')
+  await sinNombresAjenos(page, 'administracion')
+})
+
+test('Administración ve siglas y no nombres en Semana y en Plan semanal', async ({ page }) => {
+  await planAlmuerzoMiercoles()
+  await iniciarSesion(page, 'administracion')
+
+  await page.goto('/comidas/semana')
+  await expect(page.getByRole('row', { name: /^RP\b/ })).toBeVisible()
+  await expect(page.getByRole('row', { name: /^DP\b/ })).toBeVisible()
+  await sinNombresAjenos(page, 'administracion')
+
+  await page.goto('/comidas/plan')
+  await expect(page.getByRole('row', { name: /^RP\b/ })).toBeVisible()
+  await sinNombresAjenos(page, 'administracion')
 })
 
 test('en una semana pasada el residente no puede cambiar nada', async ({ page }) => {

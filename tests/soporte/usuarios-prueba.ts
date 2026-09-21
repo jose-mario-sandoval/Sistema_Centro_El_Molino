@@ -13,6 +13,17 @@ export const USUARIOS_PRUEBA = {
 
 export type ClaveUsuario = keyof typeof USUARIOS_PRUEBA
 
+/**
+ * Nombres completos que `clave` no debe ver. Administración solo ve siglas: el nombre no puede
+ * aparecer ni en pantalla ni en los datos que la página lleva embebidos para hidratarse.
+ */
+export function nombresQueNoDebeVer(clave: ClaveUsuario): string[] {
+  if (clave !== 'administracion') return []
+  return Object.entries(USUARIOS_PRUEBA)
+    .filter(([otra]) => otra !== clave)
+    .map(([, u]) => u.nombre)
+}
+
 function url() {
   exigirBaseLocal()
   return process.env.NEXT_PUBLIC_SUPABASE_URL!

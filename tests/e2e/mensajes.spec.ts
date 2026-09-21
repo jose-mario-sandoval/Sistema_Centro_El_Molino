@@ -3,6 +3,7 @@ import {
   asegurarUsuariosPrueba,
   clienteAdminPrueba,
   CONTRASENA_PRUEBA,
+  nombresQueNoDebeVer,
   USUARIOS_PRUEBA,
   type ClaveUsuario,
 } from '../soporte/usuarios-prueba'
@@ -20,6 +21,14 @@ async function iniciarSesion(page: Page, clave: ClaveUsuario) {
   await page.getByLabel('Contraseña').fill(CONTRASENA_PRUEBA)
   await page.getByRole('button', { name: 'Iniciar sesión' }).click()
   await expect(page).toHaveURL(/\/comidas\/semana$/)
+}
+
+/** Administración solo ve siglas: ningún nombre ajeno en pantalla ni en el HTML (datos de hidratación incluidos). */
+async function sinNombresAjenos(page: Page, clave: ClaveUsuario) {
+  const html = await page.content()
+  for (const nombre of nombresQueNoDebeVer(clave)) {
+    expect(html, `"${nombre}" no debería llegar al navegador de ${clave}`).not.toContain(nombre)
+  }
 }
 
 /** Inserta un mensaje a nombre de `clave` con la llave secreta. */
@@ -144,7 +153,9 @@ test('al conectarse recarga lo publicado después de generar la página', async 
   await page.goto('/mensajes')
   await expect(page.locator('.feed-mensajes')).toHaveAttribute('data-conexion', 'en-vivo', { timeout: 20_000 })
   await expect(tarjeta(page, texto)).toBeVisible()
-  await expect(tarjeta(page, texto)).toContainText('Residente Prueba')
+  // Administración ve las siglas del autor, no su nombre.
+  await expect(tarjeta(page, texto)).toContainText(USUARIOS_PRUEBA.residente.siglas)
+  await sinNombresAjenos(page, 'administracion')
 })
 
 test('otra sesión recibe el mensaje en tiempo real sin recargar', async ({ page, browser, baseURL }) => {
@@ -163,7 +174,9 @@ test('otra sesión recibe el mensaje en tiempo real sin recargar', async ({ page
     await expect(tarjeta(autor, texto)).toBeVisible()
 
     await expect(tarjeta(page, texto)).toBeVisible({ timeout: 20_000 })
-    await expect(tarjeta(page, texto)).toContainText('Residente Prueba')
+    await expect(tarjeta(page, texto)).toContainText(USUARIOS_PRUEBA.residente.siglas)
+    // También el mensaje que llega en vivo: el autor se resuelve con siglas.
+    await sinNombresAjenos(page, 'administracion')
   } finally {
     await contextoAutor.close()
   }
