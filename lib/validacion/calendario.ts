@@ -1,9 +1,16 @@
 import { z } from 'zod'
 import { FECHA_MAXIMA, FECHA_MINIMA } from '@/lib/calendario/cuadricula'
+import { REQUERIMIENTOS_COCINA, TIPOS_EVENTO, type RequerimientoCocina } from '@/lib/calendario/tipos'
 
 const PATRON_HORA = /^([01]\d|2[0-3]):[0-5]\d$/
 
 const MENSAJE_TITULO = 'Escribí el título del evento.'
+
+/** Mismas reglas que `requiere_cocina_valido` en la base: sin repetidos, y "solo materiales" va solo. */
+export function requerimientosValidos(requerimientos: readonly RequerimientoCocina[]): boolean {
+  if (new Set(requerimientos).size !== requerimientos.length) return false
+  return !(requerimientos.includes('materiales') && requerimientos.length > 1)
+}
 
 /**
  * Campos de un evento tal como llegan del formulario. `hora` vacía = sin hora (null).
@@ -24,6 +31,13 @@ export const esquemaEvento = z.object({
     .trim()
     .refine((hora) => hora === '' || PATRON_HORA.test(hora), 'Usá el formato HH:MM.')
     .transform((hora) => (hora === '' ? null : hora)),
+  tipo: z.enum(TIPOS_EVENTO, { error: 'Elegí el tipo de evento.' }),
+  // Sin nada marcado = el evento no le pide nada a la cocina.
+  requiere_cocina: z
+    .array(z.enum(REQUERIMIENTOS_COCINA, { error: 'Pedido a la cocina inválido.' }))
+    .refine(requerimientosValidos, {
+      message: '"Solo materiales de cocina" no se combina con merienda ni comida.',
+    }),
 })
 
 export const esquemaEditarEvento = esquemaEvento.extend({

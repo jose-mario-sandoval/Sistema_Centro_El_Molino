@@ -28,7 +28,7 @@ export default async function PaginaCalendario({
   const mes = esMesISO(mesPedido) ? mesPedido : mesDeHoy
   const puedeEditar = perfil.rol === 'director'
 
-  const eventos = await listarEventosDeCuadricula(mes)
+  const eventos = await listarEventosDeCuadricula(mes, perfil.rol)
   const dias = cuadriculaMes(mes).map((dia) => ({ ...dia, etiqueta: etiquetaDia(dia.fecha) }))
 
   return (
@@ -38,7 +38,9 @@ export default async function PaginaCalendario({
         <div className="desc">
           {puedeEditar
             ? 'Eventos de la casa. Tocá un día para agregar, editar o eliminar eventos.'
-            : 'Vista de solo lectura de los eventos de la casa. Tocá un día para ver sus eventos.'}
+            : perfil.rol === 'administracion'
+              ? 'Lo que la casa necesita de la cocina: cuándo y qué preparar. Tocá un día para ver el detalle.'
+              : 'Vista de solo lectura de los eventos de la casa. Tocá un día para ver sus eventos.'}
         </div>
       </div>
       <div className="card">
@@ -58,7 +60,13 @@ export default async function PaginaCalendario({
             </Link>
           </div>
         </div>
-        <CalendarioMes dias={dias} eventosPorFecha={agruparPorFecha(eventos)} hoy={hoy} puedeEditar={puedeEditar} />
+        <CalendarioMes
+          dias={dias}
+          eventosPorFecha={agruparPorFecha(eventos)}
+          hoy={hoy}
+          puedeEditar={puedeEditar}
+          paraCocina={perfil.rol === 'administracion'}
+        />
       </div>
     </>
   )

@@ -53,6 +53,8 @@ export type Database = {
           fecha: string
           hora: string | null
           id: string
+          requiere_cocina: Database["public"]["Enums"]["requerimiento_cocina"][]
+          tipo: Database["public"]["Enums"]["tipo_evento"]
           titulo: string
         }
         Insert: {
@@ -62,6 +64,8 @@ export type Database = {
           fecha: string
           hora?: string | null
           id?: string
+          requiere_cocina?: Database["public"]["Enums"]["requerimiento_cocina"][]
+          tipo?: Database["public"]["Enums"]["tipo_evento"]
           titulo: string
         }
         Update: {
@@ -71,6 +75,8 @@ export type Database = {
           fecha?: string
           hora?: string | null
           id?: string
+          requiere_cocina?: Database["public"]["Enums"]["requerimiento_cocina"][]
+          tipo?: Database["public"]["Enums"]["tipo_evento"]
           titulo?: string
         }
         Relationships: [
@@ -379,6 +385,15 @@ export type Database = {
         }
         Returns: string[]
       }
+      eventos_para_cocina: {
+        Args: { p_desde: string; p_hasta: string }
+        Returns: {
+          fecha: string
+          hora: string
+          id: string
+          requiere_cocina: Database["public"]["Enums"]["requerimiento_cocina"][]
+        }[]
+      }
       guardar_seleccion: {
         Args: {
           p_comida: Database["public"]["Enums"]["tiempo_comida"]
@@ -397,6 +412,12 @@ export type Database = {
         }
         Returns: boolean
       }
+      requiere_cocina_valido: {
+        Args: {
+          p: Database["public"]["Enums"]["requerimiento_cocina"][]
+        }
+        Returns: boolean
+      }
       soy_activo: { Args: never; Returns: boolean }
       volver_a_plan: {
         Args: {
@@ -410,8 +431,10 @@ export type Database = {
     Enums: {
       estado_comida: "si" | "no" | "temprano" | "tarde" | "bolsa" | "enfermo"
       origen_seleccion: "persona" | "plan"
+      requerimiento_cocina: "merienda" | "comida" | "materiales"
       rol: "director" | "residente" | "administracion"
       tiempo_comida: "desayuno" | "almuerzo" | "cena"
+      tipo_evento: "retiro" | "charla" | "visita" | "reunion" | "otro"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -541,8 +564,10 @@ export const Constants = {
     Enums: {
       estado_comida: ["si", "no", "temprano", "tarde", "bolsa", "enfermo"],
       origen_seleccion: ["persona", "plan"],
+      requerimiento_cocina: ["merienda", "comida", "materiales"],
       rol: ["director", "residente", "administracion"],
       tiempo_comida: ["desayuno", "almuerzo", "cena"],
+      tipo_evento: ["retiro", "charla", "visita", "reunion", "otro"],
     },
   },
 } as const

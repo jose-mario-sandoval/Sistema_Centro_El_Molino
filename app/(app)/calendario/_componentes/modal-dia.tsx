@@ -9,6 +9,7 @@ import type { Evento } from '@/lib/calendario/tipos'
 import { horaHHMM } from '@/lib/fechas'
 import { eliminarEvento } from '../acciones'
 import { FormularioEditarEvento, FormularioNuevoEvento } from './formulario-evento'
+import { InsigniasEvento } from './insignias-evento'
 
 function FilaEvento({
   evento,
@@ -53,6 +54,7 @@ function FilaEvento({
     <div className="cal-evento-fila">
       <div className="cal-evento-texto">
         {evento.hora && <b>{horaHHMM(evento.hora)}</b>} <span>{evento.titulo}</span>
+        <InsigniasEvento evento={evento} />
       </div>
       {puedeEditar && (
         <div className="cal-evento-acciones">
@@ -101,11 +103,14 @@ export function ModalDia({
   dia,
   eventos,
   puedeEditar,
+  paraCocina,
   alCerrar,
 }: {
   dia: DiaConEtiqueta
   eventos: Evento[]
   puedeEditar: boolean
+  /** Administración: la lista es lo que debe preparar la cocina, no los eventos de la casa. */
+  paraCocina: boolean
   alCerrar: () => void
 }) {
   const [editandoId, setEditandoId] = useState<string | null>(null)
@@ -129,7 +134,9 @@ export function ModalDia({
     <Modal titulo={dia.etiqueta} abierto alCerrar={alCerrar} enfocarDialogo>
       <div ref={lista} className="cal-evento-lista">
         {eventos.length === 0 ? (
-          <div className="empty-state">No hay eventos este día.</div>
+          <div className="empty-state">
+            {paraCocina ? 'No hay nada para la cocina este día.' : 'No hay eventos este día.'}
+          </div>
         ) : (
           eventos.map((evento) =>
             editando && evento.id === editandoId ? (

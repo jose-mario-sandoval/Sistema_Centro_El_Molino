@@ -637,6 +637,36 @@ a{color:var(--acento);}
 .cal-evento-acciones{display:flex;flex-wrap:wrap;align-items:center;gap:.5rem;}
 .cal-evento-form.editando{padding:.5rem 0 1rem;}
 
+/* Tipo de evento y lo que pide a la cocina. Fondo propio: así el contraste se mide contra el
+   pergamino y no contra el tinte del evento donde caiga. */
+.insignias-evento{display:flex;flex-wrap:wrap;gap:.4rem;margin-top:.4rem;}
+.pastilla-tipo,.pastilla-cocina{
+  display:inline-flex;align-items:center;gap:.35rem;padding:.15rem .65rem;border-radius:var(--r-full);
+  background:var(--fondo);border:2px solid var(--borde-hundido);box-shadow:var(--hundido-suave);
+  color:var(--tinta-suave);font-size:var(--t-xs);font-weight:700;
+}
+.pastilla-cocina{color:var(--dorado);}
+[data-contraste="alto"] .pastilla-cocina{border-color:var(--dorado);}
+.pastilla-cocina .icono{width:1.1em;height:1.1em;}
+.agenda-evento .insignias-evento{display:flex;}
+
+/* Radios y casillas de los formularios: controles reales con aspecto de botón grande. Elegida:
+   hundida, con color y borde. El foco se ve sobre el botón, no sobre el control invisible. */
+.grupo-campo{border:0;padding:0;margin:0 0 1.1rem;min-width:0;}
+.grupo-campo > legend{padding:0;margin-bottom:.2rem;font-size:var(--t-sm);font-weight:600;}
+.opciones-pastilla{display:flex;flex-wrap:wrap;gap:.6rem;margin-top:.5rem;}
+.opcion-pastilla{position:relative;display:inline-flex;max-width:100%;}
+.opcion-pastilla input{position:absolute;inset:0;width:100%;height:100%;margin:0;opacity:0;cursor:pointer;}
+.opcion-pastilla > span:first-of-type{
+  display:inline-flex;align-items:center;gap:.4rem;min-height:var(--toque);padding:.4rem 1.1rem;
+  border-radius:var(--r-full);border:2px solid var(--borde-elevado);
+  background:var(--fondo);color:var(--tinta);box-shadow:var(--relieve);font-weight:600;
+  transition:box-shadow var(--dur) var(--curva);
+}
+.opcion-pastilla input:checked + span{box-shadow:var(--hundido);color:var(--acento);border-color:var(--acento);}
+.opcion-pastilla input:focus-visible + span{outline:3px solid var(--acento);outline-offset:3px;}
+[data-contraste="alto"] .opcion-pastilla input:checked + span{background:var(--acento-suave);border-width:3px;}
+
 /* ---------- 9. Modal y avisos -------------------------------------------- */
 
 .modal-backdrop{
