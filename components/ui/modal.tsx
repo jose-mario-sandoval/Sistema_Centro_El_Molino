@@ -16,6 +16,7 @@ export function Modal({
   abierto,
   alCerrar,
   bloquearCierre = false,
+  enfocarDialogo = false,
   children,
 }: {
   titulo: string
@@ -23,6 +24,11 @@ export function Modal({
   alCerrar: () => void
   /** Ignora Escape y el clic en el fondo (p. ej. mientras corre una acción); los botones del contenido deciden. */
   bloquearCierre?: boolean
+  /**
+   * Al abrir, el foco va al diálogo y no a su primer campo: en el teléfono, enfocar un campo de
+   * texto abre el teclado sin que la persona lo haya pedido.
+   */
+  enfocarDialogo?: boolean
   children: React.ReactNode
 }) {
   const dialogo = useRef<HTMLDivElement>(null)
@@ -37,19 +43,19 @@ export function Modal({
   }, [abierto, bloquearCierre, alCerrar])
 
   // Foco accesible: al abrir entra al diálogo; al cerrar vuelve al elemento que lo tenía.
-  // Depende solo de `abierto` para no robar el foco en cada render (alCerrar suele ser una función nueva).
+  // No depende de alCerrar para no robar el foco en cada render (suele ser una función nueva).
   useEffect(() => {
     if (!abierto) return
     const anterior = document.activeElement instanceof HTMLElement ? document.activeElement : null
     const contenedor = dialogo.current
     if (contenedor) {
-      const primero = contenedor.querySelector<HTMLElement>(SELECTOR_ENFOCABLE)
+      const primero = enfocarDialogo ? null : contenedor.querySelector<HTMLElement>(SELECTOR_ENFOCABLE)
       ;(primero ?? contenedor).focus()
     }
     return () => {
       if (anterior?.isConnected) anterior.focus()
     }
-  }, [abierto])
+  }, [abierto, enfocarDialogo])
 
   if (!abierto) return null
 

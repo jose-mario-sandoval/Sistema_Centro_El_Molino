@@ -29,7 +29,8 @@ export function PlanAdministracion({ personas }: { personas: PersonaConPlan[] })
                     {persona.nombre}
                   </th>
                   {NOMBRES_DIA.map((nombre, i) => (
-                    <td key={nombre}>
+                    // data-et: en el teléfono la tabla se apila y cada celda muestra su día.
+                    <td key={nombre} data-et={nombre}>
                       {TIEMPOS_COMIDA.map((comida) => (
                         <div key={comida} className="plan-linea">
                           <span className="plan-letra" title={ETIQUETA_TIEMPO[comida]}>

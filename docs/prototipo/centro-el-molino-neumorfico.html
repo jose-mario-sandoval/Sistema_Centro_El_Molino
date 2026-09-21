@@ -1,0 +1,2371 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>El Molino en relieve</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&display=swap" rel="stylesheet">
+<style>
+/* =========================================================================
+   CENTRO EL MOLINO — Neumorfismo accesible
+   Prototipo de validación. El contrato completo vive en DESIGN.md (raíz).
+   Todos los colores de aquí están verificados contra WCAG, no estimados.
+   ========================================================================= */
+
+/* ---- 1. TOKENS -------------------------------------------------------- */
+
+:root{
+  color-scheme:light;
+  /* Neutros — CLARO / contraste suave */
+  --fondo:#F1EDE3; --tinta:#2A251E; --tinta-suave:#6E6555; --tinta-tenue:#736A5A;
+  --acento:#3F5D46; --acento-ink:#FFFFFF; --dorado:#8C6432; --peligro:#B4483A;
+  --luz:#FFFBF2; --sombra:#C9C0AC;
+
+  /* Los seis estados. Estos NOMBRES son contrato: insignia-estado.tsx los
+     construye por interpolación y tiene tres llamadores. */
+  --st-si:#3F5D46;        --st-si-bg:#E1E8DE;
+  --st-no:#AB4437;        --st-no-bg:#F5DFDB;
+  --st-temprano:#855F2F;  --st-temprano-bg:#F1E4CF;
+  --st-tarde:#7A5C3E;     --st-tarde-bg:#EBE0D2;
+  --st-bolsa:#4B6988;     --st-bolsa-bg:#DEE6ED;
+  --st-enfermo:#8B4B63;   --st-enfermo-bg:#EEDCE2;
+
+  /* Relieve */
+  --relieve-alto:  -8px -8px 16px var(--luz),  8px  8px 16px var(--sombra);
+  --relieve:       -4px -4px  8px var(--luz),  4px  4px  8px var(--sombra);
+  --relieve-bajo:  -2px -2px  4px var(--luz),  2px  2px  4px var(--sombra);
+  --hundido:       inset 3px 3px 7px var(--sombra), inset -3px -3px 7px var(--luz);
+  --hundido-suave: inset 2px 2px 4px var(--sombra), inset -2px -2px 4px var(--luz);
+
+  --r-sm:12px; --r-md:18px; --r-lg:26px; --r-full:999px;
+
+  /* Escala tipográfica. 18px de base; todo en rem para que un solo
+     font-size en html escale la interfaz entera. */
+  --t-xs:0.875rem; --t-sm:1rem; --t-base:1.111rem;
+  --t-lg:1.389rem; --t-xl:1.75rem; --t-2xl:2.188rem;
+
+  --fuente-display:'Source Serif 4', Georgia, serif;
+  --fuente-ui:'IBM Plex Sans', -apple-system, 'Segoe UI', sans-serif;
+
+  --toque:56px;                          /* objetivo táctil mínimo */
+  --marco:min(1.25rem, 4.5vw);           /* relleno lateral de superficies */
+  --canal:clamp(16px, 4.5vw, 1.25rem);   /* margen lateral de la página, mínimo 16px */
+  --curva:cubic-bezier(0.22, 1, 0.36, 1); /* ease-out-quart */
+  --dur:180ms;
+}
+
+/* ---- Tema oscuro ----
+   La base sube de #1B1914 a #252219: con el fondo casi negro la sombra no
+   tenía recorrido hacia abajo y el relieve desaparecía. */
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --fondo:#252219; --tinta:#EDE7D8; --tinta-suave:#B4AA95; --tinta-tenue:#928873;
+    --acento:#6E9A78; --acento-ink:#12180F; --dorado:#CBA063; --peligro:#D98C7F;
+    --luz:#332F23; --sombra:#14120D;
+    --st-si:#78A181;        --st-si-bg:#26332A;
+    --st-no:#D98C7F;        --st-no-bg:#3A2521;
+    --st-temprano:#CBA063;  --st-temprano-bg:#332A1B;
+    --st-tarde:#B4906A;     --st-tarde-bg:#2E2619;
+    --st-bolsa:#8FB2D6;     --st-bolsa-bg:#1F2C38;
+    --st-enfermo:#CC93A9;   --st-enfermo-bg:#33212A;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --fondo:#252219; --tinta:#EDE7D8; --tinta-suave:#B4AA95; --tinta-tenue:#928873;
+  --acento:#6E9A78; --acento-ink:#12180F; --dorado:#CBA063; --peligro:#D98C7F;
+  --luz:#332F23; --sombra:#14120D;
+  --st-si:#78A181;        --st-si-bg:#26332A;
+  --st-no:#D98C7F;        --st-no-bg:#3A2521;
+  --st-temprano:#CBA063;  --st-temprano-bg:#332A1B;
+  --st-tarde:#B4906A;     --st-tarde-bg:#2E2619;
+  --st-bolsa:#8FB2D6;     --st-bolsa-bg:#1F2C38;
+  --st-enfermo:#CC93A9;   --st-enfermo-bg:#33212A;
+}
+
+/* ---- Contraste alto ----
+   El relieve se apaga por completo y todo pasa a bordes sólidos. Un sistema
+   que no puede apagar su propia estética no es accesible. */
+:root[data-contraste="alto"]{
+  --tinta-suave:#554E42; --tinta-tenue:#554E42;
+  --acento:#3A5540; --dorado:#664924; --peligro:#86352B;
+  --luz:transparent; --sombra:transparent;
+  --st-si:#36503C; --st-no:#7C3228; --st-temprano:#614522;
+  --st-tarde:#5A442E; --st-bolsa:#364C63; --st-enfermo:#69384A;
+}
+@media (prefers-color-scheme: dark){
+  :root[data-contraste="alto"]:not([data-theme="light"]){
+    --tinta-suave:#B5AC97; --tinta-tenue:#B3AC9E;
+    --acento:#94B49B; --dorado:#CEA66C; --peligro:#DE9C90;
+    --st-si:#AAC3AF; --st-no:#E2A89E; --st-temprano:#D5B180;
+    --st-tarde:#C8AE92; --st-bolsa:#9ABADA; --st-enfermo:#D4A4B6;
+  }
+}
+:root[data-contraste="alto"][data-theme="dark"]{
+  --tinta-suave:#B5AC97; --tinta-tenue:#B3AC9E;
+  --acento:#94B49B; --dorado:#CEA66C; --peligro:#DE9C90;
+  --st-si:#AAC3AF; --st-no:#E2A89E; --st-temprano:#D5B180;
+  --st-tarde:#C8AE92; --st-bolsa:#9ABADA; --st-enfermo:#D4A4B6;
+}
+
+/* Tamaño de texto: un único font-size escala todo, porque todo está en rem. */
+html{font-size:112.5%;}                       /* 18px */
+html[data-texto="grande"]{font-size:125%;}    /* 20px */
+html[data-texto="enorme"]{font-size:143%;}    /* 23px */
+
+/* ---- 2. PRIMITIVAS DE RELIEVE ---------------------------------------- */
+
+.relieve,.relieve-alto,.relieve-bajo{background:var(--fondo);border:2px solid transparent;}
+.relieve{box-shadow:var(--relieve);}
+.relieve-alto{box-shadow:var(--relieve-alto);}
+.relieve-bajo{box-shadow:var(--relieve-bajo);}
+.hundido{background:var(--fondo);box-shadow:var(--hundido);border:2px solid transparent;}
+.hundido-suave{background:var(--fondo);box-shadow:var(--hundido-suave);border:2px solid transparent;}
+
+[data-contraste="alto"] .relieve,
+[data-contraste="alto"] .relieve-alto,
+[data-contraste="alto"] .relieve-bajo{box-shadow:none;border-color:var(--tinta);}
+[data-contraste="alto"] .hundido,
+[data-contraste="alto"] .hundido-suave{box-shadow:none;border-color:var(--tinta-suave);}
+
+/* ---- 3. BASE ---------------------------------------------------------- */
+
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  background:var(--fondo);color:var(--tinta);
+  font-family:var(--fuente-ui);font-size:var(--t-base);line-height:1.55;
+  min-height:100vh;-webkit-font-smoothing:antialiased;
+}
+h1,h2,h3{font-family:var(--fuente-display);font-weight:600;margin:0;line-height:1.25;}
+h1{font-size:var(--t-xl);} h2{font-size:var(--t-lg);} h3{font-size:var(--t-base);}
+p{margin:0;} ul{margin:0;padding:0;list-style:none;}
+button{font-family:inherit;font-size:inherit;color:inherit;cursor:pointer;background:none;border:none;}
+input,select,textarea{font-family:inherit;font-size:var(--t-base);color:var(--tinta);}
+a{color:var(--acento);}
+
+/* Anillo de 3px con offset positivo: uno de 2px pegado al borde se pierde
+   dentro del degradado de la sombra. */
+:focus-visible{outline:3px solid var(--acento);outline-offset:3px;}
+
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;
+  clip:rect(0,0,0,0);white-space:nowrap;border:0;}
+.oculto{display:none !important;}
+.icono{width:1.25em;height:1.25em;flex:0 0 auto;stroke:currentColor;fill:none;
+  stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{transition:none !important;animation:none !important;}
+}
+
+/* ---- 4. CONTROLES ----------------------------------------------------- */
+
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:.5rem;
+  min-height:var(--toque);padding:0 1.25rem;border-radius:var(--r-full);
+  background:var(--fondo);box-shadow:var(--relieve);border:2px solid transparent;
+  font-weight:600;font-size:var(--t-base);
+  transition:box-shadow var(--dur) var(--curva),background-color var(--dur) var(--curva);
+}
+.btn:hover{box-shadow:var(--relieve-alto);}
+.btn:active{box-shadow:var(--hundido);}
+.btn.primario{background:var(--acento);color:var(--acento-ink);}
+.btn.peligro{color:var(--peligro);}
+.btn.ancho{width:100%;}
+.btn.chico{min-height:var(--toque);font-size:var(--t-sm);padding:0 1.1rem;}
+.btn[disabled]{opacity:.45;cursor:not-allowed;box-shadow:var(--hundido-suave);}
+[data-contraste="alto"] .btn{box-shadow:none;border-color:var(--tinta);}
+[data-contraste="alto"] .btn.primario{border-color:var(--acento);}
+[data-contraste="alto"] .btn:active{background:var(--st-si-bg);}
+
+.campo{display:flex;flex-direction:column;gap:.4rem;margin-bottom:1.1rem;}
+.campo label{font-size:var(--t-sm);font-weight:600;color:var(--tinta);}
+.campo input,.campo select,.campo textarea{
+  width:100%;min-height:var(--toque);padding:.7rem 1rem;
+  background:var(--fondo);border:2px solid transparent;border-radius:var(--r-sm);
+  box-shadow:var(--hundido);
+}
+.campo textarea{min-height:7rem;resize:vertical;line-height:1.5;}
+[data-contraste="alto"] .campo input,
+[data-contraste="alto"] .campo select,
+[data-contraste="alto"] .campo textarea{box-shadow:none;border-color:var(--tinta-suave);}
+.pista{font-size:var(--t-sm);color:var(--tinta-tenue);}
+.error{color:var(--peligro);font-size:var(--t-sm);font-weight:600;}
+
+/* ---- 5. ESTRUCTURA ---------------------------------------------------- */
+
+.app{display:flex;min-height:100vh;}
+
+.lateral{
+  width:16rem;flex:0 0 auto;padding:1.5rem 1rem;
+  display:flex;flex-direction:column;gap:1.5rem;
+}
+.marca{display:flex;align-items:center;gap:.75rem;padding:0 .5rem;}
+.monograma{
+  width:3rem;height:3rem;border-radius:var(--r-sm);display:grid;place-items:center;
+  background:var(--acento);color:var(--acento-ink);
+  font-family:var(--fuente-display);font-weight:700;font-size:var(--t-base);
+}
+.marca .nombre{font-family:var(--fuente-display);font-weight:600;font-size:var(--t-base);}
+.marca .sub{font-size:var(--t-xs);color:var(--tinta-tenue);}
+
+.nav{display:flex;flex-direction:column;gap:.6rem;}
+.nav-item{
+  display:flex;align-items:center;gap:.75rem;min-height:var(--toque);
+  padding:0 1rem;border-radius:var(--r-md);text-align:left;font-weight:600;
+  background:var(--fondo);box-shadow:var(--relieve-bajo);border:2px solid transparent;
+  transition:box-shadow var(--dur) var(--curva);
+}
+.nav-item:hover{box-shadow:var(--relieve);}
+.nav-item[aria-current="page"]{box-shadow:var(--hundido);color:var(--acento);}
+[data-contraste="alto"] .nav-item{box-shadow:none;border-color:var(--tinta);}
+[data-contraste="alto"] .nav-item[aria-current="page"]{border-color:var(--acento);background:var(--st-si-bg);}
+
+.pie-lateral{margin-top:auto;display:flex;flex-direction:column;gap:.75rem;}
+.quien{display:flex;align-items:center;gap:.75rem;padding:.75rem;border-radius:var(--r-md);}
+.avatar{
+  width:2.75rem;height:2.75rem;border-radius:var(--r-full);flex:0 0 auto;
+  display:grid;place-items:center;font-weight:700;font-size:var(--t-sm);
+  background:var(--fondo);box-shadow:var(--relieve-bajo);color:var(--acento);
+}
+[data-contraste="alto"] .avatar{box-shadow:none;border:2px solid var(--acento);}
+.quien .nombre{font-weight:600;font-size:var(--t-sm);}
+.quien .rol{font-size:var(--t-xs);color:var(--tinta-tenue);}
+
+.principal{flex:1;min-width:0;display:flex;flex-direction:column;}
+.contenido{
+  width:100%;max-width:60rem;margin:0 auto;
+  padding-block:1.5rem 2.5rem;padding-inline:var(--canal);
+  flex:1;
+}
+.cabecera-pag{margin-bottom:1.5rem;}
+.cabecera-pag .desc{color:var(--tinta-suave);font-size:var(--t-sm);margin-top:.4rem;max-width:65ch;}
+
+/* Barra inferior: reemplaza el <select> de navegación del diseño anterior.
+   Cuatro destinos, siempre visibles, con etiqueta. */
+.barra-inferior{display:none;}
+
+.panel{
+  background:var(--fondo);box-shadow:var(--relieve);border:2px solid transparent;
+  border-radius:var(--r-lg);padding:1.25rem var(--marco);margin-bottom:1.25rem;
+}
+[data-contraste="alto"] .panel{box-shadow:none;border-color:var(--tinta);}
+.panel > h2{margin-bottom:.35rem;}
+.panel > .desc{color:var(--tinta-suave);font-size:var(--t-sm);margin-bottom:1rem;max-width:65ch;}
+
+.pestanas{display:flex;gap:.75rem;margin-bottom:1.5rem;flex-wrap:wrap;}
+.pestana{
+  min-height:var(--toque);padding:0 1.25rem;border-radius:var(--r-full);
+  display:inline-flex;align-items:center;font-weight:600;
+  background:var(--fondo);box-shadow:var(--relieve-bajo);border:2px solid transparent;
+  transition:box-shadow var(--dur) var(--curva);
+}
+.pestana[aria-current="page"]{box-shadow:var(--hundido);color:var(--acento);}
+[data-contraste="alto"] .pestana{box-shadow:none;border-color:var(--tinta);}
+[data-contraste="alto"] .pestana[aria-current="page"]{border-color:var(--acento);background:var(--st-si-bg);}
+
+.vacio{padding:2rem 1rem;text-align:center;color:var(--tinta-suave);font-size:var(--t-sm);}
+
+/* ---- 6. COMIDAS: el corazón de la app -------------------------------- */
+
+.nav-semana{display:flex;align-items:center;gap:.75rem;margin-bottom:1.25rem;flex-wrap:wrap;}
+.nav-semana .rango{font-weight:600;flex:1;min-width:0;text-align:center;line-height:1.3;}
+.nav-semana .btn{flex-basis:100%;}
+.btn-icono{
+  width:var(--toque);height:var(--toque);border-radius:var(--r-full);
+  display:grid;place-items:center;
+  background:var(--fondo);box-shadow:var(--relieve);border:2px solid transparent;
+  transition:box-shadow var(--dur) var(--curva);
+}
+.btn-icono:active{box-shadow:var(--hundido);}
+.btn-icono[disabled]{opacity:.4;cursor:not-allowed;box-shadow:var(--hundido-suave);}
+[data-contraste="alto"] .btn-icono{box-shadow:none;border-color:var(--tinta);}
+
+.dia{
+  background:var(--fondo);box-shadow:var(--relieve);border:2px solid transparent;
+  border-radius:var(--r-lg);padding:1.25rem var(--marco);margin-bottom:1.25rem;
+}
+.dia.hoy{box-shadow:var(--relieve-alto);}
+[data-contraste="alto"] .dia{box-shadow:none;border-color:var(--tinta);}
+[data-contraste="alto"] .dia.hoy{border-color:var(--acento);border-width:3px;}
+.dia-cab{display:flex;align-items:baseline;gap:.6rem;flex-wrap:wrap;margin-bottom:1rem;}
+.dia-cab .nombre-dia{font-family:var(--fuente-display);font-size:var(--t-lg);font-weight:600;}
+.dia-cab .fecha{color:var(--tinta-tenue);font-size:var(--t-sm);}
+.etiqueta-hoy{
+  font-size:var(--t-xs);font-weight:700;padding:.2rem .65rem;border-radius:var(--r-full);
+  background:var(--st-si-bg);color:var(--st-si);border:2px solid var(--st-si);
+}
+
+.comida{padding:.9rem 0;border-top:2px solid transparent;}
+.comida + .comida{border-top-color:color-mix(in srgb, var(--tinta) 12%, transparent);}
+.comida-cab{display:flex;align-items:center;gap:.75rem;flex-wrap:wrap;}
+.comida-nombre{font-weight:700;min-width:min(6.5rem, 100%);font-size:var(--t-base);}
+
+/* El botón que muestra el estado actual y abre las opciones. */
+.estado-actual{
+  flex:1;min-width:min(13rem, 100%);min-height:var(--toque);
+  display:flex;align-items:center;gap:.6rem;padding:.5rem 1rem;
+  border-radius:var(--r-full);font-weight:600;text-align:left;
+  background:var(--cbg,var(--fondo));color:var(--c,var(--tinta));
+  box-shadow:var(--relieve);border:2px solid transparent;
+  transition:box-shadow var(--dur) var(--curva),background-color var(--dur) var(--curva);
+}
+.estado-actual:active{box-shadow:var(--hundido);}
+[data-contraste="alto"] .estado-actual{box-shadow:none;border-color:var(--c,var(--tinta));}
+
+/* "Sin definir" no es texto gris: es un agujero. La ausencia se ve como lo
+   que es, porque es el estado que el sistema persigue con notificaciones. */
+.estado-actual.sin-definir{
+  background:var(--fondo);color:var(--peligro);
+  box-shadow:var(--hundido);border:2px dashed var(--peligro);
+}
+.estado-actual .flecha{margin-left:auto;opacity:.75;display:flex;}
+.estado-actual .flecha .icono{transition:transform var(--dur) var(--curva);}
+.estado-actual[aria-expanded="true"] .flecha .icono{transform:rotate(180deg);}
+
+.origen{
+  font-size:var(--t-xs);font-weight:600;padding:.25rem .7rem;border-radius:var(--r-full);
+  background:var(--fondo);box-shadow:var(--hundido-suave);color:var(--tinta-suave);
+  white-space:nowrap;
+}
+[data-contraste="alto"] .origen{box-shadow:none;border:2px solid var(--tinta-suave);}
+.origen.cambiada{color:var(--dorado);}
+[data-contraste="alto"] .origen.cambiada{border-color:var(--dorado);}
+
+.nota-estado{
+  margin-top:.6rem;font-size:var(--t-sm);color:var(--tinta-suave);
+  display:flex;align-items:center;gap:.5rem;
+}
+
+/* Cerrada: el motivo va en la fila, no en un banner lejos del control. */
+.comida.cerrada .estado-actual{opacity:.6;box-shadow:var(--hundido-suave);cursor:not-allowed;}
+.motivo-cierre{
+  margin-top:.6rem;font-size:var(--t-sm);color:var(--tinta-suave);
+  display:flex;align-items:center;gap:.5rem;
+}
+
+/* Las seis opciones: 3×2, nunca una fila que se desborda. */
+.opciones{
+  margin-top:.9rem;padding:1rem min(1rem, 3vw);border-radius:var(--r-md);
+  background:var(--fondo);box-shadow:var(--hundido);border:2px solid transparent;
+}
+[data-contraste="alto"] .opciones{box-shadow:none;border-color:var(--tinta-suave);}
+.opciones-rejilla{display:grid;grid-template-columns:repeat(3,1fr);gap:.75rem;}
+.opcion{
+  min-height:5.25rem;padding:.75rem .5rem;border-radius:var(--r-md);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.4rem;
+  text-align:center;font-size:var(--t-sm);font-weight:600;line-height:1.25;
+  background:var(--fondo);box-shadow:var(--relieve);border:2px solid transparent;
+  transition:box-shadow var(--dur) var(--curva),background-color var(--dur) var(--curva);
+}
+.opcion .icono{width:1.6em;height:1.6em;}
+.opcion:hover{box-shadow:var(--relieve-alto);}
+/* Cuatro canales a la vez: hundido + color + icono + texto en negrita. */
+.opcion[aria-pressed="true"]{
+  box-shadow:var(--hundido);background:var(--cbg);color:var(--c);
+  border-color:var(--c);font-weight:700;
+}
+[data-contraste="alto"] .opcion{box-shadow:none;border-color:var(--tinta);}
+[data-contraste="alto"] .opcion[aria-pressed="true"]{border-color:var(--c);border-width:3px;}
+.opciones-pie{display:flex;gap:.75rem;flex-wrap:wrap;margin-top:.9rem;}
+.opciones-pie .btn{flex:1 1 9rem;}
+
+/* Días ya cerrados de la semana en curso: plegados al final, para que lo
+   primero en pantalla sea algo que la persona todavía puede cambiar. */
+.dias-pasados{margin-top:.5rem;}
+.dias-pasados > summary{
+  list-style:none;cursor:pointer;min-height:var(--toque);
+  display:flex;align-items:center;gap:.6rem;padding:0 1.25rem;border-radius:var(--r-full);
+  font-weight:600;color:var(--tinta-suave);
+  background:var(--fondo);box-shadow:var(--relieve-bajo);border:2px solid transparent;
+  margin-bottom:1.25rem;
+}
+.dias-pasados > summary::-webkit-details-marker{display:none;}
+.dias-pasados > summary .icono{transition:transform var(--dur) var(--curva);}
+.dias-pasados[open] > summary{box-shadow:var(--hundido);}
+.dias-pasados[open] > summary .icono{transform:rotate(180deg);}
+[data-contraste="alto"] .dias-pasados > summary{box-shadow:none;border-color:var(--tinta-suave);}
+
+.siguiente-semana{
+  display:flex;align-items:center;gap:.9rem;width:100%;text-align:left;
+  min-height:5rem;padding:1rem 1.25rem;border-radius:var(--r-lg);margin-bottom:1.25rem;
+  background:var(--fondo);box-shadow:var(--relieve);border:2px solid transparent;
+  transition:box-shadow var(--dur) var(--curva);
+}
+.siguiente-semana:active{box-shadow:var(--hundido);}
+.siguiente-semana .et{font-weight:700;font-size:var(--t-base);}
+.siguiente-semana .pista{display:block;margin-top:.15rem;}
+.siguiente-semana .icono{margin-left:auto;width:1.6em;height:1.6em;color:var(--acento);}
+[data-contraste="alto"] .siguiente-semana{box-shadow:none;border-color:var(--acento);}
+
+/* ---- 7. COMIDAS: vista de Administración ----------------------------- */
+
+.dias-chips{display:flex;gap:.6rem;flex-wrap:wrap;margin-bottom:1.25rem;}
+.chip-dia{
+  min-height:var(--toque);min-width:var(--toque);padding:0 1rem;border-radius:var(--r-md);
+  display:inline-flex;flex-direction:column;align-items:center;justify-content:center;
+  font-weight:600;font-size:var(--t-sm);line-height:1.2;
+  background:var(--fondo);box-shadow:var(--relieve-bajo);border:2px solid transparent;
+  transition:box-shadow var(--dur) var(--curva);
+}
+.chip-dia .num{font-size:var(--t-base);font-weight:700;}
+.chip-dia[aria-pressed="true"]{box-shadow:var(--hundido);color:var(--acento);}
+[data-contraste="alto"] .chip-dia{box-shadow:none;border-color:var(--tinta);}
+[data-contraste="alto"] .chip-dia[aria-pressed="true"]{border-color:var(--acento);background:var(--st-si-bg);}
+
+.conteos{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-bottom:1.5rem;}
+.conteo{
+  background:var(--fondo);box-shadow:var(--relieve);border:2px solid transparent;
+  border-radius:var(--r-lg);padding:1.1rem;
+}
+[data-contraste="alto"] .conteo{box-shadow:none;border-color:var(--tinta);}
+.conteo h3{font-family:var(--fuente-display);font-size:var(--t-base);margin-bottom:.6rem;}
+.conteo .grande{font-family:var(--fuente-display);font-size:var(--t-2xl);font-weight:700;
+  line-height:1;color:var(--acento);}
+.conteo .grande small{font-size:var(--t-sm);font-weight:600;color:var(--tinta-suave);
+  font-family:var(--fuente-ui);display:block;margin-top:.3rem;}
+.desglose{display:flex;flex-direction:column;gap:.5rem;margin-top:.9rem;}
+.desglose li{
+  display:flex;align-items:center;gap:.5rem;font-size:var(--t-sm);font-weight:600;
+  padding:.35rem .65rem;border-radius:var(--r-sm);
+  background:var(--cbg);color:var(--c);
+}
+[data-contraste="alto"] .desglose li{border:2px solid var(--c);}
+
+.aviso-faltan{
+  border-radius:var(--r-md);padding:1rem 1.1rem;margin-bottom:1.25rem;
+  background:var(--fondo);box-shadow:var(--hundido);
+  border:2px dashed var(--peligro);color:var(--peligro);
+}
+.aviso-faltan strong{display:block;margin-bottom:.35rem;font-size:var(--t-base);}
+.aviso-faltan .gente{color:var(--tinta);font-weight:600;font-size:var(--t-sm);}
+
+/* Fichas por persona: sustituyen a la tabla con scroll horizontal, que era
+   ilegible justo en el dispositivo desde el que se cocina. */
+.fichas{display:flex;flex-direction:column;gap:1rem;}
+.ficha{
+  background:var(--fondo);box-shadow:var(--relieve);border:2px solid transparent;
+  border-radius:var(--r-lg);padding:1rem var(--marco);
+}
+[data-contraste="alto"] .ficha{box-shadow:none;border-color:var(--tinta);}
+.ficha-cab{display:flex;align-items:center;gap:.75rem;margin-bottom:.8rem;}
+.ficha-cab .nombre{font-weight:700;}
+.ficha-comidas{display:grid;grid-template-columns:repeat(3,1fr);gap:.6rem;}
+.ficha-comida{padding:.6rem;border-radius:var(--r-sm);background:var(--fondo);
+  box-shadow:var(--hundido-suave);}
+[data-contraste="alto"] .ficha-comida{box-shadow:none;border:2px solid var(--tinta-suave);}
+.ficha-comida .cual{font-size:var(--t-xs);color:var(--tinta-tenue);font-weight:600;
+  text-transform:uppercase;letter-spacing:.04em;}
+.insignia{
+  display:inline-flex;align-items:center;gap:.4rem;margin-top:.35rem;
+  font-size:var(--t-sm);font-weight:700;padding:.3rem .6rem;border-radius:var(--r-full);
+  background:var(--cbg);color:var(--c);
+}
+[data-contraste="alto"] .insignia{border:2px solid var(--c);}
+.insignia.falta{background:var(--fondo);color:var(--peligro);border:2px dashed var(--peligro);}
+.insignia .icono{width:1.1em;height:1.1em;}
+.ficha-comida .nota{font-size:var(--t-xs);color:var(--tinta-suave);margin-top:.3rem;}
+
+/* ---- 8. PLAN SEMANAL -------------------------------------------------- */
+
+/* Resumen de solo lectura, que es para lo que la matriz sirve de verdad.
+   Teselas separadas: la cuadrícula de líneas capilares no traduce a relieve. */
+.matriz{display:none;}
+.matriz-rejilla{display:grid;grid-template-columns:minmax(0,7rem) repeat(7,minmax(0,1fr));gap:.5rem;}
+/* Variante compacta de Administración: solo iconos, así que lleva leyenda. */
+.matriz-rejilla.compacta{grid-template-columns:minmax(0,4.2rem) repeat(7,minmax(0,1fr));gap:.3rem;}
+.matriz-rejilla.compacta .matriz-celda{min-height:2.75rem;padding:.3rem .1rem;}
+.matriz-rejilla.compacta .matriz-cab{padding:.35rem 0;font-size:min(var(--t-xs), 3.6vw);letter-spacing:0;}
+.matriz-rejilla.compacta .matriz-fila-nombre{font-size:min(var(--t-xs), 3.8vw);}
+.leyenda{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:1rem;}
+.leyenda li{display:inline-flex;align-items:center;gap:.35rem;font-size:var(--t-sm);font-weight:600;
+  padding:.3rem .65rem;border-radius:var(--r-full);background:var(--cbg);color:var(--c);}
+[data-contraste="alto"] .leyenda li{border:2px solid var(--c);}
+.matriz-cab{
+  font-size:var(--t-xs);font-weight:700;text-align:center;padding:.5rem .25rem;
+  color:var(--tinta-suave);text-transform:uppercase;letter-spacing:.04em;
+}
+.matriz-fila-nombre{display:flex;align-items:center;font-weight:700;font-size:var(--t-sm);}
+.matriz-celda{
+  border-radius:var(--r-sm);padding:.5rem .35rem;min-height:3.5rem;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.25rem;
+  font-size:var(--t-xs);font-weight:600;text-align:center;line-height:1.2;
+  background:var(--cbg,var(--fondo));color:var(--c,var(--tinta-tenue));
+  box-shadow:var(--relieve-bajo);border:2px solid transparent;
+}
+[data-contraste="alto"] .matriz-celda{box-shadow:none;border-color:var(--c,var(--tinta-suave));}
+.matriz-celda.vacia{box-shadow:var(--hundido-suave);border:2px dashed var(--peligro);
+  color:var(--peligro);}
+
+/* ---- 9. MENSAJES ------------------------------------------------------ */
+
+.componer{margin-bottom:1.5rem;}
+.componer textarea{width:100%;min-height:6rem;padding:1rem;border-radius:var(--r-md);
+  background:var(--fondo);box-shadow:var(--hundido);border:2px solid transparent;
+  resize:vertical;line-height:1.5;}
+[data-contraste="alto"] .componer textarea{box-shadow:none;border-color:var(--tinta-suave);}
+.componer-pie{display:flex;justify-content:flex-end;margin-top:.75rem;}
+
+.feed{display:flex;flex-direction:column;gap:1.25rem;}
+.msg{
+  background:var(--fondo);box-shadow:var(--relieve);border:2px solid transparent;
+  border-radius:var(--r-lg);padding:1.1rem var(--marco);
+}
+[data-contraste="alto"] .msg{box-shadow:none;border-color:var(--tinta);}
+.msg-cab{display:flex;align-items:center;gap:.75rem;margin-bottom:.6rem;flex-wrap:wrap;}
+.msg-cab .nombre{font-weight:700;}
+.msg-cab .cuando{font-size:var(--t-xs);color:var(--tinta-tenue);margin-left:auto;}
+.pastilla-rol{
+  font-size:var(--t-xs);font-weight:600;padding:.2rem .6rem;border-radius:var(--r-full);
+  background:var(--fondo);box-shadow:var(--hundido-suave);color:var(--tinta-suave);
+}
+[data-contraste="alto"] .pastilla-rol{box-shadow:none;border:2px solid var(--tinta-suave);}
+.msg-texto{white-space:pre-wrap;line-height:1.55;margin-bottom:.9rem;}
+.msg-acciones{display:flex;gap:.75rem;flex-wrap:wrap;}
+.msg-accion{
+  min-height:var(--toque);padding:0 1.1rem;border-radius:var(--r-full);
+  display:inline-flex;align-items:center;gap:.5rem;font-weight:600;font-size:var(--t-sm);
+  background:var(--fondo);box-shadow:var(--relieve-bajo);border:2px solid transparent;
+  transition:box-shadow var(--dur) var(--curva);
+}
+.msg-accion:active{box-shadow:var(--hundido);}
+.msg-accion[aria-pressed="true"]{box-shadow:var(--hundido);color:var(--acento);}
+.msg-accion.borrar{color:var(--peligro);}
+[data-contraste="alto"] .msg-accion{box-shadow:none;border-color:var(--tinta);}
+[data-contraste="alto"] .msg-accion[aria-pressed="true"]{border-color:var(--acento);background:var(--st-si-bg);}
+
+/* Un hilo es contenido DENTRO de otro: sangría más superficie hundida.
+   Nunca una franja lateral de color. */
+.hilo{
+  margin-top:1rem;margin-left:1.5rem;padding:1rem;border-radius:var(--r-md);
+  background:var(--fondo);box-shadow:var(--hundido-suave);border:2px solid transparent;
+  display:flex;flex-direction:column;gap:1rem;
+}
+[data-contraste="alto"] .hilo{box-shadow:none;border-color:var(--tinta-suave);}
+.respuesta .msg-cab{margin-bottom:.35rem;}
+.componer-respuesta{display:flex;gap:.6rem;margin-top:1rem;margin-left:1.5rem;flex-wrap:wrap;}
+.componer-respuesta input{
+  flex:1;min-width:min(12rem, 100%);min-height:var(--toque);padding:.6rem 1rem;
+  border-radius:var(--r-full);background:var(--fondo);
+  box-shadow:var(--hundido);border:2px solid transparent;
+}
+[data-contraste="alto"] .componer-respuesta input{box-shadow:none;border-color:var(--tinta-suave);}
+
+.tabla{width:100%;border-collapse:separate;border-spacing:0 .6rem;font-size:var(--t-sm);}
+.tabla th{text-align:left;font-size:var(--t-xs);text-transform:uppercase;letter-spacing:.04em;
+  color:var(--tinta-suave);padding:0 .9rem;}
+.tabla td{padding:.9rem;background:var(--fondo);box-shadow:var(--hundido-suave);}
+.tabla td:first-child{border-radius:var(--r-sm) 0 0 var(--r-sm);}
+.tabla td:last-child{border-radius:0 var(--r-sm) var(--r-sm) 0;}
+.tabla td{overflow-wrap:anywhere;}
+[data-contraste="alto"] .tabla td{box-shadow:none;border-top:2px solid var(--tinta-suave);
+  border-bottom:2px solid var(--tinta-suave);}
+/* Sin scroll horizontal nunca: cada fila pasa a ser una ficha con sus
+   etiquetas escritas, en lugar de depender de una cabecera que ya no se ve. */
+@media (max-width:40rem){
+  .tabla thead{display:none;}
+  .tabla,.tabla tbody,.tabla tr,.tabla td{display:block;width:100%;}
+  .tabla tr{margin-bottom:.75rem;padding:.75rem var(--marco);border-radius:var(--r-md);
+    background:var(--fondo);box-shadow:var(--hundido-suave);border:2px solid transparent;}
+  [data-contraste="alto"] .tabla tr{box-shadow:none;border-color:var(--tinta-suave);}
+  .tabla td,.tabla td:first-child,.tabla td:last-child{background:none;box-shadow:none;
+    border:0;border-radius:0;padding:.3rem 0;}
+  .tabla td[data-et]::before{content:attr(data-et);display:block;font-size:var(--t-xs);
+    font-weight:700;color:var(--tinta-suave);text-transform:uppercase;letter-spacing:.04em;}
+}
+
+/* ---- 10. CALENDARIO --------------------------------------------------- */
+
+.cal-cab{display:flex;align-items:center;gap:.75rem;margin-bottom:1.25rem;flex-wrap:wrap;}
+.cal-cab .mes{font-family:var(--fuente-display);font-size:var(--t-lg);font-weight:600;
+  flex:1;min-width:0;text-transform:capitalize;}
+
+.agenda{display:flex;flex-direction:column;gap:1rem;}
+.agenda-dia{
+  background:var(--fondo);box-shadow:var(--relieve);border:2px solid transparent;
+  border-radius:var(--r-lg);padding:1rem 1.1rem;width:100%;text-align:left;
+  transition:box-shadow var(--dur) var(--curva);
+}
+.agenda-dia:active{box-shadow:var(--hundido);}
+.agenda-dia.hoy{box-shadow:var(--relieve-alto);}
+[data-contraste="alto"] .agenda-dia{box-shadow:none;border-color:var(--tinta);}
+[data-contraste="alto"] .agenda-dia.hoy{border-color:var(--acento);border-width:3px;}
+.agenda-cab{display:flex;align-items:baseline;gap:.6rem;margin-bottom:.6rem;flex-wrap:wrap;}
+.agenda-cab .dnum{font-family:var(--fuente-display);font-size:var(--t-lg);font-weight:700;}
+.agenda-cab .dnom{color:var(--tinta-suave);font-size:var(--t-sm);text-transform:capitalize;}
+.evento{
+  display:flex;align-items:center;gap:.6rem;padding:.6rem .8rem;border-radius:var(--r-sm);
+  background:var(--st-si-bg);color:var(--st-si);font-weight:600;font-size:var(--t-sm);
+  margin-bottom:.5rem;
+}
+[data-contraste="alto"] .evento{border:2px solid var(--st-si);}
+.evento .hora{font-variant-numeric:tabular-nums;font-weight:700;}
+.evento:last-child{margin-bottom:0;}
+
+.mes-rejilla{display:none;grid-template-columns:repeat(7,minmax(0,1fr));gap:.5rem;}
+.dow{text-align:center;font-size:var(--t-xs);font-weight:700;color:var(--tinta-suave);
+  text-transform:uppercase;letter-spacing:.04em;padding:.4rem 0;}
+.cal-dia{
+  min-height:5rem;border-radius:var(--r-md);padding:.5rem;text-align:left;
+  display:flex;flex-direction:column;gap:.25rem;
+  background:var(--fondo);box-shadow:var(--relieve-bajo);border:2px solid transparent;
+  transition:box-shadow var(--dur) var(--curva);
+}
+.cal-dia:focus-visible{outline-offset:-3px;}
+.cal-dia .n{font-weight:700;font-size:var(--t-sm);}
+.cal-dia.fuera{opacity:.4;}
+.cal-dia.con-evento{box-shadow:var(--hundido);}
+.cal-dia.hoy .n{color:var(--acento);}
+[data-contraste="alto"] .cal-dia{box-shadow:none;border-color:var(--tinta);}
+[data-contraste="alto"] .cal-dia.con-evento{border-color:var(--acento);background:var(--st-si-bg);}
+.punto-evento{
+  font-size:var(--t-xs);font-weight:600;padding:.15rem .4rem;border-radius:var(--r-sm);
+  background:var(--st-si-bg);color:var(--st-si);overflow:hidden;text-overflow:ellipsis;
+  white-space:nowrap;
+}
+/* En el teléfono, "Re…" no le sirve a nadie: el evento se marca con un punto
+   y el día hundido, y el detalle se lee al tocarlo. */
+@media (max-width:40rem){
+  .mes-rejilla{gap:.3rem;}
+  .cal-dia{padding:.35rem .2rem;align-items:center;}
+  .punto-evento{font-size:0;width:.55rem;height:.55rem;padding:0;border-radius:50%;
+    background:var(--st-si);flex:0 0 auto;}
+  .dow{font-size:min(var(--t-xs), 3.6vw);letter-spacing:0;}
+}
+
+/* ---- 11. CONFIGURACIONES: apariencia ---------------------------------- */
+
+.grupo-opciones{display:flex;gap:.75rem;flex-wrap:wrap;}
+.opcion-ap{
+  min-height:var(--toque);padding:.5rem 1.25rem;border-radius:var(--r-full);
+  display:inline-flex;align-items:center;gap:.5rem;font-weight:600;
+  background:var(--fondo);box-shadow:var(--relieve);border:2px solid transparent;
+  transition:box-shadow var(--dur) var(--curva);
+}
+.opcion-ap[aria-pressed="true"]{box-shadow:var(--hundido);color:var(--acento);border-color:var(--acento);}
+[data-contraste="alto"] .opcion-ap{box-shadow:none;border-color:var(--tinta);}
+[data-contraste="alto"] .opcion-ap[aria-pressed="true"]{background:var(--st-si-bg);border-color:var(--acento);border-width:3px;}
+.sub-ajuste{margin-bottom:1.5rem;}
+.sub-ajuste > .et{font-weight:700;margin-bottom:.15rem;}
+.sub-ajuste > .pista{margin-bottom:.7rem;}
+
+/* Apariencia. "Aa" y no un icono de ajustes: es el signo que la gente mayor
+   ya asocia con el tamaño de letra. Nunca flota sobre contenido tocable: en
+   el login va fija arriba a la derecha, y dentro de la app vive en la barra
+   superior (teléfono) o en el lateral (escritorio). */
+.aa{font-family:var(--fuente-display);font-weight:700;font-size:var(--t-lg);line-height:1;}
+.btn-ap{
+  width:var(--toque);height:var(--toque);border-radius:var(--r-full);flex:0 0 auto;
+  display:grid;place-items:center;
+  background:var(--fondo);box-shadow:var(--relieve);border:2px solid transparent;
+  transition:box-shadow var(--dur) var(--curva);
+}
+.btn-ap[aria-expanded="true"]{box-shadow:var(--hundido);color:var(--acento);}
+[data-contraste="alto"] .btn-ap{box-shadow:none;border-color:var(--tinta);}
+.fab-ap{position:absolute;top:calc(1rem + env(safe-area-inset-top, 0px));right:var(--canal);z-index:40;}
+body.en-app .fab-ap{display:none;}
+.panel-ap{
+  position:fixed;right:var(--canal);top:calc(var(--toque) + 1.75rem + env(safe-area-inset-top, 0px));z-index:41;
+  width:min(22rem,calc(100vw - 2rem));padding:1.25rem;border-radius:var(--r-lg);
+  background:var(--fondo);box-shadow:var(--relieve-alto);border:2px solid transparent;
+  max-height:70vh;overflow:auto;
+}
+[data-contraste="alto"] .panel-ap{box-shadow:none;border-color:var(--tinta);}
+.panel-ap h2{font-size:var(--t-base);margin-bottom:1rem;}
+.panel-ap .opcion-ap{padding:.4rem .9rem;font-size:var(--t-sm);}
+
+/* ---- 12. LOGIN -------------------------------------------------------- */
+
+#pantalla-login{min-height:100vh;display:grid;place-items:center;
+  padding-block:calc(5rem + env(safe-area-inset-top, 0px)) 3rem;padding-inline:var(--canal);}
+.login-caja{width:100%;max-width:26rem;}
+.login-marca{text-align:center;margin-bottom:1.75rem;}
+.login-marca .monograma{margin:0 auto .9rem;width:4rem;height:4rem;font-size:var(--t-lg);}
+.login-marca h1{font-size:var(--t-2xl);}
+.login-marca .sub{color:var(--tinta-suave);font-size:var(--t-sm);margin-top:.5rem;}
+.login-tarjeta{
+  background:var(--fondo);box-shadow:var(--relieve-alto);border:2px solid transparent;
+  border-radius:var(--r-lg);padding:1.75rem min(1.75rem, 5.5vw);
+}
+[data-contraste="alto"] .login-tarjeta{box-shadow:none;border-color:var(--tinta);}
+.demo{margin-top:1.5rem;}
+.demo > .et{font-size:var(--t-sm);font-weight:700;margin-bottom:.6rem;}
+.demo-lista{display:flex;flex-direction:column;gap:.6rem;}
+.demo-item{
+  display:flex;align-items:center;gap:.75rem;min-height:var(--toque);
+  padding:.5rem .9rem;border-radius:var(--r-md);text-align:left;width:100%;
+  background:var(--fondo);box-shadow:var(--relieve-bajo);border:2px solid transparent;
+  transition:box-shadow var(--dur) var(--curva);
+}
+.demo-item:active{box-shadow:var(--hundido);}
+[data-contraste="alto"] .demo-item{box-shadow:none;border-color:var(--tinta);}
+.demo-item .nombre{font-weight:600;font-size:var(--t-sm);}
+.demo-item .rol{font-size:var(--t-xs);color:var(--tinta-tenue);}
+.demo-pie{margin-top:1.25rem;display:flex;flex-direction:column;gap:.5rem;}
+.aviso-demo{margin-top:1rem;text-align:center;}
+
+/* ---- 13. MODAL -------------------------------------------------------- */
+
+.fondo-modal{position:fixed;inset:0;z-index:50;background:rgba(20,18,12,.55);
+  display:grid;place-items:center;padding:1.25rem;}
+.modal{
+  width:100%;max-width:30rem;border-radius:var(--r-lg);padding:1.5rem;
+  background:var(--fondo);box-shadow:var(--relieve-alto);border:2px solid transparent;
+  max-height:85vh;overflow:auto;
+}
+[data-contraste="alto"] .modal{box-shadow:none;border-color:var(--tinta);}
+.modal h2{margin-bottom:1rem;}
+.modal-pie{display:flex;gap:.75rem;justify-content:flex-end;flex-wrap:wrap;margin-top:1.25rem;}
+
+/* ---- 14. AVISOS ------------------------------------------------------- */
+
+#avisos{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(var(--toque) + 2.5rem);
+  z-index:60;display:flex;flex-direction:column;gap:.6rem;align-items:center;
+  pointer-events:none;width:max-content;max-width:calc(100vw - 2rem);}
+.aviso{
+  padding:.85rem 1.4rem;border-radius:var(--r-full);font-weight:600;font-size:var(--t-sm);
+  background:var(--fondo);box-shadow:var(--relieve-alto);border:2px solid var(--acento);
+  text-align:center;
+}
+
+/* ---- 15. RESPONSIVE --------------------------------------------------- */
+
+/* Escritorio: vuelve la matriz del plan, la cuadrícula del mes y el sidebar. */
+@media (min-width:56rem){
+  .matriz{display:block;}
+  .mes-rejilla.activa{display:grid;}
+  .agenda.oculta-escritorio{display:none;}
+  .contenido{padding:2rem 2rem 3rem;}
+}
+
+/* Teléfono y tablet: barra inferior en vez de sidebar. */
+@media (max-width:56rem){
+  .lateral{display:none;}
+  .contenido{padding-bottom:calc(5.5rem + env(safe-area-inset-bottom));}
+  .barra-inferior{
+    display:flex;position:fixed;left:0;right:0;bottom:0;z-index:30;
+    padding:.5rem .5rem calc(.5rem + env(safe-area-inset-bottom));
+    gap:.35rem;background:var(--fondo);
+    box-shadow:0 -6px 16px color-mix(in srgb, var(--sombra) 70%, transparent);
+    border-top:2px solid transparent;
+  }
+  [data-contraste="alto"] .barra-inferior{box-shadow:none;border-top-color:var(--tinta);}
+  .barra-inferior .nav-item{
+    flex:1 1 auto;min-width:0;flex-direction:column;gap:.15rem;min-height:4rem;padding:.4rem .15rem;
+    font-size:min(var(--t-xs), 4.2vw);text-align:center;justify-content:center;
+    border-radius:var(--r-md);box-shadow:none;
+  }
+  .barra-inferior .nav-item span{white-space:nowrap;line-height:1.15;}
+  .barra-inferior .nav-item .icono{width:1.6em;height:1.6em;}
+  .barra-inferior .nav-item[aria-current="page"]{box-shadow:var(--hundido);}
+  [data-contraste="alto"] .barra-inferior .nav-item{border-color:transparent;}
+  [data-contraste="alto"] .barra-inferior .nav-item[aria-current="page"]{border-color:var(--acento);}
+  .topbar{
+    display:flex;align-items:center;gap:.75rem;
+    padding-block:1rem .25rem;padding-inline:var(--canal);
+  }
+  .topbar .monograma{width:2.5rem;height:2.5rem;font-size:var(--t-sm);}
+  .topbar .nombre{font-family:var(--fuente-display);font-weight:600;}
+  #avisos{bottom:calc(6rem + env(safe-area-inset-bottom));}
+}
+@media (min-width:56rem){ .topbar{display:none;} }
+
+/* Teléfonos estrechos: las opciones bajan a 2 columnas antes que encogerse. */
+@media (max-width:26rem){
+  .opciones-rejilla{grid-template-columns:repeat(2,1fr);}
+  .conteos{grid-template-columns:1fr;}
+  /* En el teléfono cada comida va en una sola línea: etiqueta a la izquierda,
+     respuesta a la derecha. La mitad de alto, y se escanea de arriba abajo. */
+  .ficha-comidas{grid-template-columns:1fr;gap:.45rem;}
+  .ficha-comida{display:flex;align-items:center;flex-wrap:wrap;gap:.25rem .6rem;padding:.45rem .7rem;}
+  .ficha-comida .cual{flex:1 1 auto;}
+  .ficha-comida .insignia{margin-top:0;}
+  .ficha-comida .nota{flex-basis:100%;margin-top:0;text-align:right;}
+  .comida-nombre{min-width:100%;}
+}
+@media (max-width:40rem){
+  .conteos{grid-template-columns:1fr;}
+}
+</style>
+</head>
+<body>
+
+<!-- Sprite de iconos. currentColor siempre: el icono es un canal
+     independiente del color, no una decoración coloreada. -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <defs>
+    <g id="ic-si"><path d="M4 13l5 5L20 6"/></g>
+    <g id="ic-no"><path d="M6 6l12 12M18 6L6 18"/></g>
+    <g id="ic-temprano"><path d="M12 2v3M4.5 9.5L2.8 7.8M19.5 9.5l1.7-1.7M2 18h20M7 18a5 5 0 0 1 10 0"/></g>
+    <g id="ic-tarde"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z"/></g>
+    <g id="ic-bolsa"><path d="M5 8h14l-1.2 12.2a1 1 0 0 1-1 .9H7.2a1 1 0 0 1-1-.9L5 8z"/><path d="M8.5 8V6a3.5 3.5 0 0 1 7 0v2"/></g>
+    <g id="ic-enfermo"><path d="M12 3a2 2 0 0 1 2 2v9.2a4 4 0 1 1-4 0V5a2 2 0 0 1 2-2z"/><path d="M12 10v5"/></g>
+    <g id="ic-comidas"><path d="M4 11h16a8 8 0 0 1-16 0z"/><path d="M2 21h20"/><path d="M12 4v3"/></g>
+    <g id="ic-mensajes"><path d="M21 15a2 2 0 0 1-2 2H8l-4 4V5a2 2 0 0 1 2-2h13a2 2 0 0 1 2 2z"/></g>
+    <g id="ic-calendario"><path d="M3 6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M3 10h18M8 2v4M16 2v4"/></g>
+    <g id="ic-config"><path d="M4 7h16M4 12h16M4 17h16"/><circle cx="9" cy="7" r="2.2"/><circle cx="15" cy="12" r="2.2"/><circle cx="8" cy="17" r="2.2"/></g>
+    <g id="ic-izq"><path d="M15 5l-7 7 7 7"/></g>
+    <g id="ic-der"><path d="M9 5l7 7-7 7"/></g>
+    <g id="ic-abajo"><path d="M5 9l7 7 7-7"/></g>
+    <g id="ic-pulgar"><path d="M7 21V10l5-7a2 2 0 0 1 2 2v5h5a2 2 0 0 1 2 2.3l-1.3 7A2 2 0 0 1 17.7 21z"/><path d="M7 10H3v11h4"/></g>
+    <g id="ic-candado"><path d="M5 11h14v10H5z"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></g>
+    <g id="ic-plan"><path d="M4 4h16v16H4z"/><path d="M4 9h16M9 9v11"/></g>
+    <g id="ic-aviso"><path d="M12 3a6 6 0 0 1 6 6c0 5 2 6 2 6H4s2-1 2-6a6 6 0 0 1 6-6z"/><path d="M10 21h4"/></g>
+  </defs>
+</svg>
+
+<!-- ===================== LOGIN ===================== -->
+<div id="pantalla-login">
+  <div class="login-caja">
+    <div class="login-marca">
+      <div class="monograma">EM</div>
+      <h1>Centro El Molino</h1>
+      <p class="sub">Comida, mensajes y calendario, coordinados entre las dos partes de la casa.</p>
+    </div>
+
+    <div class="login-tarjeta">
+      <form id="form-login" novalidate>
+        <div class="campo">
+          <label for="correo">Correo</label>
+          <input id="correo" type="email" autocomplete="username" inputmode="email">
+        </div>
+        <div class="campo">
+          <label for="clave">Contraseña</label>
+          <input id="clave" type="password" autocomplete="current-password">
+        </div>
+        <p id="error-login" class="error oculto" role="alert"></p>
+        <button class="btn primario ancho" type="submit">Iniciar sesión</button>
+        <p class="pista aviso-demo">Prototipo de prueba: todo queda en este navegador.
+          No escribás una contraseña real.</p>
+      </form>
+
+      <div class="demo">
+        <p class="et">Cuentas de prueba</p>
+        <div class="demo-lista" id="demo-lista"></div>
+        <div class="demo-pie">
+          <button type="button" class="btn chico ancho" id="btn-reset">Restablecer datos de prueba</button>
+          <p class="pista">Vuelve a los datos iniciales y a la apariencia normal. Usalo entre una
+            persona y la siguiente.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== APP ===================== -->
+<div id="pantalla-app" class="app oculto">
+  <aside class="lateral">
+    <div class="marca">
+      <div class="monograma">EM</div>
+      <div>
+        <div class="nombre">Centro El Molino</div>
+        <div class="sub">Sistema interno</div>
+      </div>
+    </div>
+    <nav class="nav" id="nav-lateral" aria-label="Secciones"></nav>
+    <div class="pie-lateral">
+      <div class="quien hundido-suave" style="border-radius:var(--r-md)">
+        <div class="avatar" id="avatar-lateral"></div>
+        <div>
+          <div class="nombre" id="nombre-lateral"></div>
+          <div class="rol" id="rol-lateral"></div>
+        </div>
+      </div>
+      <button type="button" class="btn chico ancho" data-abrir-ap aria-controls="panel-ap" aria-expanded="false">
+        <span class="aa" aria-hidden="true">Aa</span><span>Apariencia</span>
+      </button>
+      <button class="btn chico ancho" id="btn-salir">Cerrar sesión</button>
+    </div>
+  </aside>
+
+  <div class="principal">
+    <div class="topbar">
+      <div class="monograma">EM</div>
+      <div class="nombre">Centro El Molino</div>
+      <div style="margin-left:auto;display:flex;align-items:center;gap:.75rem">
+        <button type="button" class="btn-ap" data-abrir-ap aria-controls="panel-ap" aria-expanded="false"
+                aria-label="Apariencia: tamaño de letra, contraste y tema">
+          <span class="aa" aria-hidden="true">Aa</span>
+        </button>
+        <div class="avatar" id="avatar-top" aria-hidden="true"></div>
+      </div>
+    </div>
+    <main class="contenido" id="contenido" tabindex="-1"></main>
+  </div>
+
+  <nav class="barra-inferior" id="nav-inferior" aria-label="Secciones"></nav>
+</div>
+
+<!-- Apariencia: alcanzable también desde el login, porque quien no puede leer
+     la pantalla tampoco puede entrar a arreglarla. -->
+<button type="button" class="btn-ap fab-ap" id="fab-ap" data-abrir-ap aria-expanded="false" aria-controls="panel-ap"
+        aria-label="Apariencia: tamaño de letra, contraste y tema">
+  <span class="aa" aria-hidden="true">Aa</span>
+</button>
+<div class="panel-ap oculto" id="panel-ap" role="dialog" aria-label="Apariencia"></div>
+
+<div id="avisos" aria-live="polite" aria-atomic="false"></div>
+<div id="raiz-modal"></div>
+
+<script>
+(function(){
+'use strict';
+
+/* =========================================================================
+   ESTADO
+   ========================================================================= */
+
+var CLAVE = 'centro_neumorfico_v1';
+var CLAVE_AP = 'centro_neumorfico_apariencia';
+
+var ESTADOS = [
+  { id:'si',       etiqueta:'Sí comer',      corta:'Sí',       nota:null },
+  { id:'no',       etiqueta:'No comer',      corta:'No',       nota:null },
+  { id:'temprano', etiqueta:'Comer temprano',corta:'Temprano', nota:'hora' },
+  { id:'tarde',    etiqueta:'Comer tarde',   corta:'Tarde',    nota:'hora' },
+  { id:'bolsa',    etiqueta:'En bolsa',      corta:'Bolsa',    nota:null },
+  { id:'enfermo',  etiqueta:'Enfermo',       corta:'Enfermo',  nota:'texto' }
+];
+var POR_ID = {};
+ESTADOS.forEach(function(e){ POR_ID[e.id] = e; });
+
+var COMIDAS = [
+  { id:'desayuno', etiqueta:'Desayuno' },
+  { id:'almuerzo', etiqueta:'Almuerzo' },
+  { id:'cena',     etiqueta:'Cena' }
+];
+
+var DIAS_LARGO = ['lunes','martes','miércoles','jueves','viernes','sábado','domingo'];
+var DIAS_CORTO = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
+var MESES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto',
+             'septiembre','octubre','noviembre','diciembre'];
+
+var ROLES = { director:'Director', residente:'Residente', administracion:'Administración' };
+var ROLES_CON_COMIDAS = ['director','residente'];
+
+var S = null;          // estado de la app
+var vista = 'semana';  // semana | plan | mensajes | calendario | config
+var desplazSemana = 0; // 0 = semana en curso
+var abierta = null;    // 'fecha|comida' de la fila expandida
+var diaAdmin = null;   // fecha seleccionada en la vista de Administración
+var mesCal = null;     // primer día del mes mostrado
+var vistaCal = 'agenda';
+var vistaMensajes = 'feed';
+var focoPendiente = null;
+var almacenOk = true;
+
+/* ---- Persistencia ---- */
+
+function leer(clave){
+  try { var v = localStorage.getItem(clave); return v ? JSON.parse(v) : null; }
+  catch(e){ almacenOk = false; return null; }
+}
+function escribir(clave, valor){
+  try { localStorage.setItem(clave, JSON.stringify(valor)); }
+  catch(e){ almacenOk = false; }
+}
+function guardar(){ escribir(CLAVE, S); }
+
+/* ---- Fechas ---- */
+
+function hoy(){ var d = new Date(); d.setHours(0,0,0,0); return d; }
+function iso(d){
+  var m = String(d.getMonth()+1), dia = String(d.getDate());
+  return d.getFullYear() + '-' + (m.length<2?'0'+m:m) + '-' + (dia.length<2?'0'+dia:dia);
+}
+function desdeIso(s){ var p = s.split('-'); return new Date(+p[0], +p[1]-1, +p[2]); }
+function sumarDias(d, n){ var r = new Date(d.getTime()); r.setDate(r.getDate()+n); return r; }
+function lunesDe(d){
+  var r = new Date(d.getTime());
+  var dow = (r.getDay() + 6) % 7;       // 0 = lunes
+  r.setDate(r.getDate() - dow); r.setHours(0,0,0,0); return r;
+}
+function indiceDia(d){ return (d.getDay() + 6) % 7; }  // 0..6, lunes primero
+
+/* =========================================================================
+   DATOS DE DEMO
+   ========================================================================= */
+
+function semilla(){
+  var u = [
+    { id:'u1', nombre:'Carlos Bonilla',  siglas:'CB', correo:'director@molino.sv',  clave:'molino', rol:'director',      activo:true },
+    { id:'u2', nombre:'Ramón Alvarado',  siglas:'RA', correo:'ramon@molino.sv',     clave:'molino', rol:'residente',     activo:true },
+    { id:'u3', nombre:'P. José Meléndez',siglas:'JM', correo:'jose@molino.sv',      clave:'molino', rol:'residente',     activo:true },
+    { id:'u4', nombre:'Marta Hernández', siglas:'MH', correo:'cocina@molino.sv',    clave:'molino', rol:'administracion',activo:true }
+  ];
+
+  // Patrón habitual. Domingo distinto, como en una casa real.
+  var plan = {};
+  ROLES_CON_COMIDAS.forEach(function(){});
+  u.forEach(function(p){
+    if (ROLES_CON_COMIDAS.indexOf(p.rol) === -1) return;
+    plan[p.id] = {};
+    for (var d = 1; d <= 7; d++){
+      plan[p.id][d] = {
+        desayuno:'si',
+        almuerzo: (p.id === 'u2' && d <= 5) ? 'bolsa' : 'si',
+        cena: (d === 7) ? 'no' : (p.id === 'u3' ? 'tarde' : 'si')
+      };
+      // Ramón nunca definió la cena de miércoles y jueves: aparece "Sin definir".
+      if (p.id === 'u2' && (d === 3 || d === 4)) plan[p.id][d].cena = null;
+    }
+  });
+
+  var l = lunesDe(hoy());
+  var sel = { u1:{}, u2:{}, u3:{} };
+  // Una excepción puntual, para que se vea la marca "cambiada".
+  sel.u1[iso(sumarDias(l,2))] = { almuerzo:{ estado:'no', nota:'' } };
+  // Y una nota de hora.
+  sel.u3[iso(sumarDias(l,1))] = { cena:{ estado:'tarde', nota:'21:15' } };
+
+  var ahora = Date.now();
+  return {
+    usuarios:u, sesionId:null, plan:plan, planNotas:{ u3:{ 1:{ cena:'21:00' }, 2:{ cena:'21:00' },
+      3:{ cena:'21:00' }, 4:{ cena:'21:00' }, 5:{ cena:'21:00' }, 6:{ cena:'21:00' } } }, selecciones:sel,
+    horasLimite:{
+      desayuno:{ diaRelativo:-1, hora:'21:00' },
+      almuerzo:{ diaRelativo:0,  hora:'10:00' },
+      cena:{     diaRelativo:0,  hora:'16:00' }
+    },
+    mensajes:[
+      { id:'m1', autorId:'u4', texto:'Mañana llega el pan más temprano. Si alguien baja antes de las 7, ya está listo.',
+        ts:ahora - 1000*60*60*5, likes:['u1','u2'],
+        respuestas:[{ id:'r1', autorId:'u1', texto:'Gracias Marta. Aviso en la casa.', ts:ahora - 1000*60*60*4 }] },
+      { id:'m2', autorId:'u1', texto:'Recordatorio: el sábado hay retiro. La cena se adelanta a las 19:00.',
+        ts:ahora - 1000*60*60*26, likes:['u3'], respuestas:[] }
+    ],
+    moderacion:[],
+    eventos:[
+      { id:'e1', titulo:'Retiro mensual', fecha:iso(sumarDias(l,5)), hora:'09:00', autorId:'u1' },
+      { id:'e2', titulo:'Visita del vicario', fecha:iso(sumarDias(l,9)), hora:'17:30', autorId:'u1' },
+      { id:'e3', titulo:'Mantenimiento de calderas', fecha:iso(sumarDias(l,3)), hora:'', autorId:'u1' }
+    ]
+  };
+}
+
+/* =========================================================================
+   REGLAS DE NEGOCIO
+   Espejo de lib/comidas: cascada selección -> plan -> sin definir, y el
+   cierre por hora límite. Es la lógica que la interfaz tiene que saber decir.
+   ========================================================================= */
+
+function usuario(id){
+  for (var i=0;i<S.usuarios.length;i++) if (S.usuarios[i].id === id) return S.usuarios[i];
+  return null;
+}
+function yo(){ return usuario(S.sesionId); }
+function comensales(){
+  return S.usuarios.filter(function(u){
+    return u.activo && ROLES_CON_COMIDAS.indexOf(u.rol) !== -1;
+  });
+}
+
+function notaPlan(userId, dia, comida){
+  var n = S.planNotas && S.planNotas[userId] && S.planNotas[userId][dia];
+  return (n && n[comida]) || '';
+}
+function ponerNotaPlan(userId, dia, comida, valor){
+  if (!S.planNotas) S.planNotas = {};
+  if (!S.planNotas[userId]) S.planNotas[userId] = {};
+  if (!S.planNotas[userId][dia]) S.planNotas[userId][dia] = {};
+  if (valor) S.planNotas[userId][dia][comida] = valor;
+  else delete S.planNotas[userId][dia][comida];
+  guardar();
+}
+
+/* Cascada: selección puntual -> plan semanal -> sin definir. */
+function efectivo(userId, fecha, comida){
+  var s = S.selecciones[userId];
+  if (s && s[fecha] && s[fecha][comida] && s[fecha][comida].estado){
+    return { estado:s[fecha][comida].estado, nota:s[fecha][comida].nota || '', origen:'persona' };
+  }
+  var p = S.plan[userId];
+  if (p){
+    var d = indiceDia(desdeIso(fecha)) + 1;
+    if (p[d] && p[d][comida]) return { estado:p[d][comida], nota:notaPlan(userId, d, comida), origen:'plan' };
+  }
+  return { estado:null, nota:'', origen:null };
+}
+
+/* Cierre: fuera de ventana (pasada) o pasada la hora límite. */
+function cierre(fecha, comida){
+  var l = S.horasLimite[comida];
+  var d = desdeIso(fecha);
+  var limite = sumarDias(d, l.diaRelativo);
+  var hm = l.hora.split(':');
+  limite.setHours(+hm[0], +hm[1], 0, 0);
+
+  var lunes = lunesDe(hoy());
+  if (desdeIso(fecha) < lunes) return { abierta:false, motivo:'Semana pasada: solo consulta.' };
+  if (new Date() > limite){
+    var cuando = l.diaRelativo === 0 ? 'hoy' : 'el día anterior';
+    return { abierta:false, motivo:'Cerró ' + cuando + ' a las ' + l.hora + '.' };
+  }
+  return { abierta:true, motivo:'' };
+}
+
+function guardarSeleccion(userId, fecha, comida, estado, nota){
+  if (!S.selecciones[userId]) S.selecciones[userId] = {};
+  if (!S.selecciones[userId][fecha]) S.selecciones[userId][fecha] = {};
+  S.selecciones[userId][fecha][comida] = { estado:estado, nota:nota || '' };
+  guardar();
+}
+function volverAlPlan(userId, fecha, comida){
+  var s = S.selecciones[userId];
+  if (s && s[fecha]) { delete s[fecha][comida]; guardar(); }
+}
+
+/* =========================================================================
+   APARIENCIA
+   ========================================================================= */
+
+var AP = { tema:'auto', contraste:'suave', texto:'normal' };
+
+// El visor puede fijar data-theme por su cuenta; "Automático" lo respeta.
+var temaHost = document.documentElement.getAttribute('data-theme');
+
+function apPorDefecto(){
+  // prefers-contrast: more pide contraste alto si la persona no eligió.
+  var alto = !!(window.matchMedia && matchMedia('(prefers-contrast: more)').matches);
+  return { tema:'auto', contraste: alto ? 'alto' : 'suave', texto:'normal' };
+}
+function cargarApariencia(){
+  var g = leer(CLAVE_AP);
+  AP = g ? { tema:g.tema||'auto', contraste:g.contraste||'suave', texto:g.texto||'normal' } : apPorDefecto();
+  pintarAtributos();
+}
+function pintarAtributos(){
+  var h = document.documentElement;
+  if (AP.tema === 'claro') h.setAttribute('data-theme', 'light');
+  else if (AP.tema === 'oscuro') h.setAttribute('data-theme', 'dark');
+  else if (temaHost) h.setAttribute('data-theme', temaHost);
+  else h.removeAttribute('data-theme');
+  h.setAttribute('data-contraste', AP.contraste);
+  h.setAttribute('data-texto', AP.texto);
+}
+function aplicarApariencia(){ pintarAtributos(); escribir(CLAVE_AP, AP); }
+function ponerApariencia(k, v){
+  AP[k] = v; aplicarApariencia(); pintarPanelApariencia();
+  if (S && S.sesionId) render();
+}
+
+var OPC_AP = [
+  { k:'texto', et:'Tamaño de la letra',
+    pista:'Afecta a toda la aplicación, no solo a esta pantalla.',
+    ops:[['normal','Normal'],['grande','Grande'],['enorme','Muy grande']] },
+  { k:'contraste', et:'Contraste',
+    pista:'Alto quita el relieve y marca todo con bordes sólidos.',
+    ops:[['suave','Suave'],['alto','Alto']] },
+  { k:'tema', et:'Tema',
+    pista:'Automático sigue la configuración del teléfono.',
+    ops:[['auto','Automático'],['claro','Claro'],['oscuro','Oscuro']] }
+];
+
+function htmlGrupoApariencia(o){
+  var h = '<div class="sub-ajuste"><div class="et">' + o.et + '</div>' +
+          '<div class="pista">' + o.pista + '</div>' +
+          '<div class="grupo-opciones" role="group" aria-label="' + o.et + '">';
+  o.ops.forEach(function(p){
+    var act = AP[o.k] === p[0];
+    h += '<button type="button" class="opcion-ap" aria-pressed="' + act + '" ' +
+         'data-ap="' + o.k + '" data-val="' + p[0] + '">' + p[1] + '</button>';
+  });
+  return h + '</div></div>';
+}
+
+function pintarPanelApariencia(){
+  var p = document.getElementById('panel-ap');
+  var h = '<h2>Apariencia</h2>';
+  OPC_AP.forEach(function(o){ h += htmlGrupoApariencia(o); });
+  h += '<button type="button" class="btn chico ancho" id="cerrar-ap">Listo</button>';
+  p.innerHTML = h;
+}
+
+/* =========================================================================
+   UTILIDADES DE RENDER
+   ========================================================================= */
+
+function esc(s){
+  return String(s == null ? '' : s)
+    .split('&').join('&amp;').split('<').join('&lt;').split('>').join('&gt;')
+    .split('"').join('&quot;');
+}
+function icono(id, clase){
+  return '<svg class="icono ' + (clase||'') + '" aria-hidden="true"><use href="#ic-' + id + '"/></svg>';
+}
+function varsEstado(id){
+  return 'style="--c:var(--st-' + id + ');--cbg:var(--st-' + id + '-bg)"';
+}
+function aviso(txt){
+  var cont = document.getElementById('avisos');
+  var d = document.createElement('div');
+  d.className = 'aviso'; d.textContent = txt;
+  cont.appendChild(d);
+  setTimeout(function(){ if (d.parentNode) d.parentNode.removeChild(d); }, 2600);
+}
+function tiempoRelativo(ts){
+  var min = Math.round((Date.now() - ts) / 60000);
+  if (min < 1) return 'ahora';
+  if (min < 60) return 'hace ' + min + ' min';
+  var h = Math.round(min/60);
+  if (h < 24) return 'hace ' + h + ' h';
+  var d = Math.round(h/24);
+  return d === 1 ? 'ayer' : 'hace ' + d + ' días';
+}
+
+/* =========================================================================
+   VISTA: COMIDAS — SEMANA (Director / Residente)
+   ========================================================================= */
+
+function htmlNavSemana(){
+  var l = sumarDias(lunesDe(hoy()), desplazSemana * 7);
+  var f = sumarDias(l, 6);
+  var rango = (l.getMonth() === f.getMonth())
+    ? l.getDate() + ' al ' + f.getDate() + ' de ' + MESES[f.getMonth()]
+    : l.getDate() + ' de ' + MESES[l.getMonth()] + ' al ' + f.getDate() + ' de ' + MESES[f.getMonth()];
+  var h = '<div class="nav-semana">';
+  h += '<button class="btn-icono" data-sem="-1" aria-label="Semana anterior">' + icono('izq') + '</button>';
+  h += '<div class="rango">' + esc(rango) + '</div>';
+  // Solo la semana en curso y la siguiente son editables.
+  var sigOk = desplazSemana < 1;
+  h += '<button class="btn-icono" data-sem="1" aria-label="Semana siguiente"' +
+       (sigOk ? '' : ' disabled') + '>' + icono('der') + '</button>';
+  if (desplazSemana !== 0)
+    h += '<button class="btn chico" data-sem="0">Ir a la semana actual</button>';
+  h += '</div>';
+  if (desplazSemana < 0)
+    h += '<div class="aviso-faltan" style="border-style:solid;border-color:var(--tinta-suave);color:var(--tinta-suave)">' +
+         'Semana pasada: solo consulta. Podés cambiar la semana actual y la siguiente.</div>';
+  return h;
+}
+
+function htmlFilaComida(userId, fecha, comida, editable){
+  var ef = efectivo(userId, fecha, comida);
+  var c = editable ? cierre(fecha, comida) : { abierta:false, motivo:'' };
+  var clave = fecha + '|' + comida;
+  var estaAbierta = abierta === clave;
+  var cerrada = !c.abierta;
+  var etq = POR_ID[comida] ? '' : '';
+  var nombreComida = '';
+  COMIDAS.forEach(function(x){ if (x.id === comida) nombreComida = x.etiqueta; });
+
+  var h = '<div class="comida' + (cerrada ? ' cerrada' : '') + '" role="group" aria-label="' +
+          esc(nombreComida) + '">';
+  h += '<div class="comida-cab"><div class="comida-nombre">' + esc(nombreComida) + '</div>';
+
+  if (ef.estado){
+    var e = POR_ID[ef.estado];
+    h += '<button type="button" class="estado-actual" ' + varsEstado(ef.estado) +
+         ' data-abrir="' + clave + '"' + (cerrada ? ' disabled' : '') +
+         ' aria-expanded="' + estaAbierta + '">' +
+         icono(ef.estado) + '<span>' + esc(e.etiqueta) + '</span>' +
+         (cerrada ? '' : '<span class="flecha">' + icono('abajo') + '</span>') + '</button>';
+    h += '<span class="origen' + (ef.origen === 'persona' ? ' cambiada' : '') + '">' +
+         (ef.origen === 'persona' ? 'Cambiada' : 'Según tu plan') + '</span>';
+  } else {
+    // El agujero. Con la pregunta escrita, no un "sin definir" en gris.
+    var dia = DIAS_LARGO[indiceDia(desdeIso(fecha))];
+    var verbo = comida === 'desayuno' ? 'desayunar' : (comida === 'almuerzo' ? 'almorzar' : 'cenar');
+    h += '<button type="button" class="estado-actual sin-definir" data-abrir="' + clave + '"' +
+         (cerrada ? ' disabled' : '') + ' aria-expanded="' + estaAbierta + '">' +
+         icono('aviso') + '<span>¿Vas a ' + verbo + ' el ' + dia + '?</span>' +
+         (cerrada ? '' : '<span class="flecha">' + icono('abajo') + '</span>') + '</button>';
+  }
+  h += '</div>';
+
+  if (ef.estado && ef.nota){
+    var tipo = POR_ID[ef.estado].nota;
+    h += '<div class="nota-estado">' + icono(ef.estado) +
+         '<span>' + (tipo === 'hora' ? 'A las ' + esc(ef.nota) : esc(ef.nota)) + '</span></div>';
+  }
+  if (cerrada && c.motivo)
+    h += '<div class="motivo-cierre">' + icono('candado') + '<span>' + esc(c.motivo) + '</span></div>';
+
+  if (estaAbierta && !cerrada) h += htmlOpciones(userId, fecha, comida, ef);
+  return h + '</div>';
+}
+
+function htmlOpciones(userId, fecha, comida, ef){
+  var clave = fecha + '|' + comida;
+  var h = '<div class="opciones"><div class="opciones-rejilla" role="group" aria-label="Elegí tu opción">';
+  ESTADOS.forEach(function(e){
+    var sel = ef.estado === e.id;
+    h += '<button type="button" class="opcion" ' + varsEstado(e.id) +
+         ' aria-pressed="' + sel + '" data-elegir="' + clave + '|' + e.id + '">' +
+         icono(e.id) + '<span>' + esc(e.etiqueta) + '</span></button>';
+  });
+  h += '</div>';
+
+  // La nota solo aparece si el estado elegido la pide.
+  if (ef.estado && POR_ID[ef.estado].nota){
+    var tipo = POR_ID[ef.estado].nota;
+    var et = tipo === 'hora' ? 'Hora a la que comerá' : 'Qué puede comer';
+    h += '<div class="campo" style="margin:1rem 0 0">' +
+         '<label for="nota-' + clave + '">' + et + '</label>' +
+         '<input id="nota-' + clave + '" type="' + (tipo === 'hora' ? 'time' : 'text') + '" ' +
+         'value="' + esc(ef.nota) + '" data-nota="' + clave + '">' +
+         '</div>';
+  }
+
+  h += '<div class="opciones-pie">';
+  if (ef.origen === 'persona')
+    h += '<button type="button" class="btn chico" data-volver="' + clave + '">Volver a mi plan</button>';
+  h += '<button type="button" class="btn chico" data-cerrar-op="1">Listo</button>';
+  return h + '</div></div>';
+}
+
+function htmlDia(d, editable){
+  var f = iso(d), i = indiceDia(d), es = f === iso(hoy());
+  var h = '<section class="dia' + (es ? ' hoy' : '') + '">';
+  h += '<div class="dia-cab"><span class="nombre-dia">' + DIAS_LARGO[i].charAt(0).toUpperCase() +
+       DIAS_LARGO[i].slice(1) + '</span>' +
+       '<span class="fecha">' + d.getDate() + ' de ' + MESES[d.getMonth()] + '</span>' +
+       (es ? '<span class="etiqueta-hoy">Hoy</span>' : '') + '</div>';
+  COMIDAS.forEach(function(c){ h += htmlFilaComida(S.sesionId, f, c.id, editable); });
+  return h + '</section>';
+}
+
+function vistaSemanaPersona(){
+  var l = sumarDias(lunesDe(hoy()), desplazSemana * 7);
+  var editable = desplazSemana >= 0;
+  var h = htmlNavSemana();
+
+  if (desplazSemana !== 0){
+    for (var k = 0; k < 7; k++) h += htmlDia(sumarDias(l, k), editable);
+    return h;
+  }
+
+  // Semana en curso: lo primero en pantalla es algo que todavía se puede
+  // cambiar. Los días ya cerrados van plegados al final.
+  var idxHoy = indiceDia(hoy());
+  for (var i = idxHoy; i < 7; i++) h += htmlDia(sumarDias(l, i), editable);
+
+  // "Mañana" puede caer en la semana siguiente (un domingo, siempre).
+  var quedan = 6 - idxHoy;
+  h += '<button type="button" class="siguiente-semana" data-sem="1">' +
+       '<span><span class="et">Ver la semana que viene</span>' +
+       '<span class="pista">' + (quedan === 0
+          ? 'Hoy es el último día de esta semana. Mañana ya es la siguiente.'
+          : 'Ya podés elegir tus comidas de la próxima semana.') + '</span></span>' +
+       icono('der') + '</button>';
+
+  if (idxHoy > 0){
+    h += '<details class="dias-pasados"><summary>' + icono('abajo') +
+         '<span>Días anteriores de esta semana (' + idxHoy + ')</span></summary>';
+    for (var j = 0; j < idxHoy; j++) h += htmlDia(sumarDias(l, j), editable);
+    h += '</details>';
+  }
+  return h;
+}
+
+/* =========================================================================
+   VISTA: COMIDAS — SEMANA (Administración)
+   La hoja desde la que se cocina. Conteos primero, fichas después.
+   ========================================================================= */
+
+function vistaSemanaAdmin(){
+  var l = sumarDias(lunesDe(hoy()), desplazSemana * 7);
+  if (!diaAdmin || desdeIso(diaAdmin) < l || desdeIso(diaAdmin) > sumarDias(l,6)){
+    var hy = iso(hoy());
+    diaAdmin = (desdeIso(hy) >= l && desdeIso(hy) <= sumarDias(l,6)) ? hy : iso(l);
+  }
+
+  var h = htmlNavSemana();
+  h += '<div class="dias-chips" role="group" aria-label="Día">';
+  for (var i = 0; i < 7; i++){
+    var d = sumarDias(l, i), f = iso(d);
+    h += '<button type="button" class="chip-dia" aria-pressed="' + (f === diaAdmin) + '" ' +
+         'data-dia-admin="' + f + '"><span>' + DIAS_CORTO[i] + '</span>' +
+         '<span class="num">' + d.getDate() + '</span></button>';
+  }
+  h += '</div>';
+
+  var gente = comensales();
+
+  // Quién falta por definir: se persigue arriba, no se esconde en una celda.
+  var faltan = [];
+  gente.forEach(function(p){
+    var pend = [];
+    COMIDAS.forEach(function(c){
+      if (!efectivo(p.id, diaAdmin, c.id).estado) pend.push(c.etiqueta.toLowerCase());
+    });
+    if (pend.length) faltan.push(p.nombre + ' (' + pend.join(', ') + ')');
+  });
+  if (faltan.length){
+    h += '<div class="aviso-faltan"><strong>Falta definir</strong>' +
+         '<div class="gente">' + esc(faltan.join(' · ')) + '</div></div>';
+  }
+
+  // Conteos por comida: el 90% de lo que la cocina necesita saber.
+  h += '<div class="conteos">';
+  COMIDAS.forEach(function(c){
+    var cuenta = {}, comen = 0, sinDef = 0;
+    gente.forEach(function(p){
+      var ef = efectivo(p.id, diaAdmin, c.id);
+      if (!ef.estado){ sinDef++; return; }
+      if (!cuenta[ef.estado]) cuenta[ef.estado] = { n:0, notas:[] };
+      cuenta[ef.estado].n++;
+      if (ef.nota) cuenta[ef.estado].notas.push(ef.nota);
+      if (ef.estado !== 'no') comen++;
+    });
+    h += '<div class="conteo"><h3>' + c.etiqueta + '</h3>';
+    h += '<div class="grande">' + comen + '<small>' +
+         (comen === 1 ? 'persona come' : 'personas comen') + '</small></div>';
+    h += '<ul class="desglose">';
+    ESTADOS.forEach(function(e){
+      if (!cuenta[e.id]) return;
+      var x = cuenta[e.id];
+      h += '<li ' + varsEstado(e.id) + '>' + icono(e.id) + '<span>' + x.n + ' ' +
+           esc(e.corta.toLowerCase()) + (x.notas.length ? ' (' + esc(x.notas.join(', ')) + ')' : '') +
+           '</span></li>';
+    });
+    if (sinDef)
+      h += '<li style="--c:var(--peligro);--cbg:transparent;border:2px dashed var(--peligro)">' +
+           icono('aviso') + '<span>' + sinDef + ' sin definir</span></li>';
+    h += '</ul></div>';
+  });
+  h += '</div>';
+
+  // Fichas por persona: sustituyen a la tabla con scroll horizontal.
+  h += '<h2 style="margin:1.75rem 0 1rem">Persona por persona</h2><div class="fichas">';
+  gente.forEach(function(p){
+    h += '<article class="ficha"><div class="ficha-cab">' +
+         '<div class="avatar">' + esc(p.siglas) + '</div>' +
+         '<div><div class="nombre">' + esc(p.nombre) + '</div>' +
+         '<div class="rol" style="font-size:var(--t-xs);color:var(--tinta-tenue)">' +
+         ROLES[p.rol] + '</div></div></div><div class="ficha-comidas">';
+    COMIDAS.forEach(function(c){
+      var ef = efectivo(p.id, diaAdmin, c.id);
+      h += '<div class="ficha-comida"><div class="cual">' + c.etiqueta + '</div>';
+      if (ef.estado){
+        h += '<span class="insignia" ' + varsEstado(ef.estado) + '>' + icono(ef.estado) +
+             esc(POR_ID[ef.estado].corta) + '</span>';
+        if (ef.nota) h += '<div class="nota">' + esc(ef.nota) + '</div>';
+        if (ef.origen === 'persona') h += '<div class="nota">cambiada</div>';
+      } else {
+        h += '<span class="insignia falta">' + icono('aviso') + 'Sin definir</span>';
+      }
+      h += '</div>';
+    });
+    h += '</div></article>';
+  });
+  h += '</div>';
+  h += '<p class="pista" style="margin-top:1rem">Las selecciones las define cada persona. ' +
+       'Desde acá solo se consultan.</p>';
+  return h;
+}
+
+/* =========================================================================
+   VISTA: PLAN SEMANAL
+   El mismo componente que Semana. Una sola interacción en toda la app.
+   ========================================================================= */
+
+function vistaPlan(){
+  var p = yo();
+  if (p.rol === 'administracion') return vistaPlanAdmin();
+
+  var h = '<div class="panel"><h2>Tu patrón habitual</h2>' +
+          '<p class="desc">Se usa cada semana mientras no cambiés un día puntual. ' +
+          'Los cambios se guardan solos.</p></div>';
+
+  // Resumen en matriz: solo escritorio, solo lectura. Es para lo que la
+  // cuadrícula sirve de verdad.
+  h += '<div class="matriz"><div class="panel"><h2 style="font-size:var(--t-base);margin-bottom:1rem">Resumen</h2>' +
+       '<div class="matriz-rejilla">';
+  h += '<div></div>';
+  for (var i = 0; i < 7; i++) h += '<div class="matriz-cab">' + DIAS_CORTO[i] + '</div>';
+  COMIDAS.forEach(function(c){
+    h += '<div class="matriz-fila-nombre">' + c.etiqueta + '</div>';
+    for (var d = 1; d <= 7; d++){
+      var est = S.plan[p.id] && S.plan[p.id][d] ? S.plan[p.id][d][c.id] : null;
+      if (est){
+        h += '<div class="matriz-celda" ' + varsEstado(est) + '>' + icono(est) +
+             '<span>' + esc(POR_ID[est].corta) + '</span></div>';
+      } else {
+        h += '<div class="matriz-celda vacia">' + icono('aviso') + '<span>Falta</span></div>';
+      }
+    }
+  });
+  h += '</div></div></div>';
+
+  // El editor: idéntico al de Semana, día por día.
+  DIAS_LARGO.forEach(function(nom, i){
+    var d = i + 1;
+    h += '<section class="dia"><div class="dia-cab">' +
+         '<span class="nombre-dia">' + nom.charAt(0).toUpperCase() + nom.slice(1) + '</span>' +
+         '<span class="fecha">todas las semanas</span></div>';
+    COMIDAS.forEach(function(c){ h += htmlFilaPlan(p.id, d, c); });
+    h += '</section>';
+  });
+  return h;
+}
+
+function htmlFilaPlan(userId, dia, comida){
+  var est = S.plan[userId] && S.plan[userId][dia] ? S.plan[userId][dia][comida.id] : null;
+  var clave = 'plan:' + dia + '|' + comida.id;
+  var estaAbierta = abierta === clave;
+
+  var h = '<div class="comida" role="group" aria-label="' + esc(comida.etiqueta) + '">';
+  h += '<div class="comida-cab"><div class="comida-nombre">' + esc(comida.etiqueta) + '</div>';
+  if (est){
+    h += '<button type="button" class="estado-actual" ' + varsEstado(est) +
+         ' data-abrir="' + clave + '" aria-expanded="' + estaAbierta + '">' +
+         icono(est) + '<span>' + esc(POR_ID[est].etiqueta) + '</span>' +
+         '<span class="flecha">' + icono('abajo') + '</span></button>';
+  } else {
+    var verbo = comida.id === 'desayuno' ? 'desayunás' : (comida.id === 'almuerzo' ? 'almorzás' : 'cenás');
+    h += '<button type="button" class="estado-actual sin-definir" data-abrir="' + clave + '" ' +
+         'aria-expanded="' + estaAbierta + '">' + icono('aviso') +
+         '<span>¿Normalmente ' + verbo + ' los ' + DIAS_LARGO[dia-1] + '?</span>' +
+         '<span class="flecha">' + icono('abajo') + '</span></button>';
+  }
+  h += '</div>';
+
+  var nota = est ? notaPlan(userId, dia, comida.id) : '';
+  if (est && nota){
+    var tipoV = POR_ID[est].nota;
+    h += '<div class="nota-estado">' + icono(est) +
+         '<span>' + (tipoV === 'hora' ? 'A las ' + esc(nota) : esc(nota)) + '</span></div>';
+  }
+
+  if (estaAbierta){
+    h += '<div class="opciones"><div class="opciones-rejilla" role="group" aria-label="Elegí tu opción">';
+    ESTADOS.forEach(function(e){
+      h += '<button type="button" class="opcion" ' + varsEstado(e.id) +
+           ' aria-pressed="' + (est === e.id) + '" data-elegir="' + clave + '|' + e.id + '">' +
+           icono(e.id) + '<span>' + esc(e.etiqueta) + '</span></button>';
+    });
+    h += '</div>';
+    // Mismo campo que en Semana: solo si el estado elegido pide nota.
+    if (est && POR_ID[est].nota){
+      var tipo = POR_ID[est].nota;
+      var idc = 'nota-plan-' + dia + '-' + comida.id;
+      h += '<div class="campo" style="margin:1rem 0 0">' +
+           '<label for="' + idc + '">' + (tipo === 'hora' ? 'Hora a la que comerá' : 'Qué puede comer') + '</label>' +
+           '<input id="' + idc + '" type="' + (tipo === 'hora' ? 'time' : 'text') + '" ' +
+           'value="' + esc(nota) + '" data-nota-plan="' + dia + '|' + comida.id + '">' +
+           '</div>';
+    }
+    h += '<div class="opciones-pie">' +
+         '<button type="button" class="btn chico" data-cerrar-op="1">Listo</button></div></div>';
+  }
+  return h + '</div>';
+}
+
+function vistaPlanAdmin(){
+  var CORTA = { desayuno:'Des.', almuerzo:'Alm.', cena:'Cena' };
+  var h = '<div class="panel"><h2>Patrón habitual de la casa</h2>' +
+          '<p class="desc">Lo que cada persona come normalmente. Solo consulta.</p>';
+  // Las celdas de abajo solo llevan icono y color, así que el significado de
+  // cada icono va escrito aquí: nunca sin texto.
+  h += '<ul class="leyenda" aria-label="Qué significa cada icono">';
+  ESTADOS.forEach(function(e){
+    h += '<li ' + varsEstado(e.id) + '>' + icono(e.id) + esc(e.etiqueta) + '</li>';
+  });
+  h += '<li style="--c:var(--peligro);--cbg:transparent;border:2px dashed var(--peligro)">' +
+       icono('aviso') + 'Sin definir</li></ul></div>';
+
+  comensales().forEach(function(p){
+    h += '<article class="ficha" style="margin-bottom:1rem"><div class="ficha-cab">' +
+         '<div class="avatar">' + esc(p.siglas) + '</div>' +
+         '<div class="nombre">' + esc(p.nombre) + '</div></div>';
+    h += '<div class="matriz-rejilla compacta" role="table" aria-label="Plan de ' + esc(p.nombre) + '">';
+    h += '<div role="row" style="display:contents"><div role="columnheader"></div>';
+    for (var i = 0; i < 7; i++)
+      h += '<div class="matriz-cab" role="columnheader"><abbr title="' + DIAS_LARGO[i] + '">' +
+           DIAS_CORTO[i] + '</abbr></div>';
+    h += '</div>';
+    COMIDAS.forEach(function(c){
+      h += '<div role="row" style="display:contents">' +
+           '<div class="matriz-fila-nombre" role="rowheader"><abbr title="' + c.etiqueta + '">' +
+           CORTA[c.id] + '</abbr></div>';
+      for (var d = 1; d <= 7; d++){
+        var est = S.plan[p.id] && S.plan[p.id][d] ? S.plan[p.id][d][c.id] : null;
+        var nombre = c.etiqueta + ' del ' + DIAS_LARGO[d-1] + ': ' + (est ? POR_ID[est].etiqueta : 'sin definir');
+        h += est
+          ? '<div class="matriz-celda" role="cell" ' + varsEstado(est) + ' aria-label="' + nombre +
+            '" title="' + nombre + '">' + icono(est) + '</div>'
+          : '<div class="matriz-celda vacia" role="cell" aria-label="' + nombre +
+            '" title="' + nombre + '">' + icono('aviso') + '</div>';
+      }
+      h += '</div>';
+    });
+    h += '</div></article>';
+  });
+  return h;
+}
+
+/* =========================================================================
+   VISTA: MENSAJES
+   ========================================================================= */
+
+function vistaMensajesRender(){
+  var p = yo();
+  var h = '';
+
+  if (p.rol === 'director'){
+    h += '<div class="pestanas">' +
+         '<button class="pestana" data-vmsg="feed" ' +
+         (vistaMensajes === 'feed' ? 'aria-current="page"' : '') + '>Publicaciones</button>' +
+         '<button class="pestana" data-vmsg="registro" ' +
+         (vistaMensajes === 'registro' ? 'aria-current="page"' : '') + '>Registro de moderación</button>' +
+         '</div>';
+  }
+
+  if (p.rol === 'director' && vistaMensajes === 'registro'){
+    h += '<div class="panel"><h2>Registro de moderación</h2>' +
+         '<p class="desc">Mensajes de otras personas que eliminaste.</p>';
+    if (!S.moderacion.length){
+      h += '<div class="vacio">Todavía no eliminaste mensajes de nadie.</div>';
+    } else {
+      h += '<table class="tabla"><thead><tr><th>Cuándo</th><th>Autor</th><th>Texto</th></tr></thead><tbody>';
+      S.moderacion.slice().reverse().forEach(function(r){
+        var a = usuario(r.autorId);
+        h += '<tr><td data-et="Cuándo">' + tiempoRelativo(r.ts) + '</td>' +
+             '<td data-et="Autor">' + esc(a ? a.nombre : '—') + '</td>' +
+             '<td data-et="Texto">' + esc(r.texto) + '</td></tr>';
+      });
+      h += '</tbody></table>';
+    }
+    return h + '</div>';
+  }
+
+  h += '<div class="componer"><div class="campo" style="margin:0">' +
+       '<label for="nuevo-msg">Escribir una publicación</label>' +
+       '<textarea id="nuevo-msg" placeholder="Algo que toda la casa deba saber…"></textarea>' +
+       '</div><div class="componer-pie">' +
+       '<button class="btn primario" id="publicar">Publicar</button></div></div>';
+
+  if (!S.mensajes.length) return h + '<div class="panel"><div class="vacio">Todavía no hay publicaciones.</div></div>';
+
+  h += '<div class="feed">';
+  S.mensajes.slice().sort(function(a,b){ return b.ts - a.ts; }).forEach(function(m){
+    h += htmlMensaje(m, p);
+  });
+  return h + '</div>';
+}
+
+function htmlMensaje(m, p){
+  var a = usuario(m.autorId) || { nombre:'Cuenta desconocida', siglas:'--', rol:'residente' };
+  var miLike = m.likes.indexOf(p.id) !== -1;
+  var puedeBorrar = m.autorId === p.id || p.rol === 'director';
+
+  var h = '<article class="msg"><div class="msg-cab">' +
+          '<div class="avatar">' + esc(a.siglas) + '</div>' +
+          '<span class="nombre">' + esc(a.nombre) + '</span>' +
+          '<span class="pastilla-rol">' + ROLES[a.rol] + '</span>' +
+          '<time class="cuando">' + tiempoRelativo(m.ts) + '</time></div>';
+  h += '<div class="msg-texto">' + esc(m.texto) + '</div>';
+  h += '<div class="msg-acciones">' +
+       '<button type="button" class="msg-accion" aria-pressed="' + miLike + '" data-like="' + m.id + '">' +
+       icono('pulgar') + '<span>Me gusta' + (m.likes.length ? ' (' + m.likes.length + ')' : '') + '</span></button>' +
+       '<button type="button" class="msg-accion" data-responder="' + m.id + '">' +
+       icono('mensajes') + '<span>Responder</span></button>';
+  if (puedeBorrar)
+    h += '<button type="button" class="msg-accion borrar" data-borrar-msg="' + m.id + '">' +
+         icono('no') + '<span>Eliminar</span></button>';
+  h += '</div>';
+
+  if (m.respuestas.length){
+    h += '<div class="hilo">';
+    m.respuestas.forEach(function(r){
+      var ra = usuario(r.autorId) || { nombre:'Cuenta desconocida', siglas:'--', rol:'residente' };
+      var rBorrar = r.autorId === p.id || p.rol === 'director';
+      h += '<div class="respuesta"><div class="msg-cab">' +
+           '<div class="avatar" style="width:2.25rem;height:2.25rem">' + esc(ra.siglas) + '</div>' +
+           '<span class="nombre">' + esc(ra.nombre) + '</span>' +
+           '<time class="cuando">' + tiempoRelativo(r.ts) + '</time></div>' +
+           '<div class="msg-texto" style="margin-bottom:.5rem">' + esc(r.texto) + '</div>';
+      if (rBorrar)
+        h += '<div class="msg-acciones"><button type="button" class="msg-accion borrar" ' +
+             'data-borrar-resp="' + m.id + '|' + r.id + '">' + icono('no') +
+             '<span>Eliminar</span></button></div>';
+      h += '</div>';
+    });
+    h += '</div>';
+  }
+
+  if (respondiendo === m.id){
+    h += '<div class="componer-respuesta">' +
+         '<label class="sr-only" for="resp-' + m.id + '">Tu respuesta</label>' +
+         '<input id="resp-' + m.id + '" type="text" placeholder="Escribí tu respuesta…">' +
+         '<button class="btn chico primario" data-enviar-resp="' + m.id + '">Enviar</button>' +
+         '</div>';
+  }
+  return h + '</article>';
+}
+
+var respondiendo = null;
+
+/* =========================================================================
+   VISTA: CALENDARIO
+   Agenda en el teléfono; cuadrícula en escritorio. Siete columnas a 18px
+   de base dejan celdas de ~44px, que no son tocables.
+   ========================================================================= */
+
+function vistaCalendario(){
+  var p = yo();
+  if (!mesCal){ var t = hoy(); mesCal = new Date(t.getFullYear(), t.getMonth(), 1); }
+
+  var h = '<div class="cal-cab">' +
+          '<button class="btn-icono" data-mes="-1" aria-label="Mes anterior">' + icono('izq') + '</button>' +
+          '<div class="mes">' + MESES[mesCal.getMonth()] + ' ' + mesCal.getFullYear() + '</div>' +
+          '<button class="btn-icono" data-mes="1" aria-label="Mes siguiente">' + icono('der') + '</button>';
+  h += '<button class="btn chico" data-vcal="' + (vistaCal === 'agenda' ? 'mes' : 'agenda') + '">' +
+       (vistaCal === 'agenda' ? 'Ver mes' : 'Ver lista') + '</button>';
+  h += '</div>';
+
+  var delMes = S.eventos.filter(function(e){
+    var d = desdeIso(e.fecha);
+    return d.getMonth() === mesCal.getMonth() && d.getFullYear() === mesCal.getFullYear();
+  }).sort(function(a,b){ return a.fecha < b.fecha ? -1 : (a.fecha > b.fecha ? 1 : 0); });
+
+  if (vistaCal === 'agenda'){
+    h += '<div class="agenda">';
+    if (!delMes.length){
+      h += '<div class="panel"><div class="vacio">No hay eventos este mes.</div></div>';
+    } else {
+      var porFecha = {};
+      delMes.forEach(function(e){ (porFecha[e.fecha] = porFecha[e.fecha] || []).push(e); });
+      Object.keys(porFecha).sort().forEach(function(f){
+        var d = desdeIso(f), es = f === iso(hoy());
+        h += '<button type="button" class="agenda-dia' + (es ? ' hoy' : '') + '" data-dia-cal="' + f + '">' +
+             '<div class="agenda-cab"><span class="dnum">' + d.getDate() + '</span>' +
+             '<span class="dnom">' + DIAS_LARGO[indiceDia(d)] + '</span>' +
+             (es ? '<span class="etiqueta-hoy">Hoy</span>' : '') + '</div>';
+        porFecha[f].forEach(function(e){
+          h += '<div class="evento">' + (e.hora ? '<span class="hora">' + esc(e.hora) + '</span>' : '') +
+               '<span>' + esc(e.titulo) + '</span></div>';
+        });
+        h += '</button>';
+      });
+    }
+    h += '</div>';
+  } else {
+    h += '<div class="mes-rejilla activa" style="display:grid">';
+    DIAS_CORTO.forEach(function(d){ h += '<div class="dow">' + d + '</div>'; });
+    var primero = new Date(mesCal.getFullYear(), mesCal.getMonth(), 1);
+    var inicio = lunesDe(primero);
+    for (var i = 0; i < 42; i++){
+      var d = sumarDias(inicio, i), f = iso(d);
+      var fuera = d.getMonth() !== mesCal.getMonth();
+      var evs = S.eventos.filter(function(e){ return e.fecha === f; });
+      h += '<button type="button" class="cal-dia' + (fuera ? ' fuera' : '') +
+           (evs.length ? ' con-evento' : '') + (f === iso(hoy()) ? ' hoy' : '') +
+           '" data-dia-cal="' + f + '"><span class="n">' + d.getDate() + '</span>';
+      evs.slice(0,2).forEach(function(e){
+        h += '<span class="punto-evento">' + esc(e.titulo) + '</span>';
+      });
+      if (evs.length > 2) h += '<span class="punto-evento">+' + (evs.length-2) + '</span>';
+      h += '</button>';
+    }
+    h += '</div>';
+  }
+
+  h += '<p class="pista" style="margin-top:1.25rem">' +
+       (p.rol === 'administracion'
+         ? 'Los eventos los crean el Director y los Residentes. Desde acá solo se consultan.'
+         : 'Tocá un día para ver o agregar eventos.') + '</p>';
+  return h;
+}
+
+/* =========================================================================
+   VISTA: CONFIGURACIONES
+   Apariencia primero: es lo que un usuario mayor necesita antes que nada.
+   ========================================================================= */
+
+function vistaConfig(){
+  var p = yo();
+  var h = '<div class="panel"><h2>Apariencia</h2>' +
+          '<p class="desc">Ajustá cómo se ve la aplicación en este dispositivo. ' +
+          'Los cambios se aplican al instante.</p>';
+  OPC_AP.forEach(function(o){ h += htmlGrupoApariencia(o); });
+  h += '</div>';
+
+  h += '<div class="panel"><h2>Mi cuenta</h2>' +
+       '<div class="campo"><label for="cfg-nombre">Nombre</label>' +
+       '<input id="cfg-nombre" type="text" value="' + esc(p.nombre) + '"></div>' +
+       '<div class="campo"><label for="cfg-siglas">Siglas</label>' +
+       '<input id="cfg-siglas" type="text" maxlength="3" value="' + esc(p.siglas) + '"></div>' +
+       '<div class="campo"><label for="cfg-correo">Correo</label>' +
+       '<input id="cfg-correo" type="email" value="' + esc(p.correo) + '"></div>' +
+       '<p class="pista">Tu rol es <strong>' + ROLES[p.rol] + '</strong>. ' +
+       'Nadie puede cambiar su propio rol.</p>' +
+       '<button class="btn primario" id="guardar-cuenta" style="margin-top:1rem">Guardar</button>' +
+       '</div>';
+
+  h += '<div class="panel"><h2>Notificaciones</h2>' +
+       '<p class="desc">Avisos en este dispositivo cuando falte definir una comida ' +
+       'o haya mensajes nuevos.</p>' +
+       '<button class="btn" id="activar-push">Activar notificaciones</button>' +
+       '<p class="pista" style="margin-top:.75rem">En el prototipo este botón no hace nada real.</p>' +
+       '</div>';
+
+  if (p.rol === 'director'){
+    h += '<div class="panel"><h2>Horas límite</h2>' +
+         '<p class="desc">Después de esta hora ya no se puede cambiar esa comida.</p>';
+    COMIDAS.forEach(function(c){
+      var l = S.horasLimite[c.id];
+      h += '<div class="campo"><label for="hl-' + c.id + '">' + c.etiqueta + '</label>' +
+           '<input id="hl-' + c.id + '" type="time" value="' + esc(l.hora) + '" data-hl="' + c.id + '">' +
+           '<span class="pista">' + (l.diaRelativo === 0 ? 'El mismo día' : 'El día anterior') + '</span>' +
+           '</div>';
+    });
+    h += '</div>';
+
+    h += '<div class="panel"><h2>Cuentas</h2>' +
+         '<p class="desc">Las cuentas no se eliminan: se desactivan. Siempre tiene que ' +
+         'quedar al menos un Director activo.</p>' +
+         '<table class="tabla"><thead><tr><th>Persona</th><th>Rol</th><th>Estado</th></tr></thead><tbody>';
+    S.usuarios.forEach(function(u){
+      h += '<tr><td data-et="Persona"><strong>' + esc(u.nombre) + '</strong><br>' +
+           '<span class="pista">' + esc(u.correo) + '</span></td>' +
+           '<td data-et="Rol">' + ROLES[u.rol] + '</td>' +
+           '<td data-et="Estado">' + (u.activo ? 'Activa' : 'Desactivada') + '</td></tr>';
+    });
+    h += '</tbody></table>' +
+         '<p class="pista" style="margin-top:1rem">No hay recuperación por correo: el Director ' +
+         'entrega una contraseña temporal en mano y la app obliga a cambiarla al entrar.</p>' +
+         '</div>';
+  }
+
+  return h;
+}
+
+/* =========================================================================
+   NAVEGACIÓN Y RENDER
+   ========================================================================= */
+
+function secciones(){
+  return [
+    { id:'semana', et:'Comidas', ic:'comidas' },
+    { id:'mensajes', et:'Mensajes', ic:'mensajes' },
+    { id:'calendario', et:'Calendario', ic:'calendario' },
+    { id:'config', et:'Ajustes', ic:'config' }
+  ];
+}
+
+function pintarNav(){
+  var actual = (vista === 'plan') ? 'semana' : vista;
+  var h = '';
+  secciones().forEach(function(s){
+    h += '<button type="button" class="nav-item" data-ir="' + s.id + '"' +
+         (s.id === actual ? ' aria-current="page"' : '') + '>' +
+         icono(s.ic) + '<span>' + s.et + '</span></button>';
+  });
+  document.getElementById('nav-lateral').innerHTML = h;
+  document.getElementById('nav-inferior').innerHTML = h;
+}
+
+function render(){
+  var p = yo();
+  if (!p) return;
+
+  document.getElementById('avatar-lateral').textContent = p.siglas;
+  document.getElementById('avatar-top').textContent = p.siglas;
+  document.getElementById('nombre-lateral').textContent = p.nombre;
+  document.getElementById('rol-lateral').textContent = ROLES[p.rol];
+  pintarNav();
+
+  var h = '';
+  if (vista === 'semana' || vista === 'plan'){
+    var esAdmin = p.rol === 'administracion';
+    h += '<div class="cabecera-pag"><h1>Comidas</h1><p class="desc">' +
+         (esAdmin
+           ? 'Planes y selecciones de comida de la casa, en solo lectura.'
+           : 'Tu plan habitual y lo que vas a comer cada día de la semana.') +
+         '</p></div>';
+    h += '<div class="pestanas">' +
+         '<button class="pestana" data-ir="plan"' + (vista === 'plan' ? ' aria-current="page"' : '') +
+         '>Plan semanal</button>' +
+         '<button class="pestana" data-ir="semana"' + (vista === 'semana' ? ' aria-current="page"' : '') +
+         '>Semana</button></div>';
+    if (vista === 'plan') h += vistaPlan();
+    else h += esAdmin ? vistaSemanaAdmin() : vistaSemanaPersona();
+  }
+  else if (vista === 'mensajes'){
+    h += '<div class="cabecera-pag"><h1>Mensajes</h1>' +
+         '<p class="desc">Publicaciones y comentarios de toda la casa.</p></div>';
+    h += vistaMensajesRender();
+  }
+  else if (vista === 'calendario'){
+    h += '<div class="cabecera-pag"><h1>Calendario</h1>' +
+         '<p class="desc">Eventos de la casa.</p></div>';
+    h += vistaCalendario();
+  }
+  else if (vista === 'config'){
+    h += '<div class="cabecera-pag"><h1>Ajustes</h1>' +
+         '<p class="desc">Tu cuenta, cómo se ve la aplicación y los avisos.</p></div>';
+    h += vistaConfig();
+  }
+
+  if (!almacenOk){
+    h = '<div class="aviso-faltan" style="border-style:solid"><strong>Sin guardado</strong>' +
+        '<div class="gente">El navegador bloqueó el almacenamiento. Los cambios no se van a ' +
+        'conservar en esta sesión.</div></div>' + h;
+  }
+
+  document.getElementById('contenido').innerHTML = h;
+
+  // Devuelve el foco al control que lo tenía antes del re-render, para no
+  // perder a quien navega con teclado a media acción.
+  if (focoPendiente){
+    // Acotado a #contenido: ahí viven todos los destinos de foco, y así una
+    // pestaña no se confunde con el botón de navegación que comparte data-ir.
+    var el = document.querySelector('#contenido [' + focoPendiente + ']');
+    if (el) el.focus();
+    focoPendiente = null;
+  }
+}
+
+/* =========================================================================
+   EVENTOS
+   ========================================================================= */
+
+function pintarDemo(){
+  var h = '';
+  semilla().usuarios.forEach(function(u){
+    h += '<button type="button" class="demo-item" data-demo="' + u.correo + '">' +
+         '<div class="avatar">' + u.siglas + '</div>' +
+         '<div><div class="nombre">' + u.nombre + '</div>' +
+         '<div class="rol">' + ROLES[u.rol] + '</div></div></button>';
+  });
+  document.getElementById('demo-lista').innerHTML = h;
+}
+
+function entrar(correo, clave){
+  var u = null;
+  S.usuarios.forEach(function(x){ if (x.correo === correo) u = x; });
+  var err = document.getElementById('error-login');
+  if (!u || u.clave !== clave){
+    err.textContent = 'Correo o contraseña incorrectos.';
+    err.classList.remove('oculto');
+    return;
+  }
+  if (!u.activo){
+    err.textContent = 'Esta cuenta está desactivada. Hablá con el Director.';
+    err.classList.remove('oculto');
+    return;
+  }
+  err.classList.add('oculto');
+  S.sesionId = u.id;
+  vista = 'semana'; desplazSemana = 0; abierta = null; diaAdmin = null;
+  guardar();
+  document.getElementById('pantalla-login').classList.add('oculto');
+  document.getElementById('pantalla-app').classList.remove('oculto');
+  document.body.classList.add('en-app');
+  render();
+  document.getElementById('contenido').focus();
+}
+
+function salir(){
+  S.sesionId = null; guardar();
+  document.body.classList.remove('en-app');
+  document.getElementById('pantalla-app').classList.add('oculto');
+  document.getElementById('pantalla-login').classList.remove('oculto');
+  document.getElementById('correo').value = '';
+  document.getElementById('clave').value = '';
+}
+
+document.getElementById('form-login').addEventListener('submit', function(ev){
+  ev.preventDefault();
+  entrar(document.getElementById('correo').value.trim(), document.getElementById('clave').value);
+});
+
+document.getElementById('btn-salir').addEventListener('click', salir);
+
+document.getElementById('demo-lista').addEventListener('click', function(ev){
+  var b = ev.target.closest('[data-demo]');
+  if (!b) return;
+  document.getElementById('correo').value = b.getAttribute('data-demo');
+  document.getElementById('clave').value = 'molino';
+  entrar(b.getAttribute('data-demo'), 'molino');
+});
+
+/* ---- Apariencia ---- */
+
+var panelAp = document.getElementById('panel-ap');
+var disparadorAp = null;
+
+function marcarDisparadores(abierto){
+  document.querySelectorAll('[data-abrir-ap]').forEach(function(x){
+    x.setAttribute('aria-expanded', String(abierto));
+  });
+}
+function abrirPanelAp(desde){
+  disparadorAp = desde;
+  pintarPanelApariencia();
+  panelAp.classList.remove('oculto');
+  marcarDisparadores(true);
+  var pr = panelAp.querySelector('.opcion-ap[aria-pressed="true"]') || panelAp.querySelector('.opcion-ap');
+  if (pr) pr.focus();
+}
+function cerrarPanelAp(){
+  panelAp.classList.add('oculto');
+  marcarDisparadores(false);
+  if (disparadorAp && disparadorAp.focus) disparadorAp.focus();
+  disparadorAp = null;
+}
+
+document.addEventListener('click', function(ev){
+  var t = ev.target.closest('[data-abrir-ap]');
+  if (t){ if (panelAp.classList.contains('oculto')) abrirPanelAp(t); else cerrarPanelAp(); return; }
+  var b = ev.target.closest('[data-ap]');
+  if (b){
+    var enPanel = panelAp.contains(b);
+    ponerApariencia(b.getAttribute('data-ap'), b.getAttribute('data-val'));
+    // Tras repintar, el foco vuelve a la opción recién elegida.
+    var sel = '[data-ap="' + b.getAttribute('data-ap') + '"][data-val="' + b.getAttribute('data-val') + '"]';
+    var nuevo = (enPanel ? panelAp : document.getElementById('contenido')).querySelector(sel);
+    if (nuevo) nuevo.focus();
+    return;
+  }
+  if (ev.target.closest('#cerrar-ap')){ cerrarPanelAp(); return; }
+  // Tocar fuera del panel lo cierra.
+  if (!panelAp.classList.contains('oculto') && !panelAp.contains(ev.target)) cerrarPanelAp();
+});
+
+document.addEventListener('keydown', function(ev){
+  if (ev.key !== 'Escape') return;
+  if (!panelAp.classList.contains('oculto')){ cerrarPanelAp(); return; }
+  var m = document.querySelector('#raiz-modal .fondo-modal');
+  if (m) cerrarModal();
+});
+
+/* ---- Navegación ----
+   El lateral y la barra inferior viven FUERA de #contenido, así que necesitan
+   su propio oyente. Al cambiar de sección el foco pasa al contenido, como en
+   cualquier cambio de página, para que un lector de pantalla anuncie dónde
+   quedó la persona. */
+
+function irA(destino){
+  vista = destino; abierta = null; respondiendo = null;
+  render(); window.scrollTo(0,0);
+}
+
+['nav-lateral','nav-inferior'].forEach(function(id){
+  document.getElementById(id).addEventListener('click', function(ev){
+    var b = ev.target.closest('[data-ir]');
+    if (!b) return;
+    irA(b.getAttribute('data-ir'));
+    document.getElementById('contenido').focus({ preventScroll:true });
+  });
+});
+
+/* ---- Acciones dentro del contenido ---- */
+
+document.getElementById('contenido').addEventListener('click', function(ev){
+  var t = ev.target;
+  var b;
+
+  // Pestañas Plan semanal / Semana: el foco se queda en la pestaña elegida.
+  if ((b = t.closest('[data-ir]'))){
+    var destino = b.getAttribute('data-ir');
+    focoPendiente = 'data-ir="' + destino + '"';
+    irA(destino); return;
+  }
+
+  if ((b = t.closest('[data-sem]'))){
+    var d = +b.getAttribute('data-sem');
+    var enNav = !!b.closest('.nav-semana');
+    desplazSemana = (d === 0) ? 0 : desplazSemana + d;
+    if (desplazSemana > 1) desplazSemana = 1;
+    abierta = null;
+    // Las flechas de arriba conservan el foco para poder pulsarse seguidas; el
+    // botón grande del final desaparece en la semana nueva, así que se sube.
+    if (enNav && d !== 0) focoPendiente = 'data-sem="' + d + '"';
+    render(); window.scrollTo(0,0);
+    if (!enNav || d === 0) document.getElementById('contenido').focus({ preventScroll:true });
+    return;
+  }
+
+  if ((b = t.closest('[data-abrir]'))){
+    var clave = b.getAttribute('data-abrir');
+    abierta = (abierta === clave) ? null : clave;
+    focoPendiente = 'data-abrir="' + clave + '"';
+    render(); return;
+  }
+
+  if ((b = t.closest('[data-cerrar-op]'))){
+    var prev = abierta;
+    abierta = null;
+    if (prev) focoPendiente = 'data-abrir="' + prev + '"';
+    render(); return;
+  }
+
+  if ((b = t.closest('[data-elegir]'))){
+    var partes = b.getAttribute('data-elegir').split('|');
+    var estadoId = partes[partes.length - 1];
+    if (partes[0].indexOf('plan:') === 0){
+      // Plan semanal
+      var dia = +partes[0].slice(5), comidaId = partes[1];
+      var p = yo();
+      if (!S.plan[p.id]) S.plan[p.id] = {};
+      if (!S.plan[p.id][dia]) S.plan[p.id][dia] = {};
+      var previo = S.plan[p.id][dia][comidaId];
+      S.plan[p.id][dia][comidaId] = estadoId;
+      if (!previo || POR_ID[previo].nota !== POR_ID[estadoId].nota) ponerNotaPlan(p.id, dia, comidaId, '');
+      guardar();
+      aviso('Guardado en tu plan');
+    } else {
+      var fecha = partes[0], com = partes[1];
+      var act = efectivo(S.sesionId, fecha, com);
+      guardarSeleccion(S.sesionId, fecha, com, estadoId,
+        act.estado === estadoId ? act.nota : '');
+      aviso('Guardado');
+    }
+    focoPendiente = 'data-elegir="' + b.getAttribute('data-elegir') + '"';
+    render(); return;
+  }
+
+  if ((b = t.closest('[data-volver]'))){
+    var pv = b.getAttribute('data-volver').split('|');
+    volverAlPlan(S.sesionId, pv[0], pv[1]);
+    abierta = null; aviso('Volviste a tu plan'); render(); return;
+  }
+
+  if ((b = t.closest('[data-dia-admin]'))){
+    diaAdmin = b.getAttribute('data-dia-admin');
+    focoPendiente = 'data-dia-admin="' + diaAdmin + '"';
+    render(); return;
+  }
+
+  if ((b = t.closest('[data-vmsg]'))){
+    vistaMensajes = b.getAttribute('data-vmsg'); render(); return;
+  }
+
+  if (t.closest('#publicar')){
+    var ta = document.getElementById('nuevo-msg');
+    var txt = ta.value.trim();
+    if (!txt){ aviso('Escribí algo primero'); ta.focus(); return; }
+    S.mensajes.push({ id:'m'+Date.now(), autorId:S.sesionId, texto:txt, ts:Date.now(),
+      likes:[], respuestas:[] });
+    guardar(); aviso('Publicado'); render(); return;
+  }
+
+  if ((b = t.closest('[data-like]'))){
+    var id = b.getAttribute('data-like');
+    S.mensajes.forEach(function(m){
+      if (m.id !== id) return;
+      var i = m.likes.indexOf(S.sesionId);
+      if (i === -1) m.likes.push(S.sesionId); else m.likes.splice(i,1);
+    });
+    guardar(); focoPendiente = 'data-like="' + id + '"'; render(); return;
+  }
+
+  if ((b = t.closest('[data-responder]'))){
+    var mid = b.getAttribute('data-responder');
+    respondiendo = (respondiendo === mid) ? null : mid;
+    render();
+    if (respondiendo){
+      var inp = document.getElementById('resp-' + respondiendo);
+      if (inp) inp.focus();
+    }
+    return;
+  }
+
+  if ((b = t.closest('[data-enviar-resp]'))){
+    var rid = b.getAttribute('data-enviar-resp');
+    var ri = document.getElementById('resp-' + rid);
+    var rt = ri ? ri.value.trim() : '';
+    if (!rt){ aviso('Escribí tu respuesta'); if (ri) ri.focus(); return; }
+    S.mensajes.forEach(function(m){
+      if (m.id === rid)
+        m.respuestas.push({ id:'r'+Date.now(), autorId:S.sesionId, texto:rt, ts:Date.now() });
+    });
+    respondiendo = null; guardar(); aviso('Respuesta enviada'); render(); return;
+  }
+
+  if ((b = t.closest('[data-borrar-msg]'))) { confirmarBorrado('msg', b.getAttribute('data-borrar-msg')); return; }
+  if ((b = t.closest('[data-borrar-resp]'))){ confirmarBorrado('resp', b.getAttribute('data-borrar-resp')); return; }
+
+  if ((b = t.closest('[data-mes]'))){
+    mesCal = new Date(mesCal.getFullYear(), mesCal.getMonth() + (+b.getAttribute('data-mes')), 1);
+    render(); return;
+  }
+  if ((b = t.closest('[data-vcal]'))){ vistaCal = b.getAttribute('data-vcal'); render(); return; }
+  if ((b = t.closest('[data-dia-cal]'))){ abrirDia(b.getAttribute('data-dia-cal')); return; }
+
+  if (t.closest('#guardar-cuenta')){
+    var me = yo();
+    me.nombre = document.getElementById('cfg-nombre').value.trim() || me.nombre;
+    me.siglas = (document.getElementById('cfg-siglas').value.trim() || me.siglas).toUpperCase();
+    me.correo = document.getElementById('cfg-correo').value.trim() || me.correo;
+    guardar(); aviso('Cuenta actualizada'); render(); return;
+  }
+
+  if (t.closest('#activar-push')){ aviso('En el prototipo no hay notificaciones reales'); return; }
+});
+
+/* Notas y horas límite se guardan al salir del campo. */
+document.getElementById('contenido').addEventListener('change', function(ev){
+  var el = ev.target, a;
+  if ((a = el.getAttribute('data-nota'))){
+    var p = a.split('|');
+    var act = efectivo(S.sesionId, p[0], p[1]);
+    if (act.estado) guardarSeleccion(S.sesionId, p[0], p[1], act.estado, el.value);
+    aviso('Nota guardada');
+    return;
+  }
+  if ((a = el.getAttribute('data-nota-plan'))){
+    var q = a.split('|');
+    ponerNotaPlan(S.sesionId, +q[0], q[1], el.value);
+    aviso('Nota guardada en tu plan');
+    return;
+  }
+  if ((a = el.getAttribute('data-hl'))){
+    S.horasLimite[a].hora = el.value; guardar(); aviso('Hora límite actualizada');
+  }
+});
+
+/* ---- Modales ---- */
+
+var focoPrevio = null;
+
+function abrirModal(html){
+  focoPrevio = document.activeElement;
+  document.getElementById('raiz-modal').innerHTML =
+    '<div class="fondo-modal"><div class="modal" role="dialog" aria-modal="true">' + html + '</div></div>';
+  var f = document.querySelector('#raiz-modal button, #raiz-modal input');
+  if (f) f.focus();
+}
+function cerrarModal(){
+  document.getElementById('raiz-modal').innerHTML = '';
+  if (focoPrevio && focoPrevio.focus) focoPrevio.focus();
+  focoPrevio = null;
+}
+
+function confirmarBorrado(tipo, id){
+  abrirModal('<h2>¿Eliminar?</h2><p>Esta acción no se puede deshacer.</p>' +
+    '<div class="modal-pie"><button class="btn" data-cancelar="1">Cancelar</button>' +
+    '<button class="btn peligro" data-confirmar="' + tipo + '|' + id + '">Sí, eliminar</button></div>');
+}
+
+function abrirDia(fecha){
+  var p = yo();
+  var d = desdeIso(fecha);
+  var evs = S.eventos.filter(function(e){ return e.fecha === fecha; });
+  var titulo = d.getDate() + ' de ' + MESES[d.getMonth()];
+  var h = '<h2>' + titulo + '</h2>';
+
+  if (!evs.length) h += '<div class="vacio">No hay eventos este día.</div>';
+  else {
+    h += '<div style="display:flex;flex-direction:column;gap:.6rem;margin-bottom:1rem">';
+    evs.forEach(function(e){
+      h += '<div class="evento" style="justify-content:space-between">' +
+           '<span>' + (e.hora ? '<span class="hora">' + esc(e.hora) + '</span> ' : '') +
+           esc(e.titulo) + '</span>';
+      if (p.rol === 'director')
+        h += '<button type="button" class="msg-accion borrar" data-borrar-ev="' + e.id + '">' +
+             icono('no') + '<span>Eliminar</span></button>';
+      h += '</div>';
+    });
+    h += '</div>';
+  }
+
+  // Sin autofocus en el campo: abrir un día vacío no debe disparar el
+  // teclado del teléfono.
+  if (p.rol !== 'administracion'){
+    h += '<div class="campo"><label for="ev-titulo">Nuevo evento</label>' +
+         '<input id="ev-titulo" type="text" placeholder="Título"></div>' +
+         '<div class="campo"><label for="ev-hora">Hora (opcional)</label>' +
+         '<input id="ev-hora" type="time"></div>';
+  }
+  h += '<div class="modal-pie"><button class="btn" data-cancelar="1">Cerrar</button>';
+  if (p.rol !== 'administracion')
+    h += '<button class="btn primario" data-crear-ev="' + fecha + '">Agregar</button>';
+  h += '</div>';
+  abrirModal(h);
+}
+
+document.getElementById('raiz-modal').addEventListener('click', function(ev){
+  var t = ev.target, b;
+  if (t.classList.contains('fondo-modal')){ cerrarModal(); return; }
+  if (t.closest('[data-cancelar]')){ cerrarModal(); return; }
+
+  if ((b = t.closest('[data-confirmar]'))){
+    var p = b.getAttribute('data-confirmar').split('|');
+    var me = yo();
+    if (p[0] === 'msg'){
+      S.mensajes = S.mensajes.filter(function(m){
+        if (m.id !== p[1]) return true;
+        if (m.autorId !== me.id)
+          S.moderacion.push({ id:'g'+Date.now(), ts:Date.now(), directorId:me.id,
+            autorId:m.autorId, texto:m.texto });
+        return false;
+      });
+    } else {
+      S.mensajes.forEach(function(m){
+        if (m.id !== p[1]) return;
+        m.respuestas = m.respuestas.filter(function(r){
+          if (r.id !== p[2]) return true;
+          if (r.autorId !== me.id)
+            S.moderacion.push({ id:'g'+Date.now(), ts:Date.now(), directorId:me.id,
+              autorId:r.autorId, texto:r.texto });
+          return false;
+        });
+      });
+    }
+    guardar(); cerrarModal(); aviso('Eliminado'); render(); return;
+  }
+
+  if ((b = t.closest('[data-borrar-ev]'))){
+    var eid = b.getAttribute('data-borrar-ev');
+    S.eventos = S.eventos.filter(function(e){ return e.id !== eid; });
+    guardar(); cerrarModal(); aviso('Evento eliminado'); render(); return;
+  }
+
+  if ((b = t.closest('[data-crear-ev]'))){
+    var ti = document.getElementById('ev-titulo');
+    var txt = ti ? ti.value.trim() : '';
+    if (!txt){ aviso('Escribí un título'); if (ti) ti.focus(); return; }
+    var ho = document.getElementById('ev-hora');
+    S.eventos.push({ id:'e'+Date.now(), titulo:txt, fecha:b.getAttribute('data-crear-ev'),
+      hora: ho ? ho.value : '', autorId:S.sesionId });
+    guardar(); cerrarModal(); aviso('Evento agregado'); render(); return;
+  }
+});
+
+/* =========================================================================
+   ARRANQUE
+   ========================================================================= */
+
+document.documentElement.lang = 'es';
+cargarApariencia();
+pintarPanelApariencia();
+
+S = leer(CLAVE);
+if (!S || !S.usuarios) { S = semilla(); guardar(); }
+if (!S.planNotas) S.planNotas = {};
+pintarDemo();
+
+if (S.sesionId && usuario(S.sesionId)){
+  document.getElementById('pantalla-login').classList.add('oculto');
+  document.getElementById('pantalla-app').classList.remove('oculto');
+  document.body.classList.add('en-app');
+  render();
+}
+
+document.getElementById('btn-reset').addEventListener('click', function(){
+  S = semilla(); guardar();
+  try { localStorage.removeItem(CLAVE_AP); } catch(e){}
+  AP = apPorDefecto(); pintarAtributos(); pintarPanelApariencia();
+  pintarDemo();
+  document.getElementById('correo').value = '';
+  document.getElementById('clave').value = '';
+  document.getElementById('error-login').classList.add('oculto');
+  aviso('Datos de prueba restablecidos');
+});
+
+// Acceso rápido para las pruebas: ?reset vuelve a los datos de demo.
+if (location.search.indexOf('reset') !== -1){
+  S = semilla(); guardar(); location.replace(location.pathname);
+}
+
+})();
+</script>
+</body>
+</html>

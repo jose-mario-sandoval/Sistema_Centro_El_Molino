@@ -37,19 +37,15 @@ function NodoRespuesta({
 }) {
   return (
     <div className="msg-top">
-      <div className="avatar" style={{ width: 24, height: 24, fontSize: 10 }}>
+      <div className="avatar">
         {autor?.siglas ?? '…'}
       </div>
       <div className="msg-body">
         <div className="msg-meta">
-          <span className="name" style={{ fontSize: 12.5 }}>
-            {autor?.nombre ?? 'Cargando…'}
-          </span>
+          <span className="name">{autor?.nombre ?? 'Cargando…'}</span>
           <Tiempo creadoEn={respuesta.creadoEn} ahora={ahora} />
         </div>
-        <div className="msg-text" style={{ fontSize: 13 }}>
-          {respuesta.texto}
-        </div>
+        <div className="msg-text">{respuesta.texto}</div>
         {puedeEliminar && (
           <div className="msg-actions">
             <button type="button" className="msg-action delete" onClick={alEliminar}>

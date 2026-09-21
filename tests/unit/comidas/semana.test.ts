@@ -38,8 +38,16 @@ describe('etiquetas', () => {
     expect(fechaCorta('2026-01-05')).toBe('5/1')
   })
 
+  it('rango de la semana dentro de un mes', () => {
+    expect(rangoSemana('2026-09-14')).toBe('14 al 20 de septiembre')
+  })
+
   it('rango de la semana que cruza de mes', () => {
-    expect(rangoSemana('2026-09-28')).toBe('28/9 — 4/10')
+    expect(rangoSemana('2026-09-28')).toBe('28 de septiembre al 4 de octubre')
+  })
+
+  it('rango de la semana que cruza de año', () => {
+    expect(rangoSemana('2026-12-28')).toBe('28 de diciembre al 3 de enero')
   })
 
   it('diasDeSemana devuelve los 7 días desde el lunes', () => {

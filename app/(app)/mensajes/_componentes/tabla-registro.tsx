@@ -32,11 +32,11 @@ export function TablaRegistro({ entradas, perfiles }: { entradas: EntradaRegistr
           <tbody>
             {entradas.map((e) => (
               <tr key={e.id}>
-                <td style={{ whiteSpace: 'nowrap' }}>{fechaHoraLocal(e.eliminado_en)}</td>
-                <td>{nombres.get(e.moderador_id) ?? '—'}</td>
-                <td>{nombres.get(e.autor_id) ?? '—'}</td>
-                <td>{e.era_respuesta ? 'Respuesta' : 'Publicación'}</td>
-                <td style={{ whiteSpace: 'pre-wrap' }}>{e.texto_eliminado}</td>
+                <td data-et="Fecha" style={{ whiteSpace: 'nowrap' }}>{fechaHoraLocal(e.eliminado_en)}</td>
+                <td data-et="Eliminado por">{nombres.get(e.moderador_id) ?? '—'}</td>
+                <td data-et="Autor">{nombres.get(e.autor_id) ?? '—'}</td>
+                <td data-et="Tipo">{e.era_respuesta ? 'Respuesta' : 'Publicación'}</td>
+                <td data-et="Texto" style={{ whiteSpace: 'pre-wrap' }}>{e.texto_eliminado}</td>
               </tr>
             ))}
           </tbody>

@@ -13,7 +13,7 @@ export default function ErrorConfiguraciones({ error, reset }: { error: Error & 
   return (
     <>
       <div className="page-head">
-        <h1>Configuraciones</h1>
+        <h1>Ajustes</h1>
       </div>
       <div className="card">
         <div className="empty-state">
