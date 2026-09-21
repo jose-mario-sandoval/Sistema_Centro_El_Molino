@@ -131,12 +131,12 @@ test('un residente cambia el almuerzo y Administración lo ve en Semana', async 
   await expect(resumen).toContainText('sin definir')
 
   // Administración ve siglas (RP), no nombres.
-  const celda = page.getByRole('row', { name: /^RP/ }).locator('td[data-comida="almuerzo"]')
+  const celda = page.getByRole('row', { name: /^RP\b/ }).locator('td[data-comida="almuerzo"]')
   await expect(celda).toContainText('Comer tarde')
   await expect(celda).toContainText('13:30')
   await expect(celda).toHaveClass(/\bexcepcion\b/)
 
-  const celdaDirectora = page.getByRole('row', { name: /^DP/ }).locator('td[data-comida="almuerzo"]')
+  const celdaDirectora = page.getByRole('row', { name: /^DP\b/ }).locator('td[data-comida="almuerzo"]')
   await expect(celdaDirectora).toContainText('Sin definir')
   await sinNombresAjenos(page, 'administracion')
 })
@@ -146,12 +146,12 @@ test('Administración ve siglas y no nombres en Semana y en Plan semanal', async
   await iniciarSesion(page, 'administracion')
 
   await page.goto('/comidas/semana')
-  await expect(page.getByRole('row', { name: /^RP/ })).toBeVisible()
-  await expect(page.getByRole('row', { name: /^DP/ })).toBeVisible()
+  await expect(page.getByRole('row', { name: /^RP\b/ })).toBeVisible()
+  await expect(page.getByRole('row', { name: /^DP\b/ })).toBeVisible()
   await sinNombresAjenos(page, 'administracion')
 
   await page.goto('/comidas/plan')
-  await expect(page.getByRole('row', { name: /^RP/ })).toBeVisible()
+  await expect(page.getByRole('row', { name: /^RP\b/ })).toBeVisible()
   await sinNombresAjenos(page, 'administracion')
 })
 
