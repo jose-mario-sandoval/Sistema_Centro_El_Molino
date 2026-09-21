@@ -143,6 +143,9 @@ export type Database = {
       perfiles: {
         Row: {
           activo: boolean
+          apariencia_contraste: string | null
+          apariencia_tema: string | null
+          apariencia_texto: string | null
           avisar_hora_limite: boolean
           avisar_mensajes: boolean
           correo: string
@@ -155,6 +158,9 @@ export type Database = {
         }
         Insert: {
           activo?: boolean
+          apariencia_contraste?: string | null
+          apariencia_tema?: string | null
+          apariencia_texto?: string | null
           avisar_hora_limite?: boolean
           avisar_mensajes?: boolean
           correo: string
@@ -167,6 +173,9 @@ export type Database = {
         }
         Update: {
           activo?: boolean
+          apariencia_contraste?: string | null
+          apariencia_tema?: string | null
+          apariencia_texto?: string | null
           avisar_hora_limite?: boolean
           avisar_mensajes?: boolean
           correo?: string

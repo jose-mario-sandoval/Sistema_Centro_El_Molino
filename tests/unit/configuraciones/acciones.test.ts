@@ -38,6 +38,9 @@ const DIRECTOR: Perfil = {
   debe_cambiar_contrasena: false,
   avisar_hora_limite: true,
   avisar_mensajes: true,
+  apariencia_tema: null,
+  apariencia_contraste: null,
+  apariencia_texto: null,
   creado_en: '2026-09-17T00:00:00Z',
 }
 
