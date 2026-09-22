@@ -336,6 +336,10 @@ describe('consulta del feed', () => {
     const primera = await publicar('residente', 'Primera respuesta', conTodo)
     const segunda = await publicar('residente2', 'Segunda respuesta', conTodo)
     const sola = await publicar('residente', 'Feed sin nada')
+    // "segunda" la escribe residente2: sin aprobar, la aprobación de mensajes la oculta para
+    // residente (ni autor ni Director). El Director la aprueba para que este test siga probando
+    // el armado del feed, no la moderación.
+    await (await clienteComo('director')).from('mensajes').update({ estado: 'aprobado' }).eq('id', segunda)
     for (const clave of ['residente', 'residente2', 'administracion'] as const) {
       const cliente = await clienteComo(clave)
       const { error } = await cliente.from('reacciones').insert({ mensaje_id: conTodo, usuario_id: ids[clave] })
@@ -378,6 +382,13 @@ describe('consulta del feed', () => {
       // Una sola inserción en lote con la llave secreta; todas quedan con el mismo creado_en.
       const { error } = await admin.from('mensajes').insert([...deMuchas, ...deVarias])
       expect(error).toBeNull()
+      // Con la llave secreta (sin auth.uid()) el trigger las deja "pendiente": la mitad son de
+      // residente2, invisibles para residente si no se aprueban. El Director las aprueba en bloque.
+      const { error: errorAprobar } = await (await clienteComo('director'))
+        .from('mensajes')
+        .update({ estado: 'aprobado' })
+        .in('padre_id', [conMuchas, conVarias])
+      expect(errorAprobar).toBeNull()
 
       const { publicaciones } = await paginaComo('residente')
       const idsDe = (id: string) => publicaciones.find((p) => p.id === id)?.respuestas.map((r) => r.id)
@@ -403,6 +414,13 @@ describe('consulta del feed', () => {
     }))
     const { error } = await admin.from('mensajes').insert(filas)
     expect(error).toBeNull()
+    // Con la llave secreta el trigger fuerza "pendiente" pese a autor_id: ids.director (mi_rol() no
+    // ve un usuario autenticado). El Director las aprueba para que administracion pueda verlas.
+    const { error: errorAprobar } = await (await clienteComo('director'))
+      .from('mensajes')
+      .update({ estado: 'aprobado' })
+      .in('id', filas.map((f) => f.id))
+    expect(errorAprobar).toBeNull()
     const nuevas = new Set<string>(filas.map((f) => f.id))
     // De la más nueva (.123507) a la más antigua (.123456).
     const esperadas = filas.map((f) => f.id).reverse()
