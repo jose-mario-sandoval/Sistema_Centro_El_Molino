@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   agregarAnteriores,
+  aplicarActualizacionMensaje,
   aplicarBorradoMensaje,
   aplicarInsercionMensaje,
   armarFeed,
@@ -15,7 +16,7 @@ import {
 const T = (minuto: number) => `2026-09-16T16:${String(minuto).padStart(2, '0')}:00.000000+00:00`
 
 function fila(id: string, creadoEn: string, padreId: string | null = null, autorId = 'u1'): MensajeFila {
-  return { id, autor_id: autorId, padre_id: padreId, texto: `texto ${id}`, creado_en: creadoEn }
+  return { id, autor_id: autorId, padre_id: padreId, texto: `texto ${id}`, creado_en: creadoEn, estado: 'aprobado', motivo_rechazo: null }
 }
 
 /** Publicación como la devuelve la consulta del feed (respuestas y reacciones embebidas). */
@@ -47,8 +48,10 @@ describe('armarFeed', () => {
       autorId: 'autor',
       texto: 'texto p1',
       creadoEn: T(1),
+      estado: 'aprobado',
+      motivoRechazo: null,
       reacciones: ['u2', 'u3'],
-      respuestas: [{ id: 'r1', autorId: 'otro', texto: 'texto r1', creadoEn: T(2) }],
+      respuestas: [{ id: 'r1', autorId: 'otro', texto: 'texto r1', creadoEn: T(2), estado: 'aprobado', motivoRechazo: null }],
     })
   })
 
@@ -191,5 +194,38 @@ describe('reacciones', () => {
     const optimista = fijarReaccion(antes, 'p1', 'u3', presente)
     expect(tieneReaccion(optimista, 'p1', 'u3')).toBe(true)
     expect(fijarReaccion(optimista, 'p1', 'u3', !presente)).toEqual(antes)
+  })
+})
+
+describe('aplicarActualizacionMensaje', () => {
+  const base = { id: 'm1', autor_id: 'u1', padre_id: null, texto: 'Hola', creado_en: '2026-01-01T00:00:00.000000+00:00' }
+
+  it('actualiza el estado de una publicación que ya estaba en el feed', () => {
+    const feed = [{ id: 'm1', autorId: 'u1', texto: 'Hola', creadoEn: base.creado_en, estado: 'pendiente' as const, motivoRechazo: null, reacciones: [], respuestas: [] }]
+    const siguiente = aplicarActualizacionMensaje(feed, { ...base, estado: 'aprobado', motivo_rechazo: null })
+    expect(siguiente[0].estado).toBe('aprobado')
+  })
+
+  it('un mensaje que se vuelve visible por primera vez (no estaba en el feed) se inserta', () => {
+    const siguiente = aplicarActualizacionMensaje([], { ...base, estado: 'aprobado', motivo_rechazo: null })
+    expect(siguiente).toEqual([{ id: 'm1', autorId: 'u1', texto: 'Hola', creadoEn: base.creado_en, estado: 'aprobado', motivoRechazo: null, reacciones: [], respuestas: [] }])
+  })
+
+  it('una respuesta que se vuelve visible se agrega bajo su padre si el padre está cargado', () => {
+    const feed = [{ id: 'padre', autorId: 'u2', texto: 'Publicación', creadoEn: '2026-01-01T00:00:00.000000+00:00', estado: 'aprobado' as const, motivoRechazo: null, reacciones: [], respuestas: [] }]
+    const siguiente = aplicarActualizacionMensaje(feed, { ...base, id: 'r1', padre_id: 'padre', estado: 'aprobado', motivo_rechazo: null })
+    expect(siguiente[0].respuestas).toHaveLength(1)
+    expect(siguiente[0].respuestas[0].id).toBe('r1')
+  })
+
+  it('una respuesta cuyo padre no está cargado no rompe nada: el feed queda igual', () => {
+    const siguiente = aplicarActualizacionMensaje([], { ...base, id: 'r1', padre_id: 'padre-no-cargado', estado: 'aprobado', motivo_rechazo: null })
+    expect(siguiente).toEqual([])
+  })
+
+  it('actualiza una respuesta que ya estaba cargada', () => {
+    const feed = [{ id: 'padre', autorId: 'u2', texto: 'Publicación', creadoEn: '2026-01-01T00:00:00.000000+00:00', estado: 'aprobado' as const, motivoRechazo: null, reacciones: [], respuestas: [{ id: 'r1', autorId: 'u1', texto: 'Vieja', creadoEn: base.creado_en, estado: 'pendiente' as const, motivoRechazo: null }] }]
+    const siguiente = aplicarActualizacionMensaje(feed, { ...base, id: 'r1', padre_id: 'padre', texto: 'Corregida', estado: 'rechazado', motivo_rechazo: 'Ofensivo' })
+    expect(siguiente[0].respuestas[0]).toEqual({ id: 'r1', autorId: 'u1', texto: 'Corregida', creadoEn: base.creado_en, estado: 'rechazado', motivoRechazo: 'Ofensivo' })
   })
 })
