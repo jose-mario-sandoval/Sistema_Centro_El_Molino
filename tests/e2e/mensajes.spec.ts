@@ -181,3 +181,60 @@ test('otra sesión recibe el mensaje en tiempo real sin recargar', async ({ page
     await contextoAutor.close()
   }
 })
+
+test('un mensaje de Residente queda pendiente, el Director lo rechaza, el Residente lo corrige y reenvía, el Director lo aprueba', async ({
+  page,
+  browser,
+  baseURL,
+}) => {
+  const texto = textoUnico('Pendiente')
+  await iniciarSesion(page, 'residente')
+  await page.goto('/mensajes')
+  await page.getByLabel('Nuevo mensaje').fill(texto)
+  await page.getByRole('button', { name: 'Publicar' }).click()
+  await expect(tarjeta(page, texto)).toBeVisible()
+  await expect(tarjeta(page, texto).getByText('Esperando aprobación')).toBeVisible()
+
+  // Otro Residente y el Director, cada uno en su propio contexto de navegador (no `context.newPage()`:
+  // eso compartiría cookies/localStorage con la sesión de `page` y pisaría el login de un usuario con el otro).
+  const contextoOtro = await browser.newContext({ baseURL })
+  const contextoDirector = await browser.newContext({ baseURL })
+  try {
+    // El otro Residente no lo ve todavía.
+    const paginaOtro = await contextoOtro.newPage()
+    await iniciarSesion(paginaOtro, 'residente2')
+    await paginaOtro.goto('/mensajes')
+    await expect(paginaOtro.getByText(texto)).toHaveCount(0)
+
+    // El Director lo rechaza con motivo.
+    const paginaDirector = await contextoDirector.newPage()
+    await iniciarSesion(paginaDirector, 'director')
+    await paginaDirector.goto('/mensajes?vista=pendientes')
+    const filaPendiente = paginaDirector.locator('.pendiente-item', { hasText: texto })
+    await filaPendiente.getByLabel('Motivo del rechazo (opcional)').fill('Corregí la fecha')
+    await filaPendiente.getByRole('button', { name: 'Rechazar' }).click()
+    await expect(filaPendiente).toHaveCount(0)
+
+    // El Residente ve el rechazo y corrige.
+    await expect(tarjeta(page, texto).getByText('Rechazado: Corregí la fecha')).toBeVisible()
+    const textoCorregido = `${texto} (corregido)`
+    await tarjeta(page, texto).getByRole('textbox').fill(textoCorregido)
+    await tarjeta(page, texto).getByRole('button', { name: 'Corregir y reenviar' }).click()
+    await expect(page.getByText('Esperando aprobación')).toBeVisible()
+
+    // El Director lo aprueba.
+    await paginaDirector.goto('/mensajes?vista=pendientes')
+    await paginaDirector
+      .locator('.pendiente-item', { hasText: textoCorregido })
+      .getByRole('button', { name: 'Aprobar' })
+      .click()
+
+    // Aparece para todos, en tiempo real, sin recargar.
+    await expect(page.getByText(textoCorregido)).toBeVisible()
+    await expect(tarjeta(page, textoCorregido).getByText('Esperando aprobación')).toHaveCount(0)
+    await expect(paginaOtro.getByText(textoCorregido)).toBeVisible({ timeout: 10_000 })
+  } finally {
+    await contextoOtro.close()
+    await contextoDirector.close()
+  }
+})
