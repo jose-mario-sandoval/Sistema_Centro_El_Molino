@@ -255,7 +255,8 @@ git commit -m "feat(comidas): totalQueComen() para la vista agregada de Administ
 - [ ] **Paso 1: escribir las pruebas que fallan**
 
 Agregar a `tests/unit/comidas/vista.test.ts` (ajustar el import del encabezado para incluir
-`agregarSemana`, `armarDiaAdministracion`, `resumenPlanSemanal`, `type DiaAgregado`):
+`agregarSemana`, `armarDiaAdministracion`, `resumenPlanSemanal`, `type DiaAgregado` y
+`type PersonaConPlan`, todos de `@/lib/comidas/vista`):
 
 ```ts
 describe('agregarSemana', () => {
@@ -364,8 +365,9 @@ e2e de la Tarea 6, que confirman que ningún nombre llega al navegador de Admini
 - [ ] **Paso 1: agregar las tres funciones**
 
 En `lib/comidas/consultas.ts`, después de `obtenerDiaParaAdministracion` (agregar a los imports:
-`agregarSemana`, `resumenPlanSemanal`, `type DiaAgregado` de `./vista`; `diasDeSemana` de
-`./semana`):
+`agregarSemana`, `resumenPlanSemanal`, `type DiaAgregado` de `./vista`; `diasDeSemana` de `./semana`;
+y agregar `type TiempoComida` al import ya existente de `./tipos`, que hoy solo trae `TIEMPOS_COMIDA`
+y `type HorasLimite` — las dos funciones nuevas la usan en su tipo de retorno):
 
 ```ts
 /** Semana completa para Administración: solo cantidades por día y tiempo de comida, nunca por persona. */
@@ -559,6 +561,9 @@ Reemplazar la rama `administracion` (líneas 21-29) por:
     const [dias, extras] = await Promise.all([obtenerSemanaParaAdministracion(lunes), obtenerExtrasDeLaSemana(lunes)])
     return (
       <>
+        {/* La vieja SemanaAdministracion la traía adentro: sin esto, Administración no ve los cierres
+            del job de cada 5 minutos hasta que recargue a mano. */}
+        <RefrescarAlVolver />
         <NavegacionSemana lunes={lunes} hoy={hoy} />
         <SemanaAgregadaAdministracion dias={dias} extras={extras} />
       </>
@@ -566,8 +571,14 @@ Reemplazar la rama `administracion` (líneas 21-29) por:
   }
 ```
 
-Actualizar los imports: quitar `obtenerDiaParaAdministracion`, `diaPedido` (si ya no se usa en ningún
-otro lado del archivo — verificar), `SemanaAdministracion`; agregar `obtenerSemanaParaAdministracion`,
+`RefrescarAlVolver` ya está importado en este archivo (lo usa la rama de Residente/Director) — no hace
+falta agregar el import. Como esta rama ya no usa `?dia=`, cambiar la desestructuración de
+`searchParams` de `const { semana, dia } = await searchParams` a `const { semana } = await searchParams`.
+
+Actualizar el resto de los imports: quitar `obtenerDiaParaAdministracion`, `diaPedido` (comprobar que
+ningún otro archivo del árbol de comidas la importa antes de borrar su export de
+`lib/comidas/semana.ts` — si algo más la usa, dejarla y solo quitar el import de esta página),
+`SemanaAdministracion`; agregar `obtenerSemanaParaAdministracion`,
 `obtenerExtrasDeLaSemana` de `@/lib/comidas/consultas` y `SemanaAgregadaAdministracion` de
 `../_componentes/semana-agregada-administracion`.
 
@@ -653,8 +664,9 @@ antes de `// Las ausencias son privadas...`) por:
   await iniciarSesion(page, 'administracion')
   await page.goto(`/comidas/semana?semana=${lunesSiguiente}`)
   const celdaAlmuerzo = page.locator(`td[data-et="Almuerzo ${fechaCorta(miercolesSiguiente)}"]`)
-  // El ausente no suma al total que come; el conteo lo sigue reflejando sin exponer el motivo.
-  await expect(celdaAlmuerzo).toBeVisible()
+  // El residente ausente cuenta como "no" (no suma) y el director no tiene plan ese día ("sin
+  // definir", tampoco suma): el total que come queda en 0, sin exponer que fue por una ausencia.
+  await expect(celdaAlmuerzo.locator('.conteo-numero')).toHaveText('0')
 ```
 
 (el resto del test, desde `// Las ausencias son privadas...`, queda igual.)
