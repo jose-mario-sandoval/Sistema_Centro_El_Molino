@@ -16,9 +16,10 @@ export const MAXIMO_FILAS_API = 1000
  * más (lista posiblemente cortada) necesita pedidos aparte. Las reacciones no: hay a lo sumo una por persona.
  * `mensajes!padre_id`: en una FK a la misma tabla, PostgREST elige el lado uno-a-muchos (las respuestas).
  */
+// Un solo string literal (sin concatenar con `+`): supabase-js infiere el tipo de fila leyendo
+// el literal exacto, y `+` lo ampliaría a `string` genérico, perdiendo esa inferencia.
 const COLUMNAS_FEED =
-  'id, autor_id, padre_id, texto, creado_en, estado, motivo_rechazo, reacciones(usuario_id), ' +
-  'respuestas:mensajes!padre_id(id, autor_id, padre_id, texto, creado_en, estado, motivo_rechazo)'
+  'id, autor_id, padre_id, texto, creado_en, estado, motivo_rechazo, reacciones(usuario_id), respuestas:mensajes!padre_id(id, autor_id, padre_id, texto, creado_en, estado, motivo_rechazo)'
 
 type Cliente = SupabaseClient<Database>
 

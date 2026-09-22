@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { aplicarInsercionMensaje, armarFeed, fijarReaccion, type Publicacion } from '@/lib/mensajes/feed'
+import { aplicarInsercionMensaje, armarFeed, fijarReaccion, type MensajeFila, type Publicacion } from '@/lib/mensajes/feed'
 import { aplicarCambios, leerEvento, type CambioFeed, type EventoTiempoReal } from '@/lib/mensajes/tiempo-real'
 
 const T = (minuto: number) => `2026-09-16T16:${String(minuto).padStart(2, '0')}:00.000000+00:00`
 
-function mensaje(id: string, creadoEn: string, padreId: string | null = null, autorId = 'u1') {
+// Tipado explícito: sin él, `estado: 'aprobado'` se ampliaría a `string` (objeto literal sin
+// contexto) y dejaría de encajar en MensajeFila donde se use este helper.
+function mensaje(id: string, creadoEn: string, padreId: string | null = null, autorId = 'u1'): MensajeFila {
   return { id, autor_id: autorId, padre_id: padreId, texto: `texto ${id}`, creado_en: creadoEn, estado: 'aprobado', motivo_rechazo: null }
 }
 

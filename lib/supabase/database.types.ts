@@ -143,21 +143,27 @@ export type Database = {
         Row: {
           autor_id: string
           creado_en: string
+          estado: Database["public"]["Enums"]["estado_mensaje"]
           id: string
+          motivo_rechazo: string | null
           padre_id: string | null
           texto: string
         }
         Insert: {
           autor_id: string
           creado_en?: string
+          estado?: Database["public"]["Enums"]["estado_mensaje"]
           id?: string
+          motivo_rechazo?: string | null
           padre_id?: string | null
           texto: string
         }
         Update: {
           autor_id?: string
           creado_en?: string
+          estado?: Database["public"]["Enums"]["estado_mensaje"]
           id?: string
+          motivo_rechazo?: string | null
           padre_id?: string | null
           texto?: string
         }
@@ -459,9 +465,7 @@ export type Database = {
         Returns: boolean
       }
       requiere_cocina_valido: {
-        Args: {
-          p: Database["public"]["Enums"]["requerimiento_cocina"][]
-        }
+        Args: { p: Database["public"]["Enums"]["requerimiento_cocina"][] }
         Returns: boolean
       }
       soy_activo: { Args: never; Returns: boolean }
@@ -476,6 +480,7 @@ export type Database = {
     }
     Enums: {
       estado_comida: "si" | "no" | "temprano" | "tarde" | "bolsa" | "enfermo"
+      estado_mensaje: "pendiente" | "aprobado" | "rechazado"
       origen_seleccion: "persona" | "plan" | "ausencia"
       requerimiento_cocina: "merienda" | "comida" | "materiales"
       rol: "director" | "residente" | "administracion"
@@ -609,6 +614,7 @@ export const Constants = {
   public: {
     Enums: {
       estado_comida: ["si", "no", "temprano", "tarde", "bolsa", "enfermo"],
+      estado_mensaje: ["pendiente", "aprobado", "rechazado"],
       origen_seleccion: ["persona", "plan", "ausencia"],
       requerimiento_cocina: ["merienda", "comida", "materiales"],
       rol: ["director", "residente", "administracion"],

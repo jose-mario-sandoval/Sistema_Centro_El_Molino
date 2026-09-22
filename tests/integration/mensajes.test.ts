@@ -481,7 +481,8 @@ describe('aprobación de mensajes', () => {
     const residente = await clienteComo('residente')
     const { data } = await residente
       .from('mensajes')
-      // @ts-expect-error -- estado no debería poder mandarse, pero probamos que aunque se intente, no sirve.
+      // Con el tipo generado, `estado` ya es una columna válida del Insert; lo que prueba este caso
+      // es que el trigger lo ignora en tiempo de ejecución, no que el cliente no pueda tipearlo.
       .insert({ autor_id: ids.residente, texto: 'Truco', estado: 'aprobado' })
       .select('estado')
       .single()
