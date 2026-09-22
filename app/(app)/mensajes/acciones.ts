@@ -11,6 +11,8 @@ import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { camposConError } from '@/lib/validacion/auth'
 import {
   esquemaBorrado,
+  esquemaEdicionPropia,
+  esquemaModeracion,
   esquemaPaginaMensajes,
   esquemaPublicacion,
   esquemaReaccion,
@@ -185,4 +187,50 @@ export async function cargarPerfiles(): Promise<Resultado<PerfilResumen[]>> {
     console.error('cargarPerfiles', error)
     return fallo('No se pudieron cargar los perfiles.')
   }
+}
+
+/** Solo el Director. Aprobar/rechazar, y de paso corregir el texto si hace falta. */
+export async function moderarMensaje(entrada: unknown): Promise<Resultado<null>> {
+  const sesion = await perfilParaAccion('director')
+  if (!sesion.ok) return sesion
+
+  const datos = esquemaModeracion.safeParse(entrada)
+  if (!datos.success) return fallo('Revisá los datos.', camposConError(datos.error))
+
+  const cambios: { estado: 'aprobado' | 'rechazado'; texto?: string; motivo_rechazo: string | null } = {
+    estado: datos.data.estado,
+    motivo_rechazo: datos.data.estado === 'rechazado' ? (datos.data.motivoRechazo ?? null) : null,
+  }
+  if (datos.data.texto !== undefined) cambios.texto = datos.data.texto
+
+  const supabase = await crearClienteServidor()
+  const { data, error } = await supabase.from('mensajes').update(cambios).eq('id', datos.data.id).select('id')
+  if (error) {
+    console.error('moderarMensaje', error)
+    return fallo('No se pudo actualizar el mensaje. Intentá de nuevo.')
+  }
+  if (data.length === 0) return fallo('El mensaje ya no existe.')
+
+  revalidatePath('/mensajes')
+  return exito(null)
+}
+
+/** El autor corrige su propio mensaje rechazado; RLS exige que siga en ese estado. */
+export async function editarMensajePropio(_previo: Resultado<null> | null, formData: FormData): Promise<Resultado<null>> {
+  const sesion = await perfilParaAccion()
+  if (!sesion.ok) return sesion
+
+  const entrada = esquemaEdicionPropia.safeParse({ id: formData.get('id'), texto: formData.get('texto') })
+  if (!entrada.success) return fallo('Revisá el mensaje.', camposConError(entrada.error))
+
+  const supabase = await crearClienteServidor()
+  const { data, error } = await supabase.from('mensajes').update({ texto: entrada.data.texto }).eq('id', entrada.data.id).select('id')
+  if (error) {
+    console.error('editarMensajePropio', error)
+    return fallo('No se pudo guardar. Intentá de nuevo.')
+  }
+  if (data.length === 0) return fallo('Ya no podés editar este mensaje.')
+
+  revalidatePath('/mensajes')
+  return exito(null)
 }
