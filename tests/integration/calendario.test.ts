@@ -676,3 +676,86 @@ describe('enlaces_confirmacion: RLS y funciones públicas', () => {
     })
   })
 })
+
+describe('series_eventos y crear_serie_eventos', () => {
+  // El afterEach de arriba del archivo borra `eventos` por creado_por, pero no `series_eventos`
+  // (tabla nueva de esta pista): sin este afterEach propio, cada corrida deja filas huérfanas en el
+  // banco de pruebas (que no se resetea solo entre corridas).
+  // Los afterEach anidados corren ANTES que el de arriba del archivo (de adentro hacia afuera): si
+  // este borrara solo series_eventos, todavía quedarían filas de eventos con ese serie_id (la FK no
+  // tiene on delete cascade) y el borrado de series_eventos fallaría por violación de clave foránea.
+  // Por eso acá se borran primero los eventos de esta serie, y recién después la serie.
+  afterEach(async () => {
+    const { error: errorEventos } = await admin.from('eventos').delete().in('creado_por', Object.values(ids))
+    if (errorEventos) throw errorEventos
+    const { error } = await admin.from('series_eventos').delete().in('creado_por', Object.values(ids))
+    if (error) throw error
+  })
+
+  async function crearSerie(director: Awaited<ReturnType<typeof clienteComo>>, fechas: string[], vararg?: Partial<{
+    fecha_inicio: string
+    fecha_fin: string
+  }>) {
+    return director.rpc('crear_serie_eventos', {
+      p_patron: 'semanal',
+      p_dia_semana: 6,
+      p_ordinal_semana: null,
+      p_dia_mes: null,
+      p_fecha_inicio: vararg?.fecha_inicio ?? fechas[0],
+      p_fecha_fin: vararg?.fecha_fin ?? fechas[fechas.length - 1],
+      p_hora: '19:00',
+      p_titulo: 'San Rafael',
+      p_tipo: 'san_rafael',
+      p_requiere_cocina: ['comida'],
+      p_requiere_otro_texto: null,
+      p_fechas: fechas,
+    })
+  }
+
+  it('el Director crea una serie: se insertan la serie y todas las ocurrencias', async () => {
+    const director = await clienteComo('director')
+    const { data: serieId, error } = await crearSerie(director, ['2026-10-10', '2026-10-17', '2026-10-24'])
+    expect(error).toBeNull()
+
+    const { data: serie } = await admin.from('series_eventos').select('patron, fecha_inicio, fecha_fin').eq('id', serieId!).single()
+    expect(serie).toEqual({ patron: 'semanal', fecha_inicio: '2026-10-10', fecha_fin: '2026-10-24' })
+
+    const { data: ocurrencias } = await admin.from('eventos').select('fecha, titulo, serie_id').eq('serie_id', serieId!).order('fecha')
+    expect(ocurrencias).toEqual([
+      { fecha: '2026-10-10', titulo: 'San Rafael', serie_id: serieId },
+      { fecha: '2026-10-17', titulo: 'San Rafael', serie_id: serieId },
+      { fecha: '2026-10-24', titulo: 'San Rafael', serie_id: serieId },
+    ])
+  })
+
+  it.each(SIN_PERMISO)('%s no puede crear una serie', async (clave) => {
+    const cliente = await clienteComo(clave)
+    const { error } = await crearSerie(cliente, ['2026-10-10'])
+    expect(error).not.toBeNull()
+  })
+
+  it('rechaza un rango de más de 730 días', async () => {
+    const director = await clienteComo('director')
+    const { error } = await crearSerie(director, ['2026-10-10'], { fecha_inicio: '2026-10-10', fecha_fin: '2028-10-11' })
+    expect(error?.code).toBe('23514')
+  })
+
+  it('rechaza una fecha generada fuera del rango de la serie (defensa además del cálculo en TS)', async () => {
+    const director = await clienteComo('director')
+    const { error } = await crearSerie(director, ['2026-11-01'], { fecha_inicio: '2026-10-10', fecha_fin: '2026-10-24' })
+    expect(error).not.toBeNull()
+    const { data } = await admin.from('series_eventos').select('id').eq('fecha_inicio', '2026-10-10').eq('fecha_fin', '2026-10-24')
+    expect(data).toEqual([]) // no quedó una serie a medias: el INSERT de eventos falló y todo se deshizo.
+  })
+
+  it('cancelar la serie desde hoy borra solo las ocurrencias futuras', async () => {
+    const director = await clienteComo('director')
+    const ayer = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10)
+    const { data: serieId } = await crearSerie(director, [ayer, '2026-12-05', '2026-12-12'], { fecha_inicio: ayer, fecha_fin: '2026-12-12' })
+    // "hoy" en la prueba: se borra todo lo que sea >= hoy real, así que uso una fecha bien futura como "hoy" simulado
+    // vía el propio filtro que usará la Server Action (gte fecha, hoy). Acá se prueba el mecanismo de RLS/DELETE en sí:
+    await director.from('eventos').delete().eq('serie_id', serieId!).gte('fecha', '2026-12-01')
+    const { data: quedan } = await admin.from('eventos').select('fecha').eq('serie_id', serieId!).order('fecha')
+    expect(quedan).toEqual([{ fecha: ayer }])
+  })
+})
