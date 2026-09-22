@@ -1,10 +1,10 @@
 import { exigirPerfil } from '@/lib/auth/sesion'
-import { obtenerDiaParaAdministracion, obtenerSemanaPropia } from '@/lib/comidas/consultas'
-import { diaPedido, semanaPedida, tipoSemana } from '@/lib/comidas/semana'
+import { obtenerExtrasDeLaSemana, obtenerSemanaParaAdministracion, obtenerSemanaPropia } from '@/lib/comidas/consultas'
+import { semanaPedida, tipoSemana } from '@/lib/comidas/semana'
 import { fechaISOEn } from '@/lib/fechas'
 import { NavegacionSemana } from '../_componentes/navegacion-semana'
 import { RefrescarAlVolver } from '../_componentes/refrescar-al-volver'
-import { SemanaAdministracion } from '../_componentes/semana-administracion'
+import { SemanaAgregadaAdministracion } from '../_componentes/semana-agregada-administracion'
 import { SemanaPersona } from '../_componentes/semana-persona'
 
 export default async function PaginaSemana({
@@ -13,17 +13,20 @@ export default async function PaginaSemana({
   searchParams: Promise<{ [clave: string]: string | string[] | undefined }>
 }) {
   const perfil = await exigirPerfil()
-  const { semana, dia } = await searchParams
+  const { semana } = await searchParams
 
   const hoy = fechaISOEn(new Date())
   const lunes = semanaPedida(semana, hoy)
 
   if (perfil.rol === 'administracion') {
-    const datos = await obtenerDiaParaAdministracion(diaPedido(dia, lunes, hoy))
+    const [dias, extras] = await Promise.all([obtenerSemanaParaAdministracion(lunes), obtenerExtrasDeLaSemana(lunes)])
     return (
       <>
+        {/* La vieja SemanaAdministracion la traía adentro: sin esto, Administración no ve los cierres
+            del job de cada 5 minutos hasta que recargue a mano. */}
+        <RefrescarAlVolver />
         <NavegacionSemana lunes={lunes} hoy={hoy} />
-        <SemanaAdministracion lunes={lunes} hoy={hoy} datos={datos} />
+        <SemanaAgregadaAdministracion dias={dias} extras={extras} />
       </>
     )
   }

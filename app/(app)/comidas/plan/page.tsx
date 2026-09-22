@@ -1,14 +1,14 @@
 import { exigirPerfil } from '@/lib/auth/sesion'
-import { obtenerPlanesDeTodos, obtenerPlanPropio } from '@/lib/comidas/consultas'
-import { PlanAdministracion } from '../_componentes/plan-administracion'
+import { obtenerPlanPropio, obtenerResumenPlanSemanal } from '@/lib/comidas/consultas'
+import { PlanAgregadoAdministracion } from '../_componentes/plan-agregado-administracion'
 import { PlanEditable } from '../_componentes/plan-editable'
 
 export default async function PaginaPlanSemanal() {
   const perfil = await exigirPerfil()
 
   if (perfil.rol === 'administracion') {
-    const personas = await obtenerPlanesDeTodos()
-    return <PlanAdministracion personas={personas} />
+    const resumenSemana = await obtenerResumenPlanSemanal()
+    return <PlanAgregadoAdministracion resumenSemana={resumenSemana} />
   }
 
   const plan = await obtenerPlanPropio(perfil.id)
