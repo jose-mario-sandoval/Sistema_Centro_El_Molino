@@ -291,3 +291,53 @@ test('el Director genera un enlace, alguien sin sesión confirma, y el Director 
 
   void evento
 })
+
+test('el Director crea una serie semanal, edita una ocurrencia puntual y cancela el resto', async ({ page }) => {
+  await iniciarSesion(page, 'director')
+  await page.goto('/calendario')
+  const hoy = fechaISOEn(new Date())
+  await page.locator(`.cal-day[data-fecha="${hoy}"]`).click()
+  const modal = page.getByRole('dialog')
+
+  await modal.getByLabel('Título del evento').fill('San Rafael')
+  await modal.getByLabel('San Rafael', { exact: true }).check()
+  await modal.getByLabel('Este evento se repite').check()
+  await modal.getByLabel('Día de la semana').selectOption('6') // sábado
+  const fechaFin = fechaISOEn(new Date(Date.now() + 45 * 86_400_000))
+  await modal.getByLabel('Repetir hasta').fill(fechaFin)
+  await modal.getByRole('button', { name: 'Agregar evento' }).click()
+  await expect(page.getByText(/Se crearon \d+ eventos\./)).toBeVisible()
+
+  const { data: eventos } = await clienteAdminPrueba().from('eventos').select('id, fecha, serie_id').eq('titulo', 'San Rafael').order('fecha')
+  expect(eventos!.length).toBeGreaterThan(1)
+  const serieId = eventos![0].serie_id
+  expect(serieId).not.toBeNull()
+
+  // Editar una ocurrencia puntual: no toca las demás. Navegar al mes de esa fecha por si cae
+  // distinto al mes que se ve por defecto (mismo motivo que más abajo).
+  const segunda = eventos![1]
+  await page.goto(`/calendario?mes=${segunda.fecha.slice(0, 7)}`)
+  await page.locator(`.cal-day[data-fecha="${segunda.fecha}"]`).click()
+  const modal2 = page.getByRole('dialog')
+  await modal2.getByRole('button', { name: /^Editar/ }).click()
+  await modal2.getByLabel('Título del evento').fill('San Rafael (cambiado)')
+  await modal2.getByRole('button', { name: 'Guardar cambios' }).click()
+  const { data: primeraSinTocar } = await clienteAdminPrueba().from('eventos').select('titulo').eq('id', eventos![0].id).single()
+  expect(primeraSinTocar!.titulo).toBe('San Rafael')
+
+  // Cancelar la serie completa desde una ocurrencia real (la primera generada, no necesariamente
+  // "hoy": el patrón es "cada sábado desde hoy", y hoy puede no ser sábado — navegar al mes de esa
+  // fecha por si cae en el mes siguiente al que se ve por defecto).
+  const primera = eventos![0].fecha
+  await page.goto(`/calendario?mes=${primera.slice(0, 7)}`)
+  await page.locator(`.cal-day[data-fecha="${primera}"]`).click()
+  const modal3 = page.getByRole('dialog')
+  await modal3.getByRole('button', { name: 'Cancelar toda la serie' }).click()
+  await modal3.getByRole('button', { name: /Sí, cancelar la serie/ }).click()
+  await expect(page.getByText(/Se cancelaron \d+ eventos futuros/)).toBeVisible()
+
+  // La serie se creó con fecha_inicio = hoy, así que toda ocurrencia generada es >= hoy — el filtro
+  // gte de eliminarSerieDesdeHoy las borra todas, no queda ninguna.
+  const { data: quedan } = await clienteAdminPrueba().from('eventos').select('id').eq('serie_id', serieId!)
+  expect(quedan).toEqual([])
+})
