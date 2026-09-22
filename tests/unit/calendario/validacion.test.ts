@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import type { z } from 'zod'
 import { camposConError } from '@/lib/validacion/auth'
-import { esquemaEditarEvento, esquemaEliminarEvento, esquemaEvento, requerimientosValidos } from '@/lib/validacion/calendario'
+import {
+  esquemaConfirmarCena,
+  esquemaCrearEnlace,
+  esquemaEditarEvento,
+  esquemaEliminarEvento,
+  esquemaEvento,
+  requerimientosValidos,
+} from '@/lib/validacion/calendario'
 
 const VALIDO = { titulo: 'Charla formativa', fecha: '2026-09-16', hora: '19:30', tipo: 'san_gabriel', requiere_cocina: [] }
 const ID = '3f1c2a9e-8b7d-4c6e-9a5b-1d2e3f4a5b6c'
@@ -145,5 +152,51 @@ describe('requerimientosValidos', () => {
     expect(requerimientosValidos(['merienda', 'comida'])).toBe(true)
     expect(requerimientosValidos(['materiales', 'comida'])).toBe(false)
     expect(requerimientosValidos(['comida', 'comida'])).toBe(false)
+  })
+})
+
+const ID_EVENTO = '5e6f7a8b-9c0d-4e1f-8a2b-3c4d5e6f7a8b'
+
+describe('esquemaCrearEnlace', () => {
+  const VALIDO_ENLACE = { evento_id: ID_EVENTO, tiempo_comida: 'cena', fecha_vencimiento: '2026-10-10', hora_vencimiento: '15:00' }
+
+  it('acepta datos válidos', () => {
+    expect(camposInvalidos(esquemaCrearEnlace, VALIDO_ENLACE)).toEqual([])
+  })
+
+  it.each(['desayuno', 'almuerzo', 'cena'])('acepta el tiempo de comida %s', (tiempo_comida) => {
+    expect(camposInvalidos(esquemaCrearEnlace, { ...VALIDO_ENLACE, tiempo_comida })).toEqual([])
+  })
+
+  it('rechaza un tiempo de comida inválido', () => {
+    expect(camposInvalidos(esquemaCrearEnlace, { ...VALIDO_ENLACE, tiempo_comida: 'merienda' })).toEqual(['tiempo_comida'])
+  })
+
+  it('rechaza un evento_id que no es uuid', () => {
+    expect(camposInvalidos(esquemaCrearEnlace, { ...VALIDO_ENLACE, evento_id: 'no-uuid' })).toEqual(['evento_id'])
+  })
+
+  it.each(['15:5', '3pm', ''])('rechaza la hora %j', (hora_vencimiento) => {
+    expect(camposInvalidos(esquemaCrearEnlace, { ...VALIDO_ENLACE, hora_vencimiento })).toEqual(['hora_vencimiento'])
+  })
+})
+
+describe('esquemaConfirmarCena', () => {
+  const VALIDO_CONFIRMACION = { token: 'abc123', nombre: 'Familia Pérez', cantidad_personas: '3' }
+
+  it('acepta datos válidos y convierte la cantidad a número', () => {
+    expect(esquemaConfirmarCena.parse(VALIDO_CONFIRMACION).cantidad_personas).toBe(3)
+  })
+
+  it('recorta el nombre', () => {
+    expect(esquemaConfirmarCena.parse({ ...VALIDO_CONFIRMACION, nombre: '  Familia Pérez  ' }).nombre).toBe('Familia Pérez')
+  })
+
+  it.each(['0', '11', 'x', ''])('rechaza la cantidad %j', (cantidad_personas) => {
+    expect(camposInvalidos(esquemaConfirmarCena, { ...VALIDO_CONFIRMACION, cantidad_personas })).toEqual(['cantidad_personas'])
+  })
+
+  it('rechaza un nombre vacío', () => {
+    expect(camposInvalidos(esquemaConfirmarCena, { ...VALIDO_CONFIRMACION, nombre: '   ' })).toEqual(['nombre'])
   })
 })
