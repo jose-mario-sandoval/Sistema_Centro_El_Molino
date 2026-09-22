@@ -60,6 +60,7 @@ describe('eventoParaAdministracion', () => {
       tipo: null,
       requiere_cocina: ['merienda', 'comida'],
       requiere_otro_texto: '20 sillas extra',
+      serie_id: null,
     })
   })
 
