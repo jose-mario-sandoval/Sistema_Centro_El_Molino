@@ -36,7 +36,7 @@ export const esquemaEvento = z.object({
   requiere_cocina: z
     .array(z.enum(REQUERIMIENTOS_COCINA, { error: 'Pedido a la cocina inválido.' }))
     .refine(requerimientosValidos, {
-      message: '"Solo materiales de cocina" no se combina con merienda ni comida.',
+      message: '"Utensilios y materiales" no se combina con merienda ni comida.',
     }),
   requiere_otro_texto: z
     .string('Pedido inválido.')
