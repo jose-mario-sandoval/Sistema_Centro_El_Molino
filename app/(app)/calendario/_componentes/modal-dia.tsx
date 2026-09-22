@@ -9,6 +9,7 @@ import type { DiaConEtiqueta } from '@/lib/calendario/cuadricula'
 import type { Evento } from '@/lib/calendario/tipos'
 import { horaHHMM } from '@/lib/fechas'
 import { eliminarEvento } from '../acciones'
+import { EnlaceCenaExtra } from './enlace-cena-extra'
 import { FormularioEditarEvento, FormularioNuevoEvento } from './formulario-evento'
 import { InsigniasEvento } from './insignias-evento'
 
@@ -88,6 +89,7 @@ function FilaEvento({
               >
                 Eliminar
               </button>
+              <EnlaceCenaExtra eventoId={evento.id} />
             </>
           )}
         </div>
