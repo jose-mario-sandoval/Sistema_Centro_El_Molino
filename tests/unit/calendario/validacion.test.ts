@@ -7,6 +7,7 @@ import {
   esquemaEditarEvento,
   esquemaEliminarEvento,
   esquemaEvento,
+  esquemaSerieEventos,
   requerimientosValidos,
 } from '@/lib/validacion/calendario'
 
@@ -142,6 +143,49 @@ describe('esquemaEvento: pedido libre a Administración', () => {
 
   it('sin el campo, también queda null (el formulario puede no mandarlo)', () => {
     expect(esquemaEvento.parse(VALIDO).requiere_otro_texto).toBeNull()
+  })
+})
+
+describe('esquemaSerieEventos', () => {
+  const SEMANAL = { titulo: 'San Rafael', hora: '19:00', tipo: 'san_rafael', requiere_cocina: ['comida'], requiere_otro_texto: '',
+    patron: 'semanal', dia_semana: '6', fecha_inicio: '2026-10-10', fecha_fin: '2026-12-26' }
+
+  it('acepta una serie semanal válida', () => {
+    expect(camposInvalidos(esquemaSerieEventos, SEMANAL)).toEqual([])
+  })
+
+  it('convierte dia_semana a número', () => {
+    expect(esquemaSerieEventos.parse(SEMANAL).dia_semana).toBe(6)
+  })
+
+  it('rechaza fecha_fin antes de fecha_inicio', () => {
+    expect(camposInvalidos(esquemaSerieEventos, { ...SEMANAL, fecha_inicio: '2026-12-26', fecha_fin: '2026-10-10' })).toEqual(['fecha_fin'])
+  })
+
+  it('rechaza más de 730 días de rango', () => {
+    expect(camposInvalidos(esquemaSerieEventos, { ...SEMANAL, fecha_inicio: '2026-01-01', fecha_fin: '2028-06-01' })).toEqual(['fecha_fin'])
+  })
+
+  it('semanal exige dia_semana', () => {
+    const { dia_semana: _omitido, ...sinDia } = SEMANAL
+    void _omitido
+    expect(camposInvalidos(esquemaSerieEventos, sinDia)).toEqual(['dia_semana'])
+  })
+
+  it('mensual_dia_fijo exige dia_mes, no dia_semana', () => {
+    const { dia_semana: _omitido, ...base } = SEMANAL
+    void _omitido
+    expect(camposInvalidos(esquemaSerieEventos, { ...base, patron: 'mensual_dia_fijo', dia_mes: '15' })).toEqual([])
+    expect(camposInvalidos(esquemaSerieEventos, { ...base, patron: 'mensual_dia_fijo' })).toEqual(['dia_mes'])
+  })
+
+  it('mensual_dia_semana exige dia_semana y ordinal_semana', () => {
+    expect(camposInvalidos(esquemaSerieEventos, { ...SEMANAL, patron: 'mensual_dia_semana', ordinal_semana: '1' })).toEqual([])
+    expect(camposInvalidos(esquemaSerieEventos, { ...SEMANAL, patron: 'mensual_dia_semana' })).toEqual(['ordinal_semana'])
+  })
+
+  it.each(['0', '5', '13'])('rechaza un ordinal_semana inválido (%s)', (ordinal_semana) => {
+    expect(camposInvalidos(esquemaSerieEventos, { ...SEMANAL, patron: 'mensual_dia_semana', ordinal_semana })).toEqual(['ordinal_semana'])
   })
 })
 
