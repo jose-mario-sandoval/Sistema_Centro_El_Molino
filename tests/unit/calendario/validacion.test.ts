@@ -3,7 +3,7 @@ import type { z } from 'zod'
 import { camposConError } from '@/lib/validacion/auth'
 import { esquemaEditarEvento, esquemaEliminarEvento, esquemaEvento, requerimientosValidos } from '@/lib/validacion/calendario'
 
-const VALIDO = { titulo: 'Charla formativa', fecha: '2026-09-16', hora: '19:30', tipo: 'charla', requiere_cocina: [] }
+const VALIDO = { titulo: 'Charla formativa', fecha: '2026-09-16', hora: '19:30', tipo: 'san_gabriel', requiere_cocina: [] }
 const ID = '3f1c2a9e-8b7d-4c6e-9a5b-1d2e3f4a5b6c'
 
 function camposInvalidos(esquema: z.ZodType, entrada: unknown): string[] {
@@ -13,11 +13,14 @@ function camposInvalidos(esquema: z.ZodType, entrada: unknown): string[] {
 
 describe('esquemaEvento', () => {
   it('acepta título, fecha y hora, y recorta el título', () => {
-    expect(esquemaEvento.parse({ ...VALIDO, titulo: '  Charla formativa  ' })).toEqual(VALIDO)
+    expect(esquemaEvento.parse({ ...VALIDO, titulo: '  Charla formativa  ' })).toEqual({
+      ...VALIDO,
+      requiere_otro_texto: null,
+    })
   })
 
   it('una hora vacía queda como null', () => {
-    expect(esquemaEvento.parse({ ...VALIDO, hora: '' })).toEqual({ ...VALIDO, hora: null })
+    expect(esquemaEvento.parse({ ...VALIDO, hora: '' })).toEqual({ ...VALIDO, hora: null, requiere_otro_texto: null })
   })
 
   it('acepta un título de exactamente 120 caracteres', () => {
@@ -36,7 +39,10 @@ describe('esquemaEvento', () => {
   })
 
   it('ignora campos desconocidos', () => {
-    expect(esquemaEvento.parse({ ...VALIDO, id: ID, creado_por: ID })).toEqual(VALIDO)
+    expect(esquemaEvento.parse({ ...VALIDO, id: ID, creado_por: ID })).toEqual({
+      ...VALIDO,
+      requiere_otro_texto: null,
+    })
   })
 
   it.each([
@@ -55,7 +61,12 @@ describe('esquemaEvento', () => {
 
 describe('esquemaEditarEvento', () => {
   it('acepta un id uuid junto con los campos', () => {
-    expect(esquemaEditarEvento.parse({ ...VALIDO, hora: '', id: ID })).toEqual({ ...VALIDO, hora: null, id: ID })
+    expect(esquemaEditarEvento.parse({ ...VALIDO, hora: '', id: ID })).toEqual({
+      ...VALIDO,
+      hora: null,
+      id: ID,
+      requiere_otro_texto: null,
+    })
   })
 
   it('rechaza un id que no es uuid', () => {
@@ -72,7 +83,7 @@ describe('esquemaEliminarEvento', () => {
 })
 
 describe('esquemaEvento: tipo y pedidos a la cocina', () => {
-  it.each(['retiro', 'charla', 'visita', 'reunion', 'otro'])('acepta el tipo %s', (tipo) => {
+  it.each(['san_rafael', 'san_gabriel', 'san_miguel', 'otro'])('acepta el tipo %s', (tipo) => {
     expect(camposInvalidos(esquemaEvento, { ...VALIDO, tipo })).toEqual([])
   })
 
@@ -102,6 +113,28 @@ describe('esquemaEvento: tipo y pedidos a la cocina', () => {
     const { requiere_cocina: _omitido, ...sinCocina } = VALIDO
     void _omitido
     expect(camposInvalidos(esquemaEvento, sinCocina)).toEqual(['requiere_cocina'])
+  })
+})
+
+describe('esquemaEvento: pedido libre a Administración', () => {
+  it('una cadena vacía queda como null', () => {
+    expect(esquemaEvento.parse({ ...VALIDO, requiere_otro_texto: '' }).requiere_otro_texto).toBeNull()
+  })
+
+  it('recorta el texto', () => {
+    expect(esquemaEvento.parse({ ...VALIDO, requiere_otro_texto: '  20 sillas  ' }).requiere_otro_texto).toBe('20 sillas')
+  })
+
+  it('acepta hasta 200 caracteres', () => {
+    expect(camposInvalidos(esquemaEvento, { ...VALIDO, requiere_otro_texto: 'x'.repeat(200) })).toEqual([])
+  })
+
+  it('rechaza más de 200 caracteres', () => {
+    expect(camposInvalidos(esquemaEvento, { ...VALIDO, requiere_otro_texto: 'x'.repeat(201) })).toEqual(['requiere_otro_texto'])
+  })
+
+  it('sin el campo, también queda null (el formulario puede no mandarlo)', () => {
+    expect(esquemaEvento.parse(VALIDO).requiere_otro_texto).toBeNull()
   })
 })
 

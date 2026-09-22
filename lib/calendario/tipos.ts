@@ -4,13 +4,12 @@ import type { Enum } from '@/lib/supabase/tipos'
 export type TipoEvento = Enum<'tipo_evento'>
 export type RequerimientoCocina = Enum<'requerimiento_cocina'>
 
-export const TIPOS_EVENTO: readonly TipoEvento[] = ['retiro', 'charla', 'visita', 'reunion', 'otro']
+export const TIPOS_EVENTO: readonly TipoEvento[] = ['san_rafael', 'san_gabriel', 'san_miguel', 'otro']
 
 export const ETIQUETA_TIPO: Record<TipoEvento, string> = {
-  retiro: 'Retiro',
-  charla: 'Charla o formación',
-  visita: 'Visita',
-  reunion: 'Reunión',
+  san_rafael: 'San Rafael',
+  san_gabriel: 'San Gabriel',
+  san_miguel: 'San Miguel',
   otro: 'Otro',
 }
 
@@ -20,7 +19,7 @@ export const REQUERIMIENTOS_COCINA: readonly RequerimientoCocina[] = ['merienda'
 export const ETIQUETA_REQUERIMIENTO: Record<RequerimientoCocina, string> = {
   merienda: 'Merienda',
   comida: 'Comida',
-  materiales: 'Solo materiales de cocina',
+  materiales: 'Utensilios y materiales',
 }
 
 /** Ayuda breve de cada pedido, para quien crea el evento. */
@@ -44,6 +43,7 @@ export type Evento = {
   hora: string | null
   tipo: TipoEvento | null
   requiere_cocina: RequerimientoCocina[]
+  requiere_otro_texto: string | null
 }
 
 /** Lo único que Administración ve de un evento: cuándo y qué preparar (`eventos_para_cocina`). */
@@ -52,6 +52,7 @@ export type EventoParaCocina = {
   fecha: FechaISO
   hora: string | null
   requiere_cocina: RequerimientoCocina[]
+  requiere_otro_texto: string | null
 }
 
 /**
@@ -67,7 +68,7 @@ export function alternarRequerimiento(
   return [...actuales.filter((r) => r !== 'materiales'), tocado]
 }
 
-/** 'Merienda' · 'Merienda y comida' · 'Solo materiales de cocina' */
+/** 'Merienda' · 'Merienda y comida' · 'Utensilios y materiales' */
 export function textoRequerimientos(requerimientos: readonly RequerimientoCocina[]): string {
   const orden = REQUERIMIENTOS_COCINA.filter((r) => requerimientos.includes(r))
   if (orden.length === 0) return ''
@@ -76,14 +77,22 @@ export function textoRequerimientos(requerimientos: readonly RequerimientoCocina
   return `${ETIQUETA_REQUERIMIENTO[orden[0]]} y ${nombres.slice(1).join(' y ')}`
 }
 
+/** Lista fija + lo pedido por texto libre: 'Merienda y comida · 20 sillas extra'. */
+export function textoPedido(requerimientos: readonly RequerimientoCocina[], otroTexto: string | null): string {
+  const fijo = textoRequerimientos(requerimientos)
+  if (!otroTexto) return fijo
+  return fijo ? `${fijo} · ${otroTexto}` : otroTexto
+}
+
 /** El evento tal como lo ve Administración: sin título ni tipo, con lo que debe preparar como texto. */
 export function eventoParaAdministracion(e: EventoParaCocina): Evento {
   return {
     id: e.id,
     fecha: e.fecha,
     hora: e.hora,
-    titulo: textoRequerimientos(e.requiere_cocina),
+    titulo: textoPedido(e.requiere_cocina, e.requiere_otro_texto),
     tipo: null,
     requiere_cocina: e.requiere_cocina,
+    requiere_otro_texto: e.requiere_otro_texto,
   }
 }

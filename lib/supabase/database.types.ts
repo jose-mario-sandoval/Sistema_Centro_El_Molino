@@ -86,6 +86,7 @@ export type Database = {
           hora: string | null
           id: string
           requiere_cocina: Database["public"]["Enums"]["requerimiento_cocina"][]
+          requiere_otro_texto: string | null
           tipo: Database["public"]["Enums"]["tipo_evento"]
           titulo: string
         }
@@ -97,6 +98,7 @@ export type Database = {
           hora?: string | null
           id?: string
           requiere_cocina?: Database["public"]["Enums"]["requerimiento_cocina"][]
+          requiere_otro_texto?: string | null
           tipo?: Database["public"]["Enums"]["tipo_evento"]
           titulo: string
         }
@@ -108,6 +110,7 @@ export type Database = {
           hora?: string | null
           id?: string
           requiere_cocina?: Database["public"]["Enums"]["requerimiento_cocina"][]
+          requiere_otro_texto?: string | null
           tipo?: Database["public"]["Enums"]["tipo_evento"]
           titulo?: string
         }
@@ -438,6 +441,7 @@ export type Database = {
           hora: string
           id: string
           requiere_cocina: Database["public"]["Enums"]["requerimiento_cocina"][]
+          requiere_otro_texto: string
         }[]
       }
       guardar_seleccion: {
@@ -459,9 +463,7 @@ export type Database = {
         Returns: boolean
       }
       requiere_cocina_valido: {
-        Args: {
-          p: Database["public"]["Enums"]["requerimiento_cocina"][]
-        }
+        Args: { p: Database["public"]["Enums"]["requerimiento_cocina"][] }
         Returns: boolean
       }
       soy_activo: { Args: never; Returns: boolean }
@@ -480,7 +482,7 @@ export type Database = {
       requerimiento_cocina: "merienda" | "comida" | "materiales"
       rol: "director" | "residente" | "administracion"
       tiempo_comida: "desayuno" | "almuerzo" | "cena"
-      tipo_evento: "retiro" | "charla" | "visita" | "reunion" | "otro"
+      tipo_evento: "san_rafael" | "san_gabriel" | "san_miguel" | "otro"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -613,7 +615,7 @@ export const Constants = {
       requerimiento_cocina: ["merienda", "comida", "materiales"],
       rol: ["director", "residente", "administracion"],
       tiempo_comida: ["desayuno", "almuerzo", "cena"],
-      tipo_evento: ["retiro", "charla", "visita", "reunion", "otro"],
+      tipo_evento: ["san_rafael", "san_gabriel", "san_miguel", "otro"],
     },
   },
 } as const

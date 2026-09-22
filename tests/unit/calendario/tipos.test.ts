@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   alternarRequerimiento,
   eventoParaAdministracion,
+  textoPedido,
   textoRequerimientos,
   type EventoParaCocina,
 } from '@/lib/calendario/tipos'
@@ -10,7 +11,7 @@ describe('textoRequerimientos', () => {
   it('resume lo que debe preparar la cocina', () => {
     expect(textoRequerimientos(['merienda'])).toBe('Merienda')
     expect(textoRequerimientos(['comida'])).toBe('Comida')
-    expect(textoRequerimientos(['materiales'])).toBe('Solo materiales de cocina')
+    expect(textoRequerimientos(['materiales'])).toBe('Utensilios y materiales')
     expect(textoRequerimientos(['merienda', 'comida'])).toBe('Merienda y comida')
   })
 
@@ -23,17 +24,42 @@ describe('textoRequerimientos', () => {
   })
 })
 
-describe('eventoParaAdministracion', () => {
-  const desdeLaBase: EventoParaCocina = { id: 'e1', fecha: '2026-10-07', hora: '16:00:00', requiere_cocina: ['merienda', 'comida'] }
+describe('textoPedido', () => {
+  it('solo lista fija', () => {
+    expect(textoPedido(['merienda'], null)).toBe('Merienda')
+  })
 
-  it('deja fecha, hora y qué preparar; sin tipo, y el título es lo que hay que preparar', () => {
-    expect(eventoParaAdministracion(desdeLaBase)).toEqual({
+  it('solo texto libre', () => {
+    expect(textoPedido([], '20 sillas extra')).toBe('20 sillas extra')
+  })
+
+  it('ambos, separados por ·', () => {
+    expect(textoPedido(['merienda', 'comida'], '20 sillas extra')).toBe('Merienda y comida · 20 sillas extra')
+  })
+
+  it('ninguno: cadena vacía', () => {
+    expect(textoPedido([], null)).toBe('')
+  })
+})
+
+describe('eventoParaAdministracion', () => {
+  const desdeLaBase: EventoParaCocina = {
+    id: 'e1',
+    fecha: '2026-10-07',
+    hora: '16:00:00',
+    requiere_cocina: ['merienda', 'comida'],
+    requiere_otro_texto: null,
+  }
+
+  it('deja fecha, hora y qué preparar; sin tipo, y el título combina lo fijo con lo libre', () => {
+    expect(eventoParaAdministracion({ ...desdeLaBase, requiere_otro_texto: '20 sillas extra' })).toEqual({
       id: 'e1',
       fecha: '2026-10-07',
       hora: '16:00:00',
-      titulo: 'Merienda y comida',
+      titulo: 'Merienda y comida · 20 sillas extra',
       tipo: null,
       requiere_cocina: ['merienda', 'comida'],
+      requiere_otro_texto: '20 sillas extra',
     })
   })
 
