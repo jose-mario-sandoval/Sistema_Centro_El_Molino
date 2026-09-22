@@ -60,6 +60,7 @@ app/confirmar-cena/[token]/page.tsx                             nuevo — págin
 app/confirmar-cena/[token]/acciones.ts                          nuevo — confirmarCena (sin sesión)
 app/confirmar-cena/[token]/_componentes/formulario-confirmar.tsx nuevo — formulario público
 lib/supabase/proxy.ts                                           agrega /confirmar-cena a RUTAS_PUBLICAS
+app/globals.css                                                  estilos de la página pública y del panel del Director
 tests/soporte/usuarios-prueba.ts                                 + clienteAnonimoPrueba()
 tests/integration/calendario.test.ts                             RLS de las tablas nuevas + las dos funciones
 tests/e2e/calendario.spec.ts                                     Director genera enlace; confirmación sin sesión; vencimiento; revocación
@@ -919,7 +920,10 @@ export function EnlaceCenaExtra({ eventoId }: { eventoId: string }) {
         <input id={`${eventoId}-fecha`} type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />
       </div>
       <div className="field">
-        <label htmlFor={`${eventoId}-hora`}>Hora</label>
+        {/* "Hora de vencimiento", no "Hora" a secas: getByLabel hace substring match y el formulario
+            de alta de evento en el mismo modal ya tiene un campo "Hora (opcional)" — con "Hora" sola,
+            el e2e (y cualquier lector de pantalla que dependa del label) no podría distinguirlos. */}
+        <label htmlFor={`${eventoId}-hora`}>Hora de vencimiento</label>
         <input id={`${eventoId}-hora`} type="time" value={hora} onChange={(e) => setHora(e.target.value)} />
       </div>
       <button type="button" className="btn small" onClick={crear} disabled={pendiente || !fecha || !hora}>
@@ -952,7 +956,65 @@ git commit -m "feat(calendario): panel del Director para generar y revocar enlac
 
 ---
 
-### Tarea 7: e2e
+### Tarea 7: estilos — la página pública también sigue el sistema de diseño
+
+**Archivos:**
+- Modificar: `app/globals.css`
+
+Este paso no es opcional: la página de confirmación es, según CLAUDE.md, el único canal externo de la
+casa ("si una pantalla confunde, no hay plan B"), y las reglas de diseño accesible (relieve + color +
+texto, contraste alto, objetivo táctil de 56px) aplican ahí igual que en el resto de la app. Sin este
+paso, `.pagina-publica`, `.aviso`, `.aviso-exito`, `.panel-enlaces` y `.enlace-item` (usadas en las
+Tareas 5 y 6) quedan sin ningún estilo.
+
+- [ ] **Paso 1: agregar las clases nuevas**
+
+Agregar, cerca de `.aviso-ausente`/`.locked-banner` (mismo tipo de aviso hundido, sin franja de
+color):
+
+```css
+/* Enlace público de confirmación de cena extra: fuera del layout de la app, sin sesión. */
+.pagina-publica{
+  min-height:100vh;display:flex;align-items:center;justify-content:center;padding:var(--canal);
+}
+.pagina-publica .card{max-width:32rem;width:100%;}
+
+.aviso{
+  padding:.9rem var(--marco);border-radius:var(--r-md);
+  border:2px solid var(--borde-hundido);box-shadow:var(--hundido-suave);
+  color:var(--peligro);font-weight:600;font-size:var(--t-sm);
+}
+.aviso-exito{
+  padding:.9rem var(--marco);border-radius:var(--r-md);
+  border:2px solid var(--borde-hundido);box-shadow:var(--hundido-suave);
+  color:var(--acento);font-weight:600;font-size:var(--t-sm);
+}
+
+.panel-enlaces{display:flex;flex-direction:column;gap:1rem;margin-top:1rem;}
+.enlace-item{display:flex;flex-direction:column;gap:.6rem;}
+.enlace-item input[readonly]{
+  width:100%;min-height:var(--toque);padding:.65rem 1rem;border-radius:var(--r-md);
+  border:2px solid var(--borde-hundido);box-shadow:var(--hundido-suave);
+  background:var(--fondo);color:var(--tinta);font-size:var(--t-sm);
+}
+```
+
+- [ ] **Paso 2: verificación manual**
+
+Abrir `/confirmar-cena/<token>` (un token real de prueba) en el navegador, en modo claro y oscuro, y
+con `data-contraste="alto"` — confirmar que se ve consistente con el resto de la app y que el aviso de
+"venció"/"no es válido" y el de "confirmado" se distinguen sin depender solo del color.
+
+- [ ] **Paso 3: commit**
+
+```bash
+git add app/globals.css
+git commit -m "feat(calendario): estilos de la página pública de confirmación de cena extra"
+```
+
+---
+
+### Tarea 8: e2e
 
 **Archivos:**
 - Modificar: `tests/e2e/calendario.spec.ts`
@@ -980,7 +1042,7 @@ test('el Director genera un enlace, alguien sin sesión confirma, y el Director 
 
   const manana = fechaISOEn(new Date(Date.now() + 24 * 3_600_000))
   await modal.getByLabel('Vence el').fill(manana)
-  await modal.getByLabel('Hora').fill('15:00')
+  await modal.getByLabel('Hora de vencimiento').fill('15:00')
   await modal.getByRole('button', { name: 'Generar enlace' }).click()
 
   const enlaceInput = modal.locator('.enlace-item input[readonly]')
@@ -1032,7 +1094,7 @@ git commit -m "test(calendario): e2e del enlace público de cena extra"
 
 ---
 
-### Tarea 8: tipos de Supabase y apertura del PR
+### Tarea 9: tipos de Supabase y apertura del PR
 
 - [ ] **Paso 1: push, descargar tipos de CI, revisar diff, commitear** — mismo procedimiento que la
   Tarea 6 del plan de categorías (`docs/superpowers/plans/2026-09-21-01-categorias-evento-pedidos.md`):
