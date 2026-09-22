@@ -281,7 +281,7 @@ describe('enlaces_confirmacion: RLS y funciones públicas', () => {
     expect(dataAnonima).toBeNull()
   })
 
-  it('el Director adelanta el vencimiento; quien no tiene permiso no', async () => {
+  it('el Director adelanta el vencimiento', async () => {
     const { id } = await crearEnlaceDePrueba()
     const director = await clienteComo('director')
     const pasado = new Date(Date.now() - 1000).toISOString()
@@ -289,6 +289,15 @@ describe('enlaces_confirmacion: RLS y funciones públicas', () => {
     expect(error).toBeNull()
     const { data } = await admin.from('enlaces_confirmacion').select('vence_en').eq('id', id).single()
     expect(data!.vence_en).toBe(pasado)
+  })
+
+  it.each(SIN_PERMISO)('%s no puede adelantar el vencimiento', async (clave) => {
+    const { id } = await crearEnlaceDePrueba()
+    const original = (await admin.from('enlaces_confirmacion').select('vence_en').eq('id', id).single()).data!.vence_en
+    const cliente = await clienteComo(clave)
+    await cliente.from('enlaces_confirmacion').update({ vence_en: new Date(Date.now() - 1000).toISOString() }).eq('id', id)
+    const { data } = await admin.from('enlaces_confirmacion').select('vence_en').eq('id', id).single()
+    expect(data!.vence_en).toBe(original)
   })
 
   describe('info_enlace_confirmacion', () => {
@@ -954,9 +963,11 @@ git commit -m "feat(calendario): panel del Director para generar y revocar enlac
 test('el Director genera un enlace, alguien sin sesión confirma, y el Director lo ve y lo revoca', async ({ page, context }) => {
   const ids = await asegurarUsuariosPrueba()
   const hoy = fechaISOEn(new Date())
+  // Sin `tipo`: queda 'otro' por default. No usamos 'san_rafael' a propósito — esa categoría solo
+  // existe después de aplicar el plan de categorías, y este plan no depende de él (spec §6).
   const { data: evento, error } = await clienteAdminPrueba()
     .from('eventos')
-    .insert({ titulo: 'San Rafael', fecha: hoy, tipo: 'san_rafael', creado_por: ids.director })
+    .insert({ titulo: 'San Rafael', fecha: hoy, creado_por: ids.director })
     .select('id')
     .single()
   expect(error).toBeNull()
