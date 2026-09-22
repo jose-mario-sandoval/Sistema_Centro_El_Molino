@@ -1,7 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
-const RUTAS_PUBLICAS = ['/login', '/api/cron', '/sw.js', '/manifest.webmanifest', '/iconos', '/apple-icon', '/sin-conexion']
+const RUTAS_PUBLICAS = ['/login', '/api/cron', '/sw.js', '/manifest.webmanifest', '/iconos', '/apple-icon', '/sin-conexion', '/confirmar-cena']
 
 function esPublica(ruta: string) {
   return RUTAS_PUBLICAS.some((p) => ruta === p || ruta.startsWith(`${p}/`))
