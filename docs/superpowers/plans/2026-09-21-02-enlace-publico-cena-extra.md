@@ -59,6 +59,7 @@ app/(app)/calendario/_componentes/enlace-cena-extra.tsx         nuevo — panel 
 app/confirmar-cena/[token]/page.tsx                             nuevo — página pública
 app/confirmar-cena/[token]/acciones.ts                          nuevo — confirmarCena (sin sesión)
 app/confirmar-cena/[token]/_componentes/formulario-confirmar.tsx nuevo — formulario público
+lib/supabase/proxy.ts                                           agrega /confirmar-cena a RUTAS_PUBLICAS
 tests/soporte/usuarios-prueba.ts                                 + clienteAnonimoPrueba()
 tests/integration/calendario.test.ts                             RLS de las tablas nuevas + las dos funciones
 tests/e2e/calendario.spec.ts                                     Director genera enlace; confirmación sin sesión; vencimiento; revocación
@@ -105,7 +106,10 @@ create table public.enlaces_confirmacion (
   evento_id uuid not null references public.eventos (id) on delete cascade,
   tiempo_comida public.tiempo_comida not null,
   vence_en timestamptz not null,
-  token text not null unique default encode(gen_random_bytes(16), 'hex'),
+  -- gen_random_uuid() (sin extensión: ya lo usa toda la base) da 122 bits de aleatoriedad, de sobra
+  -- para un token no adivinable. gen_random_bytes() daría lo mismo pero exige la extensión pgcrypto,
+  -- que este repo nunca habilita (solo pg_cron y pg_net están creadas — ver otras migraciones).
+  token text not null unique default gen_random_uuid()::text,
   creado_por uuid not null references public.perfiles (id) on delete cascade,
   creado_en timestamptz not null default now()
 );
@@ -590,8 +594,14 @@ export async function revocarEnlaceConfirmacion(entrada: unknown): Promise<Resul
   if (!datos.success) return fallo('Enlace inválido.')
 
   const supabase = await crearClienteServidor()
-  const { error } = await supabase.from('enlaces_confirmacion').update({ vence_en: new Date().toISOString() }).eq('id', datos.data.id)
+  const { data, error } = await supabase
+    .from('enlaces_confirmacion')
+    .update({ vence_en: new Date().toISOString() })
+    .eq('id', datos.data.id)
+    .select('id')
   if (error) return fallo('No se pudo revocar el enlace. Intentá de nuevo.')
+  // RLS no da error si no hay filas afectadas (mismo caso que editarEvento): 0 filas = ya no existe.
+  if (data.length === 0) return fallo('El enlace ya no existe.')
 
   revalidatePath('/calendario')
   return exito(null)
@@ -741,12 +751,27 @@ export default async function PaginaConfirmarCena({ params }: { params: Promise<
 ```
 
 Fuera del grupo `(app)`: no hay layout propio, así que no pasa por `exigirPerfil()` (mismo patrón que
-`app/login/` y `app/sin-conexion/`, confirmado: no existe `middleware.ts` que lo bloquee).
+`app/login/` y `app/sin-conexion/`).
 
-- [ ] **Paso 4: commit**
+- [ ] **Paso 4: agregar la ruta a la lista blanca del proxy**
+
+Este paso es **obligatorio**, no cosmético: este repo usa Next.js 16, que renombró `middleware.ts` a
+`proxy.ts`. `proxy.ts` (raíz del repo) delega en `actualizarSesion()` (`lib/supabase/proxy.ts`), que
+redirige a `/login` cualquier request sin sesión cuya ruta no esté en `RUTAS_PUBLICAS` — es por eso
+que `/login` y `/sin-conexion` funcionan sin sesión, no solo porque les falta un layout. Sin este
+paso, alguien sin sesión que abre el enlace público nunca llega a la página: el proxy lo manda a
+`/login` antes de que corra nada de la Tarea 5.
+
+En `lib/supabase/proxy.ts`, agregar `'/confirmar-cena'` al arreglo `RUTAS_PUBLICAS`:
+
+```ts
+const RUTAS_PUBLICAS = ['/login', '/api/cron', '/sw.js', '/manifest.webmanifest', '/iconos', '/apple-icon', '/sin-conexion', '/confirmar-cena']
+```
+
+- [ ] **Paso 5: commit**
 
 ```bash
-git add "app/confirmar-cena"
+git add "app/confirmar-cena" lib/supabase/proxy.ts
 git commit -m "feat(calendario): página pública para confirmar cena extra"
 ```
 
@@ -767,7 +792,7 @@ git commit -m "feat(calendario): página pública para confirmar cena extra"
 
 import { useState, useTransition } from 'react'
 import { useAviso } from '@/components/ui/avisos'
-import { fallo, type Resultado } from '@/lib/acciones/resultado'
+import { llamarAccion } from '@/lib/acciones/llamar'
 import { ETIQUETA_TIEMPO, TIEMPOS_COMIDA, type TiempoComida } from '@/lib/comidas/tipos'
 import { crearEnlaceConfirmacion, listarEnlacesDelEvento, revocarEnlaceConfirmacion } from '../acciones'
 
@@ -790,7 +815,7 @@ export function EnlaceCenaExtra({ eventoId }: { eventoId: string }) {
 
   function cargar() {
     iniciar(async () => {
-      const resultado = await listarEnlacesDelEvento({ evento_id: eventoId })
+      const resultado = await llamarAccion(() => listarEnlacesDelEvento({ evento_id: eventoId }))
       if (resultado.ok) setEnlaces(resultado.data)
       else aviso(resultado.error)
     })
@@ -808,12 +833,7 @@ export function EnlaceCenaExtra({ eventoId }: { eventoId: string }) {
       formData.set('tiempo_comida', tiempoComida)
       formData.set('fecha_vencimiento', fecha)
       formData.set('hora_vencimiento', hora)
-      let resultado: Resultado<{ id: string; token: string }>
-      try {
-        resultado = await crearEnlaceConfirmacion(null, formData)
-      } catch {
-        resultado = fallo('No se pudo generar el enlace. Revisá tu conexión e intentá de nuevo.')
-      }
+      const resultado = await llamarAccion(() => crearEnlaceConfirmacion(null, formData))
       if (resultado.ok) {
         aviso('Enlace generado.')
         setFecha('')
@@ -827,7 +847,7 @@ export function EnlaceCenaExtra({ eventoId }: { eventoId: string }) {
 
   function revocar(id: string) {
     iniciar(async () => {
-      const resultado = await revocarEnlaceConfirmacion({ id })
+      const resultado = await llamarAccion(() => revocarEnlaceConfirmacion({ id }))
       if (resultado.ok) {
         aviso('Enlace revocado.')
         cargar()
