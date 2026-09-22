@@ -410,7 +410,13 @@ describe('series_eventos y crear_serie_eventos', () => {
   // El afterEach de arriba del archivo borra `eventos` por creado_por, pero no `series_eventos`
   // (tabla nueva de esta pista): sin este afterEach propio, cada corrida deja filas huérfanas en el
   // banco de pruebas (que no se resetea solo entre corridas).
+  // Los afterEach anidados corren ANTES que el de arriba del archivo (de adentro hacia afuera): si
+  // este borrara solo series_eventos, todavía quedarían filas de eventos con ese serie_id (la FK no
+  // tiene on delete cascade) y el borrado de series_eventos fallaría por violación de clave foránea.
+  // Por eso acá se borran primero los eventos de esta serie, y recién después la serie.
   afterEach(async () => {
+    const { error: errorEventos } = await admin.from('eventos').delete().in('creado_por', Object.values(ids))
+    if (errorEventos) throw errorEventos
     const { error } = await admin.from('series_eventos').delete().in('creado_por', Object.values(ids))
     if (error) throw error
   })
@@ -939,8 +945,10 @@ test('el Director crea una serie semanal, edita una ocurrencia puntual y cancela
   await modal3.getByRole('button', { name: /Sí, cancelar la serie/ }).click()
   await expect(page.getByText(/Se cancelaron \d+ eventos futuros/)).toBeVisible()
 
+  // La serie se creó con fecha_inicio = hoy, así que toda ocurrencia generada es >= hoy — el filtro
+  // gte de eliminarSerieDesdeHoy las borra todas, no queda ninguna.
   const { data: quedan } = await clienteAdminPrueba().from('eventos').select('id').eq('serie_id', serieId!)
-  expect(quedan!.length).toBe(1) // solo la de hoy, que ya pasó a estar "hoy" y no se toca según el filtro gte
+  expect(quedan).toEqual([])
 })
 ```
 

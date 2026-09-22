@@ -71,6 +71,7 @@ app/(app)/mensajes/page.tsx                                     pestaña "Pendie
 app/(app)/mensajes/_componentes/cola-moderacion.tsx             nuevo — lista de pendientes, aprobar/rechazar
 app/(app)/mensajes/_componentes/tarjeta-mensaje.tsx             insignia de estado + editar y reenviar
 app/(app)/mensajes/_componentes/formulario-editar-propio.tsx    nuevo
+app/(app)/mensajes/_componentes/feed-mensajes.tsx                el mensaje optimista propio incluye estado/motivo_rechazo
 tests/unit/mensajes/feed.test.ts                                aplicarActualizacionMensaje()
 tests/unit/mensajes/tiempo-real.test.ts                         rama UPDATE de leerEvento()
 tests/unit/mensajes/validacion.test.ts                          esquemaModeracion, esquemaEdicionPropia
@@ -121,7 +122,11 @@ begin
   if tg_op = 'INSERT' then
     new.estado := case when (select public.mi_rol()) = 'director' then 'aprobado' else 'pendiente' end;
     new.motivo_rechazo := null;
-  elsif (select public.mi_rol()) <> 'director' then
+  elsif (select public.mi_rol()) is distinct from 'director' then
+    -- "is distinct from", no "<>": mi_rol() devuelve null si la cuenta está desactivada, y
+    -- `null <> 'director'` es null (ni true ni false) — el elsif no entraría y el estado que mandó
+    -- el cliente pasaría tal cual. Con cuentas activas da lo mismo; con una recién desactivada
+    -- (JWT todavía válido) es la diferencia entre bloquear la autoaprobación o no.
     -- El autor solo llega acá para corregir un rechazo (la política de UPDATE se lo exige):
     -- vuelve a pendiente sin importar qué mande, y no puede autoaprobarse.
     new.estado := 'pendiente';
@@ -171,11 +176,13 @@ create policy "mensajes: el Director modera"
   using ((select public.mi_rol()) = 'director')
   with check ((select public.mi_rol()) = 'director');
 
+-- soy_activo() de más, además del trigger: mismo motivo que "is distinct from" arriba, y consistente
+-- con el resto del archivo (todas las demás políticas de mensajes ya la exigen).
 create policy "mensajes: el autor corrige un rechazo"
   on public.mensajes for update
   to authenticated
-  using (autor_id = (select auth.uid()) and estado = 'rechazado')
-  with check (autor_id = (select auth.uid()));
+  using ((select public.soy_activo()) and autor_id = (select auth.uid()) and estado = 'rechazado')
+  with check ((select public.soy_activo()) and autor_id = (select auth.uid()));
 ```
 
 - [ ] **Paso 2: escribir las pruebas de integración**
@@ -433,10 +440,27 @@ Esperado: PASA. Si otros tests del mismo archivo (los que ya existían) fallan p
 `estado`/`motivoRechazo` en sus fixtures, agregarlos (`estado: 'aprobado', motivo_rechazo: null` /
 `motivoRechazo: null` según corresponda) sin cambiar lo que cada test verifica.
 
-- [ ] **Paso 5: commit**
+- [ ] **Paso 5: arreglar el mensaje optimista de `feed-mensajes.tsx`**
+
+Este paso es **obligatorio para que compile**, no opcional: `MensajeFila` ahora exige `estado` y
+`motivo_rechazo`, y `app/(app)/mensajes/_componentes/feed-mensajes.tsx` arma uno a mano al publicar
+(inserción optimista, antes de que llegue la confirmación del servidor) — algo como
+`{ id, autor_id: usuario.id, padre_id: padreId, texto, creado_en: new Date().toISOString() }`, sin
+esos dos campos. Ubicar esa construcción (función `agregarPropio` o como se llame) y agregarle:
+
+```ts
+estado: usuario.rol === 'director' ? 'aprobado' : 'pendiente',
+motivo_rechazo: null,
+```
+
+No es solo para que tipe: si se dejara `estado: 'aprobado'` a secas, un Residente vería su propio
+mensaje como ya aprobado por un instante (hasta que el evento de tiempo real lo corrija a
+`'pendiente'`), mostrando y ocultando la insignia de "Esperando aprobación" en un parpadeo.
+
+- [ ] **Paso 6: commit**
 
 ```bash
-git add lib/mensajes/feed.ts tests/unit/mensajes/feed.test.ts
+git add lib/mensajes/feed.ts tests/unit/mensajes/feed.test.ts app/\(app\)/mensajes/_componentes/feed-mensajes.tsx
 git commit -m "feat(mensajes): estado en el feed y aplicarActualizacionMensaje()"
 ```
 
