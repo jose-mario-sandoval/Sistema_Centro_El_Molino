@@ -541,7 +541,13 @@ En `lib/mensajes/tiempo-real.ts`:
 - [ ] **Paso 4: correr y confirmar que pasa**
 
 Correr: `npx vitest run --project unit tests/unit/mensajes/tiempo-real.test.ts`
-Esperado: PASA (incluido el test viejo que quitaba/reemplazaba la aserción de `null` para `UPDATE`).
+Esperado: PASA para el bloque nuevo. Pero además, una vez que `filaMensaje()` exige `estado` (Paso 3),
+los tests que ya existían en este archivo para la rama `INSERT` (los que usan un helper `mensaje()` o
+fixture equivalente con `id, autor_id, padre_id, texto, creado_en` pero sin `estado`/`motivo_rechazo`)
+van a fallar: `filaMensaje()` devuelve `null` ante una fila sin `estado`, así que esos tests dejan de
+encontrar el `resultado` que esperaban. Igual que en la Tarea 2 con `feed.test.ts`: agregarle
+`estado: 'aprobado', motivo_rechazo: null` a ese fixture (o a cada fila armada a mano) sin cambiar lo
+que cada test verifica.
 
 - [ ] **Paso 5: commit**
 
