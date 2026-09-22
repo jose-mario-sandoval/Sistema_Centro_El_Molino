@@ -3,16 +3,19 @@
 import { revalidatePath } from 'next/cache'
 import { exito, fallo, type Resultado } from '@/lib/acciones/resultado'
 import { perfilParaAccion } from '@/lib/auth/sesion'
-import { instanteEnZona } from '@/lib/fechas'
+import { generarFechasSerie, type ParametrosSerie } from '@/lib/calendario/recurrencia'
+import { fechaISOEn, instanteEnZona } from '@/lib/fechas'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { camposConError } from '@/lib/validacion/auth'
 import {
   esquemaCrearEnlace,
   esquemaEditarEvento,
   esquemaEliminarEvento,
+  esquemaEliminarSerie,
   esquemaEvento,
   esquemaListarEnlaces,
   esquemaRevocarEnlace,
+  esquemaSerieEventos,
 } from '@/lib/validacion/calendario'
 
 function leerFormulario(formData: FormData) {
@@ -171,4 +174,77 @@ export async function revocarEnlaceConfirmacion(entrada: unknown): Promise<Resul
 
   revalidatePath('/calendario')
   return exito(null)
+}
+
+export async function crearSerieEventos(
+  _previo: Resultado<{ id: string; cantidad: number }> | null,
+  formData: FormData,
+): Promise<Resultado<{ id: string; cantidad: number }>> {
+  const permiso = await perfilParaAccion('director')
+  if (!permiso.ok) return permiso
+
+  const entrada = esquemaSerieEventos.safeParse({
+    titulo: formData.get('titulo'),
+    hora: formData.get('hora') ?? '',
+    tipo: formData.get('tipo'),
+    requiere_cocina: formData.getAll('requiere_cocina'),
+    requiere_otro_texto: formData.get('requiere_otro_texto') ?? '',
+    patron: formData.get('patron'),
+    dia_semana: formData.get('dia_semana') || undefined,
+    ordinal_semana: formData.get('ordinal_semana') || undefined,
+    dia_mes: formData.get('dia_mes') || undefined,
+    fecha_inicio: formData.get('fecha_inicio'),
+    fecha_fin: formData.get('fecha_fin'),
+  })
+  if (!entrada.success) return fallo('Revisá los datos de la serie.', camposConError(entrada.error))
+
+  const datos = entrada.data
+  const parametros: ParametrosSerie =
+    datos.patron === 'semanal'
+      ? { patron: 'semanal', diaSemana: datos.dia_semana! }
+      : datos.patron === 'mensual_dia_fijo'
+        ? { patron: 'mensual_dia_fijo', diaMes: datos.dia_mes! }
+        : { patron: 'mensual_dia_semana', diaSemana: datos.dia_semana!, ordinalSemana: datos.ordinal_semana as 1 | 2 | 3 | 4 | -1 }
+  const fechas = generarFechasSerie(parametros, datos.fecha_inicio, datos.fecha_fin)
+  if (fechas.length === 0) {
+    return fallo('Ese patrón no genera ninguna fecha en el rango elegido.', { fecha_fin: 'Ajustá el rango o el patrón.' })
+  }
+
+  const supabase = await crearClienteServidor()
+  // La función acepta smallint/time null en los campos que no aplican al patrón elegido; los tipos
+  // generados los declaran como number/string (mismo caso que p_nota en guardar_seleccion).
+  const { data, error } = await supabase.rpc('crear_serie_eventos', {
+    p_patron: datos.patron,
+    p_dia_semana: (datos.dia_semana ?? null) as number,
+    p_ordinal_semana: (datos.ordinal_semana ?? null) as number,
+    p_dia_mes: (datos.dia_mes ?? null) as number,
+    p_fecha_inicio: datos.fecha_inicio,
+    p_fecha_fin: datos.fecha_fin,
+    p_hora: datos.hora as string,
+    p_titulo: datos.titulo,
+    p_tipo: datos.tipo,
+    p_requiere_cocina: datos.requiere_cocina,
+    p_requiere_otro_texto: datos.requiere_otro_texto as string,
+    p_fechas: fechas,
+  })
+  if (error) return fallo('No se pudo crear la serie. Intentá de nuevo.')
+
+  revalidatePath('/calendario')
+  return exito({ id: data, cantidad: fechas.length })
+}
+
+export async function eliminarSerieDesdeHoy(entrada: unknown): Promise<Resultado<{ cantidad: number }>> {
+  const permiso = await perfilParaAccion('director')
+  if (!permiso.ok) return permiso
+
+  const datos = esquemaEliminarSerie.safeParse(entrada)
+  if (!datos.success) return fallo('Serie inválida.')
+
+  const hoy = fechaISOEn(new Date())
+  const supabase = await crearClienteServidor()
+  const { data, error } = await supabase.from('eventos').delete().eq('serie_id', datos.data.serie_id).gte('fecha', hoy).select('id')
+  if (error) return fallo('No se pudo cancelar la serie. Intentá de nuevo.')
+
+  revalidatePath('/calendario')
+  return exito({ cantidad: data.length })
 }

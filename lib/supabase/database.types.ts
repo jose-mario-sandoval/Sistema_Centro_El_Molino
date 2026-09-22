@@ -164,6 +164,7 @@ export type Database = {
           id: string
           requiere_cocina: Database["public"]["Enums"]["requerimiento_cocina"][]
           requiere_otro_texto: string | null
+          serie_id: string | null
           tipo: Database["public"]["Enums"]["tipo_evento"]
           titulo: string
         }
@@ -176,6 +177,7 @@ export type Database = {
           id?: string
           requiere_cocina?: Database["public"]["Enums"]["requerimiento_cocina"][]
           requiere_otro_texto?: string | null
+          serie_id?: string | null
           tipo?: Database["public"]["Enums"]["tipo_evento"]
           titulo: string
         }
@@ -188,6 +190,7 @@ export type Database = {
           id?: string
           requiere_cocina?: Database["public"]["Enums"]["requerimiento_cocina"][]
           requiere_otro_texto?: string | null
+          serie_id?: string | null
           tipo?: Database["public"]["Enums"]["tipo_evento"]
           titulo?: string
         }
@@ -197,6 +200,13 @@ export type Database = {
             columns: ["creado_por"]
             isOneToOne: false
             referencedRelation: "perfiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "eventos_serie_id_fkey"
+            columns: ["serie_id"]
+            isOneToOne: false
+            referencedRelation: "series_eventos"
             referencedColumns: ["id"]
           },
         ]
@@ -457,6 +467,65 @@ export type Database = {
           },
         ]
       }
+      series_eventos: {
+        Row: {
+          creado_en: string
+          creado_por: string
+          dia_mes: number | null
+          dia_semana: number | null
+          fecha_fin: string
+          fecha_inicio: string
+          hora: string | null
+          id: string
+          ordinal_semana: number | null
+          patron: Database["public"]["Enums"]["patron_recurrencia"]
+          requiere_cocina: Database["public"]["Enums"]["requerimiento_cocina"][]
+          requiere_otro_texto: string | null
+          tipo: Database["public"]["Enums"]["tipo_evento"]
+          titulo: string
+        }
+        Insert: {
+          creado_en?: string
+          creado_por: string
+          dia_mes?: number | null
+          dia_semana?: number | null
+          fecha_fin: string
+          fecha_inicio: string
+          hora?: string | null
+          id?: string
+          ordinal_semana?: number | null
+          patron: Database["public"]["Enums"]["patron_recurrencia"]
+          requiere_cocina?: Database["public"]["Enums"]["requerimiento_cocina"][]
+          requiere_otro_texto?: string | null
+          tipo?: Database["public"]["Enums"]["tipo_evento"]
+          titulo: string
+        }
+        Update: {
+          creado_en?: string
+          creado_por?: string
+          dia_mes?: number | null
+          dia_semana?: number | null
+          fecha_fin?: string
+          fecha_inicio?: string
+          hora?: string | null
+          id?: string
+          ordinal_semana?: number | null
+          patron?: Database["public"]["Enums"]["patron_recurrencia"]
+          requiere_cocina?: Database["public"]["Enums"]["requerimiento_cocina"][]
+          requiere_otro_texto?: string | null
+          tipo?: Database["public"]["Enums"]["tipo_evento"]
+          titulo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "series_eventos_creado_por_fkey"
+            columns: ["creado_por"]
+            isOneToOne: false
+            referencedRelation: "perfiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       suscripciones_push: {
         Row: {
           auth: string
@@ -520,6 +589,23 @@ export type Database = {
       congelar_comidas_de: {
         Args: { p_desde: string; p_hasta: string; p_usuario: string }
         Returns: undefined
+      }
+      crear_serie_eventos: {
+        Args: {
+          p_dia_mes: number
+          p_dia_semana: number
+          p_fecha_fin: string
+          p_fecha_inicio: string
+          p_fechas: string[]
+          p_hora: string
+          p_ordinal_semana: number
+          p_patron: Database["public"]["Enums"]["patron_recurrencia"]
+          p_requiere_cocina: Database["public"]["Enums"]["requerimiento_cocina"][]
+          p_requiere_otro_texto: string
+          p_tipo: Database["public"]["Enums"]["tipo_evento"]
+          p_titulo: string
+        }
+        Returns: string
       }
       eventos_para_cocina: {
         Args: { p_desde: string; p_hasta: string }
@@ -586,6 +672,7 @@ export type Database = {
       estado_comida: "si" | "no" | "temprano" | "tarde" | "bolsa" | "enfermo"
       estado_mensaje: "pendiente" | "aprobado" | "rechazado"
       origen_seleccion: "persona" | "plan" | "ausencia"
+      patron_recurrencia: "semanal" | "mensual_dia_fijo" | "mensual_dia_semana"
       requerimiento_cocina: "merienda" | "comida" | "materiales"
       rol: "director" | "residente" | "administracion"
       tiempo_comida: "desayuno" | "almuerzo" | "cena"
@@ -720,6 +807,7 @@ export const Constants = {
       estado_comida: ["si", "no", "temprano", "tarde", "bolsa", "enfermo"],
       estado_mensaje: ["pendiente", "aprobado", "rechazado"],
       origen_seleccion: ["persona", "plan", "ausencia"],
+      patron_recurrencia: ["semanal", "mensual_dia_fijo", "mensual_dia_semana"],
       requerimiento_cocina: ["merienda", "comida", "materiales"],
       rol: ["director", "residente", "administracion"],
       tiempo_comida: ["desayuno", "almuerzo", "cena"],

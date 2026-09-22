@@ -7,8 +7,9 @@ import { fallo, type Resultado } from '@/lib/acciones/resultado'
 import { FECHA_MAXIMA, FECHA_MINIMA } from '@/lib/calendario/cuadricula'
 import type { Evento, RequerimientoCocina, TipoEvento } from '@/lib/calendario/tipos'
 import { horaHHMM, type FechaISO } from '@/lib/fechas'
-import { crearEvento, editarEvento } from '../acciones'
+import { crearEvento, crearSerieEventos, editarEvento } from '../acciones'
 import { CamposTipoYCocina } from './campos-evento'
+import { CamposRecurrencia, type Patron } from './campos-recurrencia'
 
 const CAMPOS_VISIBLES = ['titulo', 'fecha', 'hora', 'tipo', 'requiere_cocina', 'requiere_otro_texto'] as const
 
@@ -38,21 +39,36 @@ export function FormularioNuevoEvento({ fecha, alCerrar }: { fecha: FechaISO; al
   const [tipo, setTipo] = useState<TipoEvento | ''>('')
   const [requiere, setRequiere] = useState<RequerimientoCocina[]>([])
   const [otroTexto, setOtroTexto] = useState('')
+  const [repite, setRepite] = useState(false)
+  const [patron, setPatron] = useState<Patron>('semanal')
+  const [diaSemana, setDiaSemana] = useState('')
+  const [ordinalSemana, setOrdinalSemana] = useState('')
+  const [diaMes, setDiaMes] = useState('')
+  const [fechaFin, setFechaFin] = useState('')
   const [estado, accion] = useActionState(
-    async (previo: Resultado<{ id: string }> | null, formData: FormData): Promise<Resultado<{ id: string }> | null> => {
-      let resultado: Resultado<{ id: string }>
+    async (
+      previo: Resultado<{ id: string; cantidad?: number }> | null,
+      formData: FormData,
+    ): Promise<Resultado<{ id: string; cantidad?: number }> | null> => {
+      let resultado: Resultado<{ id: string; cantidad?: number }>
       try {
-        resultado = await crearEvento(previo, formData)
+        resultado = repite ? await crearSerieEventos(null, formData) : await crearEvento(null, formData)
       } catch {
         resultado = fallo('No se pudo guardar el evento. Revisá tu conexión e intentá de nuevo.')
       }
       if (resultado.ok) {
-        aviso('Evento agregado.')
+        aviso(resultado.data.cantidad !== undefined ? `Se crearon ${resultado.data.cantidad} eventos.` : 'Evento agregado.')
         setTitulo('')
         setHora('')
         setTipo('')
         setRequiere([])
         setOtroTexto('')
+        setRepite(false)
+        setPatron('semanal')
+        setDiaSemana('')
+        setOrdinalSemana('')
+        setDiaMes('')
+        setFechaFin('')
       } else {
         const mensaje = mensajeSinCampoVisible(resultado)
         if (mensaje) aviso(mensaje)
@@ -66,7 +82,11 @@ export function FormularioNuevoEvento({ fecha, alCerrar }: { fecha: FechaISO; al
   return (
     <form action={accion} className="cal-evento-form">
       <div className="section-title">Nuevo evento</div>
-      <input type="hidden" name="fecha" value={fecha} />
+      {repite ? (
+        <input type="hidden" name="fecha_inicio" value={fecha} />
+      ) : (
+        <input type="hidden" name="fecha" value={fecha} />
+      )}
       <div className="field">
         <label htmlFor="nuevo-evento-titulo">Título del evento</label>
         <input
@@ -80,6 +100,25 @@ export function FormularioNuevoEvento({ fecha, alCerrar }: { fecha: FechaISO; al
         />
         <ErrorCampo mensaje={campos?.titulo} />
       </div>
+      <label className="opcion-pastilla">
+        <input type="checkbox" checked={repite} onChange={(e) => setRepite(e.target.checked)} />
+        <span>Este evento se repite</span>
+      </label>
+      {repite && (
+        <CamposRecurrencia
+          patron={patron}
+          alCambiarPatron={setPatron}
+          diaSemana={diaSemana}
+          alCambiarDiaSemana={setDiaSemana}
+          ordinalSemana={ordinalSemana}
+          alCambiarOrdinalSemana={setOrdinalSemana}
+          diaMes={diaMes}
+          alCambiarDiaMes={setDiaMes}
+          fechaFin={fechaFin}
+          alCambiarFechaFin={setFechaFin}
+          errores={campos}
+        />
+      )}
       <CamposTipoYCocina
         tipo={tipo}
         alCambiarTipo={setTipo}

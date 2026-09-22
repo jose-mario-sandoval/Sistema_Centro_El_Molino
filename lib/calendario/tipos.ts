@@ -44,6 +44,7 @@ export type Evento = {
   tipo: TipoEvento | null
   requiere_cocina: RequerimientoCocina[]
   requiere_otro_texto: string | null
+  serie_id: string | null
 }
 
 /** Lo único que Administración ve de un evento: cuándo y qué preparar (`eventos_para_cocina`). */
@@ -94,5 +95,6 @@ export function eventoParaAdministracion(e: EventoParaCocina): Evento {
     tipo: null,
     requiere_cocina: e.requiere_cocina,
     requiere_otro_texto: e.requiere_otro_texto,
+    serie_id: null,
   }
 }

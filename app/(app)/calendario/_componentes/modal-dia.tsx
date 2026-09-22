@@ -8,7 +8,7 @@ import { fallo } from '@/lib/acciones/resultado'
 import type { DiaConEtiqueta } from '@/lib/calendario/cuadricula'
 import type { Evento } from '@/lib/calendario/tipos'
 import { horaHHMM } from '@/lib/fechas'
-import { eliminarEvento } from '../acciones'
+import { eliminarEvento, eliminarSerieDesdeHoy } from '../acciones'
 import { EnlaceCenaExtra } from './enlace-cena-extra'
 import { FormularioEditarEvento, FormularioNuevoEvento } from './formulario-evento'
 import { InsigniasEvento } from './insignias-evento'
@@ -26,12 +26,18 @@ function FilaEvento({
 }) {
   const aviso = useAviso()
   const [confirmando, setConfirmando] = useState(false)
+  const [confirmandoSerie, setConfirmandoSerie] = useState(false)
   const [pendiente, iniciar] = useTransition()
 
   function cancelarEliminacion() {
     // El botón con foco desaparece: el foco vuelve al diálogo en vez de perderse en <body>.
     enfocarDialogo()
     setConfirmando(false)
+  }
+
+  function cancelarCancelacionSerie() {
+    enfocarDialogo()
+    setConfirmandoSerie(false)
   }
 
   function eliminar() {
@@ -48,6 +54,24 @@ function FilaEvento({
       } else {
         aviso(resultado.error)
         cancelarEliminacion()
+      }
+    })
+  }
+
+  function cancelarSerie() {
+    iniciar(async () => {
+      let resultado
+      try {
+        resultado = await eliminarSerieDesdeHoy({ serie_id: evento.serie_id })
+      } catch {
+        resultado = fallo('No se pudo cancelar la serie. Revisá tu conexión e intentá de nuevo.')
+      }
+      if (resultado.ok) {
+        aviso(`Se cancelaron ${resultado.data.cantidad} eventos futuros de la serie.`)
+        enfocarDialogo()
+      } else {
+        aviso(resultado.error)
+        cancelarCancelacionSerie()
       }
     })
   }
@@ -76,6 +100,21 @@ function FilaEvento({
                 Cancelar
               </button>
             </>
+          ) : confirmandoSerie ? (
+            <>
+              <button type="button" className="btn danger small" onClick={cancelarSerie} disabled={pendiente}>
+                {pendiente ? 'Cancelando…' : 'Sí, cancelar la serie'}
+              </button>
+              <button
+                type="button"
+                className="btn ghost small"
+                onClick={cancelarCancelacionSerie}
+                disabled={pendiente}
+                autoFocus
+              >
+                Cancelar
+              </button>
+            </>
           ) : (
             <>
               <button type="button" className="link-btn" onClick={alEditar} aria-label={`Editar ${evento.titulo}`}>
@@ -90,6 +129,16 @@ function FilaEvento({
                 Eliminar
               </button>
               <EnlaceCenaExtra eventoId={evento.id} />
+              {evento.serie_id && (
+                <button
+                  type="button"
+                  className="link-btn"
+                  onClick={() => setConfirmandoSerie(true)}
+                  aria-label={`Cancelar toda la serie de ${evento.titulo}`}
+                >
+                  Cancelar toda la serie
+                </button>
+              )}
             </>
           )}
         </div>

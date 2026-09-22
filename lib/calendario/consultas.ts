@@ -23,7 +23,7 @@ export async function listarEventosDeCuadricula(mes: MesISO, rol: Rol): Promise<
 
   const { data, error } = await supabase
     .from('eventos')
-    .select('id, titulo, fecha, hora, tipo, requiere_cocina, requiere_otro_texto')
+    .select('id, titulo, fecha, hora, tipo, requiere_cocina, requiere_otro_texto, serie_id')
     .gte('fecha', desde)
     .lte('fecha', hasta)
     .order('fecha')
