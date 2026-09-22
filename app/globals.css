@@ -723,6 +723,31 @@ a{color:var(--acento);}
 .cal-day.ausente{border:2px dashed var(--dorado);}
 .cal-ausente-icono{width:1.1em;height:1.1em;color:var(--dorado);}
 
+/* Enlace público de confirmación de cena extra: fuera del layout de la app, sin sesión. */
+.pagina-publica{
+  min-height:100vh;display:flex;align-items:center;justify-content:center;padding:var(--canal);
+}
+.pagina-publica .card{max-width:32rem;width:100%;}
+
+.aviso{
+  padding:.9rem var(--marco);border-radius:var(--r-md);
+  border:2px solid var(--borde-hundido);box-shadow:var(--hundido-suave);
+  color:var(--peligro);font-weight:600;font-size:var(--t-sm);
+}
+.aviso-exito{
+  padding:.9rem var(--marco);border-radius:var(--r-md);
+  border:2px solid var(--borde-hundido);box-shadow:var(--hundido-suave);
+  color:var(--acento);font-weight:600;font-size:var(--t-sm);
+}
+
+.panel-enlaces{display:flex;flex-direction:column;gap:1rem;margin-top:1rem;}
+.enlace-item{display:flex;flex-direction:column;gap:.6rem;}
+.enlace-item input[readonly]{
+  width:100%;min-height:var(--toque);padding:.65rem 1rem;border-radius:var(--r-md);
+  border:2px solid var(--borde-hundido);box-shadow:var(--hundido-suave);
+  background:var(--fondo);color:var(--tinta);font-size:var(--t-sm);
+}
+
 /* ---------- 9. Modal y avisos -------------------------------------------- */
 
 .modal-backdrop{

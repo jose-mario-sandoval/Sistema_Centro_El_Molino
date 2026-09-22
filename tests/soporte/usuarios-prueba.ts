@@ -92,3 +92,10 @@ export async function clienteComo(clave: ClaveUsuario): Promise<ClienteSinTipo> 
   if (error) throw error
   return cliente
 }
+
+/** Cliente sin sesión (como lo usaría alguien que abre el enlace público). */
+export function clienteAnonimoPrueba(): ClienteSinTipo {
+  return createClient(url(), process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  })
+}

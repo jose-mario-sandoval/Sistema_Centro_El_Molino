@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { FECHA_MAXIMA, FECHA_MINIMA } from '@/lib/calendario/cuadricula'
 import { REQUERIMIENTOS_COCINA, TIPOS_EVENTO, type RequerimientoCocina } from '@/lib/calendario/tipos'
+import { TIEMPOS_COMIDA } from '@/lib/comidas/tipos'
 
 const PATRON_HORA = /^([01]\d|2[0-3]):[0-5]\d$/
 
@@ -52,6 +53,27 @@ export const esquemaEditarEvento = esquemaEvento.extend({
 
 export const esquemaEliminarEvento = z.object({
   id: z.uuid('Evento inválido.'),
+})
+
+export const esquemaCrearEnlace = z.object({
+  evento_id: z.uuid('Evento inválido.'),
+  tiempo_comida: z.enum(TIEMPOS_COMIDA, { error: 'Elegí el tiempo de comida.' }),
+  fecha_vencimiento: z.iso.date('Fecha inválida.'),
+  hora_vencimiento: z.string('Hora inválida.').trim().regex(PATRON_HORA, 'Usá el formato HH:MM.'),
+})
+
+export const esquemaRevocarEnlace = z.object({ id: z.uuid('Enlace inválido.') })
+
+export const esquemaListarEnlaces = z.object({ evento_id: z.uuid('Evento inválido.') })
+
+export const esquemaConfirmarCena = z.object({
+  token: z.string('Enlace inválido.').min(1, 'Enlace inválido.'),
+  nombre: z.string('Escribí tu nombre.').trim().min(1, 'Escribí tu nombre.').max(120, 'El nombre puede tener hasta 120 caracteres.'),
+  cantidad_personas: z.coerce
+    .number('Escribí un número.')
+    .int('Escribí un número entero.')
+    .min(1, 'Mínimo 1 persona.')
+    .max(10, 'Máximo 10 personas.'),
 })
 
 export type DatosEvento = z.output<typeof esquemaEvento>

@@ -77,6 +77,83 @@ export type Database = {
         }
         Relationships: []
       }
+      confirmaciones_extra: {
+        Row: {
+          cantidad_personas: number
+          creado_en: string
+          enlace_id: string
+          id: string
+          nombre: string
+        }
+        Insert: {
+          cantidad_personas: number
+          creado_en?: string
+          enlace_id: string
+          id?: string
+          nombre: string
+        }
+        Update: {
+          cantidad_personas?: number
+          creado_en?: string
+          enlace_id?: string
+          id?: string
+          nombre?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "confirmaciones_extra_enlace_id_fkey"
+            columns: ["enlace_id"]
+            isOneToOne: false
+            referencedRelation: "enlaces_confirmacion"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      enlaces_confirmacion: {
+        Row: {
+          creado_en: string
+          creado_por: string
+          evento_id: string
+          id: string
+          tiempo_comida: Database["public"]["Enums"]["tiempo_comida"]
+          token: string
+          vence_en: string
+        }
+        Insert: {
+          creado_en?: string
+          creado_por: string
+          evento_id: string
+          id?: string
+          tiempo_comida: Database["public"]["Enums"]["tiempo_comida"]
+          token?: string
+          vence_en: string
+        }
+        Update: {
+          creado_en?: string
+          creado_por?: string
+          evento_id?: string
+          id?: string
+          tiempo_comida?: Database["public"]["Enums"]["tiempo_comida"]
+          token?: string
+          vence_en?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "enlaces_confirmacion_creado_por_fkey"
+            columns: ["creado_por"]
+            isOneToOne: false
+            referencedRelation: "perfiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "enlaces_confirmacion_evento_id_fkey"
+            columns: ["evento_id"]
+            isOneToOne: false
+            referencedRelation: "eventos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       eventos: {
         Row: {
           actualizado_en: string
@@ -436,6 +513,10 @@ export type Database = {
         }
         Returns: string[]
       }
+      confirmar_cena_extra: {
+        Args: { p_cantidad: number; p_nombre: string; p_token: string }
+        Returns: undefined
+      }
       congelar_comidas_de: {
         Args: { p_desde: string; p_hasta: string; p_usuario: string }
         Returns: undefined
@@ -458,6 +539,17 @@ export type Database = {
           p_nota: string
         }
         Returns: undefined
+      }
+      info_enlace_confirmacion: {
+        Args: { p_token: string }
+        Returns: {
+          evento_titulo: string
+          fecha: string
+          hora: string
+          tiempo_comida: Database["public"]["Enums"]["tiempo_comida"]
+          vence_en: string
+          vigente: boolean
+        }[]
       }
       llamar_recordatorios: { Args: never; Returns: number }
       mi_rol: { Args: never; Returns: Database["public"]["Enums"]["rol"] }

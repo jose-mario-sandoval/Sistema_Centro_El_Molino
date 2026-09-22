@@ -3,9 +3,17 @@
 import { revalidatePath } from 'next/cache'
 import { exito, fallo, type Resultado } from '@/lib/acciones/resultado'
 import { perfilParaAccion } from '@/lib/auth/sesion'
+import { instanteEnZona } from '@/lib/fechas'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { camposConError } from '@/lib/validacion/auth'
-import { esquemaEditarEvento, esquemaEliminarEvento, esquemaEvento } from '@/lib/validacion/calendario'
+import {
+  esquemaCrearEnlace,
+  esquemaEditarEvento,
+  esquemaEliminarEvento,
+  esquemaEvento,
+  esquemaListarEnlaces,
+  esquemaRevocarEnlace,
+} from '@/lib/validacion/calendario'
 
 function leerFormulario(formData: FormData) {
   return {
@@ -78,6 +86,88 @@ export async function eliminarEvento(entrada: unknown): Promise<Resultado<null>>
     revalidatePath('/calendario')
     return fallo('El evento ya no existe.')
   }
+
+  revalidatePath('/calendario')
+  return exito(null)
+}
+
+export async function crearEnlaceConfirmacion(
+  _previo: Resultado<{ id: string; token: string }> | null,
+  formData: FormData,
+): Promise<Resultado<{ id: string; token: string }>> {
+  const permiso = await perfilParaAccion('director')
+  if (!permiso.ok) return permiso
+
+  const entrada = esquemaCrearEnlace.safeParse({
+    evento_id: formData.get('evento_id'),
+    tiempo_comida: formData.get('tiempo_comida'),
+    fecha_vencimiento: formData.get('fecha_vencimiento'),
+    hora_vencimiento: formData.get('hora_vencimiento'),
+  })
+  if (!entrada.success) return fallo('Revisá los datos del enlace.', camposConError(entrada.error))
+
+  const vence_en = instanteEnZona(entrada.data.fecha_vencimiento, entrada.data.hora_vencimiento).toISOString()
+  const supabase = await crearClienteServidor()
+  const { data, error } = await supabase
+    .from('enlaces_confirmacion')
+    .insert({
+      evento_id: entrada.data.evento_id,
+      tiempo_comida: entrada.data.tiempo_comida,
+      vence_en,
+      creado_por: permiso.perfil.id,
+    })
+    .select('id, token')
+    .single()
+  if (error) return fallo('No se pudo generar el enlace. La hora de vencimiento debe ser futura.')
+
+  revalidatePath('/calendario')
+  return exito(data)
+}
+
+export async function listarEnlacesDelEvento(entrada: unknown): Promise<
+  Resultado<{ id: string; token: string; tiempoComida: string; venceEn: string; confirmaciones: { nombre: string; cantidadPersonas: number }[] }[]>
+> {
+  const permiso = await perfilParaAccion('director')
+  if (!permiso.ok) return permiso
+
+  const datos = esquemaListarEnlaces.safeParse(entrada)
+  if (!datos.success) return fallo('Evento inválido.')
+
+  const supabase = await crearClienteServidor()
+  const { data, error } = await supabase
+    .from('enlaces_confirmacion')
+    .select('id, token, tiempo_comida, vence_en, confirmaciones_extra(nombre, cantidad_personas)')
+    .eq('evento_id', datos.data.evento_id)
+    .order('creado_en')
+  if (error) return fallo('No se pudieron cargar los enlaces.')
+
+  return exito(
+    data.map((e) => ({
+      id: e.id,
+      token: e.token,
+      tiempoComida: e.tiempo_comida,
+      venceEn: e.vence_en,
+      confirmaciones: e.confirmaciones_extra.map((c) => ({ nombre: c.nombre, cantidadPersonas: c.cantidad_personas })),
+    })),
+  )
+}
+
+export async function revocarEnlaceConfirmacion(entrada: unknown): Promise<Resultado<null>> {
+  const permiso = await perfilParaAccion('director')
+  if (!permiso.ok) return permiso
+
+  const datos = esquemaRevocarEnlace.safeParse(entrada)
+  if (!datos.success) return fallo('Enlace inválido.')
+
+  const supabase = await crearClienteServidor()
+  const { data, error } = await supabase
+    .from('enlaces_confirmacion')
+    .update({ vence_en: new Date().toISOString() })
+    .eq('id', datos.data.id)
+    .select('id')
+  if (error) return fallo('No se pudo revocar el enlace. Intentá de nuevo.')
+  // RLS no da error si no hay filas afectadas (mismo caso que editarEvento): 0 filas = ya no existe.
+  if (data.length === 0) return fallo('El enlace ya no existe.')
 
   revalidatePath('/calendario')
   return exito(null)
