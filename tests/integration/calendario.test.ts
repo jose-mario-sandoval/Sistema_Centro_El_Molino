@@ -412,7 +412,12 @@ describe('enlaces_confirmacion: RLS y funciones públicas', () => {
     const director = await clienteComo('director')
     const { error } = await director
       .from('enlaces_confirmacion')
-      .insert({ evento_id: evento.id, tiempo_comida: 'cena', vence_en: new Date(Date.now() + 3_600_000).toISOString() })
+      .insert({
+        evento_id: evento.id,
+        tiempo_comida: 'cena',
+        vence_en: new Date(Date.now() + 3_600_000).toISOString(),
+        creado_por: ids.director,
+      })
     expect(error).toBeNull()
 
     for (const clave of SIN_PERMISO) {
@@ -429,7 +434,12 @@ describe('enlaces_confirmacion: RLS y funciones públicas', () => {
     const director = await clienteComo('director')
     const { error } = await director
       .from('enlaces_confirmacion')
-      .insert({ evento_id: evento.id, tiempo_comida: 'cena', vence_en: new Date(Date.now() - 3_600_000).toISOString() })
+      .insert({
+        evento_id: evento.id,
+        tiempo_comida: 'cena',
+        vence_en: new Date(Date.now() - 3_600_000).toISOString(),
+        creado_por: ids.director,
+      })
     expect(error).not.toBeNull()
   })
 
@@ -453,7 +463,8 @@ describe('enlaces_confirmacion: RLS y funciones públicas', () => {
     const { error } = await director.from('enlaces_confirmacion').update({ vence_en: pasado }).eq('id', id)
     expect(error).toBeNull()
     const { data } = await admin.from('enlaces_confirmacion').select('vence_en').eq('id', id).single()
-    expect(data!.vence_en).toBe(pasado)
+    // Postgres devuelve timestamptz como '...+00:00', no '...Z': mismo instante, otra notación.
+    expect(new Date(data!.vence_en).toISOString()).toBe(pasado)
   })
 
   it.each(SIN_PERMISO)('%s no puede adelantar el vencimiento', async (clave) => {
