@@ -739,3 +739,57 @@ describe('comidas_sin_definir', () => {
     }
   })
 })
+
+describe('extras_de_la_semana', () => {
+  const LUNES = '2026-10-05'
+  const MIERCOLES = '2026-10-07'
+
+  async function sembrarExtra(cantidad: number, tiempo_comida: 'desayuno' | 'almuerzo' | 'cena' = 'cena') {
+    const { data: evento, error: errorEvento } = await admin
+      .from('eventos')
+      .insert({ titulo: 'San Rafael', fecha: MIERCOLES, creado_por: ids.director })
+      .select('id')
+      .single()
+    if (errorEvento) throw errorEvento
+    const { data: enlace, error: errorEnlace } = await admin
+      .from('enlaces_confirmacion')
+      .insert({
+        evento_id: evento.id,
+        tiempo_comida,
+        vence_en: new Date(Date.now() + 3_600_000).toISOString(),
+        creado_por: ids.director,
+      })
+      .select('id')
+      .single()
+    if (errorEnlace) throw errorEnlace
+    const { error: errorConfirmacion } = await admin
+      .from('confirmaciones_extra')
+      .insert({ enlace_id: enlace.id, nombre: 'Familia de prueba', cantidad_personas: cantidad })
+    if (errorConfirmacion) throw errorConfirmacion
+  }
+
+  it('Administración ve el total, sin nombres', async () => {
+    await sembrarExtra(3)
+    await sembrarExtra(2, 'cena')
+    const cocina = await clienteComo('administracion')
+    const { data, error } = await cocina.rpc('extras_de_la_semana', { p_desde: LUNES, p_hasta: '2026-10-11' })
+    expect(error).toBeNull()
+    expect(data).toEqual([{ fecha: MIERCOLES, tiempo_comida: 'cena', total: 5 }])
+    expect(JSON.stringify(data)).not.toMatch(/familia/i)
+  })
+
+  it('Director y Residente no obtienen nada (la función es solo para Administración)', async () => {
+    await sembrarExtra(1)
+    for (const clave of ['director', 'residente'] as const) {
+      const cliente = await clienteComo(clave)
+      const { data } = await cliente.rpc('extras_de_la_semana', { p_desde: LUNES, p_hasta: '2026-10-11' })
+      expect(data).toEqual([])
+    }
+  })
+
+  it('sin confirmaciones en el rango, lista vacía', async () => {
+    const cocina = await clienteComo('administracion')
+    const { data } = await cocina.rpc('extras_de_la_semana', { p_desde: '2020-01-01', p_hasta: '2020-01-07' })
+    expect(data).toEqual([])
+  })
+})

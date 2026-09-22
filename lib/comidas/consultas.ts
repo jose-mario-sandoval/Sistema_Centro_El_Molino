@@ -3,12 +3,16 @@ import { diaSemana, horaHHMM, sumarDias, type FechaISO } from '@/lib/fechas'
 import { listarPerfiles } from '@/lib/perfiles/consultas'
 import { ROLES_CON_COMIDAS } from '@/lib/perfiles/roles'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
-import { TIEMPOS_COMIDA, type HorasLimite } from './tipos'
+import { diasDeSemana } from './semana'
+import { TIEMPOS_COMIDA, type HorasLimite, type TiempoComida } from './tipos'
 import {
+  agregarSemana,
   armarDiaAdministracion,
   armarSemanaPersona,
   planDesdeFilas,
+  resumenPlanSemanal,
   type DiaAdministracion,
+  type DiaAgregado,
   type DiaDeSemana,
   type PersonaConPlan,
   type PlanSemanal,
@@ -125,4 +129,67 @@ export async function obtenerDiaParaAdministracion(fecha: FechaISO): Promise<Dia
     cerradas: cerradas.data,
     ausentes: ausentes.data,
   })
+}
+
+/** Semana completa para Administración: solo cantidades por día y tiempo de comida, nunca por persona. */
+export async function obtenerSemanaParaAdministracion(lunes: FechaISO): Promise<DiaAgregado[]> {
+  const domingo = sumarDias(lunes, 6)
+  const dias = diasDeSemana(lunes)
+  const supabase = await crearClienteServidor()
+  const personas = await listarPerfiles({ soloActivos: true, roles: ROLES_CON_COMIDAS })
+  const ids = personas.map((persona) => persona.id)
+
+  const [planes, selecciones, cerradas, ausentesPorDia] = await Promise.all([
+    supabase.from('plan_semanal').select('usuario_id, dia_semana, comida, estado, nota', { count: 'exact' }).in('usuario_id', ids),
+    supabase
+      .from('selecciones_comida')
+      .select('usuario_id, fecha, comida, estado, nota, origen')
+      .in('usuario_id', ids)
+      .gte('fecha', lunes)
+      .lte('fecha', domingo),
+    supabase.from('comidas_cerradas').select('fecha, comida').gte('fecha', lunes).lte('fecha', domingo),
+    Promise.all(dias.map((fecha) => supabase.rpc('ausentes_en', { p_fecha: fecha }))),
+  ])
+  if (planes.error) throw planes.error
+  if (selecciones.error) throw selecciones.error
+  if (cerradas.error) throw cerradas.error
+  for (const resultado of ausentesPorDia) if (resultado.error) throw resultado.error
+  // Mismo resguardo que obtenerPlanesDeTodos: si PostgREST corta en max_rows, fallar en vez de agregar de menos.
+  if (planes.count !== null && planes.count > planes.data.length) {
+    throw new Error(`Planes semanales truncados: llegaron ${planes.data.length} de ${planes.count} filas.`)
+  }
+
+  const diasAdministracion = dias.map((fecha, indice) =>
+    armarDiaAdministracion({
+      fecha,
+      personas,
+      planes: planes.data,
+      selecciones: selecciones.data,
+      cerradas: cerradas.data,
+      // El error ya se revisó arriba; el `?? undefined` es solo para que TS descarte el `null` del tipo.
+      ausentes: ausentesPorDia[indice].data ?? undefined,
+    }),
+  )
+  return agregarSemana(diasAdministracion)
+}
+
+/** Cenas/comidas extra confirmadas por el enlace público, por fecha y tiempo de comida. */
+export async function obtenerExtrasDeLaSemana(lunes: FechaISO): Promise<Record<string, Partial<Record<TiempoComida, number>>>> {
+  const domingo = sumarDias(lunes, 6)
+  const supabase = await crearClienteServidor()
+  const { data, error } = await supabase.rpc('extras_de_la_semana', { p_desde: lunes, p_hasta: domingo })
+  if (error) throw error
+
+  const extras: Record<string, Partial<Record<TiempoComida, number>>> = {}
+  for (const fila of data) {
+    const porDia = (extras[fila.fecha] ??= {})
+    porDia[fila.tiempo_comida] = fila.total
+  }
+  return extras
+}
+
+/** Plan habitual agregado, para Administración (nunca por persona). */
+export async function obtenerResumenPlanSemanal(): Promise<Record<number, Record<TiempoComida, import('./resumen').ResumenComida>>> {
+  const personas = await obtenerPlanesDeTodos()
+  return resumenPlanSemanal(personas)
 }

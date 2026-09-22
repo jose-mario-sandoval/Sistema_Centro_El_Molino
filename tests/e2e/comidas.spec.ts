@@ -118,41 +118,31 @@ test('un residente cambia el almuerzo y Administración lo ve en Semana', async 
     })
     .toEqual([{ estado: 'tarde', nota: '13:30', origen: 'persona' }])
 
-  // Administración
+  // Administración: ve el agregado del miércoles, sin filas por persona.
   await page.context().clearCookies()
   await iniciarSesion(page, 'administracion')
-  await page.goto(`/comidas/semana?semana=${lunesSiguiente}&dia=${miercolesSiguiente}`)
-  await expect(page.getByRole('link', { name: `Mié ${fechaCorta(miercolesSiguiente)}`, exact: true })).toHaveAttribute(
-    'aria-current',
-    'true',
-  )
+  await page.goto(`/comidas/semana?semana=${lunesSiguiente}`)
 
-  const resumen = page.locator('[data-resumen="almuerzo"]')
-  await expect(resumen).toContainText('1 tarde (13:30)')
-  await expect(resumen).toContainText('sin definir')
+  const celdaAlmuerzo = page.locator(`td[data-et="Almuerzo ${fechaCorta(miercolesSiguiente)}"]`)
+  await expect(celdaAlmuerzo).toBeVisible()
+  await expect(celdaAlmuerzo).toContainText('1') // solo el residente que confirmó "tarde" comió ese almuerzo.
 
-  // Administración ve siglas (RP), no nombres.
-  const celda = page.getByRole('row', { name: /^RP\b/ }).locator('td[data-comida="almuerzo"]')
-  await expect(celda).toContainText('Comer tarde')
-  await expect(celda).toContainText('13:30')
-  await expect(celda).toHaveClass(/\bexcepcion\b/)
-
-  const celdaDirectora = page.getByRole('row', { name: /^DP\b/ }).locator('td[data-comida="almuerzo"]')
-  await expect(celdaDirectora).toContainText('Sin definir')
+  await expect(page.locator('.admin-week-table')).not.toContainText('Persona')
+  await expect(page.getByRole('row', { name: /^RP\b/ })).toHaveCount(0)
   await sinNombresAjenos(page, 'administracion')
 })
 
-test('Administración ve siglas y no nombres en Semana y en Plan semanal', async ({ page }) => {
+test('Administración no ve ninguna sigla ni fila por persona en Semana ni en Plan semanal', async ({ page }) => {
   await planAlmuerzoMiercoles()
   await iniciarSesion(page, 'administracion')
 
   await page.goto('/comidas/semana')
-  await expect(page.getByRole('row', { name: /^RP\b/ })).toBeVisible()
-  await expect(page.getByRole('row', { name: /^DP\b/ })).toBeVisible()
+  await expect(page.getByRole('row', { name: /^RP\b/ })).toHaveCount(0)
+  await expect(page.getByRole('row', { name: /^DP\b/ })).toHaveCount(0)
   await sinNombresAjenos(page, 'administracion')
 
   await page.goto('/comidas/plan')
-  await expect(page.getByRole('row', { name: /^RP\b/ })).toBeVisible()
+  await expect(page.getByRole('row', { name: /^RP\b/ })).toHaveCount(0)
   await sinNombresAjenos(page, 'administracion')
 })
 
@@ -264,11 +254,11 @@ test('Administración ve "No comer" de quien está ausente, sin saber que es una
   expect(error).toBeNull()
 
   await iniciarSesion(page, 'administracion')
-  await page.goto(`/comidas/semana?semana=${lunesSiguiente}&dia=${miercolesSiguiente}`)
-  // La fila de la persona: por sus siglas (RP) o, en versiones que aún muestran el nombre, por este.
-  const celda = page.getByRole('row', { name: /Residente Prueba|^RP\b/ }).locator('td[data-comida="almuerzo"]')
-  await expect(celda).toContainText('No comer')
-  await expect(page.locator('[data-resumen="almuerzo"]')).toContainText('1 no')
+  await page.goto(`/comidas/semana?semana=${lunesSiguiente}`)
+  const celdaAlmuerzo = page.locator(`td[data-et="Almuerzo ${fechaCorta(miercolesSiguiente)}"]`)
+  // El residente ausente cuenta como "no" (no suma) y el director no tiene plan ese día ("sin
+  // definir", tampoco suma): el total que come queda en 0, sin exponer que fue por una ausencia.
+  await expect(celdaAlmuerzo.locator('.conteo-numero')).toHaveText('0')
 
   // Las ausencias son privadas: la cocina ve el efecto, nunca el motivo ni las fechas.
   expect(await page.content()).not.toMatch(/ausen/i)

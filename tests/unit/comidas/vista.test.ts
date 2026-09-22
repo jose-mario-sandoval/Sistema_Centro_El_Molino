@@ -2,11 +2,15 @@ import { describe, expect, it } from 'vitest'
 import { textoResumen } from '@/lib/comidas/resumen'
 import { HORAS_LIMITE_POR_DEFECTO } from '@/lib/comidas/tipos'
 import {
+  agregarSemana,
   armarDiaAdministracion,
   armarSemanaPersona,
   planDesdeFilas,
+  resumenPlanSemanal,
   valorTrasGuardar,
+  type DiaAgregado,
   type FilaPlan,
+  type PersonaConPlan,
 } from '@/lib/comidas/vista'
 
 const AHORA = new Date('2026-09-16T08:00:00-06:00')
@@ -236,5 +240,47 @@ describe('valorTrasGuardar: durante una ausencia la referencia es "No comer"', (
   it('sin ausencia se comporta como antes', () => {
     expect(valorTrasGuardar({ estado: 'si', nota: null }, { estado: 'si', nota: null }, false).origen).toBe('plan')
     expect(valorTrasGuardar({ estado: 'si', nota: null }, { estado: 'no', nota: null }).origen).toBe('persona')
+  })
+})
+
+describe('agregarSemana', () => {
+  it('deja fecha y resumen; nunca filas', () => {
+    const dia = armarDiaAdministracion({
+      fecha: '2026-10-07',
+      personas: [{ id: 'p1', nombre: 'Residente Secreto' }],
+      planes: [],
+      selecciones: [{ usuario_id: 'p1', fecha: '2026-10-07', comida: 'almuerzo', estado: 'si', nota: null, origen: 'persona' }],
+      cerradas: [],
+    })
+    const [agregado] = agregarSemana([dia])
+    expect(agregado).toEqual({ fecha: '2026-10-07', resumen: dia.resumen })
+    expect(JSON.stringify(agregado)).not.toContain('Secreto')
+    expect((agregado as unknown as { filas?: unknown }).filas).toBeUndefined()
+  })
+})
+
+describe('resumenPlanSemanal', () => {
+  const personas: PersonaConPlan[] = [
+    { id: 'p1', nombre: 'A', plan: { 3: { almuerzo: { estado: 'si', nota: null } } } },
+    { id: 'p2', nombre: 'B', plan: { 3: { almuerzo: { estado: 'no', nota: null } } } },
+  ]
+
+  it('agrega por día de semana y tiempo de comida, sin nombres', () => {
+    const semana = resumenPlanSemanal(personas)
+    expect(semana[3].almuerzo.partes).toEqual([
+      { clave: 'si', cantidad: 1, texto: '1 sí' },
+      { clave: 'no', cantidad: 1, texto: '1 no' },
+    ])
+    expect(JSON.stringify(semana)).not.toMatch(/"A"|"B"/)
+  })
+
+  it('un día sin plan definido cuenta como "sin definir"', () => {
+    const semana = resumenPlanSemanal(personas)
+    expect(semana[1].almuerzo.partes).toEqual([{ clave: 'sin_definir', cantidad: 2, texto: '2 sin definir' }])
+  })
+
+  it('sin personas, cada comida queda vacía', () => {
+    const semana = resumenPlanSemanal([])
+    expect(semana[1].desayuno).toEqual({ total: 0, partes: [] })
   })
 })

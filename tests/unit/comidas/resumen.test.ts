@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { resumenComida, textoResumen } from '@/lib/comidas/resumen'
+import { resumenComida, textoResumen, totalQueComen } from '@/lib/comidas/resumen'
 import type { EstadoComida, ValorEfectivo } from '@/lib/comidas/tipos'
 
 function v(estado: EstadoComida, nota: string | null = null, origen: 'plan' | 'persona' = 'plan'): ValorEfectivo {
@@ -49,5 +49,20 @@ describe('resumenComida', () => {
 describe('textoResumen', () => {
   it('une las partes con un punto medio', () => {
     expect(textoResumen(resumenComida([v('si'), v('tarde', '13:30'), null]))).toBe('1 sí · 1 tarde (13:30) · 1 sin definir')
+  })
+})
+
+describe('totalQueComen', () => {
+  it('cuenta todo salvo "no" y "sin definir"', () => {
+    const resumen = resumenComida([v('si'), v('si'), v('no'), null, v('tarde', '13:30')])
+    expect(totalQueComen(resumen)).toBe(3)
+  })
+
+  it('sin personas, 0', () => {
+    expect(totalQueComen(resumenComida([]))).toBe(0)
+  })
+
+  it('todos "no", 0', () => {
+    expect(totalQueComen(resumenComida([v('no'), v('no')]))).toBe(0)
   })
 })

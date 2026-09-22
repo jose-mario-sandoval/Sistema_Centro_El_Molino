@@ -160,3 +160,29 @@ export function valorTrasGuardar(plan: ValorComida | null, valor: ValorComida, a
   if (!igual) return { estado: valor.estado, nota: valor.nota, origen: 'persona' }
   return { estado: valor.estado, nota: valor.nota, origen: ausente ? 'ausencia' : 'plan' }
 }
+
+/** Lo único que cruza al navegador de Administración: nunca `filas`. */
+export type DiaAgregado = { fecha: FechaISO; resumen: Record<TiempoComida, ResumenComida> }
+
+export function agregarSemana(dias: readonly DiaAdministracion[]): DiaAgregado[] {
+  return dias.map(({ fecha, resumen }) => ({ fecha, resumen }))
+}
+
+/**
+ * Plan habitual agregado por día de semana (1=lunes…7=domingo) y tiempo de comida, sin nombres.
+ * `origen: 'plan'` es solo para reutilizar resumenComida (que ignora el campo, pero el tipo lo exige).
+ */
+export function resumenPlanSemanal(personas: readonly PersonaConPlan[]): Record<number, Record<TiempoComida, ResumenComida>> {
+  const semana = {} as Record<number, Record<TiempoComida, ResumenComida>>
+  for (let dia = 1; dia <= 7; dia++) {
+    semana[dia] = {} as Record<TiempoComida, ResumenComida>
+    for (const comida of TIEMPOS_COMIDA) {
+      const valores: ValorEfectivo[] = personas.map((persona) => {
+        const valor = persona.plan[dia]?.[comida]
+        return valor ? { ...valor, origen: 'plan' } : null
+      })
+      semana[dia][comida] = resumenComida(valores)
+    }
+  }
+  return semana
+}

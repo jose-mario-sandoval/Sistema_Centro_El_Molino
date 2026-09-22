@@ -49,3 +49,10 @@ export function textoResumen(resumen: ResumenComida): string {
   if (resumen.partes.length === 0) return 'Sin personas'
   return resumen.partes.map((parte) => parte.texto).join(' · ')
 }
+
+/** Cuántos de un resumen efectivamente comen: descuenta "no" y "sin definir". */
+export function totalQueComen(resumen: ResumenComida): number {
+  const no = resumen.partes.find((p) => p.clave === 'no')?.cantidad ?? 0
+  const sinDefinir = resumen.partes.find((p) => p.clave === 'sin_definir')?.cantidad ?? 0
+  return resumen.total - no - sinDefinir
+}
