@@ -10,7 +10,7 @@ import { horaHHMM, type FechaISO } from '@/lib/fechas'
 import { crearEvento, editarEvento } from '../acciones'
 import { CamposTipoYCocina } from './campos-evento'
 
-const CAMPOS_VISIBLES = ['titulo', 'fecha', 'hora', 'tipo', 'requiere_cocina'] as const
+const CAMPOS_VISIBLES = ['titulo', 'fecha', 'hora', 'tipo', 'requiere_cocina', 'requiere_otro_texto'] as const
 
 function ErrorCampo({ mensaje }: { mensaje?: string }) {
   return mensaje ? <div className="campo-error">{mensaje}</div> : null
@@ -37,6 +37,7 @@ export function FormularioNuevoEvento({ fecha, alCerrar }: { fecha: FechaISO; al
   // Sin tipo elegido de entrada: es un dato que el Director tiene que decidir, no uno que se hereda.
   const [tipo, setTipo] = useState<TipoEvento | ''>('')
   const [requiere, setRequiere] = useState<RequerimientoCocina[]>([])
+  const [otroTexto, setOtroTexto] = useState('')
   const [estado, accion] = useActionState(
     async (previo: Resultado<{ id: string }> | null, formData: FormData): Promise<Resultado<{ id: string }> | null> => {
       let resultado: Resultado<{ id: string }>
@@ -51,6 +52,7 @@ export function FormularioNuevoEvento({ fecha, alCerrar }: { fecha: FechaISO; al
         setHora('')
         setTipo('')
         setRequiere([])
+        setOtroTexto('')
       } else {
         const mensaje = mensajeSinCampoVisible(resultado)
         if (mensaje) aviso(mensaje)
@@ -83,8 +85,11 @@ export function FormularioNuevoEvento({ fecha, alCerrar }: { fecha: FechaISO; al
         alCambiarTipo={setTipo}
         requiere={requiere}
         alCambiarRequiere={setRequiere}
+        otroTexto={otroTexto}
+        alCambiarOtroTexto={setOtroTexto}
         errorTipo={campos?.tipo}
         errorCocina={campos?.requiere_cocina}
+        errorOtroTexto={campos?.requiere_otro_texto}
       />
       <div className="field">
         <label htmlFor="nuevo-evento-hora">Hora (opcional)</label>
@@ -113,6 +118,7 @@ export function FormularioEditarEvento({ evento, alTerminar }: { evento: Evento;
   const [hora, setHora] = useState(evento.hora ? horaHHMM(evento.hora) : '')
   const [tipo, setTipo] = useState<TipoEvento | ''>(evento.tipo ?? '')
   const [requiere, setRequiere] = useState<RequerimientoCocina[]>(evento.requiere_cocina)
+  const [otroTexto, setOtroTexto] = useState(evento.requiere_otro_texto ?? '')
   const [estado, accion] = useActionState(
     async (previo: Resultado<null> | null, formData: FormData): Promise<Resultado<null> | null> => {
       let resultado: Resultado<null>
@@ -157,8 +163,11 @@ export function FormularioEditarEvento({ evento, alTerminar }: { evento: Evento;
         alCambiarTipo={setTipo}
         requiere={requiere}
         alCambiarRequiere={setRequiere}
+        otroTexto={otroTexto}
+        alCambiarOtroTexto={setOtroTexto}
         errorTipo={campos?.tipo}
         errorCocina={campos?.requiere_cocina}
+        errorOtroTexto={campos?.requiere_otro_texto}
       />
       <div className="field">
         <label htmlFor={`${prefijo}-fecha`}>Fecha</label>

@@ -16,6 +16,7 @@ function leerFormulario(formData: FormData) {
     tipo: formData.get('tipo'),
     // Casillas: cada una marcada llega como un valor; ninguna marcada = no pide nada.
     requiere_cocina: formData.getAll('requiere_cocina'),
+    requiere_otro_texto: formData.get('requiere_otro_texto') ?? '',
   }
 }
 

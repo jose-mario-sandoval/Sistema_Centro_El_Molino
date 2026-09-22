@@ -30,15 +30,21 @@ export function CamposTipoYCocina({
   alCambiarTipo,
   requiere,
   alCambiarRequiere,
+  otroTexto,
+  alCambiarOtroTexto,
   errorTipo,
   errorCocina,
+  errorOtroTexto,
 }: {
   tipo: TipoEvento | ''
   alCambiarTipo: (tipo: TipoEvento) => void
   requiere: readonly RequerimientoCocina[]
   alCambiarRequiere: (requiere: RequerimientoCocina[]) => void
+  otroTexto: string
+  alCambiarOtroTexto: (texto: string) => void
   errorTipo?: string
   errorCocina?: string
+  errorOtroTexto?: string
 }) {
   const id = useId()
 
@@ -95,6 +101,19 @@ export function CamposTipoYCocina({
         </div>
         <ErrorCampo mensaje={errorCocina} />
       </fieldset>
+
+      <div className="field">
+        <label htmlFor={`${id}-otro-texto`}>Otro pedido para Administración (opcional)</label>
+        <input
+          id={`${id}-otro-texto`}
+          name="requiere_otro_texto"
+          placeholder="Ej. 20 sillas extra"
+          maxLength={200}
+          value={otroTexto}
+          onChange={(e) => alCambiarOtroTexto(e.target.value)}
+        />
+        <ErrorCampo mensaje={errorOtroTexto} />
+      </div>
     </>
   )
 }
