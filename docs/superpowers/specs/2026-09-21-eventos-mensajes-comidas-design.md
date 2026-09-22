@@ -104,6 +104,11 @@ vencimiento.
    (1–10); no requiere cuenta ni login.
 5. **El Director ve la lista completa** (nombre + cantidad, por enlace) desde el evento.
    Administración nunca la ve — solo un total agregado (§4).
+6. **Revocar un enlace antes de tiempo.** El Director puede adelantar `vence_en` (columna con
+   `UPDATE` concedido solo a él) para invalidar el enlace de inmediato, reusando el mismo mecanismo
+   de vencimiento — no hace falta una función ni un estado nuevos. A propósito no se borra la fila:
+   borrarla arrastraría en cascada las confirmaciones ya recibidas, y esas cuentan igual para la
+   cocina aunque el enlace se cierre antes.
 
 ### Dónde vive cada regla
 
@@ -112,6 +117,7 @@ vencimiento.
 | Vigencia y token | `enlaces_confirmacion`, `confirmar_cena_extra()` | página pública nueva `app/confirmar-cena/[token]/` |
 | Lectura pública mínima | `info_enlace_confirmacion()` | — |
 | Lista para el Director | RLS de `enlaces_confirmacion`/`confirmaciones_extra` (rol director) | vista del evento en `app/(app)/calendario/` |
+| Revocar antes de tiempo | `grant update (vence_en)` + política de UPDATE para el Director | mismo componente de la lista |
 
 **Detalle técnico nuevo:** la página pública necesita un cliente de Supabase sin cookies de sesión
 (hoy todos los helpers de `lib/supabase/` asumen una sesión autenticada). Se agrega uno liviano solo
@@ -166,7 +172,10 @@ respuestas, no solo a publicaciones nuevas.
    editando.
 3. **Quién ve qué:** el autor ve su propio mensaje en cualquier estado; todos ven los `aprobado`; el
    Director ve todo. Esto reemplaza la política de lectura actual, que hoy muestra todo a cualquier
-   usuario activo.
+   usuario activo. La misma regla se extiende a `reacciones`: hoy su política de lectura no mira el
+   mensaje al que pertenecen, así que una reacción a un mensaje pendiente o rechazado quedaría
+   visible igual (sin texto, pero delatando que ese mensaje existe). La política de `reacciones` pasa
+   a exigir que el mensaje asociado sea visible para quien lee, con el mismo criterio de esta regla.
 4. **El Director modera:** puede editar el texto de cualquier mensaje y cambiar su estado
    (aprobar/rechazar, con motivo opcional). No se marca visualmente que un mensaje fue editado por
    él — se publica igual que si lo hubiera escrito la persona.
