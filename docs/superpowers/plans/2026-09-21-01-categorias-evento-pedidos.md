@@ -659,16 +659,16 @@ git commit -m "feat(calendario): formulario y consultas incluyen el pedido libre
 1. Línea 40, dentro de `'el Director crea, edita y elimina un evento'` (test básico de alta/edición/
    borrado: este radio solo está ahí para poder enviar el formulario, no prueba categorías):
    `await modal.getByLabel('Charla o formación').check()` → `await modal.getByLabel('San Rafael').check()`.
-3. Línea ~153, dentro de `'el Director elige el tipo y lo que pide a la cocina...'`:
+2. Línea ~153, dentro de `'el Director elige el tipo y lo que pide a la cocina...'`:
    `await modal.getByLabel('Retiro', { exact: true }).check()` → `await modal.getByLabel('San Rafael', { exact: true }).check()`.
    Línea ~159, el `expect(data).toEqual({ tipo: 'retiro', requiere_cocina: ['merienda'] })` →
    `{ tipo: 'san_rafael', requiere_cocina: ['merienda'] }`.
-4. Línea ~137, `const materiales = modal.getByLabel('Solo materiales de cocina', { exact: true })` →
+3. Línea ~137, `const materiales = modal.getByLabel('Solo materiales de cocina', { exact: true })` →
    `const materiales = modal.getByLabel('Utensilios y materiales', { exact: true })`.
-5. Línea ~174, dentro de `'sin elegir el tipo el evento no se guarda'`:
+4. Línea ~174, dentro de `'sin elegir el tipo el evento no se guarda'`:
    `.getByLabel('Charla o formación')` → `.getByLabel('San Gabriel')` (cualquier radio del grupo sirve
    para esta prueba de validez del navegador; con el enum nuevo "Charla o formación" ya no existe).
-6. Línea ~188-189, dentro de `'Administración ve lo que la cocina debe preparar, sin título ni tipo'`:
+5. Línea ~188-189, dentro de `'Administración ve lo que la cocina debe preparar, sin título ni tipo'`:
    `tipo: 'retiro'` → `tipo: 'san_rafael'`, `tipo: 'reunion'` → `tipo: 'san_gabriel'`.
 
 - [ ] **Paso 2: agregar el escenario de pedido libre**
