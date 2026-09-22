@@ -531,6 +531,14 @@ export type Database = {
           requiere_otro_texto: string
         }[]
       }
+      extras_de_la_semana: {
+        Args: { p_desde: string; p_hasta: string }
+        Returns: {
+          fecha: string
+          tiempo_comida: Database["public"]["Enums"]["tiempo_comida"]
+          total: number
+        }[]
+      }
       guardar_seleccion: {
         Args: {
           p_comida: Database["public"]["Enums"]["tiempo_comida"]
