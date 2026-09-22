@@ -535,3 +535,131 @@ describe('enlaces_confirmacion: RLS y funciones públicas', () => {
     })
   })
 })
+
+describe('enlaces_confirmacion: RLS y funciones públicas', () => {
+  async function crearEnlaceDePrueba(vence: string = new Date(Date.now() + 3_600_000).toISOString()) {
+    const evento = await crearEventoDePrueba()
+    const { data, error } = await admin
+      .from('enlaces_confirmacion')
+      .insert({ evento_id: evento.id, tiempo_comida: 'cena', vence_en: vence, creado_por: ids.director })
+      .select('id, token')
+      .single()
+    if (error) throw error
+    return { ...data, eventoId: evento.id }
+  }
+
+  it('el Director crea un enlace; quien no tiene permiso no', async () => {
+    const evento = await crearEventoDePrueba()
+    const director = await clienteComo('director')
+    const { error } = await director
+      .from('enlaces_confirmacion')
+      .insert({ evento_id: evento.id, tiempo_comida: 'cena', vence_en: new Date(Date.now() + 3_600_000).toISOString() })
+    expect(error).toBeNull()
+
+    for (const clave of SIN_PERMISO) {
+      const cliente = await clienteComo(clave)
+      const { error: errorAjeno } = await cliente
+        .from('enlaces_confirmacion')
+        .insert({ evento_id: evento.id, tiempo_comida: 'cena', vence_en: new Date(Date.now() + 3_600_000).toISOString() })
+      expect(errorAjeno).not.toBeNull()
+    }
+  })
+
+  it('rechaza un vencimiento en el pasado', async () => {
+    const evento = await crearEventoDePrueba()
+    const director = await clienteComo('director')
+    const { error } = await director
+      .from('enlaces_confirmacion')
+      .insert({ evento_id: evento.id, tiempo_comida: 'cena', vence_en: new Date(Date.now() - 3_600_000).toISOString() })
+    expect(error).not.toBeNull()
+  })
+
+  it('nadie lee enlaces_confirmacion ni confirmaciones_extra directo salvo el Director', async () => {
+    const { id } = await crearEnlaceDePrueba()
+    for (const clave of SIN_PERMISO) {
+      const cliente = await clienteComo(clave)
+      const { data } = await cliente.from('enlaces_confirmacion').select('id').eq('id', id)
+      expect(data).toEqual([])
+    }
+    const anonimo = clienteAnonimoPrueba()
+    const { data: dataAnonima, error: errorAnonimo } = await anonimo.from('enlaces_confirmacion').select('id')
+    expect(errorAnonimo).not.toBeNull()
+    expect(dataAnonima).toBeNull()
+  })
+
+  it('el Director adelanta el vencimiento', async () => {
+    const { id } = await crearEnlaceDePrueba()
+    const director = await clienteComo('director')
+    const pasado = new Date(Date.now() - 1000).toISOString()
+    const { error } = await director.from('enlaces_confirmacion').update({ vence_en: pasado }).eq('id', id)
+    expect(error).toBeNull()
+    const { data } = await admin.from('enlaces_confirmacion').select('vence_en').eq('id', id).single()
+    expect(data!.vence_en).toBe(pasado)
+  })
+
+  it.each(SIN_PERMISO)('%s no puede adelantar el vencimiento', async (clave) => {
+    const { id } = await crearEnlaceDePrueba()
+    const original = (await admin.from('enlaces_confirmacion').select('vence_en').eq('id', id).single()).data!.vence_en
+    const cliente = await clienteComo(clave)
+    await cliente.from('enlaces_confirmacion').update({ vence_en: new Date(Date.now() - 1000).toISOString() }).eq('id', id)
+    const { data } = await admin.from('enlaces_confirmacion').select('vence_en').eq('id', id).single()
+    expect(data!.vence_en).toBe(original)
+  })
+
+  describe('info_enlace_confirmacion', () => {
+    it('devuelve los datos del evento y si sigue vigente, sin sesión', async () => {
+      const { token } = await crearEnlaceDePrueba()
+      const anonimo = clienteAnonimoPrueba()
+      const { data, error } = await anonimo.rpc('info_enlace_confirmacion', { p_token: token }).single()
+      expect(error).toBeNull()
+      expect(data).toMatchObject({ tiempo_comida: 'cena', vigente: true })
+    })
+
+    it('un token que no existe no devuelve filas', async () => {
+      const anonimo = clienteAnonimoPrueba()
+      const { data, error } = await anonimo.rpc('info_enlace_confirmacion', { p_token: 'no-existe' })
+      expect(error).toBeNull()
+      expect(data).toEqual([])
+    })
+
+    it('un enlace vencido: vigente en false', async () => {
+      const { token } = await crearEnlaceDePrueba(new Date(Date.now() - 1000).toISOString())
+      const anonimo = clienteAnonimoPrueba()
+      const { data } = await anonimo.rpc('info_enlace_confirmacion', { p_token: token }).single()
+      expect(data!.vigente).toBe(false)
+    })
+  })
+
+  describe('confirmar_cena_extra', () => {
+    it('una persona sin sesión confirma cena para ella y sus invitados', async () => {
+      const { token, id } = await crearEnlaceDePrueba()
+      const anonimo = clienteAnonimoPrueba()
+      const { error } = await anonimo.rpc('confirmar_cena_extra', { p_token: token, p_nombre: 'Familia Pérez', p_cantidad: 3 })
+      expect(error).toBeNull()
+      const { data } = await admin.from('confirmaciones_extra').select('nombre, cantidad_personas').eq('enlace_id', id)
+      expect(data).toEqual([{ nombre: 'Familia Pérez', cantidad_personas: 3 }])
+    })
+
+    it('rechaza confirmar en un enlace vencido, sin insertar', async () => {
+      const { token, id } = await crearEnlaceDePrueba(new Date(Date.now() - 1000).toISOString())
+      const anonimo = clienteAnonimoPrueba()
+      const { error } = await anonimo.rpc('confirmar_cena_extra', { p_token: token, p_nombre: 'Tarde', p_cantidad: 1 })
+      expect(error?.code).toBe('MOL05')
+      const { data } = await admin.from('confirmaciones_extra').select('id').eq('enlace_id', id)
+      expect(data).toEqual([])
+    })
+
+    it('rechaza un token que no existe', async () => {
+      const anonimo = clienteAnonimoPrueba()
+      const { error } = await anonimo.rpc('confirmar_cena_extra', { p_token: 'no-existe', p_nombre: 'X', p_cantidad: 1 })
+      expect(error?.code).toBe('MOL05')
+    })
+
+    it('la base rechaza una cantidad fuera de rango', async () => {
+      const { token } = await crearEnlaceDePrueba()
+      const anonimo = clienteAnonimoPrueba()
+      const { error } = await anonimo.rpc('confirmar_cena_extra', { p_token: token, p_nombre: 'X', p_cantidad: 11 })
+      expect(error?.code).toBe('23514')
+    })
+  })
+})
