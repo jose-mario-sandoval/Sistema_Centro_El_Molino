@@ -142,8 +142,12 @@ describe('generarFechasSerie: mensual_dia_semana', () => {
     expect(fechas).toEqual(['2026-10-30', '2026-11-27', '2026-12-25'])
   })
 
-  it('un ordinal que no existe ese mes (ej. quinto martes) se omite', () => {
-    // Octubre 2026 no tiene un quinto miércoles (miércoles: 7, 14, 21, 28 → solo 4).
+  it('el cuarto miércoles del mes', () => {
+    // Nota: no hay caso de "se omite" que probar con datos válidos — ordinalSemana es 1|2|3|4|-1
+    // (mismas opciones que ofrece el select del formulario) y todo mes tiene al menos 28 días, así
+    // que la 4ª ocurrencia de cualquier día de semana siempre cae dentro del mes (día ≤ 28). La rama
+    // que devuelve null en enesimoDiaSemanaDelMes es una defensa que este patrón nunca dispara con
+    // las opciones que la UI permite elegir.
     const fechas = generarFechasSerie({ patron: 'mensual_dia_semana', diaSemana: 3, ordinalSemana: 4 }, '2026-10-01', '2026-10-31')
     expect(fechas).toEqual(['2026-10-28'])
   })
@@ -361,6 +365,7 @@ create function public.crear_serie_eventos(
 )
 returns uuid
 language plpgsql
+set search_path = ''
 as $$
 declare
   v_serie_id uuid;
@@ -402,6 +407,14 @@ Agregar a `tests/integration/calendario.test.ts` (usa `admin`, `ids`, `clienteCo
 
 ```ts
 describe('series_eventos y crear_serie_eventos', () => {
+  // El afterEach de arriba del archivo borra `eventos` por creado_por, pero no `series_eventos`
+  // (tabla nueva de esta pista): sin este afterEach propio, cada corrida deja filas huérfanas en el
+  // banco de pruebas (que no se resetea solo entre corridas).
+  afterEach(async () => {
+    const { error } = await admin.from('series_eventos').delete().in('creado_por', Object.values(ids))
+    if (error) throw error
+  })
+
   async function crearSerie(director: Awaited<ReturnType<typeof clienteComo>>, fechas: string[], vararg?: Partial<{
     fecha_inicio: string
     fecha_fin: string
@@ -903,9 +916,10 @@ test('el Director crea una serie semanal, edita una ocurrencia puntual y cancela
   const serieId = eventos![0].serie_id
   expect(serieId).not.toBeNull()
 
-  // Editar una ocurrencia puntual: no toca las demás.
+  // Editar una ocurrencia puntual: no toca las demás. Navegar al mes de esa fecha por si cae
+  // distinto al mes que se ve por defecto (mismo motivo que más abajo).
   const segunda = eventos![1]
-  await page.reload()
+  await page.goto(`/calendario?mes=${segunda.fecha.slice(0, 7)}`)
   await page.locator(`.cal-day[data-fecha="${segunda.fecha}"]`).click()
   const modal2 = page.getByRole('dialog')
   await modal2.getByRole('button', { name: /^Editar/ }).click()
@@ -914,9 +928,12 @@ test('el Director crea una serie semanal, edita una ocurrencia puntual y cancela
   const { data: primeraSinTocar } = await clienteAdminPrueba().from('eventos').select('titulo').eq('id', eventos![0].id).single()
   expect(primeraSinTocar!.titulo).toBe('San Rafael')
 
-  // Cancelar la serie completa desde hoy.
-  await page.reload()
-  await page.locator(`.cal-day[data-fecha="${hoy}"]`).click()
+  // Cancelar la serie completa desde una ocurrencia real (la primera generada, no necesariamente
+  // "hoy": el patrón es "cada sábado desde hoy", y hoy puede no ser sábado — navegar al mes de esa
+  // fecha por si cae en el mes siguiente al que se ve por defecto).
+  const primera = eventos![0].fecha
+  await page.goto(`/calendario?mes=${primera.slice(0, 7)}`)
+  await page.locator(`.cal-day[data-fecha="${primera}"]`).click()
   const modal3 = page.getByRole('dialog')
   await modal3.getByRole('button', { name: 'Cancelar toda la serie' }).click()
   await modal3.getByRole('button', { name: /Sí, cancelar la serie/ }).click()
