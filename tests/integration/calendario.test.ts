@@ -637,7 +637,9 @@ describe('enlaces_confirmacion: RLS y funciones públicas', () => {
       const { token } = await crearEnlaceDePrueba(new Date(Date.now() - 1000).toISOString())
       const anonimo = clienteAnonimoPrueba()
       const { data } = await anonimo.rpc('info_enlace_confirmacion', { p_token: token }).single()
-      expect(data!.vigente).toBe(false)
+      // .single() sobre esta funcion no infiere bien el tipo de retorno (a diferencia del test de
+      // arriba, que usa toMatchObject y no lo necesita): el runtime esta probado, esto es solo el tipo.
+      expect((data as { vigente: boolean } | null)!.vigente).toBe(false)
     })
   })
 
