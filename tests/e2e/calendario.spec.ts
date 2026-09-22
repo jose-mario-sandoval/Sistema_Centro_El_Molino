@@ -234,3 +234,60 @@ test('Administración ve el pedido libre aunque el evento no pida nada de la lis
   const html = await page.content()
   expect(html, '"Visita con pedido especial" no debería llegar a Administración').not.toContain('Visita con pedido especial')
 })
+
+test('el Director genera un enlace, alguien sin sesión confirma, y el Director lo ve y lo revoca', async ({ page, context }) => {
+  const ids = await asegurarUsuariosPrueba()
+  const hoy = fechaISOEn(new Date())
+  // Sin `tipo`: queda 'otro' por default. No usamos 'san_rafael' a propósito — esa categoría solo
+  // existe después de aplicar el plan de categorías, y este plan no depende de él (spec §6).
+  const { data: evento, error } = await clienteAdminPrueba()
+    .from('eventos')
+    .insert({ titulo: 'San Rafael', fecha: hoy, creado_por: ids.director })
+    .select('id')
+    .single()
+  expect(error).toBeNull()
+
+  await iniciarSesion(page, 'director')
+  await page.goto('/calendario')
+  await page.locator(`.cal-day[data-fecha="${hoy}"]`).click()
+  const modal = page.getByRole('dialog')
+  await modal.getByRole('button', { name: 'Cena extra' }).click()
+
+  const manana = fechaISOEn(new Date(Date.now() + 24 * 3_600_000))
+  await modal.getByLabel('Vence el').fill(manana)
+  await modal.getByLabel('Hora de vencimiento').fill('15:00')
+  await modal.getByRole('button', { name: 'Generar enlace' }).click()
+
+  const enlaceInput = modal.locator('.enlace-item input[readonly]')
+  await expect(enlaceInput).toBeVisible()
+  const url = await enlaceInput.inputValue()
+
+  // Alguien sin sesión, en una pestaña aparte.
+  const paginaPublica = await context.newPage()
+  await paginaPublica.goto(url)
+  await expect(paginaPublica.getByText('San Rafael')).toBeVisible()
+  await paginaPublica.getByLabel('Tu nombre').fill('Familia Pérez')
+  await paginaPublica.getByLabel(/Cuántas personas/).fill('3')
+  await paginaPublica.getByRole('button', { name: 'Confirmar cena' }).click()
+  await expect(paginaPublica.getByText('¡Listo! Tu cena quedó confirmada.')).toBeVisible()
+  await paginaPublica.close()
+
+  // El Director recarga y ve la confirmación.
+  await page.reload()
+  await page.locator(`.cal-day[data-fecha="${hoy}"]`).click()
+  const modal2 = page.getByRole('dialog')
+  await modal2.getByRole('button', { name: 'Cena extra' }).click()
+  await expect(modal2.getByText('Familia Pérez (3)')).toBeVisible()
+  await expect(modal2.getByText('3 personas confirmadas')).toBeVisible()
+
+  await modal2.getByRole('button', { name: 'Revocar ahora' }).click()
+  await expect(modal2.getByText('vencido')).toBeVisible()
+
+  // Ya revocado, ya no acepta confirmaciones nuevas.
+  const paginaPublica2 = await context.newPage()
+  await paginaPublica2.goto(url)
+  await expect(paginaPublica2.getByText('Este enlace ya venció.')).toBeVisible()
+  await paginaPublica2.close()
+
+  void evento
+})
