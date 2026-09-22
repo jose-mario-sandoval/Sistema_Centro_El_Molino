@@ -23,6 +23,15 @@ export const esquemaReaccion = z.object({
 
 export const esquemaBorrado = z.object({ id: idMensaje })
 
+export const esquemaModeracion = z.object({
+  id: idMensaje,
+  estado: z.enum(['aprobado', 'rechazado'], { error: 'Elegí aprobar o rechazar.' }),
+  texto: texto.optional(),
+  motivoRechazo: z.string().trim().max(500, 'El motivo puede tener hasta 500 caracteres.').optional(),
+})
+
+export const esquemaEdicionPropia = z.object({ id: idMensaje, texto })
+
 /** "Ver anteriores": `antesDe` es el creado_en de la publicación más antigua cargada; null = primera página. */
 export const esquemaPaginaMensajes = z.object({
   antesDe: z.iso.datetime({ offset: true, error: 'Fecha inválida.' }).nullable().default(null),

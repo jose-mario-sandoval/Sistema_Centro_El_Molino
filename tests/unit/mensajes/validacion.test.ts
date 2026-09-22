@@ -3,6 +3,8 @@ import { describe, expect, it } from 'vitest'
 import { camposConError } from '@/lib/validacion/auth'
 import {
   esquemaBorrado,
+  esquemaEdicionPropia,
+  esquemaModeracion,
   esquemaPaginaMensajes,
   esquemaPublicacion,
   esquemaReaccion,
@@ -69,5 +71,45 @@ describe('esquemas sin formulario', () => {
       antesDe: '2026-09-16T16:05:00.123456+00:00',
     })
     expect(esquemaPaginaMensajes.safeParse({ antesDe: 'ayer' }).success).toBe(false)
+  })
+})
+
+describe('esquemaModeracion', () => {
+  const ID = '3f1c2a9e-8b7d-4c6e-9a5b-1d2e3f4a5b6c'
+
+  it('acepta aprobar sin texto ni motivo', () => {
+    expect(esquemaModeracion.parse({ id: ID, estado: 'aprobado' })).toEqual({ id: ID, estado: 'aprobado' })
+  })
+
+  it('acepta rechazar con motivo', () => {
+    expect(esquemaModeracion.parse({ id: ID, estado: 'rechazado', motivoRechazo: 'Muy largo' }).motivoRechazo).toBe(
+      'Muy largo',
+    )
+  })
+
+  it('acepta editar el texto junto con aprobar', () => {
+    expect(esquemaModeracion.parse({ id: ID, estado: 'aprobado', texto: 'Corregido' }).texto).toBe('Corregido')
+  })
+
+  it('rechaza un estado que no sea aprobado/rechazado', () => {
+    const resultado = esquemaModeracion.safeParse({ id: ID, estado: 'pendiente' })
+    expect(resultado.success).toBe(false)
+  })
+
+  it('rechaza un motivo de más de 500 caracteres', () => {
+    const resultado = esquemaModeracion.safeParse({ id: ID, estado: 'rechazado', motivoRechazo: 'x'.repeat(501) })
+    expect(resultado.success).toBe(false)
+  })
+})
+
+describe('esquemaEdicionPropia', () => {
+  const ID = '3f1c2a9e-8b7d-4c6e-9a5b-1d2e3f4a5b6c'
+
+  it('acepta id y texto', () => {
+    expect(esquemaEdicionPropia.parse({ id: ID, texto: 'Corregido' })).toEqual({ id: ID, texto: 'Corregido' })
+  })
+
+  it('rechaza texto vacío', () => {
+    expect(esquemaEdicionPropia.safeParse({ id: ID, texto: '   ' }).success).toBe(false)
   })
 })
