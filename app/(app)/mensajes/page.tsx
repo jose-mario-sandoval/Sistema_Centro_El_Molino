@@ -1,7 +1,8 @@
 import Link from 'next/link'
 import { exigirPerfil, type Perfil } from '@/lib/auth/sesion'
-import { listarPublicaciones, listarRegistroModeracion } from '@/lib/mensajes/consultas'
+import { listarMensajesPendientes, listarPublicaciones, listarRegistroModeracion } from '@/lib/mensajes/consultas'
 import { listarPerfiles } from '@/lib/perfiles/consultas'
+import { ColaModeracion } from './_componentes/cola-moderacion'
 import { FeedMensajes } from './_componentes/feed-mensajes'
 import { TablaRegistro } from './_componentes/tabla-registro'
 
@@ -28,6 +29,11 @@ async function SeccionRegistro() {
   return <TablaRegistro entradas={entradas} perfiles={perfiles} />
 }
 
+async function SeccionPendientes() {
+  const [mensajes, perfiles] = await Promise.all([listarMensajesPendientes(), listarPerfiles()])
+  return <ColaModeracion mensajes={mensajes} perfiles={perfiles} />
+}
+
 export default async function PaginaMensajes({
   searchParams,
 }: {
@@ -37,6 +43,8 @@ export default async function PaginaMensajes({
   const { vista } = await searchParams
   const esDirector = perfil.rol === 'director'
   const verRegistro = esDirector && vista === 'registro'
+  const verPendientes = esDirector && vista === 'pendientes'
+  const verFeed = !verRegistro && !verPendientes
 
   return (
     <>
@@ -49,10 +57,17 @@ export default async function PaginaMensajes({
         <nav className="tabs" aria-label="Vistas de Mensajes">
           <Link
             href="/mensajes"
-            className={`tab-btn${verRegistro ? '' : ' active'}`}
-            aria-current={verRegistro ? undefined : 'page'}
+            className={`tab-btn${verFeed ? ' active' : ''}`}
+            aria-current={verFeed ? 'page' : undefined}
           >
             Publicaciones
+          </Link>
+          <Link
+            href="/mensajes?vista=pendientes"
+            className={`tab-btn${verPendientes ? ' active' : ''}`}
+            aria-current={verPendientes ? 'page' : undefined}
+          >
+            Pendientes
           </Link>
           <Link
             href="/mensajes?vista=registro"
@@ -64,7 +79,7 @@ export default async function PaginaMensajes({
         </nav>
       )}
 
-      {verRegistro ? <SeccionRegistro /> : <SeccionFeed perfil={perfil} />}
+      {verRegistro ? <SeccionRegistro /> : verPendientes ? <SeccionPendientes /> : <SeccionFeed perfil={perfil} />}
     </>
   )
 }

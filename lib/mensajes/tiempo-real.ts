@@ -1,4 +1,5 @@
 import {
+  aplicarActualizacionMensaje,
   aplicarBorradoMensaje,
   aplicarInsercionMensaje,
   fijarReaccion,
@@ -32,10 +33,12 @@ function esTexto(valor: unknown): valor is string {
 }
 
 function filaMensaje(datos: Record<string, unknown>): MensajeFila | null {
-  const { id, autor_id, padre_id, texto, creado_en } = datos
+  const { id, autor_id, padre_id, texto, creado_en, estado, motivo_rechazo } = datos
   if (!esTexto(id) || !esTexto(autor_id) || typeof texto !== 'string' || !esTexto(creado_en)) return null
   if (padre_id !== null && !esTexto(padre_id)) return null
-  return { id, autor_id, padre_id, texto, creado_en }
+  if (estado !== 'pendiente' && estado !== 'aprobado' && estado !== 'rechazado') return null
+  if (motivo_rechazo !== null && typeof motivo_rechazo !== 'string') return null
+  return { id, autor_id, padre_id, texto, creado_en, estado, motivo_rechazo }
 }
 
 /**
@@ -50,6 +53,11 @@ export function leerEvento(evento: EventoTiempoReal): EventoLeido | null {
       const fila = filaMensaje(evento.new)
       if (!fila) return null
       return { cambio: (feed) => aplicarInsercionMensaje(feed, fila, { desdeEvento: true }), autorId: fila.autor_id }
+    }
+    if (evento.eventType === 'UPDATE') {
+      const fila = filaMensaje(evento.new)
+      if (!fila) return null
+      return { cambio: (feed) => aplicarActualizacionMensaje(feed, fila), autorId: fila.autor_id }
     }
     if (evento.eventType === 'DELETE') {
       // Los DELETE traen solo la clave primaria (spec §7).

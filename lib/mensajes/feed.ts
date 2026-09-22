@@ -5,7 +5,11 @@ export const TAMANO_PAGINA = 50
 /** Igual que el check de la tabla mensajes. */
 export const LARGO_MAXIMO_MENSAJE = 2000
 
-export type MensajeFila = Pick<Tabla<'mensajes'>, 'id' | 'autor_id' | 'padre_id' | 'texto' | 'creado_en'>
+export type EstadoMensaje = 'pendiente' | 'aprobado' | 'rechazado'
+export type MensajeFila = Pick<
+  Tabla<'mensajes'>,
+  'id' | 'autor_id' | 'padre_id' | 'texto' | 'creado_en' | 'estado' | 'motivo_rechazo'
+>
 export type ReaccionFila = Pick<Tabla<'reacciones'>, 'mensaje_id' | 'usuario_id'>
 /** Publicación tal como la devuelve la consulta del feed, con respuestas y reacciones embebidas. */
 export type PublicacionFila = MensajeFila & {
@@ -13,7 +17,7 @@ export type PublicacionFila = MensajeFila & {
   respuestas: MensajeFila[]
 }
 
-export type Respuesta = { id: string; autorId: string; texto: string; creadoEn: string }
+export type Respuesta = { id: string; autorId: string; texto: string; creadoEn: string; estado: EstadoMensaje; motivoRechazo: string | null }
 /** `reacciones`: ids de quienes reaccionaron. */
 export type Publicacion = Respuesta & { reacciones: string[]; respuestas: Respuesta[] }
 
@@ -41,7 +45,14 @@ function compararRespuestas(a: Respuesta, b: Respuesta): number {
 }
 
 function aRespuesta(fila: MensajeFila): Respuesta {
-  return { id: fila.id, autorId: fila.autor_id, texto: fila.texto, creadoEn: fila.creado_en }
+  return {
+    id: fila.id,
+    autorId: fila.autor_id,
+    texto: fila.texto,
+    creadoEn: fila.creado_en,
+    estado: fila.estado,
+    motivoRechazo: fila.motivo_rechazo,
+  }
 }
 
 function aPublicacion(fila: MensajeFila): Publicacion {
@@ -98,6 +109,31 @@ export function aplicarInsercionMensaje(
     return { ...p, respuestas: [...otras, aRespuesta(fila)].sort(compararRespuestas) }
   })
   return cambio ? siguiente : feed
+}
+
+/**
+ * Evento UPDATE de `mensajes` (aprobar/rechazar/editar). A diferencia de una inserción, no se puede
+ * asumir que el mensaje ya está en el feed local: quien lo recibe puede estar viéndolo por primera
+ * vez recién ahora que se volvió visible (antes estaba pendiente). Si el padre de una respuesta
+ * recién visible no está cargado, no hay nada que hacer todavía — aparecerá al recargar cuando el
+ * padre también sea visible.
+ */
+export function aplicarActualizacionMensaje(feed: Publicacion[], fila: MensajeFila): Publicacion[] {
+  const padreId = fila.padre_id
+  if (padreId === null) {
+    const existe = feed.some((p) => p.id === fila.id)
+    const siguiente = existe
+      ? feed.map((p) => (p.id === fila.id ? { ...p, ...aRespuesta(fila) } : p))
+      : [...feed, aPublicacion(fila)]
+    return siguiente.sort(compararPublicaciones)
+  }
+  const padre = feed.find((p) => p.id === padreId)
+  if (!padre) return feed
+  const existeRespuesta = padre.respuestas.some((r) => r.id === fila.id)
+  const respuestas = existeRespuesta
+    ? padre.respuestas.map((r) => (r.id === fila.id ? { ...r, ...aRespuesta(fila) } : r))
+    : [...padre.respuestas, aRespuesta(fila)].sort(compararRespuestas)
+  return feed.map((p) => (p.id === padreId ? { ...p, respuestas } : p))
 }
 
 /** Evento DELETE de `mensajes`: trae solo el id (spec §7). */

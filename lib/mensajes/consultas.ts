@@ -1,5 +1,6 @@
 import 'server-only'
 import { consultarPaginaFeed, type PaginaFeed } from '@/lib/mensajes/consulta-feed'
+import type { MensajeFila } from '@/lib/mensajes/feed'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import type { Tabla } from '@/lib/supabase/tipos'
 
@@ -22,6 +23,18 @@ export async function listarRegistroModeracion(): Promise<EntradaRegistro[]> {
     .select('id, moderador_id, autor_id, texto_eliminado, era_respuesta, eliminado_en')
     .order('eliminado_en', { ascending: false })
     .limit(LIMITE_REGISTRO)
+  if (error) throw error
+  return data
+}
+
+/** Cola de moderación del Director: los mensajes que esperan aprobación, más viejos primero. */
+export async function listarMensajesPendientes(): Promise<MensajeFila[]> {
+  const supabase = await crearClienteServidor()
+  const { data, error } = await supabase
+    .from('mensajes')
+    .select('id, autor_id, padre_id, texto, creado_en, estado, motivo_rechazo')
+    .eq('estado', 'pendiente')
+    .order('creado_en')
   if (error) throw error
   return data
 }

@@ -341,6 +341,18 @@ a{color:var(--acento);}
 [data-contraste="alto"] .status-badge{border-color:var(--c);}
 .status-badge.sin-definir{background:var(--fondo);color:var(--peligro);border:2px dashed var(--peligro);}
 
+/* Insignia chica de estado (mensajes): mismo lenguaje que .status-badge, sin variables --c/--cbg
+   porque el estado ya lo dice el texto ("Esperando aprobación" / "Rechazado: motivo"). */
+.badge{
+  display:inline-flex;align-items:center;margin-bottom:.4rem;
+  padding:.2rem .7rem;border-radius:var(--r-full);border:2px solid transparent;
+  font-size:var(--t-xs);font-weight:700;white-space:nowrap;
+}
+.badge.pendiente{background:var(--dorado-suave);color:var(--dorado);}
+.badge.rechazado{background:var(--peligro-suave);color:var(--peligro);white-space:normal;}
+[data-contraste="alto"] .badge.pendiente{border-color:var(--dorado);}
+[data-contraste="alto"] .badge.rechazado{border-color:var(--peligro);}
+
 /* ---------- 5. Comidas: Semana y Plan semanal ---------------------------- */
 
 .week-nav{display:flex;align-items:center;flex-wrap:wrap;gap:.75rem;margin-bottom:1.25rem;}
@@ -576,6 +588,24 @@ a{color:var(--acento);}
 .thread .msg-text{margin-bottom:.5rem;}
 .reply-compose{display:flex;flex-wrap:wrap;gap:.6rem;margin-top:1rem;}
 .reply-compose input{flex:1 1 12rem;border-radius:var(--r-full);}
+
+/* Corregir y reenviar: el autor edita su propio mensaje rechazado, debajo del texto. */
+.form-editar-propio{display:flex;flex-direction:column;align-items:flex-start;gap:.6rem;margin:.4rem 0 .9rem;}
+.form-editar-propio textarea{
+  width:100%;min-height:5rem;padding:.65rem 1rem;line-height:1.5;resize:vertical;
+  background:var(--fondo);color:var(--tinta);
+  border:2px solid var(--borde-hundido);border-radius:var(--r-sm);box-shadow:var(--hundido);
+}
+
+/* Cola de moderación del Director: una tarjeta por mensaje pendiente, más viejo primero. */
+.lista-pendientes{display:flex;flex-direction:column;gap:1.25rem;}
+.pendiente-item{display:flex;flex-direction:column;gap:.75rem;}
+.pendiente-item textarea{
+  width:100%;min-height:5.5rem;padding:.65rem 1rem;line-height:1.5;resize:vertical;
+  background:var(--fondo);color:var(--tinta);
+  border:2px solid var(--borde-hundido);border-radius:var(--r-sm);box-shadow:var(--hundido);
+}
+.pendiente-item .field{margin-bottom:0;}
 
 /* ---------- 8. Calendario ------------------------------------------------ */
 

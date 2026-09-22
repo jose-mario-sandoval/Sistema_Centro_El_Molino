@@ -106,7 +106,17 @@ export function FeedMensajes({
   const conexion = useCanalMensajes({ alEvento, recargar: recargarTodo })
 
   function agregarPropio(id: string, texto: string, padreId: string | null) {
-    const fila: MensajeFila = { id, autor_id: usuario.id, padre_id: padreId, texto, creado_en: new Date().toISOString() }
+    const fila: MensajeFila = {
+      id,
+      autor_id: usuario.id,
+      padre_id: padreId,
+      texto,
+      creado_en: new Date().toISOString(),
+      // Provisorio: si no es director, el servidor lo deja 'pendiente' y el evento de tiempo real lo confirma.
+      // Fijarlo en 'aprobado' acá haría que un Residente vea su propio mensaje aprobado por un instante.
+      estado: usuario.rol === 'director' ? 'aprobado' : 'pendiente',
+      motivo_rechazo: null,
+    }
     aplicar((feed) => aplicarInsercionMensaje(feed, fila))
   }
 

@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { aplicarInsercionMensaje, armarFeed, fijarReaccion, type Publicacion } from '@/lib/mensajes/feed'
+import { aplicarInsercionMensaje, armarFeed, fijarReaccion, type MensajeFila, type Publicacion } from '@/lib/mensajes/feed'
 import { aplicarCambios, leerEvento, type CambioFeed, type EventoTiempoReal } from '@/lib/mensajes/tiempo-real'
 
 const T = (minuto: number) => `2026-09-16T16:${String(minuto).padStart(2, '0')}:00.000000+00:00`
 
-function mensaje(id: string, creadoEn: string, padreId: string | null = null, autorId = 'u1') {
-  return { id, autor_id: autorId, padre_id: padreId, texto: `texto ${id}`, creado_en: creadoEn }
+// Tipado explícito: sin él, `estado: 'aprobado'` se ampliaría a `string` (objeto literal sin
+// contexto) y dejaría de encajar en MensajeFila donde se use este helper.
+function mensaje(id: string, creadoEn: string, padreId: string | null = null, autorId = 'u1'): MensajeFila {
+  return { id, autor_id: autorId, padre_id: padreId, texto: `texto ${id}`, creado_en: creadoEn, estado: 'aprobado', motivo_rechazo: null }
 }
 
 function evento(parcial: Partial<EventoTiempoReal> & Pick<EventoTiempoReal, 'table' | 'eventType'>): EventoTiempoReal {
@@ -63,13 +65,41 @@ describe('leerEvento', () => {
     expect(leerEvento(evento({ table: 'mensajes', eventType: 'DELETE' }))).toBeNull()
     expect(leerEvento(evento({ table: 'reacciones', eventType: 'INSERT', new: { mensaje_id: 'p1' } }))).toBeNull()
     expect(leerEvento(evento({ table: 'reacciones', eventType: 'DELETE', old: { usuario_id: 'u2' } }))).toBeNull()
-    expect(leerEvento(evento({ table: 'mensajes', eventType: 'UPDATE', new: mensaje('p1', T(1)) }))).toBeNull()
     expect(leerEvento(evento({ table: 'otra', eventType: 'INSERT', new: mensaje('p1', T(1)) }))).toBeNull()
   })
 
   it('acepta un errors nulo o ausente', () => {
     expect(leerEvento({ table: 'mensajes', eventType: 'DELETE', new: {}, old: { id: 'p1' }, errors: null })).not.toBeNull()
     expect(leerEvento({ table: 'mensajes', eventType: 'DELETE', new: {}, old: { id: 'p1' } })).not.toBeNull()
+  })
+})
+
+describe('leerEvento: UPDATE de mensajes', () => {
+  const filaBase = {
+    id: 'm1',
+    autor_id: 'u1',
+    padre_id: null,
+    texto: 'Hola',
+    creado_en: '2026-01-01T00:00:00.000000+00:00',
+    estado: 'aprobado',
+    motivo_rechazo: null,
+  }
+
+  it('traduce un UPDATE a un cambio del feed', () => {
+    const resultado = leerEvento({ table: 'mensajes', eventType: 'UPDATE', new: filaBase, old: {} })
+    expect(resultado?.autorId).toBe('u1')
+    const siguiente = resultado!.cambio([])
+    expect(siguiente).toEqual([{ id: 'm1', autorId: 'u1', texto: 'Hola', creadoEn: filaBase.creado_en, estado: 'aprobado', motivoRechazo: null, reacciones: [], respuestas: [] }])
+  })
+
+  it('un estado desconocido se ignora (fila inválida)', () => {
+    const resultado = leerEvento({ table: 'mensajes', eventType: 'UPDATE', new: { ...filaBase, estado: 'algo-raro' }, old: {} })
+    expect(resultado).toBeNull()
+  })
+
+  it('con errors (RLS lo bloqueó), se ignora', () => {
+    const resultado = leerEvento({ table: 'mensajes', eventType: 'UPDATE', new: filaBase, old: {}, errors: ['Error 401'] })
+    expect(resultado).toBeNull()
   })
 })
 

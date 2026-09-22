@@ -1,10 +1,11 @@
 'use client'
 
 import { useState } from 'react'
-import type { Publicacion, Respuesta } from '@/lib/mensajes/feed'
+import type { EstadoMensaje, Publicacion, Respuesta } from '@/lib/mensajes/feed'
 import { fechaHoraLocal, haceCuanto } from '@/lib/mensajes/tiempo'
 import type { PerfilResumen } from '@/lib/perfiles/consultas'
 import { ETIQUETA_ROL, type Rol } from '@/lib/perfiles/roles'
+import { FormularioEditarPropio } from './formulario-editar-propio'
 import { FormularioRespuesta } from './formulario-respuesta'
 
 export type UsuarioFeed = { id: string; rol: Rol }
@@ -12,6 +13,12 @@ export type PedidoBorrado = { id: string; autorId: string; esRespuesta: boolean;
 
 function puedeBorrar(autorId: string, usuario: UsuarioFeed) {
   return autorId === usuario.id || usuario.rol === 'director'
+}
+
+function InsigniaEstado({ estado, motivoRechazo }: { estado: EstadoMensaje; motivoRechazo: string | null }) {
+  if (estado === 'aprobado') return null
+  if (estado === 'pendiente') return <span className="badge pendiente">Esperando aprobación</span>
+  return <span className="badge rechazado">Rechazado{motivoRechazo ? `: ${motivoRechazo}` : ''}</span>
 }
 
 function Tiempo({ creadoEn, ahora }: { creadoEn: string; ahora: Date }) {
@@ -35,12 +42,14 @@ function NombreDeAutor({ autor }: { autor: PerfilResumen | undefined }) {
 function NodoRespuesta({
   respuesta,
   autor,
+  usuario,
   puedeEliminar,
   ahora,
   alEliminar,
 }: {
   respuesta: Respuesta
   autor: PerfilResumen | undefined
+  usuario: UsuarioFeed
   puedeEliminar: boolean
   ahora: Date
   alEliminar: () => void
@@ -55,7 +64,11 @@ function NodoRespuesta({
           <NombreDeAutor autor={autor} />
           <Tiempo creadoEn={respuesta.creadoEn} ahora={ahora} />
         </div>
+        <InsigniaEstado estado={respuesta.estado} motivoRechazo={respuesta.motivoRechazo} />
         <div className="msg-text">{respuesta.texto}</div>
+        {respuesta.estado === 'rechazado' && respuesta.autorId === usuario.id && (
+          <FormularioEditarPropio id={respuesta.id} textoActual={respuesta.texto} />
+        )}
         {puedeEliminar && (
           <div className="msg-actions">
             <button type="button" className="msg-action delete" onClick={alEliminar}>
@@ -99,7 +112,11 @@ export function TarjetaMensaje({
             {autor && <span className="role-pill">{ETIQUETA_ROL[autor.rol]}</span>}
             <Tiempo creadoEn={publicacion.creadoEn} ahora={ahora} />
           </div>
+          <InsigniaEstado estado={publicacion.estado} motivoRechazo={publicacion.motivoRechazo} />
           <div className="msg-text">{publicacion.texto}</div>
+          {publicacion.estado === 'rechazado' && publicacion.autorId === usuario.id && (
+            <FormularioEditarPropio id={publicacion.id} textoActual={publicacion.texto} />
+          )}
           <div className="msg-actions">
             <button
               type="button"
@@ -143,6 +160,7 @@ export function TarjetaMensaje({
                   key={r.id}
                   respuesta={r}
                   autor={perfiles[r.autorId]}
+                  usuario={usuario}
                   puedeEliminar={puedeBorrar(r.autorId, usuario)}
                   ahora={ahora}
                   alEliminar={() => alPedirBorrado({ id: r.id, autorId: r.autorId, esRespuesta: true, respuestas: 0 })}

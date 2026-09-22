@@ -336,6 +336,10 @@ describe('consulta del feed', () => {
     const primera = await publicar('residente', 'Primera respuesta', conTodo)
     const segunda = await publicar('residente2', 'Segunda respuesta', conTodo)
     const sola = await publicar('residente', 'Feed sin nada')
+    // "segunda" la escribe residente2: sin aprobar, la aprobación de mensajes la oculta para
+    // residente (ni autor ni Director). El Director la aprueba para que este test siga probando
+    // el armado del feed, no la moderación.
+    await (await clienteComo('director')).from('mensajes').update({ estado: 'aprobado' }).eq('id', segunda)
     for (const clave of ['residente', 'residente2', 'administracion'] as const) {
       const cliente = await clienteComo(clave)
       const { error } = await cliente.from('reacciones').insert({ mensaje_id: conTodo, usuario_id: ids[clave] })
@@ -378,6 +382,13 @@ describe('consulta del feed', () => {
       // Una sola inserción en lote con la llave secreta; todas quedan con el mismo creado_en.
       const { error } = await admin.from('mensajes').insert([...deMuchas, ...deVarias])
       expect(error).toBeNull()
+      // Con la llave secreta (sin auth.uid()) el trigger las deja "pendiente": la mitad son de
+      // residente2, invisibles para residente si no se aprueban. El Director las aprueba en bloque.
+      const { error: errorAprobar } = await (await clienteComo('director'))
+        .from('mensajes')
+        .update({ estado: 'aprobado' })
+        .in('padre_id', [conMuchas, conVarias])
+      expect(errorAprobar).toBeNull()
 
       const { publicaciones } = await paginaComo('residente')
       const idsDe = (id: string) => publicaciones.find((p) => p.id === id)?.respuestas.map((r) => r.id)
@@ -403,6 +414,13 @@ describe('consulta del feed', () => {
     }))
     const { error } = await admin.from('mensajes').insert(filas)
     expect(error).toBeNull()
+    // Con la llave secreta el trigger fuerza "pendiente" pese a autor_id: ids.director (mi_rol() no
+    // ve un usuario autenticado). El Director las aprueba para que administracion pueda verlas.
+    const { error: errorAprobar } = await (await clienteComo('director'))
+      .from('mensajes')
+      .update({ estado: 'aprobado' })
+      .in('id', filas.map((f) => f.id))
+    expect(errorAprobar).toBeNull()
     const nuevas = new Set<string>(filas.map((f) => f.id))
     // De la más nueva (.123507) a la más antigua (.123456).
     const esperadas = filas.map((f) => f.id).reverse()
@@ -435,5 +453,121 @@ describe('usuario inactivo', () => {
     expect(reacciones.data).toEqual([])
     const { error } = await inactivo.from('mensajes').insert({ autor_id: ids.residente2, texto: 'No debería publicarse' })
     expect(error?.code).toBe('42501')
+  })
+})
+
+describe('aprobación de mensajes', () => {
+  async function mensajeDeResidente() {
+    const { data, error } = await admin
+      .from('mensajes')
+      .insert({ autor_id: ids.residente, texto: 'Mensaje de prueba' })
+      .select('id, estado')
+      .single()
+    if (error) throw error
+    return data
+  }
+
+  it('un Residente publica y queda pendiente; el Director publica y queda aprobado', async () => {
+    const residente = await clienteComo('residente')
+    const { data: propio } = await residente.from('mensajes').insert({ autor_id: ids.residente, texto: 'Hola' }).select('estado').single()
+    expect(propio!.estado).toBe('pendiente')
+
+    const director = await clienteComo('director')
+    const { data: delDirector } = await director.from('mensajes').insert({ autor_id: ids.director, texto: 'Aviso' }).select('estado').single()
+    expect(delDirector!.estado).toBe('aprobado')
+  })
+
+  it('el cliente no puede autoaprobarse mandando estado en el insert', async () => {
+    const residente = await clienteComo('residente')
+    const { data } = await residente
+      .from('mensajes')
+      // Con el tipo generado, `estado` ya es una columna válida del Insert; lo que prueba este caso
+      // es que el trigger lo ignora en tiempo de ejecución, no que el cliente no pueda tipearlo.
+      .insert({ autor_id: ids.residente, texto: 'Truco', estado: 'aprobado' })
+      .select('estado')
+      .single()
+    expect(data!.estado).toBe('pendiente')
+  })
+
+  it('quien no es el autor ni el Director no ve un mensaje pendiente', async () => {
+    const mensaje = await mensajeDeResidente()
+    const otroResidente = await clienteComo('residente2')
+    const { data } = await otroResidente.from('mensajes').select('id').eq('id', mensaje.id)
+    expect(data).toEqual([])
+  })
+
+  it('el autor sí ve su propio mensaje pendiente; el Director también', async () => {
+    const mensaje = await mensajeDeResidente()
+    const residente = await clienteComo('residente')
+    const { data: propio } = await residente.from('mensajes').select('id').eq('id', mensaje.id)
+    expect(propio).toEqual([{ id: mensaje.id }])
+    const director = await clienteComo('director')
+    const { data: delDirector } = await director.from('mensajes').select('id').eq('id', mensaje.id)
+    expect(delDirector).toEqual([{ id: mensaje.id }])
+  })
+
+  it('el Director aprueba, edita el texto y pone un mensaje en rechazado con motivo', async () => {
+    const mensaje = await mensajeDeResidente()
+    const director = await clienteComo('director')
+    const { error } = await director.from('mensajes').update({ estado: 'aprobado', texto: 'Corregido por el Director' }).eq('id', mensaje.id)
+    expect(error).toBeNull()
+    const { data } = await admin.from('mensajes').select('estado, texto').eq('id', mensaje.id).single()
+    expect(data).toEqual({ estado: 'aprobado', texto: 'Corregido por el Director' })
+
+    const otro = await mensajeDeResidente()
+    await director.from('mensajes').update({ estado: 'rechazado', motivo_rechazo: 'Muy largo' }).eq('id', otro.id)
+    const { data: rechazado } = await admin.from('mensajes').select('estado, motivo_rechazo').eq('id', otro.id).single()
+    expect(rechazado).toEqual({ estado: 'rechazado', motivo_rechazo: 'Muy largo' })
+  })
+
+  it('una vez aprobado, todos lo ven', async () => {
+    const mensaje = await mensajeDeResidente()
+    const director = await clienteComo('director')
+    await director.from('mensajes').update({ estado: 'aprobado' }).eq('id', mensaje.id)
+    const otroResidente = await clienteComo('residente2')
+    const { data } = await otroResidente.from('mensajes').select('id').eq('id', mensaje.id)
+    expect(data).toEqual([{ id: mensaje.id }])
+  })
+
+  it('el autor corrige un mensaje rechazado y vuelve a pendiente automáticamente', async () => {
+    const mensaje = await mensajeDeResidente()
+    const director = await clienteComo('director')
+    await director.from('mensajes').update({ estado: 'rechazado', motivo_rechazo: 'Corregí esto' }).eq('id', mensaje.id)
+
+    const residente = await clienteComo('residente')
+    const { error } = await residente.from('mensajes').update({ texto: 'Ya corregido' }).eq('id', mensaje.id)
+    expect(error).toBeNull()
+    const { data } = await admin.from('mensajes').select('estado, texto, motivo_rechazo').eq('id', mensaje.id).single()
+    expect(data).toEqual({ estado: 'pendiente', texto: 'Ya corregido', motivo_rechazo: null })
+  })
+
+  it('el autor no puede editar un mensaje pendiente ni uno aprobado (sin pasar por rechazado)', async () => {
+    const mensaje = await mensajeDeResidente() // pendiente
+    const residente = await clienteComo('residente')
+    const { data: sinTocarPendiente } = await residente.from('mensajes').update({ texto: 'Intento' }).eq('id', mensaje.id).select('id')
+    expect(sinTocarPendiente).toEqual([])
+
+    const director = await clienteComo('director')
+    await director.from('mensajes').update({ estado: 'aprobado' }).eq('id', mensaje.id)
+    const { data: sinTocarAprobado } = await residente.from('mensajes').update({ texto: 'Intento 2' }).eq('id', mensaje.id).select('id')
+    expect(sinTocarAprobado).toEqual([])
+  })
+
+  it('quien no es el autor ni el Director no puede editar nada', async () => {
+    const mensaje = await mensajeDeResidente()
+    const director = await clienteComo('director')
+    await director.from('mensajes').update({ estado: 'rechazado' }).eq('id', mensaje.id)
+    const otroResidente = await clienteComo('residente2')
+    const { data } = await otroResidente.from('mensajes').update({ texto: 'Ajeno' }).eq('id', mensaje.id).select('id')
+    expect(data).toEqual([])
+  })
+
+  it('una reacción a un mensaje pendiente no es visible para terceros', async () => {
+    const mensaje = await mensajeDeResidente()
+    const { error: errorReaccion } = await admin.from('reacciones').insert({ mensaje_id: mensaje.id, usuario_id: ids.director })
+    expect(errorReaccion).toBeNull()
+    const otroResidente = await clienteComo('residente2')
+    const { data } = await otroResidente.from('reacciones').select('mensaje_id').eq('mensaje_id', mensaje.id)
+    expect(data).toEqual([])
   })
 })
