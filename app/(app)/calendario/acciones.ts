@@ -211,18 +211,20 @@ export async function crearSerieEventos(
   }
 
   const supabase = await crearClienteServidor()
+  // La función acepta smallint/time null en los campos que no aplican al patrón elegido; los tipos
+  // generados los declaran como number/string (mismo caso que p_nota en guardar_seleccion).
   const { data, error } = await supabase.rpc('crear_serie_eventos', {
     p_patron: datos.patron,
-    p_dia_semana: datos.dia_semana ?? null,
-    p_ordinal_semana: datos.ordinal_semana ?? null,
-    p_dia_mes: datos.dia_mes ?? null,
+    p_dia_semana: (datos.dia_semana ?? null) as number,
+    p_ordinal_semana: (datos.ordinal_semana ?? null) as number,
+    p_dia_mes: (datos.dia_mes ?? null) as number,
     p_fecha_inicio: datos.fecha_inicio,
     p_fecha_fin: datos.fecha_fin,
-    p_hora: datos.hora,
+    p_hora: datos.hora as string,
     p_titulo: datos.titulo,
     p_tipo: datos.tipo,
     p_requiere_cocina: datos.requiere_cocina,
-    p_requiere_otro_texto: datos.requiere_otro_texto,
+    p_requiere_otro_texto: datos.requiere_otro_texto as string,
     p_fechas: fechas,
   })
   if (error) return fallo('No se pudo crear la serie. Intentá de nuevo.')
