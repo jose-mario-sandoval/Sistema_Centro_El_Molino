@@ -2,6 +2,7 @@ import { expect, test, type Page } from '@playwright/test'
 import {
   asegurarUsuariosPrueba,
   clienteAdminPrueba,
+  clienteComo,
   CONTRASENA_PRUEBA,
   nombresQueNoDebeVer,
   USUARIOS_PRUEBA,
@@ -31,7 +32,12 @@ async function sinNombresAjenos(page: Page, clave: ClaveUsuario) {
   }
 }
 
-/** Inserta un mensaje a nombre de `clave` con la llave secreta. */
+/**
+ * Inserta un mensaje a nombre de `clave` con la llave secreta, ya aprobado: representa contenido que
+ * ya estaba ahí antes del test, no un mensaje que el propio test está mandando a moderación. Con la
+ * llave secreta el trigger lo deja "pendiente" (no hay auth.uid() de Director en esa sesión), así que
+ * el Director lo aprueba aparte.
+ */
 async function sembrarMensaje(clave: ClaveUsuario, texto: string) {
   const admin = clienteAdminPrueba()
   const { data: perfil, error } = await admin
@@ -40,8 +46,16 @@ async function sembrarMensaje(clave: ClaveUsuario, texto: string) {
     .eq('correo', USUARIOS_PRUEBA[clave].correo)
     .single()
   if (error) throw error
-  const { error: errorMensaje } = await admin.from('mensajes').insert({ autor_id: perfil.id, texto })
+  const { data: mensaje, error: errorMensaje } = await admin
+    .from('mensajes')
+    .insert({ autor_id: perfil.id, texto })
+    .select('id')
+    .single()
   if (errorMensaje) throw errorMensaje
+
+  const director = await clienteComo('director')
+  const { error: errorAprobar } = await director.from('mensajes').update({ estado: 'aprobado' }).eq('id', mensaje.id)
+  if (errorAprobar) throw errorAprobar
 }
 
 /** La publicación (`article.msg`) que contiene `texto`. */
@@ -167,14 +181,16 @@ test('otra sesión recibe el mensaje en tiempo real sin recargar', async ({ page
   const contextoAutor = await browser.newContext({ baseURL })
   try {
     const autor = await contextoAutor.newPage()
-    await iniciarSesion(autor, 'residente')
+    // Director: se publica ya aprobado, así este test sigue probando el INSERT en tiempo real (no la
+    // aprobación) — ese otro caso ya lo cubre el test de "aprobación, rechazo y reenvío" más abajo.
+    await iniciarSesion(autor, 'director')
     await autor.goto('/mensajes')
     await autor.getByLabel('Nuevo mensaje').fill(texto)
     await autor.getByRole('button', { name: 'Publicar' }).click()
     await expect(tarjeta(autor, texto)).toBeVisible()
 
     await expect(tarjeta(page, texto)).toBeVisible({ timeout: 20_000 })
-    await expect(tarjeta(page, texto)).toContainText(USUARIOS_PRUEBA.residente.siglas)
+    await expect(tarjeta(page, texto)).toContainText(USUARIOS_PRUEBA.director.siglas)
     // También el mensaje que llega en vivo: el autor se resuelve con siglas.
     await sinNombresAjenos(page, 'administracion')
   } finally {
