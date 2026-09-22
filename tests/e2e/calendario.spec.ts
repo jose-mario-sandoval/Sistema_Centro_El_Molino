@@ -37,7 +37,7 @@ test('el Director crea, edita y elimina un evento', async ({ page }) => {
 
   // Crear
   await modal.getByLabel('Título del evento').fill('Charla de prueba')
-  await modal.getByLabel('Charla o formación').check()
+  await modal.getByLabel('San Rafael').check()
   await modal.getByLabel('Hora (opcional)').fill('19:30')
   await modal.getByRole('button', { name: 'Agregar evento' }).click()
   await expect(modal.getByText('Charla de prueba')).toBeVisible()
@@ -134,7 +134,7 @@ test('el Director elige el tipo y lo que pide a la cocina, y "solo materiales" e
 
   const merienda = modal.getByLabel('Merienda', { exact: true })
   const comida = modal.getByLabel('Comida', { exact: true })
-  const materiales = modal.getByLabel('Solo materiales de cocina', { exact: true })
+  const materiales = modal.getByLabel('Utensilios y materiales', { exact: true })
 
   await merienda.check()
   await comida.check()
@@ -150,13 +150,13 @@ test('el Director elige el tipo y lo que pide a la cocina, y "solo materiales" e
   await expect(materiales).not.toBeChecked()
 
   await modal.getByLabel('Título del evento').fill('Retiro con merienda')
-  await modal.getByLabel('Retiro', { exact: true }).check()
+  await modal.getByLabel('San Rafael', { exact: true }).check()
   await modal.getByLabel('Hora (opcional)').fill('16:00')
   await modal.getByRole('button', { name: 'Agregar evento' }).click()
   await expect(modal.getByText('Retiro con merienda')).toBeVisible()
 
   const { data } = await clienteAdminPrueba().from('eventos').select('tipo, requiere_cocina').eq('fecha', hoy).single()
-  expect(data).toEqual({ tipo: 'retiro', requiere_cocina: ['merienda'] })
+  expect(data).toEqual({ tipo: 'san_rafael', requiere_cocina: ['merienda'] })
 })
 
 test('sin elegir el tipo el evento no se guarda', async ({ page }) => {
@@ -171,7 +171,7 @@ test('sin elegir el tipo el evento no se guarda', async ({ page }) => {
 
   // El navegador marca el tipo como faltante y no envía el formulario.
   const faltante = await modal
-    .getByLabel('Charla o formación')
+    .getByLabel('San Gabriel')
     .evaluate((radio) => (radio as HTMLInputElement).validity.valueMissing)
   expect(faltante).toBe(true)
   await expect(modal.getByText('Nuevo evento')).toBeVisible()
@@ -185,8 +185,8 @@ test('Administración ve lo que la cocina debe preparar, sin título ni tipo', a
   const { error } = await clienteAdminPrueba()
     .from('eventos')
     .insert([
-      { titulo: 'Retiro secreto', fecha: hoy, hora: '16:00', tipo: 'retiro', requiere_cocina: ['merienda', 'comida'], creado_por: ids.director },
-      { titulo: 'Reunión privada', fecha: hoy, hora: '09:00', tipo: 'reunion', requiere_cocina: [], creado_por: ids.director },
+      { titulo: 'Retiro secreto', fecha: hoy, hora: '16:00', tipo: 'san_rafael', requiere_cocina: ['merienda', 'comida'], creado_por: ids.director },
+      { titulo: 'Reunión privada', fecha: hoy, hora: '09:00', tipo: 'san_gabriel', requiere_cocina: [], creado_por: ids.director },
     ])
   expect(error).toBeNull()
 
@@ -207,4 +207,30 @@ test('Administración ve lo que la cocina debe preparar, sin título ni tipo', a
     expect(html, `"${secreto}" no debería llegar a Administración`).not.toContain(secreto)
   }
   await expect(modal.getByLabel('Título del evento')).toHaveCount(0)
+})
+
+test('Administración ve el pedido libre aunque el evento no pida nada de la lista fija', async ({ page }) => {
+  const ids = await asegurarUsuariosPrueba()
+  const hoy = fechaISOEn(new Date())
+  const { error } = await clienteAdminPrueba()
+    .from('eventos')
+    .insert({
+      titulo: 'Visita con pedido especial',
+      fecha: hoy,
+      hora: '11:00',
+      tipo: 'san_miguel',
+      requiere_cocina: [],
+      requiere_otro_texto: '20 sillas extra',
+      creado_por: ids.director,
+    })
+  expect(error).toBeNull()
+
+  await iniciarSesion(page, 'administracion')
+  await page.goto('/calendario')
+  await page.locator(`.cal-day[data-fecha="${hoy}"]`).click()
+  const modal = page.getByRole('dialog')
+  await expect(modal.getByText('20 sillas extra')).toBeVisible()
+
+  const html = await page.content()
+  expect(html, '"Visita con pedido especial" no debería llegar a Administración').not.toContain('Visita con pedido especial')
 })
