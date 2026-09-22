@@ -437,3 +437,118 @@ describe('usuario inactivo', () => {
     expect(error?.code).toBe('42501')
   })
 })
+
+describe('aprobación de mensajes', () => {
+  async function mensajeDeResidente() {
+    const { data, error } = await admin
+      .from('mensajes')
+      .insert({ autor_id: ids.residente, texto: 'Mensaje de prueba' })
+      .select('id, estado')
+      .single()
+    if (error) throw error
+    return data
+  }
+
+  it('un Residente publica y queda pendiente; el Director publica y queda aprobado', async () => {
+    const residente = await clienteComo('residente')
+    const { data: propio } = await residente.from('mensajes').insert({ autor_id: ids.residente, texto: 'Hola' }).select('estado').single()
+    expect(propio!.estado).toBe('pendiente')
+
+    const director = await clienteComo('director')
+    const { data: delDirector } = await director.from('mensajes').insert({ autor_id: ids.director, texto: 'Aviso' }).select('estado').single()
+    expect(delDirector!.estado).toBe('aprobado')
+  })
+
+  it('el cliente no puede autoaprobarse mandando estado en el insert', async () => {
+    const residente = await clienteComo('residente')
+    const { data } = await residente
+      .from('mensajes')
+      // @ts-expect-error -- estado no debería poder mandarse, pero probamos que aunque se intente, no sirve.
+      .insert({ autor_id: ids.residente, texto: 'Truco', estado: 'aprobado' })
+      .select('estado')
+      .single()
+    expect(data!.estado).toBe('pendiente')
+  })
+
+  it('quien no es el autor ni el Director no ve un mensaje pendiente', async () => {
+    const mensaje = await mensajeDeResidente()
+    const otroResidente = await clienteComo('residente2')
+    const { data } = await otroResidente.from('mensajes').select('id').eq('id', mensaje.id)
+    expect(data).toEqual([])
+  })
+
+  it('el autor sí ve su propio mensaje pendiente; el Director también', async () => {
+    const mensaje = await mensajeDeResidente()
+    const residente = await clienteComo('residente')
+    const { data: propio } = await residente.from('mensajes').select('id').eq('id', mensaje.id)
+    expect(propio).toEqual([{ id: mensaje.id }])
+    const director = await clienteComo('director')
+    const { data: delDirector } = await director.from('mensajes').select('id').eq('id', mensaje.id)
+    expect(delDirector).toEqual([{ id: mensaje.id }])
+  })
+
+  it('el Director aprueba, edita el texto y pone un mensaje en rechazado con motivo', async () => {
+    const mensaje = await mensajeDeResidente()
+    const director = await clienteComo('director')
+    const { error } = await director.from('mensajes').update({ estado: 'aprobado', texto: 'Corregido por el Director' }).eq('id', mensaje.id)
+    expect(error).toBeNull()
+    const { data } = await admin.from('mensajes').select('estado, texto').eq('id', mensaje.id).single()
+    expect(data).toEqual({ estado: 'aprobado', texto: 'Corregido por el Director' })
+
+    const otro = await mensajeDeResidente()
+    await director.from('mensajes').update({ estado: 'rechazado', motivo_rechazo: 'Muy largo' }).eq('id', otro.id)
+    const { data: rechazado } = await admin.from('mensajes').select('estado, motivo_rechazo').eq('id', otro.id).single()
+    expect(rechazado).toEqual({ estado: 'rechazado', motivo_rechazo: 'Muy largo' })
+  })
+
+  it('una vez aprobado, todos lo ven', async () => {
+    const mensaje = await mensajeDeResidente()
+    const director = await clienteComo('director')
+    await director.from('mensajes').update({ estado: 'aprobado' }).eq('id', mensaje.id)
+    const otroResidente = await clienteComo('residente2')
+    const { data } = await otroResidente.from('mensajes').select('id').eq('id', mensaje.id)
+    expect(data).toEqual([{ id: mensaje.id }])
+  })
+
+  it('el autor corrige un mensaje rechazado y vuelve a pendiente automáticamente', async () => {
+    const mensaje = await mensajeDeResidente()
+    const director = await clienteComo('director')
+    await director.from('mensajes').update({ estado: 'rechazado', motivo_rechazo: 'Corregí esto' }).eq('id', mensaje.id)
+
+    const residente = await clienteComo('residente')
+    const { error } = await residente.from('mensajes').update({ texto: 'Ya corregido' }).eq('id', mensaje.id)
+    expect(error).toBeNull()
+    const { data } = await admin.from('mensajes').select('estado, texto, motivo_rechazo').eq('id', mensaje.id).single()
+    expect(data).toEqual({ estado: 'pendiente', texto: 'Ya corregido', motivo_rechazo: null })
+  })
+
+  it('el autor no puede editar un mensaje pendiente ni uno aprobado (sin pasar por rechazado)', async () => {
+    const mensaje = await mensajeDeResidente() // pendiente
+    const residente = await clienteComo('residente')
+    const { data: sinTocarPendiente } = await residente.from('mensajes').update({ texto: 'Intento' }).eq('id', mensaje.id).select('id')
+    expect(sinTocarPendiente).toEqual([])
+
+    const director = await clienteComo('director')
+    await director.from('mensajes').update({ estado: 'aprobado' }).eq('id', mensaje.id)
+    const { data: sinTocarAprobado } = await residente.from('mensajes').update({ texto: 'Intento 2' }).eq('id', mensaje.id).select('id')
+    expect(sinTocarAprobado).toEqual([])
+  })
+
+  it('quien no es el autor ni el Director no puede editar nada', async () => {
+    const mensaje = await mensajeDeResidente()
+    const director = await clienteComo('director')
+    await director.from('mensajes').update({ estado: 'rechazado' }).eq('id', mensaje.id)
+    const otroResidente = await clienteComo('residente2')
+    const { data } = await otroResidente.from('mensajes').update({ texto: 'Ajeno' }).eq('id', mensaje.id).select('id')
+    expect(data).toEqual([])
+  })
+
+  it('una reacción a un mensaje pendiente no es visible para terceros', async () => {
+    const mensaje = await mensajeDeResidente()
+    const { error: errorReaccion } = await admin.from('reacciones').insert({ mensaje_id: mensaje.id, usuario_id: ids.director })
+    expect(errorReaccion).toBeNull()
+    const otroResidente = await clienteComo('residente2')
+    const { data } = await otroResidente.from('reacciones').select('mensaje_id').eq('mensaje_id', mensaje.id)
+    expect(data).toEqual([])
+  })
+})
