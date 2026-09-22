@@ -38,6 +38,12 @@ export const esquemaEvento = z.object({
     .refine(requerimientosValidos, {
       message: '"Solo materiales de cocina" no se combina con merienda ni comida.',
     }),
+  requiere_otro_texto: z
+    .string('Pedido inválido.')
+    .trim()
+    .max(200, 'El pedido puede tener hasta 200 caracteres.')
+    .optional()
+    .transform((v) => (v === '' || v === undefined ? null : v)),
 })
 
 export const esquemaEditarEvento = esquemaEvento.extend({
