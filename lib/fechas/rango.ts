@@ -1,9 +1,5 @@
+import { MESES } from './etiquetas'
 import type { FechaISO } from './index'
-
-const MESES = [
-  'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
-  'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
-] as const
 
 /**
  * '21 de septiembre' · '21 al 25 de septiembre' · '28 de septiembre al 4 de octubre'.
