@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { partesParaCocina, resumenComida, textoResumen, totalQueComen } from '@/lib/comidas/resumen'
-import type { EstadoComida, ValorEfectivo } from '@/lib/comidas/tipos'
+import { ORDEN_COCINA, partesParaCocina, resumenComida, textoResumen, totalQueComen } from '@/lib/comidas/resumen'
+import { ESTADOS_COMIDA, type EstadoComida, type ValorEfectivo } from '@/lib/comidas/tipos'
 
 function v(estado: EstadoComida, nota: string | null = null, origen: 'plan' | 'persona' = 'plan'): ValorEfectivo {
   return { estado, nota, origen }
@@ -84,6 +84,12 @@ describe('partesParaCocina', () => {
 
   it('sin personas, ninguna parte', () => {
     expect(partesParaCocina(resumenComida([]))).toEqual([])
+  })
+
+  it('el orden de la cocina incluye todos los estados y "sin definir": ninguno se cae del desglose', () => {
+    // totalQueComen cuenta todo estado que no sea "no": si uno faltara acá, sumaría sin verse.
+    expect(new Set(ORDEN_COCINA)).toEqual(new Set([...ESTADOS_COMIDA, 'sin_definir']))
+    expect(ORDEN_COCINA).toHaveLength(ESTADOS_COMIDA.length + 1)
   })
 
   it('no reordena el resumen original', () => {
