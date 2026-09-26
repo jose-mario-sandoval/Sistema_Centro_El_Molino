@@ -38,6 +38,15 @@ export const HORAS_LIMITE_POR_DEFECTO: HorasLimite = {
 }
 
 export type ValorComida = { estado: EstadoComida; nota: string | null }
-export type SeleccionGuardada = ValorComida & { origen: OrigenSeleccion }
+/** Una celda del plan. `cambiadaPorOtro`: la cambió otra persona (solo puede un Director). */
+export type ValorPlan = ValorComida & { cambiadaPorOtro?: boolean }
+export type SeleccionGuardada = ValorComida & {
+  origen: OrigenSeleccion
+  /**
+   * La cambió otra persona (solo puede un Director): "la cambió el Director". Sin la clave, la
+   * propia persona (o el congelado). Viene de `modificado_por` en la base.
+   */
+  cambiadaPorOtro?: boolean
+}
 /** null = "Sin definir" */
 export type ValorEfectivo = SeleccionGuardada | null

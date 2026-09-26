@@ -53,6 +53,12 @@ describe('valorEfectivo', () => {
   it('queda sin definir si no hay selección ni plan', () => {
     expect(valorEfectivo({ seleccion: null, plan: null, cerrada: false })).toBeNull()
   })
+
+  it('deja pasar quién la cambió: "la cambió el Director" sigue a la selección', () => {
+    const delDirector = { ...seleccion, cambiadaPorOtro: true }
+    expect(valorEfectivo({ seleccion: delDirector, plan, cerrada: false })).toEqual(delDirector)
+    expect(valorEfectivo({ seleccion: delDirector, plan, cerrada: true, ausente: true })).toEqual(delDirector)
+  })
 })
 
 describe('valorEfectivo: ausencia', () => {
