@@ -212,12 +212,15 @@ Y dos más que salieron de la cuadrícula del plan y las tarjetas de la semana:
 
 4. **Cuántas columnas entran lo decide una container query en `rem`, no una media query.** En una
    media query el `rem` es siempre 16px; en una container query sigue a la letra elegida. Así, con
-   letra "Muy grande", la cuadrícula del plan pasa antes al formato de teléfono y las tarjetas de la
-   semana pasan a una sola columna, en lugar de achicar la letra para que entren.
-5. **Dentro de una celda, la letra deja de crecer al llegar a su ancho**, como en la barra inferior:
-   `min(var(--t-sm), 4.8vw)` en la cuadrícula, y `cqi` (el ancho de la propia tarjeta) en las
-   tarjetas. Icono y texto nunca se separan ni se parte una palabra; si la tarjeta es muy angosta
-   (siete columnas), todas las comidas pasan a teselita con el icono arriba.
+   letra "Grande" o "Muy grande", la cuadrícula del plan pasa a una celda por fila (con el nombre de
+   la comida escrito) y las tarjetas de la semana a una sola columna, en lugar de achicar la letra
+   para que entren.
+5. **`--t-xs` es el piso también dentro de una celda.** Una celda puede dejar de crecer al llegar a
+   su ancho (`max(var(--t-xs), min(var(--t-sm), 4.8vw))` en la cuadrícula del plan), pero nunca baja
+   de `--t-xs` del tamaño de letra elegido: si no entra, cambia la disposición (menos columnas, una
+   celda por fila), no la letra. Por eso la semana tiene como mucho cuatro columnas: con el ancho
+   máximo del contenido, siete tarjetas solo entraban achicando la letra por debajo del piso.
+   Verificado a 320 / 375 / 768 / 1280 px con letra normal, grande y muy grande.
 
 ---
 
@@ -301,19 +304,35 @@ de sección, pasa al contenido principal para que un lector de pantalla anuncie 
   `PanelOpciones` (la bandeja de las seis opciones) y `EditorNota` (el campo de hora o de nota
   cuando el estado lo pide). Quien aprende una pantalla ya sabe la otra. Es la decisión de mayor
   impacto de todo el rediseño.
+- **La nota se comporta igual en todas partes.** Un estado sin nota se guarda al tocarlo. Uno que la
+  pide (temprano, tarde, enfermo) abre el campo, que toma el foco, y se guarda **solo con
+  "Guardar"**; "Cancelar", "Listo" o elegir otra opción lo descartan. Nada se guarda al salir del
+  campo: guardar en ese momento dejaba el toque siguiente sin efecto mientras se guardaba. Entre
+  temprano y tarde la hora ya escrita se conserva, pero hay que confirmarla. Si la nota no sirve, el
+  motivo aparece debajo del campo (no en un aviso flotante que se va solo).
 - **El plan se edita en la cuadrícula.** Siete filas (días) × tres columnas (comidas), a todo ancho.
   Cada celda es un botón con icono + texto corto + color (la hora debajo en temprano y tarde;
   "Falta" con la campana si no está definida). Tocarla abre las opciones debajo de su fila, una
   celda a la vez. En el teléfono el nombre del día va en su propia línea y la cabecera de comidas
-  queda fija arriba mientras se recorre la semana.
+  queda fija arriba mientras se recorre la semana; con letra grande en el teléfono cada celda ocupa
+  la fila y dice "Desayuno · Temprano 07:30". Si un guardado falla, el aviso dice qué celda volvió
+  atrás ("No se pudo guardar el almuerzo del martes…").
 - **La semana en tarjetas por día, hoy abierto.** Siete tarjetitas resumen las tres comidas de cada
   día con icono + texto corto + color, nunca solo icono; toda la semana se ve de un vistazo. Tocar
   una abre sus tres comidas debajo de su fila, con los controles de siempre. En la semana en curso
-  se abre sola hoy (o, si hoy ya cerró, el primer día que todavía tenga algo por cambiar): lo
-  primero que se ofrece es algo que todavía se puede cambiar. Un día cerrado es una tarjeta plana,
-  con candado y "Cerrado" escritos.
+  se abre sola hoy (o, si hoy ya cerró, el primer día que todavía tenga algo por cambiar) y, si al
+  entrar no se ve, la página empieza en esa tarjeta: lo primero que se ofrece es algo que todavía se
+  puede cambiar. Un día cerrado es una tarjeta plana, con candado y "Cerrado" escritos, y su panel
+  también es plano.
 - **Al abrir un panel, se ve.** Si queda fuera de la pantalla, la fila o la tarjeta que se tocó sube
   hasta arriba y el panel queda debajo: tocar el domingo en un teléfono no puede abrir algo invisible.
+- **El panel va en el código justo después de su tarjeta** (patrón de *disclosure*: botón con
+  `aria-expanded` y `aria-controls`, contenido a continuación). En la rejilla de tarjetas eso deja
+  el orden de tabulación en tarjeta → su panel → tarjeta siguiente, aunque a la vista el panel quede
+  debajo de toda la fila (`grid-auto-flow: dense` sube las tarjetas siguientes). Se acepta a
+  propósito: con el teclado o un lector de pantalla, lo que se abre llega inmediatamente después de
+  lo que se tocó, que es lo que se espera de un disclosure; la otra opción (el panel al final de la
+  fila en el código) obligaba a pasar por las otras tarjetas antes de llegar a lo abierto.
 - **"Mañana" nunca se esconde detrás de un control de paginación.** Al final de la semana en curso
   hay un botón grande, *"Ver la semana que viene"*, con el motivo escrito. Cada domingo, "mañana" es
   la semana siguiente.

@@ -33,8 +33,8 @@ Sin migraciones ni cambios de servidor.
   grande" la cuadrícula pasa antes al formato de teléfono.
 - **La cabecera de comidas queda fija arriba** (`position: sticky`) mientras se recorre la
   cuadrícula: en el teléfono la semana no entra en una pantalla y la columna se pierde.
-- **Semana: siete tarjetitas** (2 columnas en el teléfono, 4 y luego 7 según el ancho del contenedor,
-  con umbrales en `rem` por la misma razón). Cada tarjeta: nombre, fecha, "Hoy"/"Ausente"/"Cerrado" y
+- **Semana: siete tarjetitas** (1 columna con letra grande en un teléfono angosto, 2 en el teléfono,
+  4 como máximo, con umbrales en `rem` por la misma razón; nunca 7, ver la revisión abajo). Cada tarjeta: nombre, fecha, "Hoy"/"Ausente"/"Cerrado" y
   tres líneas comida + icono + texto corto (+ hora), nunca solo icono. Tocar abre `.panel-dia` con las
   tres `ComidaDelDia` debajo de la fila (`grid-column: 1 / -1` + `grid-auto-flow: dense`); una
   abierta a la vez; el orden de tabulación queda tarjeta → panel → tarjeta siguiente.
@@ -43,9 +43,9 @@ Sin migraciones ni cambios de servidor.
   otras semanas, ninguno.
 - **Día cerrado = sus tres comidas cerradas** (no "fecha < hoy"): cubre días pasados, semanas pasadas
   y hoy después del cierre de la cena. Tarjeta plana, candado + "Cerrado", panel de solo lectura.
-- **Mismas piezas, mismo comportamiento de nota que antes:** en Semana la nota se confirma con
-  Guardar/Cancelar; en el Plan también se guarda al salir del campo si es válida (los cambios del
-  plan "se guardan solos"). Las dos usan `EditorNota`.
+- **Mismas piezas, mismo comportamiento de nota:** en Plan y Semana la nota se confirma con
+  Guardar/Cancelar (`EditorNota`), sin guardar al salir del campo; temprano ↔ tarde conservan la hora
+  escrita; el error va debajo del campo.
 - **Al abrir un panel que quedó fuera de la pantalla se desplaza lo justo** (`scrollIntoView` con
   `block: 'nearest'`, instantáneo con `prefers-reduced-motion`): tocar el domingo en un teléfono no
   puede abrir algo invisible.
@@ -162,4 +162,19 @@ tests/e2e/comidas.spec.ts                           abrir el día antes de tocar
 - [x] Render estático (react-dom/server + `globals.css`) con datos variados; capturas a 320, 375, 768 y
   1280 px, tema oscuro, contraste alto, letra grande y enorme, con una celda y una tarjeta abiertas.
   Sin scroll lateral, todo lo tocable ≥ 56px, texto legible.
-- [ ] `npm run lint`, `npm run typecheck`, `npm test`. Push, PR a `master`, CI en verde.
+- [x] `npm run lint`, `npm run typecheck`, `npm test`. Push, PR a `master`, CI en verde (PR #23).
+
+### Tarea 9: correcciones de la revisión independiente
+
+- [x] **Piso de letra (I-1):** ningún texto de la cuadrícula ni de las tarjetas baja de `--t-xs`, a
+  320 / 375 / 768 / 1280 px con letra normal, grande y muy grande. La semana queda en 4 columnas como
+  máximo. En el plan, con letra grande en el teléfono (contenedor < 16rem), cada celda ocupa la fila
+  y escribe la comida; la cabecera va sin mayúsculas, en `--t-xs`.
+- [x] **Hoy a la vista al entrar (I-2):** `revelarAlEntrar` una sola vez al montar la semana en curso.
+- [x] **Nota igual en Plan y Semana (I-3, S-3):** `EditorNota` valida y muestra el error debajo del
+  campo; se guarda solo con "Guardar"; `notaInicial` (temprano ↔ tarde conserva la hora); el Plan no
+  ignora toques mientras guarda (las acciones del servidor se envían de a una y en orden).
+- [x] **S-1** panel de un día cerrado plano · **S-4** `key={estado}` en `EditorNota` (el foco va al
+  campo nuevo) · **S-5** orden de tabulación en DESIGN.md · **S-6** `abrirDia` no cierra una tarjeta
+  ya abierta · **S-7** el aviso de falla dice qué celda volvió atrás (`mensajeFalloCelda`) ·
+  `PanelOpciones` acepta `etiquetaGrupo` (para textos en tercera persona en el PR 5).
