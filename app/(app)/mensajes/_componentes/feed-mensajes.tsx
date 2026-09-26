@@ -1,22 +1,32 @@
 'use client'
 
-import { useEffect, useRef, useState, useTransition } from 'react'
+import { useEffect, useId, useRef, useState, useTransition } from 'react'
 import { useAviso } from '@/components/ui/avisos'
+import { Icono } from '@/components/ui/iconos'
 import { llamarAccion } from '@/lib/acciones/llamar'
 import type { PaginaFeed } from '@/lib/mensajes/consulta-feed'
 import {
   agregarAnteriores,
   aplicarBorradoMensaje,
+  aplicarFijado,
   aplicarInsercionMensaje,
-  cursorAnteriores,
   fijarReaccion,
   publicaDirecto,
   tieneReaccion,
   type MensajeFila,
+  type Publicacion,
 } from '@/lib/mensajes/feed'
+import { separarFijadas, type DuracionFijado } from '@/lib/mensajes/fijados'
 import { aplicarCambios, type CambioFeed, type EventoLeido } from '@/lib/mensajes/tiempo-real'
 import type { PerfilResumen } from '@/lib/perfiles/consultas'
-import { alternarReaccion, borrarMensaje, cargarMensajes, cargarPerfiles } from '../acciones'
+import {
+  alternarReaccion,
+  borrarMensaje,
+  cargarMensajes,
+  cargarPerfiles,
+  desfijarPublicacion,
+  fijarPublicacion,
+} from '../acciones'
 import { ConfirmarBorrado } from './confirmar-borrado'
 import { FormularioPublicar } from './formulario-publicar'
 import { TarjetaMensaje, type PedidoBorrado, type UsuarioFeed } from './tarjeta-mensaje'
@@ -24,6 +34,14 @@ import { useCanalMensajes, type ResultadoRecarga } from './use-canal-mensajes'
 
 function indexar(perfiles: PerfilResumen[]): Record<string, PerfilResumen> {
   return Object.fromEntries(perfiles.map((p) => [p.id, p]))
+}
+
+/**
+ * Página cronológica más las fijadas, sin repetir. Una fijada puede ser más vieja que toda la página: por eso
+ * el cursor de "Ver anteriores" viaja aparte (PaginaFeed.cursor) y no se saca de este arreglo.
+ */
+function conFijadas(pagina: PaginaFeed): Publicacion[] {
+  return agregarAnteriores(pagina.publicaciones, pagina.fijadas)
 }
 
 export function FeedMensajes({
@@ -38,8 +56,9 @@ export function FeedMensajes({
   generadoEn: string
 }) {
   const aviso = useAviso()
-  const [publicaciones, setPublicaciones] = useState(inicial.publicaciones)
+  const [publicaciones, setPublicaciones] = useState(() => conFijadas(inicial))
   const [hayMas, setHayMas] = useState(inicial.hayMas)
+  const [cursor, setCursor] = useState(inicial.cursor)
   const [perfiles, setPerfiles] = useState(() => indexar(perfilesIniciales))
   const [ahora, setAhora] = useState(() => new Date(generadoEn))
   const [pedidoBorrado, setPedidoBorrado] = useState<PedidoBorrado | null>(null)
@@ -51,12 +70,24 @@ export function FeedMensajes({
   /** Cambios (eventos y optimistas) llegados durante una recarga completa; null si no hay recarga en curso. */
   const cambiosEnRecarga = useRef<CambioFeed[] | null>(null)
   const avisoRecargaMostrado = useRef(false)
+  /** Publicación que cambió de sección (fijar/quitar): recibe el foco al volver a pintar, para no perderlo. */
+  const enfocarDespues = useRef<string | null>(null)
+  const idTituloFijados = useId()
+  const idTituloPublicaciones = useId()
 
-  // "hace cuánto" se actualiza cada minuto.
+  // "hace cuánto" y el vencimiento de las fijadas se actualizan cada minuto.
   useEffect(() => {
     const reloj = setInterval(() => setAhora(new Date()), 60_000)
     return () => clearInterval(reloj)
   }, [])
+
+  // La tarjeta fijada o quitada se vuelve a montar en la otra sección: el foco va a ella (y la trae a la vista).
+  useEffect(() => {
+    const id = enfocarDespues.current
+    if (!id) return
+    enfocarDespues.current = null
+    document.querySelector<HTMLElement>(`article[data-mensaje-id="${CSS.escape(id)}"]`)?.focus()
+  })
 
   /** Todo cambio local del feed pasa por acá, para no perderlo si una recarga en curso reemplaza los datos. */
   function aplicar(cambio: CambioFeed) {
@@ -94,14 +125,18 @@ export function FeedMensajes({
     avisoRecargaMostrado.current = false
     generacion.current++
     // Los cambios son idempotentes: lo que la recarga ya trae no se duplica.
-    setPublicaciones(aplicarCambios(mensajes.data.publicaciones, cambios))
+    setPublicaciones(aplicarCambios(conFijadas(mensajes.data), cambios))
     setHayMas(mensajes.data.hayMas)
+    setCursor(mensajes.data.cursor)
     return 'ok'
   }
 
-  function alEvento({ cambio, autorId }: EventoLeido) {
+  function alEvento({ cambio, autorId, publicacionFijada }: EventoLeido) {
     aplicar(cambio)
     if (autorId && !perfiles[autorId]) void recargarPerfiles()
+    // Alguien fijó una publicación que esta página no tiene (una vieja): se trae completa, con sus reacciones
+    // y respuestas, en vez de mostrarla a medias.
+    if (publicacionFijada && !publicaciones.some((p) => p.id === publicacionFijada)) void recargarTodo()
   }
 
   const conexion = useCanalMensajes({ alEvento, recargar: recargarTodo })
@@ -135,8 +170,32 @@ export function FeedMensajes({
     }
   }
 
+  async function fijar(id: string, duracion: DuracionFijado, fecha?: string) {
+    const resultado = await llamarAccion(() => fijarPublicacion({ id, duracion, fecha }))
+    if (resultado.ok) {
+      aplicar((feed) => aplicarFijado(feed, id, resultado.data))
+      enfocarDespues.current = id
+      aviso('Publicación fijada arriba.')
+    } else if (!resultado.campos?.fecha) {
+      // El error de la fecha lo muestra el panel junto al campo.
+      aviso(resultado.error)
+    }
+    return resultado
+  }
+
+  async function desfijar(id: string) {
+    const resultado = await llamarAccion(() => desfijarPublicacion({ id }))
+    if (!resultado.ok) {
+      aviso(resultado.error)
+      return
+    }
+    aplicar((feed) => aplicarFijado(feed, id, null))
+    enfocarDespues.current = id
+    aviso('Se quitó de fijados.')
+  }
+
   function verAnteriores() {
-    const antesDe = cursorAnteriores(publicaciones)
+    const antesDe = cursor
     const generacionPedida = generacion.current
     iniciarCargaAnteriores(async () => {
       const resultado = await llamarAccion(() => cargarMensajes({ antesDe }))
@@ -148,6 +207,7 @@ export function FeedMensajes({
       }
       setPublicaciones((feed) => agregarAnteriores(feed, resultado.data.publicaciones))
       setHayMas(resultado.data.hayMas)
+      if (resultado.data.cursor) setCursor(resultado.data.cursor)
     })
   }
 
@@ -167,6 +227,22 @@ export function FeedMensajes({
     })
   }
 
+  const { fijadas, resto } = separarFijadas(publicaciones, ahora)
+  const tarjeta = (p: Publicacion) => (
+    <TarjetaMensaje
+      key={p.id}
+      publicacion={p}
+      perfiles={perfiles}
+      usuario={usuario}
+      ahora={ahora}
+      alReaccionar={(mensajeId) => void reaccionar(mensajeId)}
+      alResponder={(padreId, id, texto) => agregarPropio(id, texto, padreId)}
+      alPedirBorrado={setPedidoBorrado}
+      alFijar={fijar}
+      alDesfijar={desfijar}
+    />
+  )
+
   return (
     <div className="feed-mensajes" data-conexion={conexion}>
       <FormularioPublicar alPublicar={(id, texto) => agregarPropio(id, texto, null)} />
@@ -175,24 +251,35 @@ export function FeedMensajes({
         {conexion === 'reconectando' && <span className="role-pill">Reconectando…</span>}
       </div>
 
-      <div className="feed">
-        {publicaciones.length === 0 ? (
-          <div className="empty-state">Todavía no hay publicaciones. Sé el primero en escribir algo.</div>
-        ) : (
-          publicaciones.map((p) => (
-            <TarjetaMensaje
-              key={p.id}
-              publicacion={p}
-              perfiles={perfiles}
-              usuario={usuario}
-              ahora={ahora}
-              alReaccionar={(mensajeId) => void reaccionar(mensajeId)}
-              alResponder={(padreId, id, texto) => agregarPropio(id, texto, padreId)}
-              alPedirBorrado={setPedidoBorrado}
-            />
-          ))
-        )}
-      </div>
+      {/* Una fijada vigente aparece solo acá, no repetida en la lista por fecha. */}
+      {fijadas.length > 0 && (
+        <section className="seccion-fijados" aria-labelledby={idTituloFijados}>
+          <h2 id={idTituloFijados} className="titulo-feed">
+            <Icono nombre="fijar" />
+            Fijados
+          </h2>
+          <div className="feed">{fijadas.map(tarjeta)}</div>
+        </section>
+      )}
+
+      {fijadas.length === 0 ? (
+        <div className="feed">
+          {resto.length === 0 ? (
+            <div className="empty-state">Todavía no hay publicaciones. Sé el primero en escribir algo.</div>
+          ) : (
+            resto.map(tarjeta)
+          )}
+        </div>
+      ) : (
+        resto.length > 0 && (
+          <section aria-labelledby={idTituloPublicaciones}>
+            <h2 id={idTituloPublicaciones} className="titulo-feed">
+              Publicaciones
+            </h2>
+            <div className="feed">{resto.map(tarjeta)}</div>
+          </section>
+        )
+      )}
 
       {hayMas && (
         <div className="compose-foot" style={{ justifyContent: 'center', marginTop: 16 }}>

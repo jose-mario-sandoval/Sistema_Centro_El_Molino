@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { InsigniaPendientes } from '@/components/app/pendientes'
 import { exigirPerfil, type Perfil } from '@/lib/auth/sesion'
 import { listarMensajesPendientes, listarPublicaciones, listarRegistroModeracion } from '@/lib/mensajes/consultas'
 import { listarPerfiles } from '@/lib/perfiles/consultas'
@@ -68,6 +69,7 @@ export default async function PaginaMensajes({
             aria-current={verPendientes ? 'page' : undefined}
           >
             Pendientes
+            <InsigniaPendientes />
           </Link>
           <Link
             href="/mensajes?vista=registro"
