@@ -126,7 +126,10 @@ function FormularioAusencia({
         }
       }}
     >
-      <p className="hint">Tocá el primer día y el último día que no vas a estar. Si es uno solo, tocalo una vez.</p>
+      <p className="hint">
+        Tocá el primer día y el último día que no vas a estar; si es uno solo, tocalo una vez. Si volvés antes, podés
+        pedir tu comida desde Comidas.
+      </p>
       <MiniCalendario
         hoy={hoy}
         min={min}
@@ -177,10 +180,7 @@ export function PanelAusencias({ ausencias, hoy }: { ausencias: Ausencia[]; hoy:
       <h2 id="titulo-ausencias" className="section-title">
         Mis ausencias
       </h2>
-      <p className="hint">
-        Los días que no vas a estar, tus comidas se cancelan solas. Si volvés antes, podés pedir una comida desde
-        Comidas. Solo vos ves estas fechas.
-      </p>
+      <p className="hint">Tus comidas de esos días se cancelan solas. Solo vos ves estas fechas.</p>
       {ausencias.length === 0 ? (
         <p className="ausencias-vacio">No tenés ausencias marcadas.</p>
       ) : (
