@@ -135,8 +135,8 @@ function FormularioAusencia({ hoy }: { hoy: FechaISO }) {
 }
 
 /**
- * Ausencias de la propia persona (Director y Residente). Sus comidas de esos días se cancelan solas;
- * son privadas: la cocina ve "No comer", no el motivo ni las fechas.
+ * Ausencias de la propia persona (Director y Residente). Sus comidas de esos días se cancelan solas.
+ * Las ven ella y el Director; la cocina ve "No comer", no el motivo ni las fechas.
  */
 export function PanelAusencias({ ausencias, hoy }: { ausencias: Ausencia[]; hoy: FechaISO }) {
   return (
@@ -146,7 +146,7 @@ export function PanelAusencias({ ausencias, hoy }: { ausencias: Ausencia[]; hoy:
       </h2>
       <p className="hint">
         Marcá los días que no vas a estar. Tus comidas de esos días se cancelan solas. Si volvés antes, podés volver a
-        pedir una comida desde Comidas. Solo vos ves estas fechas.
+        pedir una comida desde Comidas. Solo vos y el Director ven estas fechas.
       </p>
       {ausencias.length === 0 ? (
         <div className="empty-state">No tenés ausencias marcadas.</div>

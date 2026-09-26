@@ -40,7 +40,8 @@ async function restaurarHorasLimite() {
 
 async function limpiarComidas() {
   const usuarios = Object.values(ids)
-  for (const tabla of ['selecciones_comida', 'plan_semanal']) {
+  // El plan primero: borrarlo congela lo vencido de cada celda (trigger), y esas filas se borran después.
+  for (const tabla of ['plan_semanal', 'selecciones_comida']) {
     const { error } = await admin.from(tabla).delete().in('usuario_id', usuarios)
     if (error) throw error
   }
@@ -778,13 +779,14 @@ describe('extras_de_la_semana', () => {
     expect(JSON.stringify(data)).not.toMatch(/familia/i)
   })
 
-  it('Director y Residente no obtienen nada (la función es solo para Administración)', async () => {
+  it('el Director obtiene lo mismo que Administración (La casa); un Residente, nada', async () => {
     await sembrarExtra(1)
-    for (const clave of ['director', 'residente'] as const) {
-      const cliente = await clienteComo(clave)
-      const { data } = await cliente.rpc('extras_de_la_semana', { p_desde: LUNES, p_hasta: '2026-10-11' })
-      expect(data).toEqual([])
-    }
+    const pedir = async (clave: ClaveUsuario) =>
+      (await (await clienteComo(clave)).rpc('extras_de_la_semana', { p_desde: LUNES, p_hasta: '2026-10-11' })).data
+    const cocina = await pedir('administracion')
+    expect(cocina).not.toEqual([])
+    expect(await pedir('director')).toEqual(cocina)
+    expect(await pedir('residente')).toEqual([])
   })
 
   it('sin confirmaciones en el rango, lista vacía', async () => {

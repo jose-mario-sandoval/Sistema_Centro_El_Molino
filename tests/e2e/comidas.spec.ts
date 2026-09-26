@@ -55,10 +55,14 @@ async function iniciarSesion(page: Page, clave: ClaveUsuario) {
 async function limpiar(): Promise<Record<ClaveUsuario, string>> {
   const usuarios = await asegurarUsuariosPrueba()
   const admin = clienteAdminPrueba()
+  // Planes y ausencias antes que las selecciones: borrarlos congela lo vencido (triggers), y esas
+  // filas tienen que irse con el resto.
+  for (const tabla of ['plan_semanal', 'ausencias'] as const) {
+    const { error } = await admin.from(tabla).delete().in('usuario_id', Object.values(usuarios))
+    if (error) throw error
+  }
   const resultados = await Promise.all([
     admin.from('selecciones_comida').delete().in('usuario_id', Object.values(usuarios)),
-    admin.from('plan_semanal').delete().in('usuario_id', Object.values(usuarios)),
-    admin.from('ausencias').delete().in('usuario_id', Object.values(usuarios)),
     admin.from('horas_limite').update({ dia_relativo: -1, hora: '21:00' }).eq('comida', 'desayuno'),
     admin.from('horas_limite').update({ dia_relativo: 0, hora: '10:00' }).eq('comida', 'almuerzo'),
     admin.from('horas_limite').update({ dia_relativo: 0, hora: '16:00' }).eq('comida', 'cena'),
