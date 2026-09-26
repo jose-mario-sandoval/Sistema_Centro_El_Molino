@@ -84,7 +84,12 @@ Antes de dar por aplicada una migración, comprobar con
 Formas de aplicarla de verdad (documentado en README §"Reglas de trabajo"):
 - `npm run db:aplicar` (usa `.env.local` — que apunta a **producción** — vía el Session pooler; no
   requiere Docker ni `supabase login`). Es la vía normal.
-- A mano en el SQL Editor de Supabase, si por lo que sea `db:aplicar` no es viable.
+- A mano en el SQL Editor de Supabase, si por lo que sea `db:aplicar` no es viable. Ojo:
+  `db:aplicar` es `supabase db push` y registra lo aplicado en `supabase_migrations.schema_migrations`;
+  lo aplicado a mano **no queda registrado** y el próximo `db:aplicar` intentaría re-ejecutarlo y
+  fallaría ("ya existe") bloqueando las migraciones nuevas. Tras aplicar a mano, registrarlas con
+  `node node_modules/supabase/dist/supabase.js migration repair --status applied <timestamp>... --db-url
+  <url del pooler>`, y comprobar con `npm run db:aplicar -- --dry-run` que no queda nada pendiente.
 - Arreglar el workflow (definir `SUPABASE_PROJECT_REF` y los secretos) es una opción, pero ese mismo
   job corre `supabase config push`, que sube `[remotes.produccion]` de `config.toml` a Auth en
   producción — revisar que esté al día antes de activarlo.
