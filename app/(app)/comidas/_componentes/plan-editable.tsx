@@ -2,7 +2,6 @@
 
 import { Fragment, useEffect, useId, useRef, useState, type Ref } from 'react'
 import { Icono } from '@/components/ui/iconos'
-import { notaInicial } from '@/lib/comidas/notas'
 import { claveCelda, etiquetaCelda } from '@/lib/comidas/plan'
 import { NOMBRES_DIA } from '@/lib/comidas/semana'
 import {
@@ -16,8 +15,9 @@ import {
 import { textoCorto, type PlanSemanal } from '@/lib/comidas/vista'
 import { EditorNota } from './editor-nota'
 import { varsEstado } from './insignia-estado'
-import { PanelOpciones } from './panel-opciones'
+import { PanelOpciones, type MotivoCierre } from './panel-opciones'
 import { revelar } from './revelar'
+import { propsEditorNota, useBorradorNota } from './usar-borrador-nota'
 import { usePlanEditable } from './usar-plan-editable'
 
 const VERBO: Record<TiempoComida, string> = { desayuno: 'desayunás', almuerzo: 'almorzás', cena: 'cenás' }
@@ -80,8 +80,6 @@ export function PlanEditable({ plan }: { plan: PlanSemanal }) {
   const idPanel = useId()
   const idBase = useId()
   const [abierta, setAbierta] = useState<Celda | null>(null)
-  // Estado que pide nota (temprano, tarde, enfermo) elegido y todavía sin "Guardar".
-  const [borrador, setBorrador] = useState<{ estado: EstadoComida; nota: string } | null>(null)
   const botonAbierto = useRef<HTMLButtonElement>(null)
   const filaAbierta = useRef<HTMLDivElement>(null)
   const panel = useRef<HTMLDivElement>(null)
@@ -93,21 +91,30 @@ export function PlanEditable({ plan }: { plan: PlanSemanal }) {
 
   const valorAbierto = abierta ? editor.valor(abierta.dia, abierta.comida) : null
   const pendienteAbierta = abierta ? editor.pendiente(abierta.dia, abierta.comida) : false
+  // La nota a medio escribir de la celda abierta: la misma lógica que en la Semana.
+  const nota = useBorradorNota(valorAbierto, (valor) => {
+    if (abierta) editor.guardar(abierta.dia, abierta.comida, valor)
+  })
 
+  /**
+   * Volver a tocar la celda abierta cierra, y tocar otra cambia de celda: en los dos casos lo que
+   * quedó escrito se guarda (o, si no sirve, la celda sigue abierta con el error a la vista).
+   */
   function tocar(celda: Celda) {
     if (claveAbierta === claveCelda(celda.dia, celda.comida)) {
-      cerrar()
+      cerrar('listo')
       return
     }
+    if (!nota.confirmar({ alCerrar: true })) return
     setAbierta(celda)
-    setBorrador(null)
   }
 
-  /** "Listo", Escape o volver a tocar la celda. Una nota sin "Guardar" se descarta, como en la Semana. */
-  function cerrar() {
+  /** "Listo" guarda lo escrito (o avisa y no cierra); Escape descarta. */
+  function cerrar(motivo: MotivoCierre) {
+    if (motivo === 'escape') nota.descartar()
+    else if (!nota.confirmar({ alCerrar: true })) return
     botonAbierto.current?.focus()
     setAbierta(null)
-    setBorrador(null)
   }
 
   // Sin esperar a que termine otro guardado: las acciones del servidor se envían de a una y en orden,
@@ -115,17 +122,16 @@ export function PlanEditable({ plan }: { plan: PlanSemanal }) {
   function elegir(estado: EstadoComida) {
     if (!abierta) return
     if (INFO_ESTADO[estado].nota) {
-      // Lo que se estaba escribiendo, o lo guardado: temprano ↔ tarde conservan la hora.
-      setBorrador({ estado, nota: notaInicial(borrador ?? valorAbierto, estado) })
+      nota.elegir(estado)
       return
     }
-    setBorrador(null)
+    nota.descartar()
     editor.guardar(abierta.dia, abierta.comida, { estado, nota: null })
   }
 
   function dejarSinDefinir() {
     if (!abierta) return
-    setBorrador(null)
+    nota.descartar()
     editor.guardar(abierta.dia, abierta.comida, null)
   }
 
@@ -135,7 +141,7 @@ export function PlanEditable({ plan }: { plan: PlanSemanal }) {
         className="cuadro-plan"
         // Escape con el foco todavía en la celda abierta también cierra (dentro del panel lo atiende él).
         onKeyDown={(e) => {
-          if (e.key === 'Escape' && abierta) cerrar()
+          if (e.key === 'Escape' && abierta) cerrar('escape')
         }}
       >
         {/* Solo visual: cada celda ya dice en su nombre accesible qué día y qué comida es. */}
@@ -185,23 +191,17 @@ export function PlanEditable({ plan }: { plan: PlanSemanal }) {
                     id={idPanel}
                     nombre={`${ARTICULO[abierta.comida]} ${ETIQUETA_TIEMPO[abierta.comida].toLowerCase()} de los ${DIA_PLURAL[i]}`}
                     titulo={`¿Normalmente ${VERBO[abierta.comida]} los ${DIA_PLURAL[i]}?`}
-                    marcado={borrador?.estado ?? valorAbierto?.estado ?? null}
+                    marcado={nota.borrador?.estado ?? valorAbierto?.estado ?? null}
                     // La celda y el panel avisan con aria-busy; las opciones siguen respondiendo.
                     pendiente={false}
                     alElegir={elegir}
                     alCerrar={cerrar}
                     editorNota={
-                      borrador && (
+                      nota.borrador && (
                         <EditorNota
-                          key={borrador.estado}
-                          estado={borrador.estado}
-                          valor={borrador.nota}
-                          alCambiar={(nota) => setBorrador({ ...borrador, nota })}
-                          alGuardar={(nota) => {
-                            setBorrador(null)
-                            editor.guardar(abierta.dia, abierta.comida, { estado: borrador.estado, nota })
-                          }}
-                          alCancelar={() => setBorrador(null)}
+                          key={nota.borrador.estado}
+                          estado={nota.borrador.estado}
+                          {...propsEditorNota(nota)}
                           pendiente={false}
                         />
                       )

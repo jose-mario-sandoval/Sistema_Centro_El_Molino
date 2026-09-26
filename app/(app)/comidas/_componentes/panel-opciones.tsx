@@ -4,12 +4,16 @@ import { Icono } from '@/components/ui/iconos'
 import { ESTADOS_COMIDA, INFO_ESTADO, type EstadoComida } from '@/lib/comidas/tipos'
 import { varsEstado } from './insignia-estado'
 
+/** "Listo" guarda lo escrito (o avisa si no sirve); Escape descarta. */
+export type MotivoCierre = 'listo' | 'escape'
+
 /**
  * Las seis opciones de una comida, dentro de una bandeja hundida (DESIGN.md §8): la misma pieza en
  * Plan semanal, Semana y La casa. Solo pinta; guardar es de quien la usa.
  *
  * La elegida queda hundida, con su color, su icono y el texto en negrita. "Listo" y Escape llaman a
- * `alCerrar`: quien abrió el panel cierra y le devuelve el foco a su botón.
+ * `alCerrar` con el motivo: quien abrió el panel decide (con "Listo" guarda lo escrito o, si no
+ * sirve, deja el panel abierto; Escape descarta), cierra y le devuelve el foco a su botón.
  */
 export function PanelOpciones({
   id,
@@ -35,7 +39,7 @@ export function PanelOpciones({
   /** Guardando: las opciones siguen enfocables pero no responden. */
   pendiente: boolean
   alElegir: (estado: EstadoComida) => void
-  alCerrar: () => void
+  alCerrar: (motivo: MotivoCierre) => void
   editorNota?: React.ReactNode
   acciones?: React.ReactNode
 }) {
@@ -46,7 +50,7 @@ export function PanelOpciones({
       onKeyDown={(e) => {
         if (e.key === 'Escape') {
           e.stopPropagation()
-          alCerrar()
+          alCerrar('escape')
         }
       }}
     >
@@ -78,7 +82,7 @@ export function PanelOpciones({
       {editorNota}
       <div className="opciones-pie">
         {acciones}
-        <button type="button" className="btn ghost" onClick={alCerrar}>
+        <button type="button" className="btn ghost" onClick={() => alCerrar('listo')}>
           Listo
         </button>
       </div>

@@ -6,6 +6,7 @@ import { Icono } from '@/components/ui/iconos'
 import type { TipoSemana } from '@/lib/comidas/semana'
 import { diaCerrado, etiquetaTarjeta, lineasTarjeta, type DiaDeSemana } from '@/lib/comidas/vista'
 import type { FechaISO } from '@/lib/fechas'
+import { ContextoBorradores, useBorradoresDelGrupo } from './borradores-del-grupo'
 import { ComidaDelDia } from './comida-del-dia'
 import { varsEstado } from './insignia-estado'
 import { revelar, revelarAlEntrar } from './revelar'
@@ -96,6 +97,7 @@ export function SemanaPersona({
   hrefSiguienteSemana: string | null
 }) {
   const idPanel = useId()
+  const borradores = useBorradoresDelGrupo()
   const [abierta, setAbierta] = useState<FechaISO | null>(diaInicial)
   const tarjetaAbierta = useRef<HTMLElement>(null)
   const panel = useRef<HTMLDivElement>(null)
@@ -116,6 +118,9 @@ export function SemanaPersona({
   }, [])
 
   function tocar(fecha: FechaISO) {
+    // Cerrar el día abierto (o pasar a otro) guarda lo que quedó escrito en sus comidas; si una nota
+    // no sirve, el día sigue abierto con el error a la vista.
+    if (abierta && !borradores.confirmarTodos()) return
     porToque.current = true
     setAbierta((antes) => (antes === fecha ? null : fecha))
   }
@@ -154,15 +159,17 @@ export function SemanaPersona({
                     <h2 id={`${idPanel}-titulo`} className="panel-dia-titulo">
                       Comidas del {etiqueta.toLowerCase()}
                     </h2>
-                    {dia.comidas.map((comida) => (
-                      <ComidaDelDia
-                        key={comida.comida}
-                        fecha={dia.fecha}
-                        dia={dia.nombre}
-                        etiquetaDia={etiqueta}
-                        datos={comida}
-                      />
-                    ))}
+                    <ContextoBorradores value={borradores.registrar}>
+                      {dia.comidas.map((comida) => (
+                        <ComidaDelDia
+                          key={comida.comida}
+                          fecha={dia.fecha}
+                          dia={dia.nombre}
+                          etiquetaDia={etiqueta}
+                          datos={comida}
+                        />
+                      ))}
+                    </ContextoBorradores>
                   </div>
                 )}
               </Fragment>

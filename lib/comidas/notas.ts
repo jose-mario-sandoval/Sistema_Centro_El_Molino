@@ -35,6 +35,35 @@ export function notaInicial(anterior: ValorComida | null, estado: EstadoComida):
   return tipo !== null && INFO_ESTADO[anterior.estado].nota === tipo ? anterior.nota : ''
 }
 
+/** Un estado que lleva nota, elegido y todavía sin guardar, con lo escrito en el campo. */
+export type Borrador = { estado: EstadoComida; nota: string }
+
+export type DecisionBorrador =
+  | { tipo: 'nada' }
+  | { tipo: 'guardar'; valor: ValorComida }
+  | { tipo: 'error'; mensaje: string }
+
+/**
+ * Qué hacer con lo escrito al tocar "Guardar" o al cerrar ("Listo", volver a tocar la comida, pasar a
+ * otra): una nota válida y distinta de lo guardado se guarda; igual o sin borrador, nada; vacía o
+ * inválida, el panel no se cierra y dice por qué. Nunca se pierde en silencio lo que se escribió.
+ * Escape y "Cancelar" son los únicos que descartan, y no pasan por acá.
+ */
+export function resolverBorrador(
+  borrador: Borrador | null,
+  guardado: ValorComida | null,
+  { alCerrar }: { alCerrar: boolean },
+): DecisionBorrador {
+  if (!borrador) return { tipo: 'nada' }
+  const nota = normalizarNota(borrador.estado, borrador.nota)
+  if (!notaValida(borrador.estado, nota)) {
+    const salida = alCerrar ? ' Si no querés cambiarla, tocá "Cancelar".' : ''
+    return { tipo: 'error', mensaje: mensajeNota(borrador.estado) + salida }
+  }
+  if (guardado?.estado === borrador.estado && guardado.nota === nota) return { tipo: 'nada' }
+  return { tipo: 'guardar', valor: { estado: borrador.estado, nota } }
+}
+
 /** Texto para el aviso o el campo cuando la nota no es válida. */
 export function mensajeNota(estado: EstadoComida): string {
   const { etiqueta, nota } = INFO_ESTADO[estado]

@@ -4,7 +4,7 @@ import { useId, useRef, useState, type Ref } from 'react'
 import { Icono } from '@/components/ui/iconos'
 import { INFO_ESTADO, type EstadoComida } from '@/lib/comidas/tipos'
 import { varsEstado } from './insignia-estado'
-import { PanelOpciones } from './panel-opciones'
+import { PanelOpciones, type MotivoCierre } from './panel-opciones'
 
 /** El estado actual como botón grande (elevado = se toca). "Sin definir" es un hueco con la pregunta escrita. */
 function BotonEstado({
@@ -89,8 +89,11 @@ export function SelectorComida({
   /** Hay una nota a medio escribir: las opciones quedan abiertas hasta guardarla o cancelarla. */
   editorAbierto: boolean
   alElegir: (estado: EstadoComida) => void
-  /** Al tocar "Listo": quien lo usa descarta lo que quedó a medio escribir. */
-  alCerrar?: () => void
+  /**
+   * Al cerrar ("Listo", volver a tocar el estado, Escape): quien lo usa guarda o descarta lo que quedó
+   * a medio escribir. Devolver false deja el panel abierto (la nota no sirve y el error está a la vista).
+   */
+  alCerrar?: (motivo: MotivoCierre) => boolean | void
   editorNota?: React.ReactNode
   acciones?: React.ReactNode
 }) {
@@ -100,8 +103,8 @@ export function SelectorComida({
   const editable = !cerrada
   const visible = editable && (abierto || editorAbierto)
 
-  function cerrar() {
-    alCerrar?.()
+  function cerrar(motivo: MotivoCierre) {
+    if (alCerrar?.(motivo) === false) return
     setAbierto(false)
     boton.current?.focus()
   }
@@ -120,7 +123,7 @@ export function SelectorComida({
         editable={editable}
         abierto={visible}
         controla={visible ? idPanel : undefined}
-        alTocar={() => (visible ? cerrar() : setAbierto(true))}
+        alTocar={() => (visible ? cerrar('listo') : setAbierto(true))}
       />
 
       {estado && nota && (
