@@ -1,8 +1,15 @@
-import { ETIQUETA_TIEMPO, TIEMPOS_COMIDA } from '@/lib/comidas/tipos'
-import { totalQueComen, type ResumenComida } from '@/lib/comidas/resumen'
+import { type ResumenComida } from '@/lib/comidas/resumen'
 import { NOMBRES_DIA } from '@/lib/comidas/semana'
+import { ETIQUETA_TIEMPO, TIEMPOS_COMIDA, type TiempoComida } from '@/lib/comidas/tipos'
+import { CeldaResumen } from './celda-resumen'
 
-export function PlanAgregadoAdministracion({ resumenSemana }: { resumenSemana: Record<number, Record<string, ResumenComida>> }) {
+/** El patrón habitual de la casa, agregado: mismo desglose que la Semana, sin nombres. */
+export function PlanAgregadoAdministracion({
+  resumenSemana,
+}: {
+  /** resumenSemana[díaDeSemana 1..7][comida] */
+  resumenSemana: Record<number, Record<TiempoComida, ResumenComida>>
+}) {
   return (
     <>
       <div className="locked-banner">Vista de solo lectura. Cantidades del patrón habitual de la casa.</div>
@@ -10,21 +17,23 @@ export function PlanAgregadoAdministracion({ resumenSemana }: { resumenSemana: R
         <table className="admin-week-table">
           <thead>
             <tr>
-              <th scope="col">Comida</th>
-              {NOMBRES_DIA.map((nombre) => (
-                <th key={nombre} scope="col">
-                  {nombre.slice(0, 3)}
+              <th scope="col">Día</th>
+              {TIEMPOS_COMIDA.map((comida) => (
+                <th key={comida} scope="col">
+                  {ETIQUETA_TIEMPO[comida]}
                 </th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {TIEMPOS_COMIDA.map((comida) => (
-              <tr key={comida}>
-                <th scope="row">{ETIQUETA_TIEMPO[comida]}</th>
-                {NOMBRES_DIA.map((nombre, i) => (
-                  <td key={nombre} data-et={nombre}>
-                    {totalQueComen(resumenSemana[i + 1][comida])}
+            {NOMBRES_DIA.map((nombre, indice) => (
+              <tr key={nombre}>
+                <th scope="row" className="namecell">
+                  {nombre}
+                </th>
+                {TIEMPOS_COMIDA.map((comida) => (
+                  <td key={comida} data-dia={indice + 1} data-comida={comida} data-et={ETIQUETA_TIEMPO[comida]}>
+                    <CeldaResumen resumen={resumenSemana[indice + 1][comida]} />
                   </td>
                 ))}
               </tr>
