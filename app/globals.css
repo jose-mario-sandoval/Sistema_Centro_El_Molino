@@ -361,18 +361,78 @@ a{color:var(--acento);}
 .range-fechas{display:block;font-weight:700;}
 .week-nav .btn{flex-basis:100%;}
 
-.week-list{display:flex;flex-direction:column;gap:1.25rem;}
+/* Semana: siete tarjetitas por día, que resumen las tres comidas con icono + texto corto + color.
+   2 columnas en el teléfono (1 con letra grande en uno angosto), 4 y luego 7 según el ancho del contenedor; los cortes van en rem de
+   container query, que siguen al tamaño de letra: con letra grande hay menos columnas y más aire.
+   El panel del día abierto va justo después de su tarjeta y a todo el ancho; dense sube las tarjetas
+   siguientes a la fila de arriba, así el panel queda debajo de la fila que se tocó. */
+.semana-ayuda{margin-bottom:.9rem;}
+.semana-marco{container-type:inline-size;}
+.tarjetas-semana{display:grid;grid-template-columns:minmax(0,1fr);grid-auto-flow:row dense;gap:.75rem;}
+/* Con letra grande en un teléfono angosto, una sola columna: la tarjeta a todo el ancho lleva la
+   letra que la persona eligió en vez de achicarla para que entren dos. */
+@container (min-width:15rem){ .tarjetas-semana{grid-template-columns:repeat(2,minmax(0,1fr));} }
+/* Cada tarjeta es su propio contenedor: sus letras se miden contra el ancho de la tarjeta (cqi),
+   así icono + texto entran en una línea en cualquier columna, sin bajar del piso de 15px. */
+.tarjetas-semana > section{display:flex;min-width:0;scroll-margin-top:1rem;container-type:inline-size;}
+@container (min-width:34rem){ .tarjetas-semana{grid-template-columns:repeat(4,minmax(0,1fr));} }
+@container (min-width:52rem){ .tarjetas-semana{grid-template-columns:repeat(7,minmax(0,1fr));} }
 
-.day-row{
-  background:var(--fondo);border:2px solid var(--borde-elevado);border-radius:var(--r-lg);
-  box-shadow:var(--relieve);padding:1.25rem var(--marco);
+.tarjeta-dia{
+  display:flex;flex-direction:column;align-items:stretch;gap:.55rem;
+  width:100%;min-width:0;min-height:var(--toque);padding:.75rem min(.75rem, 7cqi);
+  border-radius:var(--r-md);border:2px solid var(--borde-elevado);
+  background:var(--fondo);color:var(--tinta);box-shadow:var(--relieve);
+  text-align:left;line-height:1.2;
+  transition:box-shadow var(--dur) var(--curva),background-color var(--dur) var(--curva);
 }
-.day-row.today{box-shadow:var(--relieve-alto);}
-[data-contraste="alto"] .day-row.today{border-color:var(--acento);border-width:3px;}
-.day-row-top{display:flex;align-items:baseline;flex-wrap:wrap;gap:.6rem;margin-bottom:.5rem;}
-.day-title{display:flex;align-items:baseline;flex-wrap:wrap;gap:.6rem;}
-.day-title .dname{font-family:var(--fuente-display);font-size:var(--t-lg);font-weight:600;}
-.day-title .ddate{color:var(--tinta-tenue);font-size:var(--t-sm);}
+.tarjeta-dia:hover{box-shadow:var(--relieve-alto);}
+.tarjeta-dia.today{box-shadow:var(--relieve-alto);}
+[data-contraste="alto"] .tarjeta-dia.today{border-color:var(--acento);border-width:3px;}
+/* Cerrada: plana, porque ya solo se lee; el candado y "Cerrado" lo dicen escrito. */
+.tarjeta-dia.pasada{box-shadow:none;border-color:var(--separador);}
+/* Abierta: hundida y con borde de acento. Sin sombras (contraste alto), el borde grueso alcanza. */
+.tarjeta-dia[aria-expanded="true"]{box-shadow:var(--hundido);border:3px solid var(--acento);}
+[data-contraste="alto"] .tarjeta-dia[aria-expanded="true"]{border-width:5px;}
+.tarjeta-cabeza{display:flex;flex-wrap:wrap;align-items:baseline;gap:0 .4rem;}
+.tarjeta-nombre{font-family:var(--fuente-display);font-size:min(var(--t-base), 15.5cqi);font-weight:600;}
+.tarjeta-fecha{font-size:min(var(--t-sm), 12cqi);color:var(--tinta-tenue);}
+.tarjeta-marcas{display:flex;flex-wrap:wrap;gap:.3rem;}
+.tarjeta-marcas > span{font-size:min(var(--t-xs), 11cqi);}
+.etiqueta-cerrado{display:inline-flex;align-items:center;gap:.3rem;color:var(--tinta-suave);font-weight:700;}
+.etiqueta-cerrado .icono{width:1.1em;height:1.1em;}
+.tarjeta-comidas{display:flex;flex-direction:column;gap:.45rem;}
+.tarjeta-comida{display:flex;flex-direction:column;align-items:flex-start;gap:.15rem;min-width:0;}
+.tarjeta-comida-nombre{font-size:min(var(--t-xs), 12.5cqi);font-weight:600;color:var(--tinta-suave);}
+/* Dentro de la tarjeta elevada, el valor es plano: color + icono + texto, nunca solo icono. */
+.tarjeta-valor{
+  display:inline-flex;flex-wrap:wrap;align-items:center;gap:0 .35rem;max-width:100%;
+  padding:.1rem .35rem;border-radius:var(--r-sm);
+  background:var(--cbg);color:var(--c);border:2px solid transparent;
+  font-size:min(var(--t-sm), 11cqi);font-weight:700;
+}
+.tarjeta-valor-principal{display:inline-flex;align-items:center;gap:.25rem;white-space:nowrap;}
+.tarjeta-valor .icono{width:1.1em;height:1.1em;}
+[data-contraste="alto"] .tarjeta-valor{border-color:var(--c);}
+.tarjeta-valor.vacia{background:var(--fondo);color:var(--peligro);border:2px dashed var(--peligro);}
+.tarjeta-hora{font-variant-numeric:tabular-nums;font-weight:600;}
+/* Tarjeta muy angosta (siete columnas): todas las comidas como teselita, icono arriba del texto,
+   igual en todas; así el texto puede seguir en 15-16px. */
+@container (max-width:135px){
+  .tarjeta-comida{align-items:stretch;}
+  .tarjeta-valor,.tarjeta-valor-principal{flex-direction:column;align-items:flex-start;}
+  .tarjeta-valor{font-size:min(var(--t-sm), 13cqi);padding:.2rem .4rem;}
+}
+
+/* Las tres comidas del día abierto, a todo el ancho debajo de su fila. Es una superficie hermana de
+   las tarjetas (no está dentro de ninguna), así que puede ser elevada como lo era el día entero. */
+.panel-dia{
+  grid-column:1 / -1;
+  background:var(--fondo);border:2px solid var(--borde-elevado);border-radius:var(--r-lg);
+  box-shadow:var(--relieve);padding:1.1rem var(--marco) .5rem;scroll-margin-bottom:1rem;
+}
+[data-contraste="alto"] .panel-dia{border-color:var(--acento);border-width:3px;}
+.panel-dia-titulo{font-size:var(--t-lg);margin-bottom:.25rem;}
 .etiqueta-hoy{
   display:inline-block;padding:.1rem .65rem;border-radius:var(--r-full);
   background:var(--acento-suave);color:var(--acento);border:2px solid var(--acento);
@@ -447,7 +507,7 @@ a{color:var(--acento);}
 
 /* "Mañana" nunca queda escondido detrás de la paginación. */
 .siguiente-semana{
-  display:flex;align-items:center;gap:.9rem;min-height:5rem;padding:1rem var(--marco);
+  display:flex;align-items:center;gap:.9rem;min-height:5rem;padding:1rem var(--marco);margin-top:1.25rem;
   border-radius:var(--r-lg);border:2px solid var(--borde-elevado);
   background:var(--fondo);color:var(--tinta);box-shadow:var(--relieve);text-decoration:none;
   transition:box-shadow var(--dur) var(--curva);
@@ -458,19 +518,6 @@ a{color:var(--acento);}
 .siguiente-semana-titulo{display:block;font-weight:700;}
 .siguiente-semana .hint{display:block;margin-top:.15rem;}
 .siguiente-semana > .icono{width:1.6em;height:1.6em;color:var(--acento);}
-
-/* Días ya cerrados de la semana en curso: plegados al final. */
-.dias-pasados > summary{
-  list-style:none;cursor:pointer;
-  display:flex;align-items:center;gap:.6rem;min-height:var(--toque);padding:0 1.25rem;
-  border-radius:var(--r-full);border:2px solid var(--borde-elevado);
-  box-shadow:var(--relieve-bajo);color:var(--tinta-suave);font-weight:600;
-}
-.dias-pasados > summary::-webkit-details-marker{display:none;}
-.dias-pasados > summary .icono{transition:transform var(--dur) var(--curva);}
-.dias-pasados[open] > summary{box-shadow:var(--hundido);margin-bottom:1.25rem;}
-.dias-pasados[open] > summary .icono{transform:rotate(180deg);}
-.dias-pasados > .day-row + .day-row{margin-top:1.25rem;}
 
 /* Plan semanal: la cuadrícula es el editor. Teselas separadas y elevadas (la cuadrícula de líneas
    finas no se puede hacer con relieve), cada una un botón. Una fila por día; en el teléfono el nombre
@@ -936,7 +983,7 @@ a{color:var(--acento);}
 
   .toast{bottom:calc(6rem + env(safe-area-inset-bottom, 0px));}
   /* Un panel recién abierto no cuenta como visible si lo tapa la barra inferior. */
-  .cuadro-panel{scroll-margin-bottom:calc(5.5rem + env(safe-area-inset-bottom, 0px));}
+  .cuadro-panel,.panel-dia{scroll-margin-bottom:calc(5.5rem + env(safe-area-inset-bottom, 0px));}
 
   /* Calendario: lista por defecto; la cuadrícula a un toque. */
   .cal-alternar{display:block;}
