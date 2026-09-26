@@ -149,7 +149,13 @@ export function PlanEditable({ plan }: { plan: PlanSemanal }) {
 
   return (
     <div className="cuadro-marco">
-      <div className="cuadro-plan">
+      <div
+        className="cuadro-plan"
+        // Escape con el foco todavía en la celda abierta también cierra (dentro del panel lo atiende él).
+        onKeyDown={(e) => {
+          if (e.key === 'Escape' && abierta) cerrar()
+        }}
+      >
         {/* Solo visual: cada celda ya dice en su nombre accesible qué día y qué comida es. */}
         <div className="cuadro-cabecera" aria-hidden="true">
           <span className="cuadro-esquina" />
@@ -218,16 +224,17 @@ export function PlanEditable({ plan }: { plan: PlanSemanal }) {
                       )
                     }
                     acciones={
-                      valorAbierto && (
-                        <button
-                          type="button"
-                          className="btn ghost"
-                          aria-disabled={pendienteAbierta || undefined}
-                          onClick={dejarSinDefinir}
-                        >
-                          Dejar sin definir
-                        </button>
-                      )
+                      // Siempre presente (deshabilitado si ya está sin definir): si apareciera recién al
+                      // guardar la hora al salir del campo, "Listo" se correría bajo el dedo.
+                      <button
+                        type="button"
+                        className="btn ghost"
+                        disabled={!valorAbierto}
+                        aria-disabled={(valorAbierto && pendienteAbierta) || undefined}
+                        onClick={dejarSinDefinir}
+                      >
+                        Dejar sin definir
+                      </button>
                     }
                   />
                 </div>
