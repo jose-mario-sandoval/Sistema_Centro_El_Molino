@@ -345,6 +345,65 @@ test('el plan se edita desde la cuadrícula: el almuerzo de los martes pasa a "C
   await expect(page.getByRole('button', { name: /^Martes, almuerzo:/ })).toContainText('12:00')
 })
 
+test('una hora escrita y "Listo" (sin "Guardar") se guarda; sin hora, "Listo" no cierra y dice por qué', async ({ page }) => {
+  const { lunesSiguiente, miercolesSiguiente } = fechas()
+  await planAlmuerzoMiercoles()
+  const admin = clienteAdminPrueba()
+  await iniciarSesion(page, 'residente')
+
+  // Plan semanal
+  await page.goto('/comidas/plan')
+  const celda = page.getByRole('button', { name: /^Jueves, cena:/ })
+  await celda.click()
+  const panel = page.locator('.cuadro-panel')
+  await panel.getByRole('button', { name: 'Comer temprano', exact: true }).click()
+  await panel.getByRole('button', { name: 'Listo' }).click()
+  await expect(panel).toBeVisible()
+  await expect(panel.locator('.campo-error')).toContainText('Indicá la hora para "Comer temprano"')
+  await expect(panel.getByLabel('Hora', { exact: true })).toBeFocused()
+  await panel.getByLabel('Hora', { exact: true }).fill('18:30')
+  await panel.getByRole('button', { name: 'Listo' }).click()
+  await expect(panel).toHaveCount(0)
+  await expect(celda).toHaveAccessibleName('Jueves, cena: Comer temprano 18:30. Cambiar')
+  await expect
+    .poll(async () => {
+      const { data } = await admin
+        .from('plan_semanal')
+        .select('estado, nota')
+        .eq('usuario_id', ids.residente)
+        .eq('dia_semana', 4)
+        .eq('comida', 'cena')
+      return data
+    })
+    .toEqual([{ estado: 'temprano', nota: '18:30' }])
+
+  // Semana
+  await page.goto(`/comidas/semana?semana=${lunesSiguiente}`)
+  await abrirDia(page, `Miércoles ${fechaCorta(miercolesSiguiente)}`)
+  const almuerzo = page.locator(`[data-fecha="${miercolesSiguiente}"][data-comida="almuerzo"]`)
+  await abrirOpciones(almuerzo)
+  await almuerzo.getByRole('button', { name: 'Comer tarde', exact: true }).click()
+  await almuerzo.getByRole('button', { name: 'Listo' }).click()
+  await expect(almuerzo.getByRole('button', { name: 'Listo' })).toBeVisible()
+  await expect(almuerzo.locator('.campo-error')).toContainText('Si no querés cambiarla, tocá "Cancelar".')
+  await almuerzo.getByLabel('Hora', { exact: true }).fill('13:15')
+  await almuerzo.getByRole('button', { name: 'Listo' }).click()
+  await expect(almuerzo.getByRole('button', { name: 'Listo' })).toHaveCount(0)
+  await expect(almuerzo.getByText('cambiada', { exact: true })).toBeVisible()
+  await expect(almuerzo.getByText('Hora: 13:15')).toBeVisible()
+  await expect
+    .poll(async () => {
+      const { data } = await admin
+        .from('selecciones_comida')
+        .select('estado, nota, origen')
+        .eq('usuario_id', ids.residente)
+        .eq('fecha', miercolesSiguiente)
+        .eq('comida', 'almuerzo')
+      return data
+    })
+    .toEqual([{ estado: 'tarde', nota: '13:15', origen: 'persona' }])
+})
+
 for (const viewport of [
   { width: 320, height: 640 },
   { width: 375, height: 812 },
