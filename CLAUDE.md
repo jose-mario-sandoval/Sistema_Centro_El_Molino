@@ -31,7 +31,10 @@ opcionales:
   eventos, en ninguna interfaz — pantallas, HTML, notificaciones push. El único punto de entrada de
   nombres es `listarPerfiles()` (`lib/perfiles/consultas.ts`) + `lib/perfiles/visibilidad.ts`;
   cualquier pantalla o payload nuevo para Administración debe pasar por ahí, no leer `nombre`
-  directo.
+  directo. Tampoco ve la comida persona por persona: su semana es agregada (cantidades por día y
+  tiempo de comida, `agregarSemana()` en `lib/comidas/vista.ts`), y las cenas extra confirmadas por
+  el enlace público llegan como una cifra aparte (`extras_de_la_semana()`), sin nombres ni lista de
+  invitados.
 - Valor efectivo de una comida, en cascada: **selección de la persona → ausencia → plan semanal →
   "Sin definir"**. Ver `lib/comidas/reglas.ts` (`valorEfectivo`) y el espejo en SQL
   (`guardar_seleccion`, `cerrar_comidas_vencidas`, `comidas_sin_definir`). Si cambia una regla,
@@ -46,6 +49,30 @@ opcionales:
   agregado, ej. `eventos_para_cocina()`, `ausentes_en()`). Límite conocido: `perfiles` sigue
   legible por la API de PostgREST para cualquier usuario activo — Administración no lo usa porque
   la app no se lo permite en pantalla, pero no hay una barrera de RLS que lo impida a nivel de fila.
+- Eventos: `tipo_evento` = `san_rafael | san_gabriel | san_miguel | otro`; `requiere_otro_texto` es
+  el pedido libre a Administración (`eventos_para_cocina()` también devuelve el evento si solo pide
+  texto). Administración ve el pedido, nunca el título ni la categoría.
+- **Series de eventos**: `series_eventos` + `eventos.serie_id`; cada ocurrencia es un evento normal
+  (se edita/borra sola). `crear_serie_eventos()` NO es `security definer`: corre como quien llama,
+  así RLS aplica fila a fila y la creación de serie + ocurrencias es atómica. Las fechas las calcula
+  `lib/calendario/recurrencia.ts` (`generarFechasSerie`); la base solo valida el rango. "Cancelar la
+  serie" borra las ocurrencias de hoy en adelante.
+- **Enlace público de cena extra**: la única superficie sin sesión (`/confirmar-cena/[token]`).
+  Toda ruta pública nueva hay que agregarla a `RUTAS_PUBLICAS` en `lib/supabase/proxy.ts`; si no,
+  redirige a `/login` sin avisar. Escribe con `lib/supabase/publico.ts` (cliente anon) solo vía
+  `info_enlace_confirmacion()` / `confirmar_cena_extra()` (`security definer`, error `MOL05`);
+  `anon` no toca las tablas. Revocar = adelantar `vence_en`, no borrar (se perderían las
+  confirmaciones ya recibidas).
+- **Aprobación de mensajes** (`estado_mensaje`: pendiente/aprobado/rechazado): el estado lo fuerza el
+  trigger `mensajes_forzar_estado` según el rol de *quien tiene la sesión* (`mi_rol()`), no según
+  `autor_id` ni lo que mande el cliente. Residente → `pendiente`; Director → `aprobado`; el autor
+  que corrige un rechazo vuelve a `pendiente`. Con la llave secreta (`admin`, sin `auth.uid()`) todo
+  insert/update queda `pendiente` y ni un update con `admin` lo aprueba: en tests, sembrar con
+  `admin` y aprobar con `(await clienteComo('director')).from('mensajes').update({ estado:
+  'aprobado' })`; si no, RLS oculta el mensaje a quien no sea autor ni Director (así fallaron 6
+  pruebas preexistentes de `mensajes` al introducirlo). Tiempo real: `leerEvento()` traduce
+  también el `UPDATE` con `aplicarActualizacionMensaje()`; no reusar `aplicarInsercionMensaje()`
+  (su idempotencia compara `creadoEn`, que un UPDATE no cambia).
 
 ## Migraciones: NO se aplican solas a producción
 
@@ -65,7 +92,10 @@ Formas de aplicarla de verdad (documentado en README §"Reglas de trabajo"):
 Reglas al mergear varios PR con migraciones: en **orden de timestamp** del archivo (`supabase db
 push`/`db:aplicar` rechazan una migración anterior a la última aplicada). Un `alter type ... add
 value` a un enum va en su propia migración/ejecución: no se puede usar el valor nuevo en la misma
-transacción que lo crea.
+transacción que lo crea. Para *reemplazar* los valores de un enum (como `tipo_evento` en
+`20260921190000_eventos_categorias.sql`) se evita el `add value`: renombrar el tipo viejo, crear el
+nuevo con el nombre original, `alter column ... using` con el mapeo y borrar el viejo, todo en una
+sola migración.
 
 ## Probar SQL antes del PR
 
@@ -84,21 +114,52 @@ que algo se rompió.
 - `gh pr merge` está bloqueado por los permisos de esta sesión de Claude Code — el merge lo hace el
   usuario desde GitHub, o Claude desde el navegador del usuario (Claude in Chrome) si lo pide
   explícitamente.
-- Cuando un PR se apila sobre otro (mismos archivos) y el de abajo ya se mergeó, rebasar con
-  `git rebase --onto master <rama-inferior> <rama-propia>` antes de pedir revisión, para que el
-  diff muestre solo lo propio.
+- La autorización para mergear es por PR: si el usuario pidió mergear ciertos PR, no mergear otros
+  (aunque estén apilados y en verde) sin preguntarle de nuevo.
+- Cuando un PR se apila sobre otro (mismos archivos) y el de abajo ya se mergeó, rebasar sobre
+  `master` antes de pedir revisión, para que el diff muestre solo lo propio. Con squash, un simple
+  `git rebase origin/master` descarta solos los commits ya incluidos ("patch contents already
+  upstream"); `git rebase --onto master <rama-inferior> <rama-propia>` sirve si no los reconoce.
+  Los conflictos típicos son dos ramas que agregaron un test o bloque al final del mismo archivo
+  (`tests/e2e/calendario.spec.ts`, `tests/integration/calendario.test.ts`, `acciones.ts`,
+  `modal-dia.tsx`): conservar ambos y cerrar bien el primer bloque (el marcador corta su `})`).
+  Lint + typecheck + tests antes de `git push --force-with-lease`. `master` está checkeado en el
+  worktree principal: en un worktree de Claude no se puede `git checkout master`.
+- `ci.yml` solo corre en PR cuya base es `master` (y en push a master): un PR apilado sobre otra
+  rama no tiene CI. Re-apuntarlo (`gh pr edit N --base master`) no lo dispara; cerrar y reabrir
+  (`gh pr close N; gh pr reopen N`) sí.
 - Windows/Git Bash: `git show origin/master:ruta` necesita `MSYS_NO_PATHCONV=1` (si no, bash
   reescribe la ruta). Al generar texto con Python desde bash, un `\b` en cadena no cruda queda como
   retroceso (0x08) en el archivo — usar `chr(92)` o escribir con la herramienta Write.
 - Vercel Preview da "Internal Server Error": faltan las variables de Supabase en el scope Preview
   (no arreglado).
 
+## Tipos de Supabase (`lib/supabase/database.types.ts`)
+
+- Se regenera desde el CI, no a mano: el job `base-de-datos` sube el artefacto `database-types`.
+  `rm lib/supabase/database.types.ts` y luego `gh run download <run-id> -n database-types -D
+  lib/supabase` (sin borrar antes, `gh` falla con "ya existe"). Confirmar la rama con `git branch
+  --show-current` antes de descargar.
+- Hasta regenerarlo, `calidad` y "Build para e2e" fallan por columnas/RPC nuevas que el tipo no
+  conoce: es esperado, no un bug de la rama (las pruebas de integración corren igual). Ojo: al
+  regenerar pueden salir errores reales que el tipo viejo (`unknown`) tapaba.
+- supabase-js infiere el tipo de fila leyendo el literal del `.select('...')`: mantenerlo un solo
+  string literal; concatenar con `+` lo ensancha a `string` y rompe la inferencia.
+- Los args de una RPC salen no-nulos aunque la función acepte null (Postgres no lo expone): castear
+  en la llamada, como `guardar_seleccion` (`p_nota: nota as string`) y `crear_serie_eventos`.
+- Un helper de test que devuelve un objeto literal sin anotar ensancha `estado: 'aprobado'` a
+  `string`: anotar el tipo de retorno (`: MensajeFila`).
+
 ## Dónde está cada cosa
 
 - `DESIGN.md` — sistema de diseño. `docs/prototipo/` — prototipo HTML de referencia.
 - `docs/superpowers/specs/` — un documento de diseño por feature grande (el de ausencias es el más
-  reciente y el más completo como modelo a seguir).
-- `lib/<dominio>/` (comidas, calendario, ausencias, perfiles, push) separa reglas (`reglas.ts`),
+  completo como modelo a seguir; `2026-09-21-eventos-mensajes-comidas-design.md` cubre categorías,
+  enlace público, vista agregada, recurrencia y aprobación de mensajes, con un plan por
+  subsistema en `docs/superpowers/plans/2026-09-21-0N-*.md`).
+- `tests/soporte/usuarios-prueba.ts` — usuarios de prueba y clientes: `clienteAdminPrueba()`
+  (llave secreta), `clienteComo(clave)` (sesión real, RLS aplica), `clienteAnonimoPrueba()`.
+- `lib/<dominio>/` (comidas, calendario, ausencias, mensajes, perfiles, push) separa reglas (`reglas.ts`),
   vista/armado para UI (`vista.ts`), consultas a Supabase (`consultas.ts`) y validación zod
   (`lib/validacion/`).
 - `app/(app)/<sección>/acciones*.ts` — Server Actions; usan `perfilParaAccion()` y, para escrituras
