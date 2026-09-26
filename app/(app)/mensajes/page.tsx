@@ -5,6 +5,7 @@ import { listarMensajesPendientes, listarPublicaciones, listarRegistroModeracion
 import { listarPerfiles } from '@/lib/perfiles/consultas'
 import { ColaModeracion } from './_componentes/cola-moderacion'
 import { FeedMensajes } from './_componentes/feed-mensajes'
+import { RefrescarColaAlCambiar } from './_componentes/refrescar-cola'
 import { TablaRegistro } from './_componentes/tabla-registro'
 
 /** Fuera de los componentes: la marca `generadoEn` no es una lectura pura de render. */
@@ -32,7 +33,12 @@ async function SeccionRegistro() {
 
 async function SeccionPendientes() {
   const [mensajes, perfiles] = await Promise.all([listarMensajesPendientes(), listarPerfiles()])
-  return <ColaModeracion mensajes={mensajes} perfiles={perfiles} />
+  return (
+    <>
+      <RefrescarColaAlCambiar />
+      <ColaModeracion mensajes={mensajes} perfiles={perfiles} />
+    </>
+  )
 }
 
 export default async function PaginaMensajes({
