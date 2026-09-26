@@ -1,6 +1,7 @@
 import { NOMBRES_DIA } from './semana'
 import { ETIQUETA_TIEMPO, TIEMPOS_COMIDA, type TiempoComida, type ValorComida } from './tipos'
 import { textoValor, type PlanSemanal } from './vista'
+import { CAMBIADA_POR_EL_DIRECTOR } from './voz'
 
 /** Clave de una celda del plan (día de semana 1..7 + comida). */
 export function claveCelda(dia: number, comida: TiempoComida): string {
@@ -17,6 +18,17 @@ export function celdasDesdePlan(plan: PlanSemanal): Record<string, ValorComida> 
     }
   }
   return celdas
+}
+
+/** Las celdas que cambió otra persona (el Director): 'la cambió el Director'. */
+export function cambiadasPorOtro(plan: PlanSemanal): Record<string, true> {
+  const marcas: Record<string, true> = {}
+  for (let dia = 1; dia <= 7; dia++) {
+    for (const comida of TIEMPOS_COMIDA) {
+      if (plan[dia]?.[comida]?.cambiadaPorOtro) marcas[claveCelda(dia, comida)] = true
+    }
+  }
+  return marcas
 }
 
 /** Copia de las celdas con `clave` cambiada; null la quita (sin definir). */
@@ -51,6 +63,7 @@ export function mensajeFalloCelda(dia: number, comida: TiempoComida, error: stri
  * Nombre accesible de una celda: 'Martes, almuerzo: Comer temprano 12:00. Cambiar'. Contiene el texto
  * visible de la celda (el corto está dentro de la etiqueta completa; "Falta" va escrito).
  */
-export function etiquetaCelda(dia: number, comida: TiempoComida, valor: ValorComida | null): string {
-  return `${NOMBRES_DIA[dia - 1]}, ${ETIQUETA_TIEMPO[comida].toLowerCase()}: ${textoValor(valor)}. Cambiar`
+export function etiquetaCelda(dia: number, comida: TiempoComida, valor: ValorComida | null, cambiadaPorOtro = false): string {
+  const quien = valor && cambiadaPorOtro ? `, ${CAMBIADA_POR_EL_DIRECTOR}` : ''
+  return `${NOMBRES_DIA[dia - 1]}, ${ETIQUETA_TIEMPO[comida].toLowerCase()}: ${textoValor(valor)}${quien}. Cambiar`
 }

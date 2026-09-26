@@ -100,6 +100,14 @@ describe('armarSemanaDeLaCasa', () => {
     expect(casa[0].comidas[1]).toMatchObject({ abierta: false, cierre: 'cerrada' })
   })
 
+  it('sinCerrar (para los extras) sigue a la hora límite y al cierre del job, no a la ventana editable', () => {
+    expect(casa[2].comidas[0].sinCerrar).toBe(false) // desayuno de hoy: cerró anoche
+    expect(casa[2].comidas[1].sinCerrar).toBe(true)
+    expect(casa[1].comidas[2].sinCerrar).toBe(false)
+    const lejana = armarSemanaDeLaCasa({ ...datos, lunes: '2026-10-19', cerradas: [] })
+    expect(lejana[0].comidas[0]).toMatchObject({ abierta: false, sinCerrar: true })
+  })
+
   it('las ausencias son de cada persona', () => {
     const [ana, beto, carla] = casa[3].comidas[1].personas
     expect(ana.datos).toMatchObject({ ausente: true, valor: { estado: 'no', origen: 'ausencia' } })
@@ -135,6 +143,7 @@ describe('armarSemanaDeLaCasa', () => {
       comida: 'almuerzo',
       resumen: { total: 0, partes: [] },
       abierta: true,
+      sinCerrar: true,
       cierre: 'cierra hoy 10:00',
       personas: [],
     })

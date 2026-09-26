@@ -174,13 +174,19 @@ export function resumenSeleccion(seleccion: SeleccionRango, ausencias: readonly 
  * DIAS_MAXIMOS_AUSENCIA), y nada que guardar si todos los días ya estaban marcados: para quitarlos
  * está "Quitar" (tocar un día marcado no lo desmarca).
  */
-export function errorSeleccion(seleccion: SeleccionRango, ausencias: readonly RangoAusencia[] = []): string | null {
+export function errorSeleccion(
+  seleccion: SeleccionRango,
+  ausencias: readonly RangoAusencia[] = [],
+  /** 'ajena': el Director mira las ausencias de otra persona (La casa). */
+  voz: 'propia' | 'ajena' = 'propia',
+): string | null {
   const { desde, hasta } = seleccion
   if (desde === null) return null
   if (hasta !== null && hasta > sumarDias(desde, DIAS_MAXIMOS_AUSENCIA)) return 'Una ausencia puede durar hasta un año.'
   const { elegidos, marcados } = diasYaMarcados(seleccion, ausencias)
   if (elegidos === 0 || marcados < elegidos) return null
+  const tiene = voz === 'propia' ? 'tenés' : 'tiene'
   return elegidos === 1
-    ? 'Ese día ya lo tenés marcado. Para quitarlo, usá «Quitar» arriba.'
-    : 'Esos días ya los tenés marcados. Para quitarlos, usá «Quitar» arriba.'
+    ? `Ese día ya lo ${tiene} marcado. Para quitarlo, usá «Quitar» arriba.`
+    : `Esos días ya los ${tiene} marcados. Para quitarlos, usá «Quitar» arriba.`
 }

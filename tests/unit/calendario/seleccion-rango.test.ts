@@ -234,6 +234,15 @@ describe('errorSeleccion', () => {
       )
     })
 
+    it('mirando las ausencias de otra persona (La casa), en tercera persona', () => {
+      expect(errorSeleccion(rango('2026-10-14', '2026-10-16'), ausencias, 'ajena')).toBe(
+        'Esos días ya los tiene marcados. Para quitarlos, usá «Quitar» arriba.',
+      )
+      expect(errorSeleccion(rango('2026-10-15', null), ausencias, 'ajena')).toBe(
+        'Ese día ya lo tiene marcado. Para quitarlo, usá «Quitar» arriba.',
+      )
+    })
+
     it('si solo algunos lo estaban, se puede guardar (sirve para alargar una ausencia)', () => {
       expect(errorSeleccion(rango('2026-10-14', '2026-10-18'), ausencias)).toBeNull()
       expect(errorSeleccion(rango('2026-10-10', '2026-10-14'), ausencias)).toBeNull()

@@ -1,6 +1,6 @@
 import { estaAusente, type RangoAusencia } from '@/lib/ausencias/tipos'
 import { diaSemana, fechaISOEn, type FechaISO } from '@/lib/fechas'
-import { estaAbierta, VALOR_POR_AUSENCIA, valorEfectivo } from './reglas'
+import { comidaSinCerrar, estaAbierta, VALOR_POR_AUSENCIA, valorEfectivo } from './reglas'
 import { resumenComida, type ClaveResumen, type ResumenComida } from './resumen'
 import { diasDeSemana, fechaCorta, nombreDia, textoCierre } from './semana'
 import {
@@ -269,7 +269,10 @@ export type ComidaDeLaCasa = {
   comida: TiempoComida
   /** El mismo resumen que calcula Administración para esa comida. */
   resumen: ResumenComida
+  /** Todavía se puede cambiar (hora límite, cierre del job y ventana editable): lo de cada persona. */
   abierta: boolean
+  /** La hora límite no pasó y el job no la cerró: un extra de esta comida todavía se puede quitar. */
+  sinCerrar: boolean
   /** 'cierra hoy 10:00' · 'cerrada' */
   cierre: string
   personas: PersonaEnComida[]
@@ -324,6 +327,7 @@ export function armarSemanaDeLaCasa(p: {
         comida,
         resumen: resumenComida(personas.map((persona) => persona.datos.valor)),
         abierta: estaAbierta(momento),
+        sinCerrar: comidaSinCerrar(momento),
         cierre: textoCierre(momento),
         personas,
       }

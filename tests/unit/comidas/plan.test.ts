@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { celdasDesdePlan, claveCelda, conCelda, etiquetaCelda, hayQueGuardar, mensajeFalloCelda } from '@/lib/comidas/plan'
+import { cambiadasPorOtro, celdasDesdePlan, claveCelda, conCelda, etiquetaCelda, hayQueGuardar, mensajeFalloCelda } from '@/lib/comidas/plan'
 import { ESTADOS_COMIDA, ETIQUETA_CORTA_ESTADO, INFO_ESTADO, TIEMPOS_COMIDA } from '@/lib/comidas/tipos'
 
 describe('claveCelda', () => {
@@ -74,6 +74,23 @@ describe('etiquetaCelda', () => {
 
   it('un estado sin nota', () => {
     expect(etiquetaCelda(1, 'desayuno', { estado: 'si', nota: null })).toBe('Lunes, desayuno: Sí comer. Cambiar')
+  })
+
+  it('si la cambió el Director, lo dice', () => {
+    expect(etiquetaCelda(1, 'desayuno', { estado: 'no', nota: null }, true)).toBe(
+      'Lunes, desayuno: No comer, la cambió el Director. Cambiar',
+    )
+  })
+})
+
+describe('cambiadasPorOtro: qué celdas del plan cambió el Director', () => {
+  it('solo las marcadas', () => {
+    expect(
+      cambiadasPorOtro({
+        1: { cena: { estado: 'no', nota: null, cambiadaPorOtro: true } },
+        2: { cena: { estado: 'si', nota: null } },
+      }),
+    ).toEqual({ '1|cena': true })
   })
 })
 
