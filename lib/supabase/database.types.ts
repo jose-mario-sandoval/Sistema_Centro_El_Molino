@@ -282,6 +282,9 @@ export type Database = {
           autor_id: string
           creado_en: string
           estado: Database["public"]["Enums"]["estado_mensaje"]
+          fijado_en: string | null
+          fijado_hasta: string | null
+          fijado_por: string | null
           id: string
           motivo_rechazo: string | null
           padre_id: string | null
@@ -291,6 +294,9 @@ export type Database = {
           autor_id: string
           creado_en?: string
           estado?: Database["public"]["Enums"]["estado_mensaje"]
+          fijado_en?: string | null
+          fijado_hasta?: string | null
+          fijado_por?: string | null
           id?: string
           motivo_rechazo?: string | null
           padre_id?: string | null
@@ -300,6 +306,9 @@ export type Database = {
           autor_id?: string
           creado_en?: string
           estado?: Database["public"]["Enums"]["estado_mensaje"]
+          fijado_en?: string | null
+          fijado_hasta?: string | null
+          fijado_por?: string | null
           id?: string
           motivo_rechazo?: string | null
           padre_id?: string | null
@@ -309,6 +318,13 @@ export type Database = {
           {
             foreignKeyName: "mensajes_autor_id_fkey"
             columns: ["autor_id"]
+            isOneToOne: false
+            referencedRelation: "perfiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mensajes_fijado_por_fkey"
+            columns: ["fijado_por"]
             isOneToOne: false
             referencedRelation: "perfiles"
             referencedColumns: ["id"]
@@ -689,6 +705,7 @@ export type Database = {
         }
         Returns: string
       }
+      desfijar_mensaje: { Args: { p_id: string }; Returns: undefined }
       eventos_para_cocina: {
         Args: { p_desde: string; p_hasta: string }
         Returns: {
@@ -716,6 +733,10 @@ export type Database = {
           nota: string
           tiempo_comida: Database["public"]["Enums"]["tiempo_comida"]
         }[]
+      }
+      fijar_mensaje: {
+        Args: { p_hasta: string; p_id: string }
+        Returns: string
       }
       guardar_seleccion: {
         Args: {

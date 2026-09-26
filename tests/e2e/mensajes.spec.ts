@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test, type Locator, type Page } from '@playwright/test'
 import {
   asegurarUsuariosPrueba,
   clienteAdminPrueba,
@@ -253,4 +253,127 @@ test('un mensaje de Residente queda pendiente, el Director lo rechaza, el Reside
     await contextoOtro.close()
     await contextoDirector.close()
   }
+})
+
+test('Administración publica sin pasar por la aprobación', async ({ page, browser, baseURL }) => {
+  const texto = textoUnico('de Administración')
+  await iniciarSesion(page, 'administracion')
+  await page.goto('/mensajes')
+  await page.getByLabel('Nuevo mensaje').fill(texto)
+  await page.getByRole('button', { name: 'Publicar' }).click()
+  await expect(tarjeta(page, texto)).toBeVisible()
+  await expect(tarjeta(page, texto).getByText('Esperando aprobación')).toHaveCount(0)
+
+  await page.reload()
+  await expect(tarjeta(page, texto)).toBeVisible()
+  await expect(tarjeta(page, texto).getByText('Esperando aprobación')).toHaveCount(0)
+  await sinNombresAjenos(page, 'administracion')
+
+  // Un Residente ya la ve, sin que el Director haya hecho nada.
+  const contexto = await browser.newContext({ baseURL })
+  try {
+    const residente = await contexto.newPage()
+    await iniciarSesion(residente, 'residente')
+    await residente.goto('/mensajes')
+    await expect(tarjeta(residente, texto)).toBeVisible()
+  } finally {
+    await contexto.close()
+  }
+})
+
+/** Las fijadas de la página (sección "Fijados"). */
+function fijadas(page: Page, texto: string) {
+  return page.locator('.seccion-fijados .msg', { hasText: texto })
+}
+
+test('el Director fija una publicación por un día, todos la ven arriba una sola vez y Administración la quita', async ({
+  page,
+  browser,
+  baseURL,
+}) => {
+  const texto = textoUnico('para fijar')
+  await sembrarMensaje('residente', texto)
+  await iniciarSesion(page, 'director')
+  await page.goto('/mensajes')
+
+  await tarjeta(page, texto).getByRole('button', { name: 'Fijar', exact: true }).click()
+  await tarjeta(page, texto).getByRole('radio', { name: 'Por 1 día' }).check()
+  await tarjeta(page, texto).getByRole('button', { name: 'Fijar arriba' }).click()
+  await expect(page.getByRole('region', { name: 'Fijados' }).locator('.msg', { hasText: texto })).toBeVisible()
+  await expect(tarjeta(page, texto)).toHaveCount(1)
+  await expect(tarjeta(page, texto)).toContainText('Fijado por el Director hasta el')
+
+  const contextoResidente = await browser.newContext({ baseURL })
+  const contextoAdministracion = await browser.newContext({ baseURL })
+  try {
+    // El Residente la ve arriba, una sola vez (no repetida en la lista por fecha), y no puede fijar.
+    const residente = await contextoResidente.newPage()
+    await iniciarSesion(residente, 'residente')
+    await residente.goto('/mensajes')
+    await expect(fijadas(residente, texto)).toBeVisible()
+    await expect(tarjeta(residente, texto)).toHaveCount(1)
+    await expect(tarjeta(residente, texto).getByRole('button', { name: /Fijar|Quitar de fijados/ })).toHaveCount(0)
+    await expect(residente.locator('.feed-mensajes')).toHaveAttribute('data-conexion', 'en-vivo', { timeout: 20_000 })
+
+    // Administración ve quién la fijó por el rol, nunca por el nombre, y la quita.
+    const administracion = await contextoAdministracion.newPage()
+    await iniciarSesion(administracion, 'administracion')
+    await administracion.goto('/mensajes')
+    await expect(fijadas(administracion, texto)).toContainText('Fijado por el Director')
+    await sinNombresAjenos(administracion, 'administracion')
+    await fijadas(administracion, texto).getByRole('button', { name: 'Quitar de fijados' }).click()
+    await expect(fijadas(administracion, texto)).toHaveCount(0)
+    await expect(tarjeta(administracion, texto).getByRole('button', { name: 'Fijar', exact: true })).toBeVisible()
+
+    // Al Residente le baja a la lista en tiempo real, sin recargar.
+    await expect(fijadas(residente, texto)).toHaveCount(0, { timeout: 10_000 })
+    await expect(tarjeta(residente, texto)).toHaveCount(1)
+  } finally {
+    await contextoResidente.close()
+    await contextoAdministracion.close()
+  }
+})
+
+/** Número que muestra el globito de un enlace (0 si no hay globito). */
+async function globito(enlace: Locator): Promise<number> {
+  const insignia = enlace.locator('.insignia-conteo')
+  return (await insignia.count()) > 0 ? Number(await insignia.textContent()) : 0
+}
+
+/** Nombre accesible de un enlace con globito: "Pendientes, 2 mensajes pendientes de aprobación". */
+function conPendientes(etiqueta: string, n: number): RegExp {
+  if (n === 0) return new RegExp(`^${etiqueta}$`)
+  const texto = n === 1 ? '1 mensaje pendiente de aprobación' : `${n} mensajes pendientes de aprobación`
+  return new RegExp(`^${etiqueta}\\s*,\\s*${texto}$`)
+}
+
+test('el Director ve cuántos mensajes esperan aprobación y, en la cola, el nombre del autor', async ({ page }) => {
+  const texto = textoUnico('espera aprobación')
+  await iniciarSesion(page, 'director')
+  await page.goto('/mensajes')
+  await expect(page.locator('.feed-mensajes')).toHaveAttribute('data-conexion', 'en-vivo', { timeout: 20_000 })
+  const pestana = page.locator('.tabs a', { hasText: 'Pendientes' })
+  const antes = await globito(pestana)
+
+  // Un Residente publica mientras el Director mira: el globito sube sin recargar, en la pestaña y en "Mensajes".
+  const residente = await clienteComo('residente')
+  const { data: sesion } = await residente.auth.getUser()
+  const { error } = await residente.from('mensajes').insert({ autor_id: sesion.user!.id, texto })
+  expect(error).toBeNull()
+  await expect(pestana).toHaveAccessibleName(conPendientes('Pendientes', antes + 1), { timeout: 10_000 })
+  await expect(page.getByRole('link', { name: conPendientes('Mensajes', antes + 1) })).toBeVisible()
+
+  // En la cola, el Director ve el nombre real, el rol y la hora.
+  await pestana.click()
+  await expect(page).toHaveURL(/vista=pendientes/)
+  const fila = page.locator('.pendiente-item', { hasText: texto })
+  await expect(fila).toContainText(USUARIOS_PRUEBA.residente.nombre)
+  await expect(fila.locator('.role-pill')).toHaveText('Residente')
+  await expect(fila.locator('time')).toHaveText(/^\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}$/)
+
+  // Al aprobarlo, el globito vuelve a lo que había.
+  await fila.getByRole('button', { name: 'Aprobar' }).click()
+  await expect(fila).toHaveCount(0)
+  await expect(pestana).toHaveAccessibleName(conPendientes('Pendientes', antes), { timeout: 10_000 })
+  await expect(page.getByRole('link', { name: conPendientes('Mensajes', antes) })).toBeVisible()
 })

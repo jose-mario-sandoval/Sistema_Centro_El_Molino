@@ -253,6 +253,7 @@ a{color:var(--acento);}
 
 .nav{display:flex;flex-direction:column;gap:.6rem;}
 .nav-item{
+  position:relative;
   display:flex;align-items:center;gap:.75rem;
   min-height:var(--toque);padding:0 1rem;
   border-radius:var(--r-md);border:2px solid var(--borde-elevado);
@@ -263,6 +264,16 @@ a{color:var(--acento);}
 .nav-item:hover{box-shadow:var(--relieve);}
 .nav-item.active{box-shadow:var(--hundido);color:var(--acento);}
 [data-contraste="alto"] .nav-item.active{border-color:var(--acento);background:var(--acento-suave);}
+
+/* Globito con una cantidad (pendientes de aprobación): número visible y texto para el lector de
+   pantalla al lado (components/app/pendientes.tsx). Peligro sobre pergamino: ≥4.5:1 en los cuatro modos. */
+.insignia-conteo{
+  display:inline-grid;place-items:center;min-width:1.75em;height:1.75em;padding:0 .45em;
+  border-radius:var(--r-full);background:var(--peligro);color:var(--fondo);
+  box-shadow:0 0 0 2px var(--fondo);
+  font-size:var(--t-xs);font-weight:700;line-height:1;font-variant-numeric:tabular-nums;
+}
+.nav .insignia-conteo{margin-left:auto;}
 
 .sidebar-foot{margin-top:auto;display:flex;flex-direction:column;gap:.75rem;}
 .who-box{
@@ -306,6 +317,7 @@ a{color:var(--acento);}
   transition:box-shadow var(--dur) var(--curva);
 }
 .tab-btn.active{box-shadow:var(--hundido);color:var(--acento);}
+.tab-btn .insignia-conteo{margin-left:.5rem;}
 [data-contraste="alto"] .tab-btn.active{border-color:var(--acento);background:var(--acento-suave);}
 
 /* Superficie elevada. Lo que va adentro es plano o hundido, nunca elevado otra vez. */
@@ -596,6 +608,28 @@ a{color:var(--acento);}
   background:var(--fondo);color:var(--tinta);
   border:2px solid var(--borde-hundido);border-radius:var(--r-sm);box-shadow:var(--hundido);
 }
+
+/* Fijados: arriba del feed, con título (icono + texto). Cada fijada lleva además su insignia. */
+.titulo-feed{display:flex;align-items:center;gap:.5rem;font-size:var(--t-lg);margin-bottom:1rem;}
+.seccion-fijados{margin-bottom:2.25rem;}
+.seccion-fijados .titulo-feed{color:var(--dorado);}
+.msg:focus-visible{outline-offset:4px;}
+.insignia-fijado{
+  display:inline-flex;align-items:center;gap:.4rem;justify-self:start;max-width:100%;margin-bottom:.4rem;
+  padding:.2rem .75rem;border-radius:var(--r-md);
+  border:2px solid var(--borde-hundido);box-shadow:var(--hundido-suave);
+  color:var(--dorado);font-size:var(--t-xs);font-weight:700;line-height:1.35;
+}
+.insignia-fijado .icono{width:1.15em;height:1.15em;}
+[data-contraste="alto"] .insignia-fijado{border-color:var(--dorado);}
+/* Por cuánto tiempo fijarla: bandeja hundida en la tarjeta, con opciones en pastilla (sin modal). */
+.panel-fijar{
+  margin-top:1rem;padding:1rem min(1rem, 3vw);border-radius:var(--r-md);
+  border:2px solid var(--borde-hundido);box-shadow:var(--hundido);
+}
+.panel-fijar .grupo-campo{margin-bottom:.5rem;}
+.panel-fijar .field{margin:.75rem 0 0;max-width:20rem;}
+.panel-fijar .acciones-formulario{margin-top:1rem;}
 
 /* Cola de moderación del Director: una tarjeta por mensaje pendiente, más viejo primero. */
 .lista-pendientes{display:flex;flex-direction:column;gap:1.25rem;}
@@ -902,6 +936,8 @@ a{color:var(--acento);}
   .barra-inferior .nav-item .icono{width:1.6em;height:1.6em;}
   .barra-inferior .nav-item.active{box-shadow:var(--hundido);}
   [data-contraste="alto"] .barra-inferior .nav-item.active{border-color:var(--acento);}
+  /* El globito va sobre la esquina del icono: no ensancha la etiqueta ni empuja a las demás. */
+  .barra-inferior .insignia-conteo{position:absolute;top:.2rem;left:calc(50% + .3rem);font-size:min(var(--t-xs), 3.6vw);}
 
   .toast{bottom:calc(6rem + env(safe-area-inset-bottom, 0px));}
 
