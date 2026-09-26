@@ -393,6 +393,10 @@ Decisiones tomadas al portar:
   `.status-chip`), y también la tabla de Administración: en el teléfono se apila con CSS, sin
   cambiar su estructura. Solo cambiaron los specs donde cambió la interacción (abrir las opciones
   de una comida antes de elegir) y el título de la sección.
+- **La tabla de Administración se apila por el ancho de su tarjeta, no de la pantalla** (consulta de
+  contenedor sobre `.admin-table-scroll`). En una media query el `rem` es siempre 16px; en una
+  consulta de contenedor sigue al tamaño de letra elegido, así que con letra "Muy grande" la tabla
+  se apila antes de que el desglose de cada comida deje de caber en su columna.
 - **"Configuraciones" pasó a llamarse "Ajustes"** en pantalla: "Configuraciones" no cabe en la
   barra inferior, y "Ajustes" es el nombre que la gente ya conoce del teléfono. La ruta sigue
   siendo `/configuraciones`.
