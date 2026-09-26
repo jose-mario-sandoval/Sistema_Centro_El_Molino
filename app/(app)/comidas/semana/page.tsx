@@ -1,7 +1,8 @@
 import { exigirPerfil } from '@/lib/auth/sesion'
 import { obtenerExtrasDeLaSemana, obtenerSemanaDe, obtenerSemanaParaAdministracion } from '@/lib/comidas/consultas'
 import { semanaPedida, tipoSemana } from '@/lib/comidas/semana'
-import { fechaISOEn } from '@/lib/fechas'
+import { diaParaAbrir } from '@/lib/comidas/vista'
+import { fechaISOEn, sumarDias } from '@/lib/fechas'
 import { NavegacionSemana } from '../_componentes/navegacion-semana'
 import { RefrescarAlVolver } from '../_componentes/refrescar-al-volver'
 import { SemanaAgregadaAdministracion } from '../_componentes/semana-agregada-administracion'
@@ -32,12 +33,20 @@ export default async function PaginaSemana({
   }
 
   const dias = await obtenerSemanaDe(perfil.id, lunes)
+  const tipo = tipoSemana(lunes, hoy)
   return (
     <>
       {/* Al volver a la pestaña, trae cierres y cambios hechos mientras tanto. */}
       <RefrescarAlVolver />
       <NavegacionSemana lunes={lunes} hoy={hoy} />
-      <SemanaPersona dias={dias} tipo={tipoSemana(lunes, hoy)} lunes={lunes} />
+      {/* key: al cambiar de semana, la tarjeta abierta vuelve a empezar desde el día que corresponde. */}
+      <SemanaPersona
+        key={lunes}
+        dias={dias}
+        tipo={tipo}
+        diaInicial={tipo === 'actual' ? diaParaAbrir(dias) : null}
+        hrefSiguienteSemana={tipo === 'actual' ? `/comidas/semana?semana=${sumarDias(lunes, 7)}` : null}
+      />
     </>
   )
 }

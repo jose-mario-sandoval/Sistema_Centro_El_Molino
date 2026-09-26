@@ -4,6 +4,8 @@ import { estaAbierta, VALOR_POR_AUSENCIA, valorEfectivo } from './reglas'
 import { resumenComida, type ClaveResumen, type ResumenComida } from './resumen'
 import { diasDeSemana, fechaCorta, nombreDia, textoCierre } from './semana'
 import {
+  ETIQUETA_CORTA_ESTADO,
+  ETIQUETA_TIEMPO,
   INFO_ESTADO,
   TIEMPOS_COMIDA,
   type EstadoComida,
@@ -183,6 +185,54 @@ export function valorTrasGuardar(
   const igual = referencia !== null && referencia.estado === valor.estado && referencia.nota === valor.nota
   if (!igual) return { estado: valor.estado, nota: valor.nota, origen: 'persona', ...(porOtro ? { cambiadaPorOtro: true } : {}) }
   return { estado: valor.estado, nota: valor.nota, origen: ausente ? 'ausencia' : 'plan' }
+}
+
+/** Texto corto de una comida para celdas y tarjetas: siempre va junto al icono y el color del estado. */
+export type TextoCorto = { estado: EstadoComida | null; texto: string; hora: string | null }
+
+/** 'Temprano' + '07:30' · 'Sí' · 'Falta' (sin definir). La nota de enfermo no entra: es texto libre. */
+export function textoCorto(valor: ValorComida | null): TextoCorto {
+  if (!valor) return { estado: null, texto: 'Falta', hora: null }
+  const hora = INFO_ESTADO[valor.estado].nota === 'hora' ? valor.nota : null
+  return { estado: valor.estado, texto: ETIQUETA_CORTA_ESTADO[valor.estado], hora }
+}
+
+/** Para nombres accesibles: 'Comer temprano 07:30' · 'Enfermo, Sopa' · 'Falta, sin definir'. Contiene el corto. */
+export function textoValor(valor: ValorComida | null): string {
+  if (!valor) return 'Falta, sin definir'
+  const { etiqueta, nota } = INFO_ESTADO[valor.estado]
+  if (!valor.nota) return etiqueta
+  return nota === 'hora' ? `${etiqueta} ${valor.nota}` : `${etiqueta}, ${valor.nota}`
+}
+
+export type LineaTarjeta = TextoCorto & { comida: TiempoComida; etiqueta: string }
+
+/** Las tres líneas de la tarjeta de un día: 'Desayuno' + icono + 'Temprano 07:30'. */
+export function lineasTarjeta(dia: DiaDeSemana): LineaTarjeta[] {
+  return dia.comidas.map(({ comida, valor }) => ({ comida, etiqueta: ETIQUETA_TIEMPO[comida], ...textoCorto(valor) }))
+}
+
+/** Un día está cerrado cuando ya no se puede cambiar ninguna de sus comidas (pasado, o hoy tras la cena). */
+export function diaCerrado(dia: DiaDeSemana): boolean {
+  return dia.comidas.every((comida) => !comida.abierta)
+}
+
+/** Nombre accesible de la tarjeta: 'Miércoles 23/9, hoy. Desayuno: Sí comer. Almuerzo: …'. */
+export function etiquetaTarjeta(dia: DiaDeSemana): string {
+  const marcas = [dia.esHoy && 'hoy', dia.ausente && 'ausente', diaCerrado(dia) && 'cerrado'].filter(Boolean)
+  const cabeza = [`${dia.nombre} ${dia.fechaCorta}`, ...marcas].join(', ')
+  const comidas = dia.comidas.map(({ comida, valor }) => `${ETIQUETA_TIEMPO[comida]}: ${textoValor(valor)}.`)
+  return `${cabeza}. ${comidas.join(' ')}`
+}
+
+/**
+ * Qué día de la semana en curso se abre solo: hoy, o si hoy ya cerró entero, el primero que todavía
+ * tenga algo por cambiar (DESIGN.md §8: lo primero en pantalla es algo que se puede cambiar).
+ */
+export function diaParaAbrir(dias: readonly DiaDeSemana[]): FechaISO | null {
+  const hoy = dias.findIndex((dia) => dia.esHoy)
+  if (hoy < 0) return null
+  return dias.slice(hoy).find((dia) => !diaCerrado(dia))?.fecha ?? null
 }
 
 /** Lo único que cruza al navegador de Administración: nunca `filas`. */

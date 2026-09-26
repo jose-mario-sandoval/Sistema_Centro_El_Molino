@@ -15,8 +15,8 @@ export default async function PaginaPlanSemanal() {
   return (
     <>
       <div className="locked-banner">
-        Este es tu patrón habitual de comidas: se usa en cada semana mientras no cambies un día puntual. Los cambios se
-        guardan solos.
+        Lo que comés normalmente cada semana. Se usa en todas las semanas mientras no cambies un día puntual. Tocá una
+        comida para cambiarla: los cambios se guardan solos.
       </div>
       <PlanEditable plan={plan} />
     </>
