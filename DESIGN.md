@@ -208,6 +208,17 @@ Las tres fallaron en el prototipo con letra "Muy grande" en un teléfono de 320p
 3. **Columnas de rejilla con `minmax(0, 1fr)`, nunca `1fr` a secas.** `1fr` tiene como mínimo su
    contenido: un solo título largo ensancha la columna entera y rompe la página.
 
+Y dos más que salieron de la cuadrícula del plan y las tarjetas de la semana:
+
+4. **Cuántas columnas entran lo decide una container query en `rem`, no una media query.** En una
+   media query el `rem` es siempre 16px; en una container query sigue a la letra elegida. Así, con
+   letra "Muy grande", la cuadrícula del plan pasa antes al formato de teléfono y las tarjetas de la
+   semana pasan a una sola columna, en lugar de achicar la letra para que entren.
+5. **Dentro de una celda, la letra deja de crecer al llegar a su ancho**, como en la barra inferior:
+   `min(var(--t-sm), 4.8vw)` en la cuadrícula, y `cqi` (el ancho de la propia tarjeta) en las
+   tarjetas. Icono y texto nunca se separan ni se parte una palabra; si la tarjeta es muy angosta
+   (siete columnas), todas las comidas pasan a teselita con el icono arriba.
+
 ---
 
 ## 5. Preferencias de apariencia
@@ -285,14 +296,24 @@ de sección, pasa al contenido principal para que un lector de pantalla anuncie 
 - **Sin tarjetas dentro de tarjetas.** En neumorfismo se lee como un error de profundidad. Lo que va
   dentro de una meseta elevada es plano o hundido, nunca elevado otra vez.
 - **Sin modales como primer recurso.** El único modal justificado es la confirmación de borrado.
-- **Una sola interacción para una sola pregunta.** Plan semanal y Semana responden ambas a "¿qué
-  hacés con esta comida?" y por lo tanto usan **exactamente el mismo componente**, incluido el campo
-  de hora o de nota cuando el estado lo pide. Quien aprende una ya sabe la otra. Es la decisión de
-  mayor impacto de todo el rediseño.
-- **Lo primero en pantalla es algo que todavía se puede cambiar.** En la semana en curso, hoy va
-  primero; los días ya cerrados se pliegan al final. Un domingo, con la vista por semanas, seis de
-  siete días están cerrados: sin este orden, la persona tendría que pasar por seis días bloqueados
-  antes de llegar a algo útil.
+- **Una sola interacción para una sola pregunta.** Plan semanal y Semana (y La casa del Director)
+  responden a "¿qué hacés con esta comida?" y por lo tanto usan **exactamente las mismas piezas**:
+  `PanelOpciones` (la bandeja de las seis opciones) y `EditorNota` (el campo de hora o de nota
+  cuando el estado lo pide). Quien aprende una pantalla ya sabe la otra. Es la decisión de mayor
+  impacto de todo el rediseño.
+- **El plan se edita en la cuadrícula.** Siete filas (días) × tres columnas (comidas), a todo ancho.
+  Cada celda es un botón con icono + texto corto + color (la hora debajo en temprano y tarde;
+  "Falta" con la campana si no está definida). Tocarla abre las opciones debajo de su fila, una
+  celda a la vez. En el teléfono el nombre del día va en su propia línea y la cabecera de comidas
+  queda fija arriba mientras se recorre la semana.
+- **La semana en tarjetas por día, hoy abierto.** Siete tarjetitas resumen las tres comidas de cada
+  día con icono + texto corto + color, nunca solo icono; toda la semana se ve de un vistazo. Tocar
+  una abre sus tres comidas debajo de su fila, con los controles de siempre. En la semana en curso
+  se abre sola hoy (o, si hoy ya cerró, el primer día que todavía tenga algo por cambiar): lo
+  primero que se ofrece es algo que todavía se puede cambiar. Un día cerrado es una tarjeta plana,
+  con candado y "Cerrado" escritos.
+- **Al abrir un panel, se ve.** Si queda fuera de la pantalla, la fila o la tarjeta que se tocó sube
+  hasta arriba y el panel queda debajo: tocar el domingo en un teléfono no puede abrir algo invisible.
 - **"Mañana" nunca se esconde detrás de un control de paginación.** Al final de la semana en curso
   hay un botón grande, *"Ver la semana que viene"*, con el motivo escrito. Cada domingo, "mañana" es
   la semana siguiente.
@@ -384,14 +405,20 @@ El diseño ya está en la app Next.js. Dónde vive cada pieza:
 | Controles de apariencia y botón "Aa" | `components/ui/apariencia.tsx` |
 | Iconos (uno por estado de comida) | `components/ui/iconos.tsx` |
 | Lateral, barra superior y barra inferior | `components/app/estructura.tsx`, `components/app/navegacion.tsx` |
-| La interacción única de comidas | `app/(app)/comidas/_componentes/selector-comida.tsx`, usado por `comida-del-dia.tsx` (Semana) y `plan-editable.tsx` (Plan semanal) |
+| La interacción única de comidas | `app/(app)/comidas/_componentes/panel-opciones.tsx` (seis opciones) y `editor-nota.tsx` (hora o nota); `selector-comida.tsx` las compone para cada comida de la Semana (`comida-del-dia.tsx`) |
+| Plan semanal: la cuadrícula editable | `plan-editable.tsx`; guardado por celda en `usar-plan-editable.ts`; claves y nombres accesibles en `lib/comidas/plan.ts` |
+| Semana: tarjetas por día | `semana-persona.tsx`; textos cortos, día cerrado y qué día se abre solo en `lib/comidas/vista.ts` (`lineasTarjeta`, `diaCerrado`, `diaParaAbrir`) |
+| Desplazar un panel recién abierto | `app/(app)/comidas/_componentes/revelar.ts` |
 
 Decisiones tomadas al portar:
 
 - **Las clases que usan los E2E se conservaron como anclas** (`.sidebar`, `.msg`, `.thread`,
   `.feed-mensajes`, `.cal-day`, `.cal-event`, `.toast`, `.locked-banner`, `.week-list`,
   `.status-chip`), y también la tabla de Administración: en el teléfono se apila con CSS, sin
-  cambiar su estructura. Solo cambiaron los specs donde cambió la interacción (abrir las opciones
+  cambiar su estructura. Con las tarjetas de la semana se sumaron `.tarjetas-semana` (que conserva
+  `.week-list`), `.tarjeta-dia` y `.panel-dia`; con la cuadrícula del plan, `.cuadro-plan`,
+  `.celda-plan` y `.cuadro-panel`. Cada comida de la Semana sigue siendo `[data-fecha][data-comida]`
+  con su `.estado-actual`, pero ahora hay que abrir antes la tarjeta de su día. Solo cambiaron los specs donde cambió la interacción (abrir las opciones
   de una comida antes de elegir) y el título de la sección.
 - **"Configuraciones" pasó a llamarse "Ajustes"** en pantalla: "Configuraciones" no cabe en la
   barra inferior, y "Ajustes" es el nombre que la gente ya conoce del teléfono. La ruta sigue
