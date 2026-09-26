@@ -8,7 +8,7 @@ import { diaCerrado, etiquetaTarjeta, lineasTarjeta, type DiaDeSemana } from '@/
 import type { FechaISO } from '@/lib/fechas'
 import { ComidaDelDia } from './comida-del-dia'
 import { varsEstado } from './insignia-estado'
-import { revelar } from './revelar'
+import { revelar, revelarAlEntrar } from './revelar'
 
 /**
  * La tarjetita de un día: nombre, fecha, Hoy/Ausente/Cerrado y sus tres comidas con icono + texto
@@ -99,12 +99,21 @@ export function SemanaPersona({
   const [abierta, setAbierta] = useState<FechaISO | null>(diaInicial)
   const tarjetaAbierta = useRef<HTMLElement>(null)
   const panel = useRef<HTMLDivElement>(null)
-  // Solo se desplaza cuando la persona tocó una tarjeta, no por el día que se abre solo al entrar.
+  // El día que se abre solo al entrar se acomoda una vez (revelarAlEntrar); después, solo por toques.
   const porToque = useRef(false)
 
   useEffect(() => {
     if (abierta && porToque.current) revelar(panel.current, tarjetaAbierta.current)
   }, [abierta])
+
+  useEffect(() => {
+    if (!diaInicial) return
+    // En el cuadro siguiente: al navegar, Next.js lleva la página arriba después de montarla.
+    const cuadro = requestAnimationFrame(() => revelarAlEntrar(panel.current, tarjetaAbierta.current))
+    return () => cancelAnimationFrame(cuadro)
+    // Solo al montar: `key={lunes}` en la página vuelve a montar al cambiar de semana.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   function tocar(fecha: FechaISO) {
     porToque.current = true
