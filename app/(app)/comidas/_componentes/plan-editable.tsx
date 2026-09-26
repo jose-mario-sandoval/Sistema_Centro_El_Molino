@@ -1,10 +1,9 @@
 'use client'
 
-import { useCallback, useId, useRef, useState, useTransition } from 'react'
-import { useAviso } from '@/components/ui/avisos'
+import { Fragment, useEffect, useId, useRef, useState, type Ref } from 'react'
 import { Icono } from '@/components/ui/iconos'
-import { fallo, type Resultado } from '@/lib/acciones/resultado'
-import { LARGO_MAXIMO_NOTA, mensajeNota, normalizarNota, notaValida } from '@/lib/comidas/notas'
+import { mensajeNota, normalizarNota, notaValida } from '@/lib/comidas/notas'
+import { claveCelda, etiquetaCelda } from '@/lib/comidas/plan'
 import { NOMBRES_DIA } from '@/lib/comidas/semana'
 import {
   ETIQUETA_TIEMPO,
@@ -14,236 +13,229 @@ import {
   type TiempoComida,
   type ValorComida,
 } from '@/lib/comidas/tipos'
-import type { PlanSemanal } from '@/lib/comidas/vista'
-import { guardarPlan } from '../acciones'
-import { textoNota, varsEstado } from './insignia-estado'
-import { SelectorComida } from './selector-comida'
+import { textoCorto, type PlanSemanal } from '@/lib/comidas/vista'
+import { EditorNota } from './editor-nota'
+import { varsEstado } from './insignia-estado'
+import { PanelOpciones } from './panel-opciones'
+import { revelar } from './revelar'
+import { usePlanEditable } from './usar-plan-editable'
 
 const VERBO: Record<TiempoComida, string> = { desayuno: 'desayunás', almuerzo: 'almorzás', cena: 'cenás' }
+const ARTICULO: Record<TiempoComida, string> = { desayuno: 'el', almuerzo: 'el', cena: 'la' }
 const DIA_PLURAL = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábados', 'domingos'] as const
-const CORTA: Record<EstadoComida, string> = {
-  si: 'Sí',
-  no: 'No',
-  temprano: 'Temprano',
-  tarde: 'Tarde',
-  bolsa: 'Bolsa',
-  enfermo: 'Enfermo',
-}
 
-type AlMostrar = (dia: number, comida: TiempoComida, estado: EstadoComida | null) => void
+type Celda = { dia: number; comida: TiempoComida }
 
-function FilaPlan({
-  dia,
-  comida,
-  inicial,
-  alMostrar,
+/** Una celda de la cuadrícula: icono + texto corto + color (+ hora). Elevada = se toca. */
+function CeldaPlan({
+  ref,
+  celda,
+  valor,
+  abierta,
+  controla,
+  pendiente,
+  alTocar,
 }: {
-  dia: number
-  comida: TiempoComida
-  inicial: ValorComida | null
-  alMostrar: AlMostrar
+  ref?: Ref<HTMLButtonElement>
+  celda: Celda
+  valor: ValorComida | null
+  abierta: boolean
+  controla: string
+  pendiente: boolean
+  alTocar: () => void
 }) {
-  const aviso = useAviso()
-  const idNota = useId()
-  // Refs (no estado) porque solo se leen al guardar, también desde guardados que terminan después:
-  // confirmado = último valor que aceptó el servidor; pedido = último valor enviado (o confirmado).
-  const confirmado = useRef<ValorComida | null>(inicial)
-  const pedido = useRef<ValorComida | null>(inicial)
-  // Número del último guardado iniciado en esta fila: una falla solo revierte si no hubo otro después.
-  const ultimoGuardado = useRef(0)
-  const [estado, setEstado] = useState<EstadoComida | ''>(inicial?.estado ?? '')
-  const [nota, setNota] = useState(inicial?.nota ?? '')
-  const [pendiente, iniciar] = useTransition()
-
-  const tipoNota = estado === '' ? null : INFO_ESTADO[estado].nota
-  // Un estado que lleva nota no se guarda hasta que la nota es válida: mientras tanto, abierto.
-  const notaPendiente = estado !== '' && tipoNota !== null && !notaValida(estado, normalizarNota(estado, nota))
-
-  function mostrar(nuevoEstado: EstadoComida | '', nuevaNota: string) {
-    setEstado(nuevoEstado)
-    setNota(nuevaNota)
-    alMostrar(dia, comida, nuevoEstado === '' ? null : nuevoEstado)
-  }
-
-  function guardar(nuevoEstado: EstadoComida | '', nuevaNota: string) {
-    const notaFinal = nuevoEstado === '' ? null : normalizarNota(nuevoEstado, nuevaNota)
-    // Un estado que lleva nota se guarda recién cuando la nota es válida.
-    if (nuevoEstado !== '' && !notaValida(nuevoEstado, notaFinal)) return
-    // Se compara con lo último pedido: si hay un guardado en curso, volver al valor anterior también se guarda.
-    if ((pedido.current?.estado ?? '') === nuevoEstado && (pedido.current?.nota ?? null) === notaFinal) return
-
-    const nuevo = nuevoEstado === '' ? null : { estado: nuevoEstado, nota: notaFinal }
-    pedido.current = nuevo
-    const numero = ++ultimoGuardado.current
-    iniciar(async () => {
-      let resultado: Resultado<null>
-      try {
-        resultado = await guardarPlan({
-          diaSemana: dia,
-          comida,
-          estado: nuevo?.estado ?? null,
-          nota: notaFinal,
-        })
-      } catch {
-        // Sin conexión o error inesperado: aviso y se revierte, sin pasar a la pantalla de error (spec §9.1).
-        resultado = fallo('No se pudo guardar. Revisá tu conexión e intentá de nuevo.')
-      }
-      if (resultado.ok) {
-        confirmado.current = nuevo
-        aviso('Plan semanal actualizado')
-        return
-      }
-      aviso(resultado.error)
-      // Si la persona ya eligió otra cosa después, no pisamos esa elección con el valor anterior.
-      if (numero !== ultimoGuardado.current) return
-      pedido.current = confirmado.current
-      mostrar(confirmado.current?.estado ?? '', confirmado.current?.nota ?? '')
-    })
-  }
-
-  function cambiarEstado(nuevo: EstadoComida | '') {
-    const mismaNota = nuevo !== '' && estado !== '' && INFO_ESTADO[nuevo].nota === INFO_ESTADO[estado].nota
-    const nuevaNota = mismaNota ? nota : ''
-    mostrar(nuevo, nuevaNota)
-    guardar(nuevo, nuevaNota)
-  }
-
-  /** "Listo" con la nota a medio escribir: se descarta la elección y vuelve lo guardado. */
-  function descartarSinNota() {
-    if (!notaPendiente) return
-    mostrar(confirmado.current?.estado ?? '', confirmado.current?.nota ?? '')
-  }
-
+  const corto = textoCorto(valor)
   return (
-    <div
-      className="comida-fila"
-      role="group"
-      aria-label={`${ETIQUETA_TIEMPO[comida]}, ${NOMBRES_DIA[dia - 1]}`}
-      aria-busy={pendiente}
+    <button
+      ref={ref}
+      type="button"
+      className={`celda-plan${valor ? '' : ' vacia'}`}
+      style={valor ? varsEstado(valor.estado) : undefined}
+      aria-label={etiquetaCelda(celda.dia, celda.comida, valor)}
+      aria-expanded={abierta}
+      aria-controls={abierta ? controla : undefined}
+      aria-busy={pendiente || undefined}
+      onClick={alTocar}
     >
-      <SelectorComida
-        nombre={ETIQUETA_TIEMPO[comida]}
-        estado={estado === '' ? null : estado}
-        marcado={estado === '' ? null : estado}
-        pregunta={`¿Normalmente ${VERBO[comida]} los ${DIA_PLURAL[dia - 1]}?`}
-        nota={estado !== '' && !notaPendiente && nota ? textoNota(estado, nota) : null}
-        pendiente={pendiente}
-        editorAbierto={notaPendiente}
-        alElegir={(nuevo) => {
-          if (pendiente || nuevo === estado) return
-          cambiarEstado(nuevo)
-        }}
-        alCerrar={descartarSinNota}
-        editorNota={
-          estado !== '' &&
-          tipoNota && (
-            <form
-              className="note-field editor-nota"
-              onSubmit={(e) => {
-                e.preventDefault()
-                guardar(estado, nota)
-              }}
-            >
-              <label htmlFor={idNota}>{INFO_ESTADO[estado].ayudaNota ?? 'Nota'}</label>
-              <input
-                id={idNota}
-                type={tipoNota === 'hora' ? 'time' : 'text'}
-                maxLength={tipoNota === 'texto' ? LARGO_MAXIMO_NOTA : undefined}
-                value={nota}
-                onChange={(e) => setNota(e.target.value)}
-                onBlur={() => guardar(estado, nota)}
-              />
-              {notaPendiente && <div className="hint">{mensajeNota(estado)}</div>}
-              <div className="acciones-formulario">
-                <button type="submit" className="btn" aria-disabled={pendiente || undefined}>
-                  Guardar
-                </button>
-              </div>
-            </form>
-          )
-        }
-        acciones={
-          estado !== '' && (
-            <button type="button" className="btn ghost" disabled={pendiente} onClick={() => cambiarEstado('')}>
-              Dejar sin definir
-            </button>
-          )
-        }
-      />
-    </div>
+      <Icono nombre={valor?.estado ?? 'sinDefinir'} />
+      <span className="celda-texto">{corto.texto}</span>
+      {corto.hora && <span className="celda-hora">{corto.hora}</span>}
+    </button>
   )
 }
 
-/** Resumen de la semana tipo, solo en escritorio y solo para mirar: repite lo que está abajo. */
-function ResumenPlan({ plan }: { plan: PlanSemanal }) {
-  return (
-    <div className="card resumen-plan" aria-hidden="true">
-      <div className="section-title">Resumen</div>
-      <div className="matriz">
-        <span />
-        {NOMBRES_DIA.map((nombre) => (
-          <span key={nombre} className="matriz-cab">
-            {nombre.slice(0, 3)}
-          </span>
-        ))}
-        {TIEMPOS_COMIDA.map((comida) => (
-          <div key={comida} className="matriz-fila">
-            <span className="matriz-nombre">{ETIQUETA_TIEMPO[comida]}</span>
-            {NOMBRES_DIA.map((nombre, i) => {
-              const estado = plan[i + 1]?.[comida]?.estado
-              return estado ? (
-                <span key={nombre} className="matriz-celda" style={varsEstado(estado)}>
-                  <Icono nombre={estado} />
-                  {CORTA[estado]}
-                </span>
-              ) : (
-                <span key={nombre} className="matriz-celda vacia">
-                  <Icono nombre="sinDefinir" />
-                  Falta
-                </span>
-              )
-            })}
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
-
+/**
+ * El plan semanal: la cuadrícula es el editor (7 días × 3 comidas). Tocar una celda abre, debajo de
+ * su fila, las mismas seis opciones y el mismo campo de hora o nota que la Semana (DESIGN.md §8).
+ * Una celda abierta a la vez.
+ */
 export function PlanEditable({ plan }: { plan: PlanSemanal }) {
-  const [resumen, setResumen] = useState(plan)
+  const editor = usePlanEditable(plan)
+  const idPanel = useId()
+  const idBase = useId()
+  const [abierta, setAbierta] = useState<Celda | null>(null)
+  // Estado que pide nota (temprano, tarde, enfermo) elegido o editado y todavía sin guardar.
+  const [borrador, setBorrador] = useState<{ estado: EstadoComida; nota: string } | null>(null)
+  const [enfocarNota, setEnfocarNota] = useState(false)
+  const botonAbierto = useRef<HTMLButtonElement>(null)
+  const filaAbierta = useRef<HTMLDivElement>(null)
+  const panel = useRef<HTMLDivElement>(null)
 
-  const alMostrar = useCallback<AlMostrar>((dia, comida, estado) => {
-    setResumen((anterior) => ({
-      ...anterior,
-      [dia]: { ...anterior[dia], [comida]: estado ? { estado, nota: null } : undefined },
-    }))
-  }, [])
+  const claveAbierta = abierta ? claveCelda(abierta.dia, abierta.comida) : null
+  useEffect(() => {
+    if (claveAbierta) revelar(panel.current, filaAbierta.current)
+  }, [claveAbierta])
+
+  const valorAbierto = abierta ? editor.valor(abierta.dia, abierta.comida) : null
+  const pendienteAbierta = abierta ? editor.pendiente(abierta.dia, abierta.comida) : false
+  const marcado = borrador?.estado ?? valorAbierto?.estado ?? null
+  const tipoNota = marcado ? INFO_ESTADO[marcado].nota : null
+  const notaEnPantalla = borrador ? borrador.nota : (valorAbierto?.nota ?? '')
+  const notaIncompleta = borrador !== null && !notaValida(borrador.estado, normalizarNota(borrador.estado, borrador.nota))
+
+  function tocar(celda: Celda) {
+    if (claveAbierta === claveCelda(celda.dia, celda.comida)) {
+      cerrar()
+      return
+    }
+    setAbierta(celda)
+    setBorrador(null)
+    setEnfocarNota(false)
+  }
+
+  /** "Listo", Escape o volver a tocar la celda. Lo que quedó sin una nota válida se descarta. */
+  function cerrar() {
+    botonAbierto.current?.focus()
+    setAbierta(null)
+    setBorrador(null)
+  }
+
+  function elegir(estado: EstadoComida) {
+    // Mientras se guarda, las opciones siguen enfocables (aria-disabled) pero ignoran los toques.
+    if (!abierta || pendienteAbierta) return
+    const { dia, comida } = abierta
+    if (INFO_ESTADO[estado].nota === null) {
+      setBorrador(null)
+      editor.guardar(dia, comida, { estado, nota: null })
+      return
+    }
+    // Entre estados con el mismo tipo de nota (temprano ↔ tarde) la hora se conserva.
+    const mismaNota = marcado !== null && INFO_ESTADO[marcado].nota === INFO_ESTADO[estado].nota
+    const nota = mismaNota ? notaEnPantalla : ''
+    const normalizada = normalizarNota(estado, nota)
+    if (notaValida(estado, normalizada)) {
+      setBorrador(null)
+      editor.guardar(dia, comida, { estado, nota: normalizada })
+      return
+    }
+    setBorrador({ estado, nota })
+    setEnfocarNota(true)
+  }
+
+  /** Con Guardar o al salir del campo: se guarda solo si la nota ya es válida. */
+  function guardarNota() {
+    if (!abierta || !borrador) return
+    const nota = normalizarNota(borrador.estado, borrador.nota)
+    if (!notaValida(borrador.estado, nota)) return
+    setBorrador(null)
+    editor.guardar(abierta.dia, abierta.comida, { estado: borrador.estado, nota })
+  }
+
+  function dejarSinDefinir() {
+    if (!abierta || pendienteAbierta) return
+    setBorrador(null)
+    editor.guardar(abierta.dia, abierta.comida, null)
+  }
 
   return (
-    <>
-      <ResumenPlan plan={resumen} />
-      <div className="plan-lista">
-        {NOMBRES_DIA.map((nombreDia, i) => (
-          <section key={nombreDia} className="day-row" aria-label={`${nombreDia}, todas las semanas`}>
-            <div className="day-row-top">
-              <div className="day-title">
-                <span className="dname">{nombreDia}</span>
-                <span className="ddate">todas las semanas</span>
+    <div className="cuadro-marco">
+      <div className="cuadro-plan">
+        {/* Solo visual: cada celda ya dice en su nombre accesible qué día y qué comida es. */}
+        <div className="cuadro-cabecera" aria-hidden="true">
+          <span className="cuadro-esquina" />
+          {TIEMPOS_COMIDA.map((comida) => (
+            <span key={comida} className="cuadro-cab">
+              {ETIQUETA_TIEMPO[comida]}
+            </span>
+          ))}
+        </div>
+
+        {NOMBRES_DIA.map((nombreDia, i) => {
+          const dia = i + 1
+          const idDia = `${idBase}-dia-${dia}`
+          return (
+            <Fragment key={nombreDia}>
+              <div
+                ref={abierta?.dia === dia ? filaAbierta : undefined}
+                className="cuadro-fila"
+                role="group"
+                aria-labelledby={idDia}
+              >
+                <span id={idDia} className="cuadro-dia">
+                  {nombreDia}
+                </span>
+                {TIEMPOS_COMIDA.map((comida) => {
+                  const esta = abierta?.dia === dia && abierta.comida === comida
+                  return (
+                    <CeldaPlan
+                      key={comida}
+                      ref={esta ? botonAbierto : undefined}
+                      celda={{ dia, comida }}
+                      valor={editor.valor(dia, comida)}
+                      abierta={esta}
+                      controla={idPanel}
+                      pendiente={editor.pendiente(dia, comida)}
+                      alTocar={() => tocar({ dia, comida })}
+                    />
+                  )
+                })}
               </div>
-            </div>
-            {TIEMPOS_COMIDA.map((comida) => (
-              <FilaPlan
-                key={comida}
-                dia={i + 1}
-                comida={comida}
-                inicial={plan[i + 1]?.[comida] ?? null}
-                alMostrar={alMostrar}
-              />
-            ))}
-          </section>
-        ))}
+
+              {abierta?.dia === dia && (
+                <div key={claveAbierta} ref={panel} className="cuadro-panel">
+                  <PanelOpciones
+                    id={idPanel}
+                    nombre={`${ARTICULO[abierta.comida]} ${ETIQUETA_TIEMPO[abierta.comida].toLowerCase()} de los ${DIA_PLURAL[i]}`}
+                    titulo={`¿Normalmente ${VERBO[abierta.comida]} los ${DIA_PLURAL[i]}?`}
+                    marcado={marcado}
+                    pendiente={pendienteAbierta}
+                    alElegir={elegir}
+                    alCerrar={cerrar}
+                    editorNota={
+                      tipoNota &&
+                      marcado && (
+                        <EditorNota
+                          tipo={tipoNota}
+                          etiqueta={tipoNota === 'hora' ? 'Hora' : 'Qué podés comer'}
+                          valor={notaEnPantalla}
+                          alCambiar={(nota) => setBorrador({ estado: marcado, nota })}
+                          alGuardar={guardarNota}
+                          alSalir={guardarNota}
+                          pendiente={pendienteAbierta}
+                          error={notaIncompleta && borrador ? mensajeNota(borrador.estado) : null}
+                          enfocar={enfocarNota}
+                        />
+                      )
+                    }
+                    acciones={
+                      valorAbierto && (
+                        <button
+                          type="button"
+                          className="btn ghost"
+                          aria-disabled={pendienteAbierta || undefined}
+                          onClick={dejarSinDefinir}
+                        >
+                          Dejar sin definir
+                        </button>
+                      )
+                    }
+                  />
+                </div>
+              )}
+            </Fragment>
+          )
+        })}
       </div>
-    </>
+    </div>
   )
 }

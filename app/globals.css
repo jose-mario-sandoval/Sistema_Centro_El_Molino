@@ -361,7 +361,7 @@ a{color:var(--acento);}
 .range-fechas{display:block;font-weight:700;}
 .week-nav .btn{flex-basis:100%;}
 
-.week-list,.plan-lista{display:flex;flex-direction:column;gap:1.25rem;}
+.week-list{display:flex;flex-direction:column;gap:1.25rem;}
 
 .day-row{
   background:var(--fondo);border:2px solid var(--borde-elevado);border-radius:var(--r-lg);
@@ -472,21 +472,52 @@ a{color:var(--acento);}
 .dias-pasados[open] > summary .icono{transform:rotate(180deg);}
 .dias-pasados > .day-row + .day-row{margin-top:1.25rem;}
 
-/* Resumen del plan: solo escritorio y solo para mirar. Teselas separadas: la cuadrícula de
-   líneas finas no se puede hacer con relieve. */
-.resumen-plan{display:none;margin-bottom:1.5rem;}
-.matriz{display:grid;grid-template-columns:minmax(0,7rem) repeat(7,minmax(0,1fr));gap:.5rem;}
-.matriz-fila{display:contents;}
-.matriz-cab{text-align:center;font-size:var(--t-xs);font-weight:700;color:var(--tinta-suave);text-transform:uppercase;letter-spacing:.04em;}
-.matriz-nombre{display:flex;align-items:center;font-weight:700;font-size:var(--t-sm);}
-.matriz-celda{
-  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.2rem;
-  min-height:3.5rem;padding:.4rem .2rem;border-radius:var(--r-sm);
-  background:var(--cbg);color:var(--c);border:2px solid transparent;box-shadow:var(--relieve-bajo);
-  font-size:var(--t-xs);font-weight:600;text-align:center;line-height:1.2;
+/* Plan semanal: la cuadrícula es el editor. Teselas separadas y elevadas (la cuadrícula de líneas
+   finas no se puede hacer con relieve), cada una un botón. Una fila por día; en el teléfono el nombre
+   del día va en su propia línea para que las tres celdas lleguen a ~90px a 320px. El corte es una
+   container query en rem: sigue al tamaño de letra elegido, así con letra grande pasa antes. */
+.cuadro-marco{container-type:inline-size;}
+.cuadro-plan{display:flex;flex-direction:column;gap:.9rem;}
+.cuadro-cabecera,.cuadro-fila{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.35rem .5rem;}
+/* Al abrir una celda, su fila sube hasta debajo de la cabecera fija: se sigue viendo qué día es. */
+.cuadro-fila{scroll-margin-top:3.5rem;}
+/* La cabecera de comidas acompaña mientras se recorre la semana: en el teléfono no entra en una pantalla. */
+.cuadro-cabecera{position:sticky;top:0;z-index:2;padding-block:.5rem;margin-bottom:-.5rem;background:var(--fondo);}
+.cuadro-esquina{display:none;}
+.cuadro-cab{
+  text-align:center;font-size:min(var(--t-xs), 4.2vw);font-weight:700;color:var(--tinta-suave);
+  text-transform:uppercase;letter-spacing:.04em;
 }
-[data-contraste="alto"] .matriz-celda{border-color:var(--c);}
-.matriz-celda.vacia{background:var(--fondo);color:var(--peligro);border:2px dashed var(--peligro);box-shadow:var(--hundido-suave);}
+.cuadro-dia{grid-column:1 / -1;font-family:var(--fuente-display);font-size:var(--t-base);font-weight:600;line-height:1.2;}
+.celda-plan{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.15rem;
+  width:100%;min-width:0;min-height:var(--toque);padding:.5rem .25rem;
+  border-radius:var(--r-sm);border:2px solid var(--borde-elevado);
+  background:var(--cbg);color:var(--c);box-shadow:var(--relieve-bajo);
+  /* La letra deja de crecer al llegar al ancho de la celda, como la barra inferior: nunca se parte. */
+  font-size:min(var(--t-sm), 4.8vw);font-weight:700;line-height:1.2;text-align:center;
+  scroll-margin-top:4rem;
+  transition:box-shadow var(--dur) var(--curva),background-color var(--dur) var(--curva);
+}
+.celda-plan:hover{box-shadow:var(--relieve);}
+.celda-plan .icono{width:1.35em;height:1.35em;}
+.celda-texto{max-width:100%;overflow-wrap:anywhere;}
+.celda-hora{font-variant-numeric:tabular-nums;font-weight:600;}
+[data-contraste="alto"] .celda-plan{border-color:var(--c);}
+/* Sin definir: el mismo hueco que en la Semana (hundido, borde punteado, "Falta" escrito). */
+.celda-plan.vacia{background:var(--fondo);color:var(--peligro);border:2px dashed var(--peligro);box-shadow:var(--hundido-suave);}
+/* Abierta: hundida y con borde grueso de su color; sin sombras, el borde solo alcanza. */
+.celda-plan[aria-expanded="true"]{box-shadow:var(--hundido);border:3px solid var(--c,var(--peligro));}
+[data-contraste="alto"] .celda-plan[aria-expanded="true"]{border-width:5px;}
+.celda-plan[aria-busy="true"]{cursor:progress;}
+.cuadro-panel{scroll-margin-bottom:1rem;}
+.cuadro-panel .opciones{margin-top:0;}
+.opciones-titulo{font-weight:700;margin-bottom:.9rem;}
+@container (min-width:32rem){
+  .cuadro-cabecera,.cuadro-fila{grid-template-columns:minmax(0,8rem) repeat(3,minmax(0,1fr));gap:.5rem;}
+  .cuadro-esquina{display:block;}
+  .cuadro-dia{grid-column:auto;align-self:center;}
+}
 
 /* ---------- 6. Comidas: Administración ----------------------------------- */
 
@@ -904,6 +935,8 @@ a{color:var(--acento);}
   [data-contraste="alto"] .barra-inferior .nav-item.active{border-color:var(--acento);}
 
   .toast{bottom:calc(6rem + env(safe-area-inset-bottom, 0px));}
+  /* Un panel recién abierto no cuenta como visible si lo tapa la barra inferior. */
+  .cuadro-panel{scroll-margin-bottom:calc(5.5rem + env(safe-area-inset-bottom, 0px));}
 
   /* Calendario: lista por defecto; la cuadrícula a un toque. */
   .cal-alternar{display:block;}
@@ -912,7 +945,6 @@ a{color:var(--acento);}
 }
 @media (min-width:56.001rem){
   .barra-inferior{display:none;}
-  .resumen-plan{display:block;}
 }
 
 /* Teléfono: las tablas se apilan como fichas con sus etiquetas escritas. Sin scroll lateral. */

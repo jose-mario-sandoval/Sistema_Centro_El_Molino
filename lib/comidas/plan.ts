@@ -19,6 +19,18 @@ export function celdasDesdePlan(plan: PlanSemanal): Record<string, ValorComida> 
   return celdas
 }
 
+/** Copia de las celdas con `clave` cambiada; null la quita (sin definir). */
+export function conCelda(
+  celdas: Readonly<Record<string, ValorComida>>,
+  clave: string,
+  valor: ValorComida | null,
+): Record<string, ValorComida> {
+  const copia = { ...celdas }
+  if (valor) copia[clave] = valor
+  else delete copia[clave]
+  return copia
+}
+
 /** Si `nuevo` difiere de lo último pedido (o confirmado) para esa celda. null = sin definir. */
 export function hayQueGuardar(pedido: ValorComida | null, nuevo: ValorComida | null): boolean {
   if (pedido === null || nuevo === null) return pedido !== nuevo

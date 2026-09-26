@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { celdasDesdePlan, claveCelda, etiquetaCelda, hayQueGuardar } from '@/lib/comidas/plan'
+import { celdasDesdePlan, claveCelda, conCelda, etiquetaCelda, hayQueGuardar } from '@/lib/comidas/plan'
 import { ESTADOS_COMIDA, ETIQUETA_CORTA_ESTADO, INFO_ESTADO, TIEMPOS_COMIDA } from '@/lib/comidas/tipos'
 
 describe('claveCelda', () => {
@@ -24,6 +24,21 @@ describe('celdasDesdePlan', () => {
       [claveCelda(2, 'almuerzo')]: { estado: 'temprano', nota: '12:00' },
       [claveCelda(7, 'cena')]: { estado: 'no', nota: null },
     })
+  })
+})
+
+describe('conCelda', () => {
+  const k = claveCelda(2, 'almuerzo')
+
+  it('pone o reemplaza el valor sin tocar el original', () => {
+    const antes = { [k]: { estado: 'si', nota: null } } as const
+    const despues = conCelda(antes, k, { estado: 'tarde', nota: '13:00' })
+    expect(despues).toEqual({ [k]: { estado: 'tarde', nota: '13:00' } })
+    expect(antes[k]).toEqual({ estado: 'si', nota: null })
+  })
+
+  it('null quita la celda (sin definir)', () => {
+    expect(conCelda({ [k]: { estado: 'si', nota: null } }, k, null)).toEqual({})
   })
 })
 
