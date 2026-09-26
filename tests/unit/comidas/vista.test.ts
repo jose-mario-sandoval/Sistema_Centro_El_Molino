@@ -5,10 +5,17 @@ import {
   agregarSemana,
   armarDiaAdministracion,
   armarSemanaPersona,
+  diaCerrado,
+  diaParaAbrir,
+  etiquetaTarjeta,
+  lineasTarjeta,
   planDesdeFilas,
   resumenPlanSemanal,
+  textoCorto,
+  textoValor,
   valorTrasGuardar,
   type DiaAgregado,
+  type DiaDeSemana,
   type FilaPlan,
   type PersonaConPlan,
 } from '@/lib/comidas/vista'
@@ -282,5 +289,75 @@ describe('resumenPlanSemanal', () => {
   it('sin personas, cada comida queda vacía', () => {
     const semana = resumenPlanSemanal([])
     expect(semana[1].desayuno).toEqual({ total: 0, partes: [] })
+  })
+})
+
+describe('textoCorto y textoValor', () => {
+  it('el corto lleva la hora solo para temprano y tarde', () => {
+    expect(textoCorto({ estado: 'temprano', nota: '07:30' })).toEqual({ estado: 'temprano', texto: 'Temprano', hora: '07:30' })
+    expect(textoCorto({ estado: 'enfermo', nota: 'Sopa' })).toEqual({ estado: 'enfermo', texto: 'Enfermo', hora: null })
+    expect(textoCorto({ estado: 'si', nota: null })).toEqual({ estado: 'si', texto: 'Sí', hora: null })
+  })
+
+  it('sin definir dice "Falta"', () => {
+    expect(textoCorto(null)).toEqual({ estado: null, texto: 'Falta', hora: null })
+  })
+
+  it('el completo, para el nombre accesible, contiene el corto', () => {
+    expect(textoValor({ estado: 'tarde', nota: '20:00' })).toBe('Comer tarde 20:00')
+    expect(textoValor({ estado: 'enfermo', nota: 'Sopa' })).toBe('Enfermo, Sopa')
+    expect(textoValor({ estado: 'bolsa', nota: null })).toBe('En bolsa')
+    expect(textoValor(null)).toBe('Falta, sin definir')
+  })
+})
+
+describe('tarjetas de la semana', () => {
+  const base = { lunes: '2026-09-14', ahora: AHORA, horas, plan: planDesdeFilas(FILAS_PLAN), selecciones: [], cerradas: [] }
+  // AHORA es el miércoles 16/9 a las 08:00: el desayuno de hoy ya cerró; almuerzo y cena, no.
+  const dias = armarSemanaPersona({
+    ...base,
+    selecciones: [{ fecha: '2026-09-16', comida: 'cena', estado: 'tarde', nota: '20:00', origen: 'persona' }],
+    ausencias: [{ desde: '2026-09-18', hasta: '2026-09-18' }],
+  })
+
+  it('lineasTarjeta: las tres comidas en orden, con su texto corto y hora', () => {
+    expect(lineasTarjeta(dias[2])).toEqual([
+      { comida: 'desayuno', etiqueta: 'Desayuno', estado: null, texto: 'Falta', hora: null },
+      { comida: 'almuerzo', etiqueta: 'Almuerzo', estado: 'si', texto: 'Sí', hora: null },
+      { comida: 'cena', etiqueta: 'Cena', estado: 'tarde', texto: 'Tarde', hora: '20:00' },
+    ])
+  })
+
+  it('diaCerrado: solo cuando las tres comidas cerraron', () => {
+    expect(dias.map(diaCerrado)).toEqual([true, true, false, false, false, false, false])
+  })
+
+  it('etiquetaTarjeta: día, marcas y las tres comidas', () => {
+    expect(etiquetaTarjeta(dias[2])).toBe(
+      'Miércoles 16/9, hoy. Desayuno: Falta, sin definir. Almuerzo: Sí comer. Cena: Comer tarde 20:00.',
+    )
+    expect(etiquetaTarjeta(dias[4])).toBe('Viernes 18/9, ausente. Desayuno: No comer. Almuerzo: No comer. Cena: No comer.')
+    expect(etiquetaTarjeta(dias[0])).toMatch(/^Lunes 14\/9, cerrado\. Desayuno: /)
+  })
+
+  describe('diaParaAbrir', () => {
+    const cerrarDia = (dia: DiaDeSemana): DiaDeSemana => ({
+      ...dia,
+      comidas: dia.comidas.map((c) => ({ ...c, abierta: false, cierre: 'cerrada' })),
+    })
+
+    it('abre hoy si todavía tiene algo abierto', () => {
+      expect(diaParaAbrir(dias)).toBe('2026-09-16')
+    })
+
+    it('si hoy ya cerró entero, abre el primer día siguiente con algo abierto', () => {
+      const conHoyCerrado = dias.map((d, i) => (i === 2 || i === 3 ? cerrarDia(d) : d))
+      expect(diaParaAbrir(conHoyCerrado)).toBe('2026-09-18')
+    })
+
+    it('sin hoy en la semana, o sin nada abierto desde hoy, no abre ninguno', () => {
+      expect(diaParaAbrir(dias.map((d) => ({ ...d, esHoy: false })))).toBeNull()
+      expect(diaParaAbrir(dias.map(cerrarDia))).toBeNull()
+    })
   })
 })

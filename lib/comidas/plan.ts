@@ -1,6 +1,6 @@
 import { NOMBRES_DIA } from './semana'
-import { ETIQUETA_TIEMPO, INFO_ESTADO, TIEMPOS_COMIDA, type TiempoComida, type ValorComida } from './tipos'
-import type { PlanSemanal } from './vista'
+import { ETIQUETA_TIEMPO, TIEMPOS_COMIDA, type TiempoComida, type ValorComida } from './tipos'
+import { textoValor, type PlanSemanal } from './vista'
 
 /** Clave de una celda del plan (día de semana 1..7 + comida). */
 export function claveCelda(dia: number, comida: TiempoComida): string {
@@ -30,9 +30,5 @@ export function hayQueGuardar(pedido: ValorComida | null, nuevo: ValorComida | n
  * visible de la celda (el corto está dentro de la etiqueta completa; "Falta" va escrito).
  */
 export function etiquetaCelda(dia: number, comida: TiempoComida, valor: ValorComida | null): string {
-  const cabeza = `${NOMBRES_DIA[dia - 1]}, ${ETIQUETA_TIEMPO[comida].toLowerCase()}`
-  if (!valor) return `${cabeza}: Falta, sin definir. Cambiar`
-  const { etiqueta, nota } = INFO_ESTADO[valor.estado]
-  const detalle = valor.nota ? (nota === 'hora' ? ` ${valor.nota}` : `, ${valor.nota}`) : ''
-  return `${cabeza}: ${etiqueta}${detalle}. Cambiar`
+  return `${NOMBRES_DIA[dia - 1]}, ${ETIQUETA_TIEMPO[comida].toLowerCase()}: ${textoValor(valor)}. Cambiar`
 }
