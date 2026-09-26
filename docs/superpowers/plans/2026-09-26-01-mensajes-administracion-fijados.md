@@ -35,21 +35,27 @@ el banco de Postgres del scratchpad (`montar.mjs`, base `banco_pr1`).
 - **`fijar_mensaje` devuelve `fijado_en`** (hora de la base); la acción devuelve además
   `fijado_hasta` (lo calculó el servidor) para actualizar el feed sin esperar al tiempo real.
   Volver a fijar una fijada reemplaza fin y autor (sirve para cambiar la duración).
-- **`desfijar_mensaje` es idempotente**: desfijar algo ya desfijado no es error; solo `P0002` si la
-  publicación no existe.
+- **`desfijar_mensaje` es idempotente**: desfijar algo ya desfijado no es error; `P0002` si no hay una
+  publicación aprobada con ese id (también para pendientes/rechazados: la función no pasa por RLS y no
+  debe delatar mensajes que Administración no ve).
+- **`creado_en` lo pone la base** al publicar con sesión (una fecha futura quedaría primera para
+  siempre); sin sesión (llave secreta, siembras) se respeta.
 - **Check de consistencia:** fijada ⇒ publicación, aprobada y con fin posterior al inicio; no fijada ⇒
   las tres columnas nulas. El trigger desfija antes del check cuando el estado deja de ser aprobado.
 - **"Hasta el día X"** = hasta la medianoche que termina ese día (hora de la casa). Se muestra como
   "hasta el jueves 1/10" (sin hora); con hora solo cuando el fin no es medianoche.
 - **Fijada vigente = solo en "Fijados".** Al vencer o desfijarse vuelve a la lista cronológica en su
   lugar por fecha, aunque sea más vieja que la última página cargada (quien la desfijó la ve bajar).
-- **Evento `UPDATE` de una publicación fijada que no está cargada:** no se inserta "pelada" (sin
-  reacciones ni respuestas); `leerEvento` avisa y el feed recarga.
+- **Evento `UPDATE` de una publicación que no está cargada** (recién aprobada, una vieja fijada o
+  quitada): no se inserta "pelada" (sin reacciones ni respuestas) ni se recarga todo (perdería las
+  páginas anteriores): `leerEvento` avisa y el feed la trae sola con `cargarPublicacion(id)`.
 - **Push:** `publicarMensaje`/`responderMensaje` solo programan el aviso si `publicaDirecto(rol)`;
   `moderarMensaje` aprueba con `.eq('estado','pendiente')` (una sola transición) y avisa ahí.
   `avisos.ts` además comprueba `estado` (y el del padre, en respuestas).
 - **Globito:** número visible `aria-hidden` + texto para lector ("1 mensaje pendiente de
   aprobación"). Proveedor en el layout; `null` para quien no es Director (sin suscripción).
+  `vigilarPendientes` recrea el canal con espera creciente si se cierra o falla `setAuth`; con la cola
+  en pantalla, un cambio del número refresca la página.
 - **Tipos:** `database.types.ts` se edita provisionalmente con el formato del generador para poder
   correr `typecheck` en local y se reemplaza por el artefacto del CI antes de pedir revisión.
 
@@ -137,7 +143,8 @@ tests/e2e/mensajes.spec.ts                         fijar/desfijar, globito, nomb
 
 - [ ] Icono `fijar`. Cola: nombre + rol + hora.
 - [ ] Feed: estado con fijadas mezcladas + `cursor`; sección "Fijados" (icono + texto) arriba, lista
-  cronológica con `resto`; recarga ante fijada no cargada; foco en la tarjeta movida.
+  cronológica con `resto`; trae sola la publicación que llega sin estar cargada; foco en la tarjeta
+  movida.
 - [ ] Tarjeta: "Fijar" abre `.panel-fijar` en línea (radios en pastilla, fecha si corresponde,
   "Fijar arriba"/"Cancelar"); fijada muestra `.insignia-fijado` con rol de quien fijó y "Quitar de
   fijados".
