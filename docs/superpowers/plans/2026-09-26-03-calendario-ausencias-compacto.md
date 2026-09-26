@@ -69,18 +69,18 @@ tests/e2e/calendario.spec.ts                               + rango que cruza de 
 
 ### Tarea 1 — Etiquetas de fecha sin `Intl`
 
-- [ ] Prueba `tests/unit/fechas/etiquetas.test.ts`: `etiquetaMesLarga('2026-09')` = "Septiembre de 2026",
+- [x] Prueba `tests/unit/fechas/etiquetas.test.ts`: `etiquetaMesLarga('2026-09')` = "Septiembre de 2026",
   `etiquetaDiaLarga('2026-09-16')` = "Miércoles, 16 de septiembre de 2026", y **para cada día de
   2026–2028** la salida es idéntica a la del formateador `Intl` que se usaba (definido en la prueba).
-- [ ] Verla fallar (módulo inexistente).
-- [ ] Implementar `lib/fechas/etiquetas.ts` con `MESES`, `DIAS_SEMANA` (lunes primero) y `diaSemana`.
-- [ ] `cuadricula.ts`: `etiquetaMes`/`etiquetaDia` delegan (se van el `Intl` y sus imports);
+- [x] Verla fallar (módulo inexistente).
+- [x] Implementar `lib/fechas/etiquetas.ts` con `MESES`, `DIAS_SEMANA` (lunes primero) y `diaSemana`.
+- [x] `cuadricula.ts`: `etiquetaMes`/`etiquetaDia` delegan (se van el `Intl` y sus imports);
   `rango.ts` usa `MESES`. Pruebas de `cuadricula` y `rango` siguen verdes.
-- [ ] Commit.
+- [x] Commit.
 
 ### Tarea 2 — Selección de rango y teclado (puro)
 
-- [ ] Pruebas `tests/unit/calendario/seleccion-rango.test.ts`:
+- [x] Pruebas `tests/unit/calendario/seleccion-rango.test.ts`:
   - `tocarDia`: 1.º toque = desde; 2.º ≥ desde = hasta (igual = un día); 2.º < desde = nuevo desde;
     con ambos puestos, reinicia con ese día.
   - `enSeleccion` (con y sin hasta), `extremoDeSeleccion` (desde/hasta/ninguno).
@@ -92,61 +92,61 @@ tests/e2e/calendario.spec.ts                               + rango que cruza de 
   - `puedeIrAlMes`: anterior/siguiente según min/max.
   - `resumenSeleccion`: ninguno / solo desde (un día + indicación) / rango con cantidad de días.
   - `errorSeleccion`: rango de más de 365 días → "Una ausencia puede durar hasta un año."
-- [ ] Verlas fallar; implementar `lib/calendario/seleccion-rango.ts`; verlas pasar. Commit.
+- [x] Verlas fallar; implementar `lib/calendario/seleccion-rango.ts`; verlas pasar. Commit.
 
 ### Tarea 3 — `MiniCalendario`
 
-- [ ] Prueba de render estático (`renderToStaticMarkup`): `<th scope="col" abbr="Miércoles">Mié</th>`,
+- [x] Prueba de render estático (`renderToStaticMarkup`): `<th scope="col" abbr="Miércoles">Mié</th>`,
   un `.mini-dia` por día del mes con `data-fecha`, días pasados `disabled`, hoy con
   `aria-current="date"` y ", hoy" en el nombre, días ya ausentes con `.marcado` y ", ya marcado como
   ausente", los de la selección con `aria-pressed="true"`, un único `tabindex="0"`, anterior con
   `aria-disabled` en el mes de hoy, ninguna clase `cal-day`.
-- [ ] Verla fallar; implementar `components/ui/mini-calendario.tsx` (estado: mes visible y día con
+- [x] Verla fallar; implementar `components/ui/mini-calendario.tsx` (estado: mes visible y día con
   foco; flechas vía `moverFoco`, cambia de mes y enfoca tras pintar; título del mes `aria-live`).
-- [ ] Verla pasar. Commit.
+- [x] Verla pasar. Commit.
 
 ### Tarea 4 — Tarjeta compacta y orden de la página
 
-- [ ] `BotonEnvio` acepta `deshabilitado`.
-- [ ] `panel-ausencias.tsx`: lista de una línea por ausencia (misma `FilaAusencia`, mismos
+- [x] `BotonEnvio` acepta `deshabilitado`.
+- [x] `panel-ausencias.tsx`: lista de una línea por ausencia (misma `FilaAusencia`, mismos
   `aria-label` y avisos); botón "Marcar una ausencia" (`aria-expanded`, `aria-controls`) que despliega
   indicación, mini calendario, resumen `aria-live="polite"`, `desde`/`hasta` ocultos, "Guardar
   ausencia" (habilitado con el primer día elegido; un día ⇒ hasta = desde) y "Cancelar" (cierra y
   devuelve el foco al botón). Al guardar bien: se cierra, foco al botón, aviso "Ausencia marcada. …".
   Errores de campo del servidor se muestran en el resumen.
-- [ ] `page.tsx`: tarjeta del calendario primero, `PanelAusencias` después (Administración sigue sin
+- [x] `page.tsx`: tarjeta del calendario primero, `PanelAusencias` después (Administración sigue sin
   verlo); `hoy` sigue llegando del servidor.
-- [ ] lint + typecheck + test. Commit.
+- [x] lint + typecheck + test. Commit.
 
 ### Tarea 5 — Estilos
 
-- [ ] `.panel-ausencias` con margen arriba y filas compactas; `.mini-calendario` casi a sangre en el
+- [x] `.panel-ausencias` con margen arriba y filas compactas; `.mini-calendario` casi a sangre en el
   teléfono (margen negativo chico, 3px entre días, máx. ~30rem en escritorio); `.mini-dia` 56px de
   alto, número `min(var(--t-sm), 4.2vw)`; estados: elegido (hundido + acento + borde, extremos
   rellenos), `.marcado` (discontinuo dorado + valija), hoy (anillo), `:disabled` (plano, atenuado),
   foco 3px por encima de los vecinos; contraste alto con bordes sólidos.
-- [ ] Revisión visual (fuera del repo): render estático + Playwright a 320/375/1280 px, oscuro,
+- [x] Revisión visual (fuera del repo): render estático + Playwright a 320/375/1280 px, oscuro,
   contraste alto, letra enorme; y el panel interactivo empaquetado con esbuild (acción simulada).
   Sin desborde horizontal a 320px. Commit.
 
 ### Tarea 6 — DESIGN.md
 
-- [ ] §4: segunda excepción táctil documentada (mini calendario de ausencias: ~39×56px a 375px) con
+- [x] §4: segunda excepción táctil documentada (mini calendario de ausencias: ~39×56px a 375px) con
   sus mitigaciones. §12: la pieza nueva y el ancla `.mini-calendario .mini-dia[data-fecha]`. Commit.
 
 ### Tarea 7 — E2E
 
-- [ ] `tests/e2e/soporte/ausencias.ts`: `marcarAusencia(page, desde, hasta?)` abre el panel, navega
+- [x] `tests/e2e/soporte/ausencias.ts`: `marcarAusencia(page, desde, hasta?)` abre el panel, navega
   con "Ir al mes siguiente/anterior" hasta el mes de cada fecha, toca los días y guarda.
-- [ ] `comidas.spec.ts`: la prueba de ausencia usa el helper (conserva "Ausencia marcada.",
+- [x] `comidas.spec.ts`: la prueba de ausencia usa el helper (conserva "Ausencia marcada.",
   `/^Quitar la ausencia del /`, "Sí, quitar", "Ausencia quitada.").
-- [ ] `calendario.spec.ts`: limpiar ausencias en `afterEach`; rango que cruza al mes siguiente (resumen,
+- [x] `calendario.spec.ts`: limpiar ausencias en `afterEach`; rango que cruza al mes siguiente (resumen,
   guardado, marcado en ambos calendarios, quitar); días pasados deshabilitados y teclado recortado a
   hoy; Administración sin "Mis ausencias" ni mini calendario.
-- [ ] lint + typecheck. Commit.
+- [x] lint + typecheck. Commit.
 
 ### Tarea 8 — PR
 
-- [ ] lint, typecheck, test en verde. Push, `gh pr create --base master` (título y cuerpo en español,
+- [x] lint, typecheck, test en verde. Push, `gh pr create --base master` (título y cuerpo en español,
   con la excepción táctil y el plan de pruebas). Sin migración.
 - [ ] `gh pr checks --watch` hasta verde (relanzar `base-de-datos` si falla por "port already in use").
