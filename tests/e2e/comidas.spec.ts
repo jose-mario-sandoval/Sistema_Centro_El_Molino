@@ -42,7 +42,8 @@ async function abrirOpciones(fila: Locator) {
  */
 async function abrirDia(page: Page, etiqueta: string) {
   const tarjeta = page.locator('.tarjetas-semana').getByRole('button', { name: new RegExp(`^${etiqueta}[,.]`) })
-  await tarjeta.click()
+  // Tocar una tarjeta abierta la cierra: en la semana en curso, hoy ya viene abierto.
+  if ((await tarjeta.getAttribute('aria-expanded')) !== 'true') await tarjeta.click()
   await expect(tarjeta).toHaveAttribute('aria-expanded', 'true')
 }
 
@@ -319,6 +320,14 @@ test('el plan se edita desde la cuadrícula: el almuerzo de los martes pasa a "C
       return data
     })
     .toEqual([{ dia_semana: 2, comida: 'almuerzo', estado: 'temprano', nota: '12:00' }])
+
+  // Como en la Semana: pasar a "Comer tarde" trae la misma hora, pero nada cambia hasta "Guardar".
+  await panel.getByRole('button', { name: 'Comer tarde', exact: true }).click()
+  await expect(panel.getByLabel('Hora', { exact: true })).toHaveValue('12:00')
+  await expect(celda).toContainText('Temprano')
+  await panel.getByRole('button', { name: 'Cancelar' }).click()
+  await expect(panel.getByLabel('Hora', { exact: true })).toHaveCount(0)
+  await expect(celda).toHaveAccessibleName('Martes, almuerzo: Comer temprano 12:00. Cambiar')
 
   // Una celda abierta a la vez.
   const cena = page.getByRole('button', { name: /^Martes, cena:/ })
