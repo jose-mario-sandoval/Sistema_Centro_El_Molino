@@ -76,3 +76,22 @@ describe('esquemaQuitarAusencia', () => {
     expect(esquemaQuitarAusencia.safeParse({ id: 'no-es-un-uuid' }).success).toBe(false)
   })
 })
+
+describe('usuarioId en las ausencias (opcional, lo usa el Director)', () => {
+  const ID = '3c4d5e6f-7a8b-4c9d-8e0f-1a2b3c4d5e6f'
+  const ID_AUSENCIA = '3f1c2a9e-8b7d-4c6e-9a5b-1d2e3f4a5b6c'
+
+  it('esquemaAusencia lo acepta y, sin él, no aparece', () => {
+    expect(esquemaAusencia.parse({ desde: '2026-09-17', hasta: '2026-09-19', usuarioId: ID })).toMatchObject({ usuarioId: ID })
+    expect(esquemaAusencia.parse({ desde: '2026-09-17', hasta: '2026-09-19' })).not.toHaveProperty('usuarioId')
+  })
+
+  it('esquemaQuitarAusencia también', () => {
+    expect(esquemaQuitarAusencia.parse({ id: ID_AUSENCIA, usuarioId: ID })).toMatchObject({ usuarioId: ID })
+  })
+
+  it('rechaza un usuarioId que no es un uuid', () => {
+    expect(camposInvalidos(esquemaAusencia, { desde: '2026-09-17', hasta: '2026-09-19', usuarioId: 'x' })).toEqual(['usuarioId'])
+    expect(esquemaQuitarAusencia.safeParse({ id: ID_AUSENCIA, usuarioId: 'x' }).success).toBe(false)
+  })
+})

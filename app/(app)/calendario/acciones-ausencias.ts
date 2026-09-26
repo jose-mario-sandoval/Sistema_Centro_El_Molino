@@ -25,7 +25,8 @@ export async function marcarAusencia(_previo: Resultado<null> | null, formData: 
   }
 
   const supabase = await crearClienteServidor()
-  const { error } = await supabase.from('ausencias').insert({ usuario_id: permiso.perfil.id, ...entrada.data })
+  const { desde, hasta } = entrada.data
+  const { error } = await supabase.from('ausencias').insert({ usuario_id: permiso.perfil.id, desde, hasta })
   if (error) return fallo('No se pudo guardar la ausencia. Intentá de nuevo.')
 
   revalidatePath('/calendario')
