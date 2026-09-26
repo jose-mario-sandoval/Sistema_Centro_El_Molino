@@ -1,6 +1,6 @@
 # Plan editable en la cuadrícula y semana en tarjetas — plan de implementación
 
-> **Para agentes:** SUB-SKILL REQUERIDO: usar superpowers:subagent-driven-development (recomendado) o superpowers:executing-plans para implementar este plan tarea por tarea. Los pasos usan casillas (`- [ ]`) para el seguimiento.
+> **Para agentes:** SUB-SKILL REQUERIDO: usar superpowers:subagent-driven-development (recomendado) o superpowers:executing-plans para implementar este plan tarea por tarea. Los pasos usan casillas (`- [x]`) para el seguimiento.
 
 **Objetivo:** que la persona (Director, Residente) edite su plan semanal tocando la cuadrícula —sin la
 lista de 21 filas de abajo— y que su semana deje de ser un gran scroll: siete tarjetitas por día que
@@ -85,72 +85,72 @@ tests/e2e/comidas.spec.ts                           abrir el día antes de tocar
 
 ### Tarea 1: helpers puros del plan (`lib/comidas/plan.ts`) y etiqueta corta
 
-- [ ] **Paso 1:** `tests/unit/comidas/plan.test.ts`: `claveCelda(2, 'almuerzo')` estable y distinta
+- [x] **Paso 1:** `tests/unit/comidas/plan.test.ts`: `claveCelda(2, 'almuerzo')` estable y distinta
   por día/comida; `celdasDesdePlan` aplana `PlanSemanal`; `hayQueGuardar` (igual → false, cambio de
   estado o nota → true, null ↔ valor → true); `etiquetaCelda` ("Martes, almuerzo: Comer temprano
   12:00. Cambiar" / "…: Falta, sin definir. Cambiar" / enfermo con su nota).
-- [ ] **Paso 2:** correr `npm test -- plan` y ver que falla (módulo inexistente).
-- [ ] **Paso 3:** implementar `plan.ts` y `ETIQUETA_CORTA_ESTADO` en `tipos.ts` (Sí, No, Temprano,
+- [x] **Paso 2:** correr `npm test -- plan` y ver que falla (módulo inexistente).
+- [x] **Paso 3:** implementar `plan.ts` y `ETIQUETA_CORTA_ESTADO` en `tipos.ts` (Sí, No, Temprano,
   Tarde, Bolsa, Enfermo).
-- [ ] **Paso 4:** `npm test` verde. Commit.
+- [x] **Paso 4:** `npm test` verde. Commit.
 
 ### Tarea 2: helpers puros de las tarjetas (`lib/comidas/vista.ts`)
 
-- [ ] **Paso 1:** en `vista.test.ts`: `textoCorto` (hora solo para temprano/tarde, "Falta" si null);
+- [x] **Paso 1:** en `vista.test.ts`: `textoCorto` (hora solo para temprano/tarde, "Falta" si null);
   `lineasTarjeta(dia)` (tres líneas en orden, con etiqueta de comida, estado, texto y hora);
   `diaCerrado` (todas cerradas); `etiquetaTarjeta` ("Miércoles 23/9, hoy, ausente. Desayuno: Sí. …");
   `diaParaAbrir` (hoy; si hoy cerró, el siguiente con algo abierto; null sin hoy o sin nada abierto).
-- [ ] **Paso 2:** ver fallar. **Paso 3:** implementar. **Paso 4:** verde. Commit.
+- [x] **Paso 2:** ver fallar. **Paso 3:** implementar. **Paso 4:** verde. Commit.
 
 ### Tarea 3: separar `SelectorComida` en `PanelOpciones` + `EditorNota`
 
-- [ ] **Paso 1:** `panel-opciones.tsx`: `PanelOpciones({ id, nombre, marcado, pendiente, alElegir,
+- [x] **Paso 1:** `panel-opciones.tsx`: `PanelOpciones({ id, nombre, marcado, pendiente, alElegir,
   alCerrar, editorNota?, acciones? })` — la bandeja `.opciones`, seis `.status-chip` con
   `aria-pressed`/`aria-disabled`, Escape y "Listo" llaman a `alCerrar` (quien abre devuelve el foco).
-- [ ] **Paso 2:** `editor-nota.tsx`: `EditorNota({ tipo, etiqueta, valor, alCambiar, alGuardar,
+- [x] **Paso 2:** `editor-nota.tsx`: `EditorNota({ tipo, etiqueta, valor, alCambiar, alGuardar,
   alCancelar?, alSalir?, pendiente, error?, enfocar? })`.
-- [ ] **Paso 3:** `selector-comida.tsx` compone `BotonEstado` + nota + cierre + `PanelOpciones` con la
+- [x] **Paso 3:** `selector-comida.tsx` compone `BotonEstado` + nota + cierre + `PanelOpciones` con la
   misma API; `comida-del-dia.tsx` arma su nota con `EditorNota`.
-- [ ] **Paso 4:** lint + typecheck + test. Commit.
+- [x] **Paso 4:** lint + typecheck + test. Commit.
 
 ### Tarea 4: la cuadrícula del plan
 
-- [ ] **Paso 1:** `usar-plan-editable.ts`: `usePlanEditable(inicial)` → `{ valor, pendiente, guardar }`
+- [x] **Paso 1:** `usar-plan-editable.ts`: `usePlanEditable(inicial)` → `{ valor, pendiente, guardar }`
   con `confirmado`/`pedido`/`ultimoGuardado` por clave (Map), `guardarPlan`, avisos "Plan semanal
   actualizado" y reversión si falla y no hubo otro guardado después.
-- [ ] **Paso 2:** `plan-editable.tsx`: cabecera fija con las tres comidas (icono + texto); por día una
+- [x] **Paso 2:** `plan-editable.tsx`: cabecera fija con las tres comidas (icono + texto); por día una
   `.cuadro-fila` con `.cuadro-dia` y tres `.celda-plan` (`aria-expanded`, `aria-controls`,
   `aria-label` de `etiquetaCelda`); el panel de la celda abierta (`.cuadro-panel`, pregunta +
   `PanelOpciones` + `EditorNota` + "Dejar sin definir") después de su fila. Fuera `ResumenPlan` y la
   lista.
-- [ ] **Paso 3:** CSS `.cuadro-marco`, `.cuadro-plan`, `.cuadro-cabecera`, `.cuadro-fila`,
+- [x] **Paso 3:** CSS `.cuadro-marco`, `.cuadro-plan`, `.cuadro-cabecera`, `.cuadro-fila`,
   `.cuadro-dia`, `.celda-plan` (abierta = hundida + borde; contraste alto = borde grueso),
   `.cuadro-panel`. Texto de `plan/page.tsx`.
-- [ ] **Paso 4:** lint + typecheck + test. Commit.
+- [x] **Paso 4:** lint + typecheck + test. Commit.
 
 ### Tarea 5: la semana en tarjetas
 
-- [ ] **Paso 1:** `semana-persona.tsx` pasa a cliente: `SemanaPersona({ dias, tipo, diaInicial,
+- [x] **Paso 1:** `semana-persona.tsx` pasa a cliente: `SemanaPersona({ dias, tipo, diaInicial,
   hrefSiguienteSemana })`; `.tarjetas-semana.week-list`; por día `<section aria-label="Miércoles 23/9">`
   con `button.tarjeta-dia` y, si está abierta, `.panel-dia` con las tres `ComidaDelDia`. Sin
   `.dias-pasados`. Se conservan el aviso de semana pasada y "Ver la semana que viene".
-- [ ] **Paso 2:** `semana/page.tsx`: `diaInicial = tipo === 'actual' ? diaParaAbrir(dias) : null`,
+- [x] **Paso 2:** `semana/page.tsx`: `diaInicial = tipo === 'actual' ? diaParaAbrir(dias) : null`,
   `hrefSiguienteSemana`, `key={lunes}`.
-- [ ] **Paso 3:** CSS `.semana-marco`, `.tarjetas-semana`, `.tarjeta-dia` (abierta hundida, `.today`
+- [x] **Paso 3:** CSS `.semana-marco`, `.tarjetas-semana`, `.tarjeta-dia` (abierta hundida, `.today`
   relieve alto, `.pasada` plana), `.tarjeta-comida`, `.panel-dia`; quitar `.dias-pasados`,
   `.resumen-plan`, `.plan-lista`, `.matriz*`.
-- [ ] **Paso 4:** lint + typecheck + test. Commit.
+- [x] **Paso 4:** lint + typecheck + test. Commit.
 
 ### Tarea 6: DESIGN.md
 
-- [ ] §8: "las mismas piezas (`PanelOpciones` + `EditorNota`) en Plan, Semana y después La casa";
+- [x] §8: "las mismas piezas (`PanelOpciones` + `EditorNota`) en Plan, Semana y después La casa";
   reemplazar "hoy va primero / días cerrados plegados" por "la semana en tarjetas por día, hoy
   abierto"; regla del plan en la cuadrícula. §12: componentes y anclas nuevas. Commit.
 
 ### Tarea 7: e2e
 
-- [ ] `tests/soporte/medidas-e2e.ts`: `esperarSinScrollLateral(page)`, `esperarAltoMinimo(locator, 56)`.
-- [ ] `comidas.spec.ts`: abrir la tarjeta del día (`.tarjetas-semana` → botón `^Miércoles 30/9`) antes
+- [x] `tests/soporte/medidas-e2e.ts`: `esperarSinScrollLateral(page)`, `esperarAltoMinimo(locator, 56)`.
+- [x] `comidas.spec.ts`: abrir la tarjeta del día (`.tarjetas-semana` → botón `^Miércoles 30/9`) antes
   de tocar `[data-fecha][data-comida]`; semana pasada = 7 tarjetas "Cerrado" y, al abrir una, 0
   `.estado-actual` habilitados; plan: martes almuerzo → "Comer temprano" 12:00 desde la cuadrícula
   (texto de la celda + fila en `plan_semanal`); `describe` a 320×640 y 375×812: sin scroll lateral y
@@ -159,7 +159,7 @@ tests/e2e/comidas.spec.ts                           abrir el día antes de tocar
 
 ### Tarea 8: verificación visual y PR
 
-- [ ] Render estático (react-dom/server + `globals.css`) con datos variados; capturas a 320, 375, 768 y
+- [x] Render estático (react-dom/server + `globals.css`) con datos variados; capturas a 320, 375, 768 y
   1280 px, tema oscuro, contraste alto, letra grande y enorme, con una celda y una tarjeta abiertas.
   Sin scroll lateral, todo lo tocable ≥ 56px, texto legible.
 - [ ] `npm run lint`, `npm run typecheck`, `npm test`. Push, PR a `master`, CI en verde.
