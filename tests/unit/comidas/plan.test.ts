@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { celdasDesdePlan, claveCelda, conCelda, etiquetaCelda, hayQueGuardar } from '@/lib/comidas/plan'
+import { celdasDesdePlan, claveCelda, conCelda, etiquetaCelda, hayQueGuardar, mensajeFalloCelda } from '@/lib/comidas/plan'
 import { ESTADOS_COMIDA, ETIQUETA_CORTA_ESTADO, INFO_ESTADO, TIEMPOS_COMIDA } from '@/lib/comidas/tipos'
 
 describe('claveCelda', () => {
@@ -74,6 +74,23 @@ describe('etiquetaCelda', () => {
 
   it('un estado sin nota', () => {
     expect(etiquetaCelda(1, 'desayuno', { estado: 'si', nota: null })).toBe('Lunes, desayuno: Sí comer. Cambiar')
+  })
+})
+
+describe('mensajeFalloCelda', () => {
+  it('dice qué celda volvió atrás, sin repetir "No se pudo guardar"', () => {
+    expect(mensajeFalloCelda(2, 'almuerzo', 'No se pudo guardar. Intentá de nuevo.')).toBe(
+      'No se pudo guardar el almuerzo del martes. Intentá de nuevo.',
+    )
+    expect(mensajeFalloCelda(7, 'cena', 'No se pudo guardar. Revisá tu conexión e intentá de nuevo.')).toBe(
+      'No se pudo guardar la cena del domingo. Revisá tu conexión e intentá de nuevo.',
+    )
+  })
+
+  it('con otro motivo, lo agrega después', () => {
+    expect(mensajeFalloCelda(1, 'desayuno', 'No tenés permiso para hacer esto.')).toBe(
+      'No se pudo guardar el desayuno del lunes. No tenés permiso para hacer esto.',
+    )
   })
 })
 

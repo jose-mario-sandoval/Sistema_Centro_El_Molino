@@ -3,7 +3,7 @@
 import { useOptimistic, useState, useTransition } from 'react'
 import { useAviso } from '@/components/ui/avisos'
 import { fallo, type Resultado } from '@/lib/acciones/resultado'
-import { mensajeNota, normalizarNota, notaValida } from '@/lib/comidas/notas'
+import { notaInicial } from '@/lib/comidas/notas'
 import { VALOR_POR_AUSENCIA } from '@/lib/comidas/reglas'
 import {
   ETIQUETA_TIEMPO,
@@ -77,22 +77,13 @@ export function ComidaDelDia({
     // Mientras se guarda, los chips siguen enfocables (aria-disabled) pero ignoran los clics.
     if (pendiente) return
     if (INFO_ESTADO[estado].nota) {
-      setBorrador({ estado, nota: valor?.estado === estado ? (valor.nota ?? '') : '' })
+      // Lo que se estaba escribiendo, o lo guardado: temprano ↔ tarde conservan la hora.
+      setBorrador({ estado, nota: notaInicial(borrador ?? valor, estado) })
       return
     }
     setBorrador(null)
     if (valor?.estado === estado) return
     guardar({ estado, nota: null })
-  }
-
-  function confirmarNota() {
-    if (!borrador) return
-    const nota = normalizarNota(borrador.estado, borrador.nota)
-    if (!notaValida(borrador.estado, nota)) {
-      aviso(mensajeNota(borrador.estado))
-      return
-    }
-    guardar({ estado: borrador.estado, nota })
   }
 
   function volver() {
@@ -102,7 +93,6 @@ export function ComidaDelDia({
     )
   }
 
-  const tipoNota = borrador ? INFO_ESTADO[borrador.estado].nota : null
   const escribiendoNota = editable && borrador !== null
 
   return (
@@ -127,18 +117,15 @@ export function ComidaDelDia({
         alElegir={elegir}
         alCerrar={() => setBorrador(null)}
         editorNota={
-          escribiendoNota &&
-          tipoNota && (
+          escribiendoNota && (
             <EditorNota
-              tipo={tipoNota}
-              etiqueta={tipoNota === 'hora' ? 'Hora' : 'Qué podés comer'}
+              key={borrador.estado}
+              estado={borrador.estado}
               valor={borrador.nota}
               alCambiar={(nota) => setBorrador({ ...borrador, nota })}
-              alGuardar={confirmarNota}
+              alGuardar={(nota) => guardar({ estado: borrador.estado, nota })}
               alCancelar={() => setBorrador(null)}
               pendiente={pendiente}
-              // La persona acaba de elegir un estado que pide nota: el teclado es lo esperado.
-              enfocar
             />
           )
         }

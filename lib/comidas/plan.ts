@@ -37,6 +37,16 @@ export function hayQueGuardar(pedido: ValorComida | null, nuevo: ValorComida | n
   return pedido.estado !== nuevo.estado || pedido.nota !== nuevo.nota
 }
 
+const ARTICULO: Record<TiempoComida, string> = { desayuno: 'el', almuerzo: 'el', cena: 'la' }
+const PREFIJO_FALLO = 'No se pudo guardar.'
+
+/** Aviso cuando una celda vuelve atrás: 'No se pudo guardar el almuerzo del martes. Intentá de nuevo.' */
+export function mensajeFalloCelda(dia: number, comida: TiempoComida, error: string): string {
+  const cual = `${ARTICULO[comida]} ${ETIQUETA_TIEMPO[comida].toLowerCase()} del ${NOMBRES_DIA[dia - 1].toLowerCase()}`
+  const motivo = error.startsWith(PREFIJO_FALLO) ? error.slice(PREFIJO_FALLO.length).trim() : error
+  return `No se pudo guardar ${cual}.${motivo ? ` ${motivo}` : ''}`
+}
+
 /**
  * Nombre accesible de una celda: 'Martes, almuerzo: Comer temprano 12:00. Cambiar'. Contiene el texto
  * visible de la celda (el corto está dentro de la etiqueta completa; "Falta" va escrito).

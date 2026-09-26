@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { mensajeNota, normalizarNota, notaValida } from '@/lib/comidas/notas'
+import { mensajeNota, normalizarNota, notaInicial, notaValida } from '@/lib/comidas/notas'
 
 describe('normalizarNota', () => {
   it('recorta espacios y segundos en las notas de hora', () => {
@@ -66,5 +66,24 @@ describe('mensajeNota', () => {
     expect(mensajeNota('temprano')).toBe('Indicá la hora para "Comer temprano" (HH:MM).')
     expect(mensajeNota('enfermo')).toBe('Indicá qué podés comer (hasta 200 caracteres).')
     expect(mensajeNota('si')).toBe('"Sí comer" no lleva nota.')
+  })
+})
+
+describe('notaInicial', () => {
+  it('el mismo estado vuelve a mostrar su nota', () => {
+    expect(notaInicial({ estado: 'temprano', nota: '06:45' }, 'temprano')).toBe('06:45')
+    expect(notaInicial({ estado: 'enfermo', nota: 'Sopa' }, 'enfermo')).toBe('Sopa')
+  })
+
+  it('entre temprano y tarde se conserva la hora (hay que confirmarla igual)', () => {
+    expect(notaInicial({ estado: 'tarde', nota: '20:00' }, 'temprano')).toBe('20:00')
+    expect(notaInicial({ estado: 'temprano', nota: '06:45' }, 'tarde')).toBe('06:45')
+  })
+
+  it('entre tipos de nota distintos, o sin nota, empieza vacía', () => {
+    expect(notaInicial({ estado: 'enfermo', nota: 'Sopa' }, 'tarde')).toBe('')
+    expect(notaInicial({ estado: 'tarde', nota: '20:00' }, 'enfermo')).toBe('')
+    expect(notaInicial({ estado: 'si', nota: null }, 'tarde')).toBe('')
+    expect(notaInicial(null, 'temprano')).toBe('')
   })
 })

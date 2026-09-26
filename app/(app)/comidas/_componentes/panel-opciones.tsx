@@ -14,6 +14,7 @@ import { varsEstado } from './insignia-estado'
 export function PanelOpciones({
   id,
   nombre,
+  etiquetaGrupo,
   titulo,
   marcado,
   pendiente,
@@ -23,8 +24,10 @@ export function PanelOpciones({
   acciones,
 }: {
   id: string
-  /** 'Almuerzo' / 'almuerzo del martes': completa "Elegí qué hacés con …". */
+  /** 'Almuerzo' / 'el almuerzo de los martes': completa "Elegí qué hacés con …". */
   nombre: string
+  /** Nombre del grupo de opciones, si no sirve "Elegí qué hacés con …" (p. ej. en tercera persona). */
+  etiquetaGrupo?: string
   /** Texto arriba de las opciones, si el botón que las abrió no lo dice ya. */
   titulo?: React.ReactNode
   /** Opción hundida (null = ninguna). */
@@ -48,7 +51,11 @@ export function PanelOpciones({
       }}
     >
       {titulo && <p className="opciones-titulo">{titulo}</p>}
-      <div className="status-row" role="group" aria-label={`Elegí qué hacés con ${nombre.toLowerCase()}`}>
+      <div
+        className="status-row"
+        role="group"
+        aria-label={etiquetaGrupo ?? `Elegí qué hacés con ${nombre.toLowerCase()}`}
+      >
         {ESTADOS_COMIDA.map((opcion) => {
           const elegida = marcado === opcion
           return (

@@ -1,4 +1,4 @@
-import { INFO_ESTADO, type EstadoComida } from './tipos'
+import { INFO_ESTADO, type EstadoComida, type ValorComida } from './tipos'
 
 /** Igual que el CHECK nota_valida de 02-A. */
 const PATRON_HORA = /^([01]\d|2[0-3]):[0-5]\d$/
@@ -22,6 +22,17 @@ export function notaValida(estado: EstadoComida, nota: string | null): boolean {
   if (nota === null) return false
   if (tipo === 'hora') return PATRON_HORA.test(nota)
   return nota.length >= 1 && nota.length <= LARGO_MAXIMO_NOTA
+}
+
+/**
+ * Con qué empieza el campo al elegir `estado`, según lo que había (lo guardado o lo que se estaba
+ * escribiendo): la misma nota si el tipo coincide (temprano ↔ tarde conservan la hora), si no vacío.
+ * Igual en Plan y Semana; la nota se confirma siempre con "Guardar".
+ */
+export function notaInicial(anterior: ValorComida | null, estado: EstadoComida): string {
+  if (!anterior?.nota) return ''
+  const tipo = INFO_ESTADO[estado].nota
+  return tipo !== null && INFO_ESTADO[anterior.estado].nota === tipo ? anterior.nota : ''
 }
 
 /** Texto para el aviso o el campo cuando la nota no es válida. */

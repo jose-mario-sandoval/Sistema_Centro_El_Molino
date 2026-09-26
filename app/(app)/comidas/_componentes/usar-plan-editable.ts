@@ -1,7 +1,7 @@
 import { useRef, useState, useTransition } from 'react'
 import { useAviso } from '@/components/ui/avisos'
 import { fallo, type Resultado } from '@/lib/acciones/resultado'
-import { celdasDesdePlan, claveCelda, conCelda, hayQueGuardar } from '@/lib/comidas/plan'
+import { celdasDesdePlan, claveCelda, conCelda, hayQueGuardar, mensajeFalloCelda } from '@/lib/comidas/plan'
 import type { TiempoComida, ValorComida } from '@/lib/comidas/tipos'
 import type { PlanSemanal } from '@/lib/comidas/vista'
 import { guardarPlan } from '../acciones'
@@ -58,7 +58,8 @@ export function usePlanEditable(inicial: PlanSemanal): PlanEditableEstado {
         aviso('Plan semanal actualizado')
         return
       }
-      aviso(resultado.error)
+      // Dice qué celda vuelve atrás: el panel pudo haberse cerrado o estar en otra.
+      aviso(mensajeFalloCelda(dia, comida, resultado.error))
       // Si la persona ya eligió otra cosa después, no pisamos esa elección con el valor anterior.
       if (numero !== ultimoGuardado.current.get(clave)) return
       const anterior = leer(confirmado.current, clave)

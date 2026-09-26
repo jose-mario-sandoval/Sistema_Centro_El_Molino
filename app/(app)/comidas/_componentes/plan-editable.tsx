@@ -2,7 +2,7 @@
 
 import { Fragment, useEffect, useId, useRef, useState, type Ref } from 'react'
 import { Icono } from '@/components/ui/iconos'
-import { mensajeNota, normalizarNota, notaValida } from '@/lib/comidas/notas'
+import { notaInicial } from '@/lib/comidas/notas'
 import { claveCelda, etiquetaCelda } from '@/lib/comidas/plan'
 import { NOMBRES_DIA } from '@/lib/comidas/semana'
 import {
@@ -26,7 +26,10 @@ const DIA_PLURAL = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sába
 
 type Celda = { dia: number; comida: TiempoComida }
 
-/** Una celda de la cuadrícula: icono + texto corto + color (+ hora). Elevada = se toca. */
+/**
+ * Una celda de la cuadrícula: icono + texto corto + color (+ hora). Elevada = se toca. Con letra
+ * grande o pantalla angosta ocupa la fila entera y escribe también el nombre de la comida.
+ */
 function CeldaPlan({
   ref,
   celda,
@@ -57,26 +60,28 @@ function CeldaPlan({
       aria-busy={pendiente || undefined}
       onClick={alTocar}
     >
-      <Icono nombre={valor?.estado ?? 'sinDefinir'} />
-      <span className="celda-texto">{corto.texto}</span>
-      {corto.hora && <span className="celda-hora">{corto.hora}</span>}
+      <span className="celda-comida">{ETIQUETA_TIEMPO[celda.comida]}</span>
+      <span className="celda-valor">
+        <Icono nombre={valor?.estado ?? 'sinDefinir'} />
+        <span className="celda-texto">{corto.texto}</span>
+        {corto.hora && <span className="celda-hora">{corto.hora}</span>}
+      </span>
     </button>
   )
 }
 
 /**
  * El plan semanal: la cuadrícula es el editor (7 días × 3 comidas). Tocar una celda abre, debajo de
- * su fila, las mismas seis opciones y el mismo campo de hora o nota que la Semana (DESIGN.md §8).
- * Una celda abierta a la vez.
+ * su fila, las mismas seis opciones y el mismo campo de hora o nota que la Semana, con el mismo
+ * comportamiento (DESIGN.md §8). Una celda abierta a la vez.
  */
 export function PlanEditable({ plan }: { plan: PlanSemanal }) {
   const editor = usePlanEditable(plan)
   const idPanel = useId()
   const idBase = useId()
   const [abierta, setAbierta] = useState<Celda | null>(null)
-  // Estado que pide nota (temprano, tarde, enfermo) elegido o editado y todavía sin guardar.
+  // Estado que pide nota (temprano, tarde, enfermo) elegido y todavía sin "Guardar".
   const [borrador, setBorrador] = useState<{ estado: EstadoComida; nota: string } | null>(null)
-  const [enfocarNota, setEnfocarNota] = useState(false)
   const botonAbierto = useRef<HTMLButtonElement>(null)
   const filaAbierta = useRef<HTMLDivElement>(null)
   const panel = useRef<HTMLDivElement>(null)
@@ -88,10 +93,6 @@ export function PlanEditable({ plan }: { plan: PlanSemanal }) {
 
   const valorAbierto = abierta ? editor.valor(abierta.dia, abierta.comida) : null
   const pendienteAbierta = abierta ? editor.pendiente(abierta.dia, abierta.comida) : false
-  const marcado = borrador?.estado ?? valorAbierto?.estado ?? null
-  const tipoNota = marcado ? INFO_ESTADO[marcado].nota : null
-  const notaEnPantalla = borrador ? borrador.nota : (valorAbierto?.nota ?? '')
-  const notaIncompleta = borrador !== null && !notaValida(borrador.estado, normalizarNota(borrador.estado, borrador.nota))
 
   function tocar(celda: Celda) {
     if (claveAbierta === claveCelda(celda.dia, celda.comida)) {
@@ -100,49 +101,30 @@ export function PlanEditable({ plan }: { plan: PlanSemanal }) {
     }
     setAbierta(celda)
     setBorrador(null)
-    setEnfocarNota(false)
   }
 
-  /** "Listo", Escape o volver a tocar la celda. Lo que quedó sin una nota válida se descarta. */
+  /** "Listo", Escape o volver a tocar la celda. Una nota sin "Guardar" se descarta, como en la Semana. */
   function cerrar() {
     botonAbierto.current?.focus()
     setAbierta(null)
     setBorrador(null)
   }
 
+  // Sin esperar a que termine otro guardado: las acciones del servidor se envían de a una y en orden,
+  // y usePlanEditable no deja que una respuesta vieja pise una elección más nueva.
   function elegir(estado: EstadoComida) {
-    // Mientras se guarda, las opciones siguen enfocables (aria-disabled) pero ignoran los toques.
-    if (!abierta || pendienteAbierta) return
-    const { dia, comida } = abierta
-    if (INFO_ESTADO[estado].nota === null) {
-      setBorrador(null)
-      editor.guardar(dia, comida, { estado, nota: null })
+    if (!abierta) return
+    if (INFO_ESTADO[estado].nota) {
+      // Lo que se estaba escribiendo, o lo guardado: temprano ↔ tarde conservan la hora.
+      setBorrador({ estado, nota: notaInicial(borrador ?? valorAbierto, estado) })
       return
     }
-    // Entre estados con el mismo tipo de nota (temprano ↔ tarde) la hora se conserva.
-    const mismaNota = marcado !== null && INFO_ESTADO[marcado].nota === INFO_ESTADO[estado].nota
-    const nota = mismaNota ? notaEnPantalla : ''
-    const normalizada = normalizarNota(estado, nota)
-    if (notaValida(estado, normalizada)) {
-      setBorrador(null)
-      editor.guardar(dia, comida, { estado, nota: normalizada })
-      return
-    }
-    setBorrador({ estado, nota })
-    setEnfocarNota(true)
-  }
-
-  /** Con Guardar o al salir del campo: se guarda solo si la nota ya es válida. */
-  function guardarNota() {
-    if (!abierta || !borrador) return
-    const nota = normalizarNota(borrador.estado, borrador.nota)
-    if (!notaValida(borrador.estado, nota)) return
     setBorrador(null)
-    editor.guardar(abierta.dia, abierta.comida, { estado: borrador.estado, nota })
+    editor.guardar(abierta.dia, abierta.comida, { estado, nota: null })
   }
 
   function dejarSinDefinir() {
-    if (!abierta || pendienteAbierta) return
+    if (!abierta) return
     setBorrador(null)
     editor.guardar(abierta.dia, abierta.comida, null)
   }
@@ -198,41 +180,36 @@ export function PlanEditable({ plan }: { plan: PlanSemanal }) {
               </div>
 
               {abierta?.dia === dia && (
-                <div key={claveAbierta} ref={panel} className="cuadro-panel">
+                <div key={claveAbierta} ref={panel} className="cuadro-panel" aria-busy={pendienteAbierta || undefined}>
                   <PanelOpciones
                     id={idPanel}
                     nombre={`${ARTICULO[abierta.comida]} ${ETIQUETA_TIEMPO[abierta.comida].toLowerCase()} de los ${DIA_PLURAL[i]}`}
                     titulo={`¿Normalmente ${VERBO[abierta.comida]} los ${DIA_PLURAL[i]}?`}
-                    marcado={marcado}
-                    pendiente={pendienteAbierta}
+                    marcado={borrador?.estado ?? valorAbierto?.estado ?? null}
+                    // La celda y el panel avisan con aria-busy; las opciones siguen respondiendo.
+                    pendiente={false}
                     alElegir={elegir}
                     alCerrar={cerrar}
                     editorNota={
-                      tipoNota &&
-                      marcado && (
+                      borrador && (
                         <EditorNota
-                          tipo={tipoNota}
-                          etiqueta={tipoNota === 'hora' ? 'Hora' : 'Qué podés comer'}
-                          valor={notaEnPantalla}
-                          alCambiar={(nota) => setBorrador({ estado: marcado, nota })}
-                          alGuardar={guardarNota}
-                          alSalir={guardarNota}
-                          pendiente={pendienteAbierta}
-                          error={notaIncompleta && borrador ? mensajeNota(borrador.estado) : null}
-                          enfocar={enfocarNota}
+                          key={borrador.estado}
+                          estado={borrador.estado}
+                          valor={borrador.nota}
+                          alCambiar={(nota) => setBorrador({ ...borrador, nota })}
+                          alGuardar={(nota) => {
+                            setBorrador(null)
+                            editor.guardar(abierta.dia, abierta.comida, { estado: borrador.estado, nota })
+                          }}
+                          alCancelar={() => setBorrador(null)}
+                          pendiente={false}
                         />
                       )
                     }
                     acciones={
-                      // Siempre presente (deshabilitado si ya está sin definir): si apareciera recién al
-                      // guardar la hora al salir del campo, "Listo" se correría bajo el dedo.
-                      <button
-                        type="button"
-                        className="btn ghost"
-                        disabled={!valorAbierto}
-                        aria-disabled={(valorAbierto && pendienteAbierta) || undefined}
-                        onClick={dejarSinDefinir}
-                      >
+                      // Siempre presente (deshabilitado si ya está sin definir): el pie del panel no
+                      // cambia de forma al guardar, así "Listo" no se corre bajo el dedo.
+                      <button type="button" className="btn ghost" disabled={!valorAbierto} onClick={dejarSinDefinir}>
                         Dejar sin definir
                       </button>
                     }
