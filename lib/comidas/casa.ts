@@ -1,7 +1,7 @@
 import { sumarDias, type FechaISO } from '@/lib/fechas'
 import { partesParaCocina, totalQueComen, type ResumenComida } from './resumen'
 import { diasDeSemana, etiquetaDia } from './semana'
-import { ETIQUETA_TIEMPO, type ExtraManual, type TiempoComida } from './tipos'
+import { CANTIDAD_MAXIMA_EXTRA, ETIQUETA_TIEMPO, type ExtraManual, type TiempoComida } from './tipos'
 
 /*
  * Textos y cálculos de "La casa" del Director (/comidas/casa). Puros: se prueban sin navegador.
@@ -53,6 +53,12 @@ export function etiquetaGrupo(etiqueta: string, cantidad: number): string {
 export function diasParaExtra(lunes: FechaISO, hoy: FechaISO): FechaISO[] {
   if (sumarDias(lunes, 6) < hoy) return []
   return diasDeSemana(lunes).filter((fecha) => fecha >= hoy)
+}
+
+/** Los botones − y + de la cantidad de un extra: de a uno, entre 1 y 50 (el check de la base). */
+export function ajustarCantidad(actual: number, delta: 1 | -1): number {
+  const base = Number.isInteger(actual) ? actual : 1
+  return Math.min(CANTIDAD_MAXIMA_EXTRA, Math.max(1, base + delta))
 }
 
 /** 'Miércoles 23/9 · Cena · 3 personas' */

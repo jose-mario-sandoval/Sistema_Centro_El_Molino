@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { FECHA_MAXIMA, FECHA_MINIMA } from '@/lib/calendario/cuadricula'
 import { mensajeNota, normalizarNota, notaValida } from '@/lib/comidas/notas'
-import { ESTADOS_COMIDA, TIEMPOS_COMIDA } from '@/lib/comidas/tipos'
+import { CANTIDAD_MAXIMA_EXTRA, ESTADOS_COMIDA, LARGO_MAXIMO_NOTA_EXTRA, TIEMPOS_COMIDA } from '@/lib/comidas/tipos'
 
 const fecha = z.iso.date('Fecha inválida.')
 const comida = z.enum(TIEMPOS_COMIDA, 'Comida inválida.')
@@ -45,9 +45,7 @@ export const esquemaPlan = z
 
 export const esquemaVolverAPlan = z.object({ fecha, comida, usuarioId })
 
-/** Igual que los checks de extras_manuales. */
-export const CANTIDAD_MAXIMA_EXTRA = 50
-export const LARGO_MAXIMO_NOTA_EXTRA = 200
+export { CANTIDAD_MAXIMA_EXTRA, LARGO_MAXIMO_NOTA_EXTRA }
 const MENSAJE_CANTIDAD = `Indicá cuántas personas, de 1 a ${CANTIDAD_MAXIMA_EXTRA}.`
 
 /**

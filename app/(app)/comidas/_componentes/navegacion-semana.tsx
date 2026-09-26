@@ -5,12 +5,21 @@ import type { FechaISO } from '@/lib/fechas'
 
 const DESCRIPCION = { pasada: 'Semana pasada', actual: 'Esta semana', siguiente: 'Semana que viene' } as const
 
-export function NavegacionSemana({ lunes, hoy }: { lunes: FechaISO; hoy: FechaISO }) {
+/** `ruta`: la página que se pagina (Semana, La casa o la semana de una persona en La casa). */
+export function NavegacionSemana({
+  lunes,
+  hoy,
+  ruta = '/comidas/semana',
+}: {
+  lunes: FechaISO
+  hoy: FechaISO
+  ruta?: string
+}) {
   const { anterior, siguiente, tipo } = navegacionSemana(lunes, hoy)
 
   return (
     <div className="week-nav">
-      <Link href={`/comidas/semana?semana=${anterior}`} className="icon-btn" aria-label="Semana anterior">
+      <Link href={`${ruta}?semana=${anterior}`} className="icon-btn" aria-label="Semana anterior">
         <Icono nombre="izquierda" />
       </Link>
       <div className="range">
@@ -18,7 +27,7 @@ export function NavegacionSemana({ lunes, hoy }: { lunes: FechaISO; hoy: FechaIS
         <span className="range-fechas">{rangoSemana(lunes)}</span>
       </div>
       {siguiente ? (
-        <Link href={`/comidas/semana?semana=${siguiente}`} className="icon-btn" aria-label="Semana siguiente">
+        <Link href={`${ruta}?semana=${siguiente}`} className="icon-btn" aria-label="Semana siguiente">
           <Icono nombre="derecha" />
         </Link>
       ) : (
@@ -29,7 +38,7 @@ export function NavegacionSemana({ lunes, hoy }: { lunes: FechaISO; hoy: FechaIS
         </span>
       )}
       {tipo !== 'actual' && (
-        <Link href="/comidas/semana" className="btn ghost block">
+        <Link href={ruta} className="btn ghost block">
           Ir a la semana actual
         </Link>
       )}

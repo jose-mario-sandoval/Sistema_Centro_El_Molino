@@ -69,3 +69,7 @@ export type ValorEfectivo = SeleccionGuardada | null
  * agregó. `id` sirve para quitarlo (Director) y como clave de la lista.
  */
 export type ExtraManual = { id: string; fecha: string; comida: TiempoComida; cantidad: number; nota: string | null }
+
+/** Igual que los checks de extras_manuales. */
+export const CANTIDAD_MAXIMA_EXTRA = 50
+export const LARGO_MAXIMO_NOTA_EXTRA = 200

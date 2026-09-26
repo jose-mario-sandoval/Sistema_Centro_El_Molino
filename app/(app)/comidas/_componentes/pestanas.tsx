@@ -2,17 +2,14 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { pestanasComidas } from '@/lib/comidas/casa'
 
-const PESTANAS = [
-  { ruta: '/comidas/plan', etiqueta: 'Plan de comida' },
-  { ruta: '/comidas/semana', etiqueta: 'Semana' },
-] as const
-
-export function PestanasComidas() {
+/** Plan de comida y Semana; el Director tiene además "La casa" (las comidas de todos). */
+export function PestanasComidas({ esDirector }: { esDirector: boolean }) {
   const ruta = usePathname()
   return (
     <nav className="tabs" aria-label="Comidas">
-      {PESTANAS.map((pestana) => {
+      {pestanasComidas(esDirector).map((pestana) => {
         const activa = ruta.startsWith(pestana.ruta)
         return (
           <Link

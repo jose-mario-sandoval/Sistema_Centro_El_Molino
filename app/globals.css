@@ -750,6 +750,119 @@ a{color:var(--acento);}
 .plan-linea .status-badge{font-size:var(--t-xs);padding:.1rem .5rem;}
 .plan-linea .status-note{display:inline;margin:0;font-size:var(--t-xs);}
 
+/* ---------- 6b. Comidas: La casa (Director) ------------------------------ */
+
+/* "Ver la semana de:": un select nativo y "Ver", en la misma línea mientras entren. */
+.ver-persona{margin-bottom:1.25rem;}
+.ver-persona .field{margin-bottom:.5rem;}
+.ver-persona-fila{display:flex;flex-wrap:wrap;gap:.75rem;}
+.ver-persona-fila select{flex:1 1 min(13rem,100%);width:auto;min-width:0;}
+.ver-persona-fila .btn{flex:0 0 auto;}
+.tabla-casa-ayuda{margin:-.4rem 0 .5rem;}
+
+/* La misma tabla que Administración (contenedor tabla-admin, apilado incluido), pero cada celda es un
+   botón elevado dentro de su hueco: se toca para ver quiénes comen. Abierta: hundida con borde de acento. */
+.tabla-casa td{padding:.35rem;}
+.tabla-casa .namecell .etiqueta-hoy{margin-left:.4rem;vertical-align:middle;}
+.celda-casa{
+  display:block;width:100%;min-height:var(--toque);padding:.6rem .7rem;
+  border-radius:var(--r-sm);border:2px solid var(--borde-elevado);
+  background:var(--fondo);color:var(--tinta);box-shadow:var(--relieve-bajo);
+  text-align:left;line-height:1.25;
+  transition:box-shadow var(--dur) var(--curva);
+}
+.celda-casa:hover{box-shadow:var(--relieve);}
+.celda-casa[aria-expanded="true"]{box-shadow:var(--hundido);border:3px solid var(--acento);}
+[data-contraste="alto"] .celda-casa[aria-expanded="true"]{border-width:5px;background:var(--acento-suave);}
+/* Cerrada: plana, porque ya solo se lee (tocarla igual muestra quiénes comieron). */
+.celda-casa.cerrada{box-shadow:none;border-color:var(--separador);}
+/* Dentro de un botón el desglose va en <span>: se ordena igual que la lista de Administración. */
+.celda-casa .partes{display:flex;}
+.celda-casa .parte,.celda-casa .conteo-extra{display:flex;}
+@container tabla-admin (width <= 34rem){
+  .tabla-casa td[data-et]{padding:.35rem 0;}
+  .tabla-casa td[data-et] .celda-casa{flex-basis:100%;}
+  .tabla-casa td[data-et] .celda-casa .partes{flex-direction:row;flex-wrap:wrap;}
+}
+@supports not (container-type:inline-size){
+  @media (max-width:40rem){
+    .tabla-casa td[data-et] .celda-casa{flex-basis:100%;}
+    .tabla-casa td[data-et] .celda-casa .partes{flex-direction:row;flex-wrap:wrap;}
+  }
+}
+
+/* Quiénes comen: debajo de la tabla, superficie hermana (no dentro de la tarjeta de la tabla). */
+.panel-casa{
+  margin-top:1rem;padding:1.1rem var(--marco);scroll-margin-bottom:1rem;
+  background:var(--fondo);border:2px solid var(--borde-elevado);border-radius:var(--r-lg);box-shadow:var(--relieve);
+}
+[data-contraste="alto"] .panel-casa{border-color:var(--acento);border-width:3px;}
+.panel-casa.pasada{box-shadow:none;border:2px solid var(--separador);}
+.panel-casa > .detalle-cierre,.panel-casa > .motivo-cierre{margin-top:.25rem;}
+.grupos-casa{display:flex;flex-direction:column;gap:1.25rem;margin-top:1.1rem;}
+/* Cada grupo dice qué eligieron con icono + texto + color, como una línea del desglose. */
+.grupo-casa-titulo{
+  display:inline-flex;align-items:center;gap:.45rem;padding:.3rem .8rem;border-radius:var(--r-sm);
+  background:var(--cbg);color:var(--c);border:2px solid transparent;
+  font-family:var(--fuente-ui);font-size:var(--t-sm);font-weight:700;
+}
+[data-contraste="alto"] .grupo-casa-titulo{border-color:var(--c);}
+.grupo-casa-titulo.sin-definir{background:var(--fondo);color:var(--peligro);border:2px dashed var(--peligro);}
+.personas-casa{display:flex;flex-direction:column;gap:.6rem;margin-top:.6rem;}
+.persona-casa{
+  display:flex;align-items:center;gap:.6rem;width:100%;min-height:var(--toque);padding:.5rem 1.1rem;
+  border-radius:var(--r-md);border:2px solid var(--borde-elevado);
+  background:var(--fondo);color:var(--tinta);box-shadow:var(--relieve-bajo);
+  font-weight:700;text-align:left;
+  transition:box-shadow var(--dur) var(--curva);
+}
+.persona-casa:hover{box-shadow:var(--relieve);}
+.persona-casa-nombre{flex:1;min-width:0;overflow-wrap:anywhere;}
+.persona-casa .flecha{opacity:.8;transition:transform var(--dur) var(--curva);}
+.persona-casa[aria-expanded="true"]{box-shadow:var(--hundido);border-color:var(--acento);color:var(--acento);}
+.persona-casa[aria-expanded="true"] .flecha{transform:rotate(180deg);}
+[data-contraste="alto"] .persona-casa[aria-expanded="true"]{border-width:3px;background:var(--acento-suave);}
+.persona-comida{padding:0 0 .5rem;}
+.persona-comida .comida-fila{padding-bottom:.5rem;}
+.enlace-persona{
+  display:inline-flex;align-items:center;gap:.4rem;min-height:var(--toque);padding:.4rem 0;
+  color:var(--acento);font-weight:700;
+}
+
+/* Extras para la cocina: una línea por extra (como las ausencias) y el formulario plegado. */
+.extras-casa{margin-top:1.5rem;}
+.extras-casa > .section-title{margin-bottom:.35rem;}
+.extras-casa > .hint{margin-bottom:1rem;max-width:65ch;}
+.fila-extra{
+  display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem;
+  padding:.35rem .35rem .35rem .9rem;border-radius:var(--r-md);
+  border:2px solid var(--borde-hundido);box-shadow:var(--hundido-suave);
+}
+.extra-texto{flex:1 1 10rem;display:flex;flex-direction:column;gap:.15rem;min-width:0;line-height:1.3;}
+.extra-cuanto{font-weight:700;}
+.extra-nota{font-size:var(--t-sm);color:var(--tinta-suave);overflow-wrap:anywhere;}
+.fila-extra > .btn,.fila-extra > .ausencia-acciones,.fila-extra > .etiqueta-cerrado{margin-left:auto;}
+.fila-extra > .etiqueta-cerrado{padding:.4rem .6rem;font-size:var(--t-sm);}
+.formulario-extra{margin-top:1.25rem;border-top:2px solid var(--separador);padding-top:1.25rem;}
+.formulario-extra .field{max-width:30rem;}
+/* Aviso antes de guardar un extra de una comida que ya cerró: candado + texto, nunca solo color. */
+.aviso-extra{
+  display:flex;align-items:center;gap:.5rem;margin:0 0 1.1rem;padding:.75rem var(--marco);
+  border-radius:var(--r-md);border:2px dashed var(--dorado);color:var(--tinta);font-weight:600;
+}
+.aviso-extra .icono{color:var(--dorado);flex:0 0 auto;}
+.cantidad-extra{display:flex;align-items:center;gap:.6rem;}
+.cantidad-extra input{width:6rem;flex:0 0 auto;text-align:center;font-weight:700;font-variant-numeric:tabular-nums;}
+
+/* La página de una persona: volver, su nombre y sus tres vistas. */
+.volver-casa{margin-bottom:1rem;}
+.persona-titulo{font-size:var(--t-lg);margin-bottom:.9rem;overflow-wrap:anywhere;}
+.sub-tabs{margin-bottom:1.25rem;}
+
+/* "la cambió el Director" / "La marcó el Director": la misma marca de origen que la Semana. */
+.opciones-titulo .origen{margin-left:.5rem;vertical-align:middle;}
+.ausencia-quien{display:table;margin-top:.25rem;}
+
 /* ---------- 7. Mensajes -------------------------------------------------- */
 
 .compose{margin-bottom:1.5rem;}

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  ajustarCantidad,
   diasParaExtra,
   etiquetaCeldaCasa,
   etiquetaGrupo,
@@ -90,6 +91,23 @@ describe('textoExtra', () => {
     expect(textoExtra({ id: 'x', fecha: '2026-09-23', comida: 'desayuno', cantidad: 1, nota: 'x' })).toBe(
       'Miércoles 23/9 · Desayuno · 1 persona',
     )
+  })
+})
+
+describe('ajustarCantidad: los botones − y + del extra', () => {
+  it('suma y resta de a uno', () => {
+    expect(ajustarCantidad(3, 1)).toBe(4)
+    expect(ajustarCantidad(3, -1)).toBe(2)
+  })
+
+  it('no baja de 1 ni pasa de 50 (lo mismo que la base)', () => {
+    expect(ajustarCantidad(1, -1)).toBe(1)
+    expect(ajustarCantidad(50, 1)).toBe(50)
+  })
+
+  it('desde un campo vacío o inválido, empieza de 1', () => {
+    expect(ajustarCantidad(Number.NaN, 1)).toBe(2)
+    expect(ajustarCantidad(Number.NaN, -1)).toBe(1)
   })
 })
 

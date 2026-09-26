@@ -11,9 +11,12 @@ import { CeldaResumen } from './celda-resumen'
 export function SemanaAgregadaAdministracion({
   dias,
   extras,
+  notas = {},
 }: {
   dias: DiaAgregado[]
   extras: Record<string, Partial<Record<TiempoComida, number>>>
+  /** Notas de los extras manuales del Director (notasPorComida): nunca nombres. */
+  notas?: Record<string, Partial<Record<TiempoComida, string[]>>>
 }) {
   return (
     <div className="card admin-table-scroll">
@@ -38,7 +41,11 @@ export function SemanaAgregadaAdministracion({
               {TIEMPOS_COMIDA.map((comida) => (
                 // data-et: en el teléfono la tabla se apila y cada celda muestra su comida.
                 <td key={comida} data-fecha={dia.fecha} data-comida={comida} data-et={ETIQUETA_TIEMPO[comida]}>
-                  <CeldaResumen resumen={dia.resumen[comida]} extra={extras[dia.fecha]?.[comida]} />
+                  <CeldaResumen
+                    resumen={dia.resumen[comida]}
+                    extra={extras[dia.fecha]?.[comida]}
+                    notas={notas[dia.fecha]?.[comida]}
+                  />
                 </td>
               ))}
             </tr>

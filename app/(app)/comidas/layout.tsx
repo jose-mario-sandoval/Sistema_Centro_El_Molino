@@ -15,7 +15,7 @@ export default async function LayoutComidas({ children }: { children: React.Reac
             : 'Tu plan habitual y lo que vas a comer cada día de la semana.'}
         </div>
       </div>
-      <PestanasComidas />
+      <PestanasComidas esDirector={perfil.rol === 'director'} />
       {children}
     </>
   )

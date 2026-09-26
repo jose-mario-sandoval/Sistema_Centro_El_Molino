@@ -80,6 +80,9 @@ const TRAZOS = {
   izquierda: <path d="M15 5l-7 7 7 7" />,
   derecha: <path d="M9 5l7 7-7 7" />,
   abajo: <path d="M5 9l7 7 7-7" />,
+  // Para sumar y restar una cantidad (extras de La casa).
+  mas: <path d="M12 5v14M5 12h14" />,
+  menos: <path d="M5 12h14" />,
   candado: (
     <>
       <path d="M5 11h14v10H5z" />

@@ -13,6 +13,7 @@ import {
   type ValorComida,
 } from '@/lib/comidas/tipos'
 import { textoCorto, type PlanSemanal } from '@/lib/comidas/vista'
+import { CAMBIADA_POR_EL_DIRECTOR, etiquetaNota, etiquetaOpciones, preguntaPlan, type Voz } from '@/lib/comidas/voz'
 import { EditorNota } from './editor-nota'
 import { varsEstado } from './insignia-estado'
 import { PanelOpciones, type MotivoCierre } from './panel-opciones'
@@ -20,11 +21,15 @@ import { revelar } from './revelar'
 import { propsEditorNota, useBorradorNota } from './usar-borrador-nota'
 import { usePlanEditable } from './usar-plan-editable'
 
-const VERBO: Record<TiempoComida, string> = { desayuno: 'desayunás', almuerzo: 'almorzás', cena: 'cenás' }
 const ARTICULO: Record<TiempoComida, string> = { desayuno: 'el', almuerzo: 'el', cena: 'la' }
 const DIA_PLURAL = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábados', 'domingos'] as const
 
 type Celda = { dia: number; comida: TiempoComida }
+
+function etiquetaNotaPlan(estado: EstadoComida, voz: Voz): string | undefined {
+  const tipo = INFO_ESTADO[estado].nota
+  return tipo ? etiquetaNota(tipo, voz) : undefined
+}
 
 /**
  * Una celda de la cuadrícula: icono + texto corto + color (+ hora). Elevada = se toca. Con letra
@@ -34,6 +39,7 @@ function CeldaPlan({
   ref,
   celda,
   valor,
+  cambiadaPorOtro,
   abierta,
   controla,
   pendiente,
@@ -42,6 +48,8 @@ function CeldaPlan({
   ref?: Ref<HTMLButtonElement>
   celda: Celda
   valor: ValorComida | null
+  /** La cambió el Director: lo dice su nombre accesible (y el panel al abrirla). */
+  cambiadaPorOtro: boolean
   abierta: boolean
   controla: string
   pendiente: boolean
@@ -54,7 +62,7 @@ function CeldaPlan({
       type="button"
       className={`celda-plan${valor ? '' : ' vacia'}`}
       style={valor ? varsEstado(valor.estado) : undefined}
-      aria-label={etiquetaCelda(celda.dia, celda.comida, valor)}
+      aria-label={etiquetaCelda(celda.dia, celda.comida, valor, cambiadaPorOtro)}
       aria-expanded={abierta}
       aria-controls={abierta ? controla : undefined}
       aria-busy={pendiente || undefined}
@@ -73,10 +81,22 @@ function CeldaPlan({
 /**
  * El plan semanal: la cuadrícula es el editor (7 días × 3 comidas). Tocar una celda abre, debajo de
  * su fila, las mismas seis opciones y el mismo campo de hora o nota que la Semana, con el mismo
- * comportamiento (DESIGN.md §8). Una celda abierta a la vez.
+ * comportamiento (DESIGN.md §8). Una celda abierta a la vez. En La casa, el Director edita el de otra
+ * persona: `usuarioId` va a cada guardado y los textos pasan a tercera persona.
  */
-export function PlanEditable({ plan }: { plan: PlanSemanal }) {
-  const editor = usePlanEditable(plan)
+export function PlanEditable({
+  plan,
+  usuarioId,
+  voz = 'propia',
+  persona,
+}: {
+  plan: PlanSemanal
+  usuarioId?: string
+  voz?: Voz
+  /** Nombre de la persona (La casa). */
+  persona?: string
+}) {
+  const editor = usePlanEditable(plan, { usuarioId, porOtro: voz === 'ajena' })
   const idPanel = useId()
   const idBase = useId()
   const [abierta, setAbierta] = useState<Celda | null>(null)
@@ -176,6 +196,7 @@ export function PlanEditable({ plan }: { plan: PlanSemanal }) {
                       ref={esta ? botonAbierto : undefined}
                       celda={{ dia, comida }}
                       valor={editor.valor(dia, comida)}
+                      cambiadaPorOtro={editor.cambiadaPorOtro(dia, comida)}
                       abierta={esta}
                       controla={idPanel}
                       pendiente={editor.pendiente(dia, comida)}
@@ -190,7 +211,19 @@ export function PlanEditable({ plan }: { plan: PlanSemanal }) {
                   <PanelOpciones
                     id={idPanel}
                     nombre={`${ARTICULO[abierta.comida]} ${ETIQUETA_TIEMPO[abierta.comida].toLowerCase()} de los ${DIA_PLURAL[i]}`}
-                    titulo={`¿Normalmente ${VERBO[abierta.comida]} los ${DIA_PLURAL[i]}?`}
+                    etiquetaGrupo={etiquetaOpciones(
+                      `${ARTICULO[abierta.comida]} ${ETIQUETA_TIEMPO[abierta.comida].toLowerCase()} de los ${DIA_PLURAL[i]}`,
+                      voz,
+                      persona,
+                    )}
+                    titulo={
+                      <>
+                        {preguntaPlan(abierta.comida, DIA_PLURAL[i], voz)}
+                        {valorAbierto && editor.cambiadaPorOtro(abierta.dia, abierta.comida) && (
+                          <span className="origen cambiada">{CAMBIADA_POR_EL_DIRECTOR}</span>
+                        )}
+                      </>
+                    }
                     marcado={nota.borrador?.estado ?? valorAbierto?.estado ?? null}
                     // La celda y el panel avisan con aria-busy; las opciones siguen respondiendo.
                     pendiente={false}
@@ -201,6 +234,7 @@ export function PlanEditable({ plan }: { plan: PlanSemanal }) {
                         <EditorNota
                           key={nota.borrador.estado}
                           estado={nota.borrador.estado}
+                          etiqueta={etiquetaNotaPlan(nota.borrador.estado, voz)}
                           {...propsEditorNota(nota)}
                           pendiente={false}
                         />
