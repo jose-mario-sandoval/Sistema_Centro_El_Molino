@@ -316,13 +316,23 @@ test.describe('en el teléfono', () => {
     // Apilada: sin la fila de encabezados; cada celda lleva escrita su comida.
     await expect(page.locator('.admin-week-table thead')).toBeHidden()
 
-    for (const texto of ['normal', 'enorme']) {
-      await page.evaluate((valor) => document.documentElement.setAttribute('data-texto', valor), texto)
-      const { ancho, visible } = await page.evaluate(() => ({
-        ancho: document.documentElement.scrollWidth,
-        visible: window.innerWidth,
-      }))
-      expect(ancho, `scroll lateral con letra ${texto}`).toBeLessThanOrEqual(visible)
+    // Letra normal = sin atributo (así lo deja lib/apariencia.ts), y la más grande.
+    for (const texto of [null, 'enorme'] as const) {
+      await page.evaluate((valor) => {
+        if (valor === null) document.documentElement.removeAttribute('data-texto')
+        else document.documentElement.setAttribute('data-texto', valor)
+      }, texto)
+      const sobra = await page.evaluate(() => {
+        const tarjeta = document.querySelector('.admin-table-scroll')
+        return {
+          pagina: document.documentElement.scrollWidth - window.innerWidth,
+          // La tarjeta tiene overflow-x:auto: si la tabla no cabe, se desplaza adentro sin
+          // ensanchar la página, así que también hay que medirla a ella.
+          tarjeta: tarjeta ? tarjeta.scrollWidth - tarjeta.clientWidth : Number.NaN,
+        }
+      })
+      expect(sobra.pagina, `scroll lateral de la página con letra ${texto ?? 'normal'}`).toBeLessThanOrEqual(0)
+      expect(sobra.tarjeta, `scroll lateral dentro de la tabla con letra ${texto ?? 'normal'}`).toBeLessThanOrEqual(0)
     }
     await sinNombresAjenos(page, 'administracion')
   })
