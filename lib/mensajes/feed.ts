@@ -92,7 +92,10 @@ export function agregarAnteriores(actual: Publicacion[], anteriores: Publicacion
   return [...actual, ...anteriores.filter((p) => !cargadas.has(p.id))].sort(compararPublicaciones)
 }
 
-/** Cursor para "Ver anteriores": creado_en de la publicación más antigua, tal como vino de la base. */
+/**
+ * Cursor para "Ver anteriores": creado_en de la publicación más antigua, tal como vino de la base. Solo sobre
+ * una página cronológica (consulta-feed.ts): el feed del navegador mezcla fijadas que pueden ser más viejas.
+ */
 export function cursorAnteriores(publicaciones: Publicacion[]): string | null {
   return publicaciones.at(-1)?.creadoEn ?? null
 }
