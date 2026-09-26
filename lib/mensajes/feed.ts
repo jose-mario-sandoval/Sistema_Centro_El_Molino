@@ -133,21 +133,19 @@ export function aplicarInsercionMensaje(
 /**
  * Evento UPDATE de `mensajes` (aprobar/rechazar/editar/fijar). A diferencia de una inserción, no se puede
  * asumir que el mensaje ya está en el feed local: quien lo recibe puede estar viéndolo por primera
- * vez recién ahora que se volvió visible (antes estaba pendiente). Si el padre de una respuesta
- * recién visible no está cargado, no hay nada que hacer todavía — aparecerá al recargar cuando el
- * padre también sea visible. Tampoco se inserta una publicación fijada que no estaba cargada (una
- * vieja que alguien fijó): llegaría sin sus reacciones ni respuestas; el feed la recarga completa
- * (ver `publicacionFijada` en leerEvento).
+ * vez recién ahora que se volvió visible (antes estaba pendiente), o puede ser una publicación vieja que
+ * alguien fijó o quitó de fijados. Una publicación que no está cargada no se inserta desde la fila del
+ * evento: llegaría sin sus reacciones ni respuestas. El feed la trae completa (`publicacionActualizada` en
+ * leerEvento). Si el padre de una respuesta recién visible no está cargado, no hay nada que hacer todavía —
+ * aparecerá cuando el padre también lo esté.
  */
 export function aplicarActualizacionMensaje(feed: Publicacion[], fila: MensajeFila): Publicacion[] {
   const padreId = fila.padre_id
   if (padreId === null) {
-    const existe = feed.some((p) => p.id === fila.id)
-    if (!existe && fila.fijado_en !== null) return feed
-    const siguiente = existe
-      ? feed.map((p) => (p.id === fila.id ? { ...p, ...aRespuesta(fila), ...datosFijado(fila) } : p))
-      : [...feed, aPublicacion(fila)]
-    return siguiente.sort(compararPublicaciones)
+    if (!feed.some((p) => p.id === fila.id)) return feed
+    return feed
+      .map((p) => (p.id === fila.id ? { ...p, ...aRespuesta(fila), ...datosFijado(fila) } : p))
+      .sort(compararPublicaciones)
   }
   const padre = feed.find((p) => p.id === padreId)
   if (!padre) return feed

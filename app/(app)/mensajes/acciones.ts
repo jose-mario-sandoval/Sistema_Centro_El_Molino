@@ -5,8 +5,8 @@ import { after } from 'next/server'
 import { exito, fallo, type Resultado } from '@/lib/acciones/resultado'
 import { perfilParaAccion } from '@/lib/auth/sesion'
 import { fechaISOEn } from '@/lib/fechas'
-import { listarPublicaciones, type PaginaFeed } from '@/lib/mensajes/consultas'
-import { publicaDirecto, type DatosFijado } from '@/lib/mensajes/feed'
+import { listarPublicaciones, obtenerPublicacion, type PaginaFeed } from '@/lib/mensajes/consultas'
+import { publicaDirecto, type DatosFijado, type Publicacion } from '@/lib/mensajes/feed'
 import { fijadoHasta } from '@/lib/mensajes/fijados'
 import { listarPerfiles, type PerfilResumen } from '@/lib/perfiles/consultas'
 import { avisarNuevaPublicacion, avisarNuevaRespuesta } from '@/lib/push/avisos'
@@ -14,6 +14,7 @@ import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { camposConError } from '@/lib/validacion/auth'
 import {
   esquemaBorrado,
+  esquemaCargarPublicacion,
   esquemaDesfijar,
   esquemaEdicionPropia,
   esquemaFijar,
@@ -179,6 +180,26 @@ export async function cargarMensajes(entrada: unknown): Promise<Resultado<Pagina
   } catch (error) {
     console.error('cargarMensajes', error)
     return fallo('No se pudieron cargar los mensajes. Revisá tu conexión.')
+  }
+}
+
+/**
+ * Una sola publicación completa (con reacciones y respuestas), para la que llega por tiempo real sin estar
+ * cargada: así no hace falta recargar todo el feed ni perder las páginas anteriores que se están leyendo.
+ * null si RLS no la deja ver.
+ */
+export async function cargarPublicacion(entrada: unknown): Promise<Resultado<Publicacion | null>> {
+  const sesion = await perfilParaAccion()
+  if (!sesion.ok) return sesion
+
+  const datos = esquemaCargarPublicacion.safeParse(entrada)
+  if (!datos.success) return fallo('Mensaje inválido.')
+
+  try {
+    return exito(await obtenerPublicacion(datos.data.id))
+  } catch (error) {
+    console.error('cargarPublicacion', error)
+    return fallo('No se pudo cargar la publicación.')
   }
 }
 

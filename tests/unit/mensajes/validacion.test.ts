@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { camposConError } from '@/lib/validacion/auth'
 import {
   esquemaBorrado,
+  esquemaCargarPublicacion,
   esquemaDesfijar,
   esquemaEdicionPropia,
   esquemaFijar,
@@ -145,10 +146,12 @@ describe('esquemaFijar', () => {
   })
 })
 
-describe('esquemaDesfijar', () => {
+describe('esquemaDesfijar y esquemaCargarPublicacion', () => {
   it('solo el id', () => {
     const id = randomUUID()
-    expect(esquemaDesfijar.parse({ id })).toEqual({ id })
-    expect(esquemaDesfijar.safeParse({ id: 42 }).success).toBe(false)
+    for (const esquema of [esquemaDesfijar, esquemaCargarPublicacion]) {
+      expect(esquema.parse({ id })).toEqual({ id })
+      expect(esquema.safeParse({ id: 42 }).success).toBe(false)
+    }
   })
 })

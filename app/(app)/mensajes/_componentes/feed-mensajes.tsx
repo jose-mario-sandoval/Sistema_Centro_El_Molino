@@ -24,6 +24,7 @@ import {
   borrarMensaje,
   cargarMensajes,
   cargarPerfiles,
+  cargarPublicacion,
   desfijarPublicacion,
   fijarPublicacion,
 } from '../acciones'
@@ -72,6 +73,9 @@ export function FeedMensajes({
   const avisoRecargaMostrado = useRef(false)
   /** Publicación que cambió de sección (fijar/quitar): recibe el foco al volver a pintar, para no perderlo. */
   const enfocarDespues = useRef<string | null>(null)
+  /** Último pedido de cada publicación que se está trayendo: la respuesta de uno anterior ya no vale. */
+  const pedidosPublicacion = useRef(new Map<string, number>())
+  const contadorPedidos = useRef(0)
   const idTituloFijados = useId()
   const idTituloPublicaciones = useId()
 
@@ -131,12 +135,30 @@ export function FeedMensajes({
     return 'ok'
   }
 
-  function alEvento({ cambio, autorId, publicacionFijada }: EventoLeido) {
+  /**
+   * Trae una publicación que llegó por tiempo real sin estar cargada (recién aprobada, o una vieja que alguien
+   * fijó), completa con sus reacciones y respuestas. Solo esa: recargar todo perdería las páginas anteriores
+   * que la persona está leyendo. Si mientras tanto llega otro cambio de la misma, vale el pedido más nuevo.
+   */
+  async function traerPublicacion(id: string) {
+    const pedido = ++contadorPedidos.current
+    pedidosPublicacion.current.set(id, pedido)
+    const resultado = await llamarAccion(() => cargarPublicacion({ id }))
+    if (pedidosPublicacion.current.get(id) !== pedido) return
+    pedidosPublicacion.current.delete(id)
+    // Si falla, no se muestra a medias: aparece con la próxima recarga.
+    if (!resultado.ok || !resultado.data) return
+    const publicacion = resultado.data
+    // Solo si sigue faltando (una recarga o "Ver anteriores" pudo traerla mientras tanto).
+    aplicar((feed) => agregarAnteriores(feed, [publicacion]))
+  }
+
+  function alEvento({ cambio, autorId, publicacionActualizada }: EventoLeido) {
     aplicar(cambio)
     if (autorId && !perfiles[autorId]) void recargarPerfiles()
-    // Alguien fijó una publicación que esta página no tiene (una vieja): se trae completa, con sus reacciones
-    // y respuestas, en vez de mostrarla a medias.
-    if (publicacionFijada && !publicaciones.some((p) => p.id === publicacionFijada)) void recargarTodo()
+    if (publicacionActualizada && !publicaciones.some((p) => p.id === publicacionActualizada)) {
+      void traerPublicacion(publicacionActualizada)
+    }
   }
 
   const conexion = useCanalMensajes({ alEvento, recargar: recargarTodo })

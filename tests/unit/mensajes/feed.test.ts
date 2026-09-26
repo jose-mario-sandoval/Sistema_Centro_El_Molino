@@ -237,9 +237,11 @@ describe('aplicarActualizacionMensaje', () => {
     expect(siguiente[0].estado).toBe('aprobado')
   })
 
-  it('un mensaje que se vuelve visible por primera vez (no estaba en el feed) se inserta', () => {
-    const siguiente = aplicarActualizacionMensaje([], { ...base, estado: 'aprobado', motivo_rechazo: null })
-    expect(siguiente).toEqual([{ id: 'm1', autorId: 'u1', texto: 'Hola', creadoEn: base.creado_en, estado: 'aprobado', motivoRechazo: null, reacciones: [], respuestas: [], ...SIN_FIJAR }])
+  it('una publicación que no está cargada (recién aprobada, fijada o quitada) no se inserta a medias: el feed la trae completa', () => {
+    const antes = armarFeed([pub('p1', T(1))])
+    for (const fijado of [{}, { fijado_en: T(5), fijado_hasta: null, fijado_por: 'dir' }]) {
+      expect(aplicarActualizacionMensaje(antes, { ...base, estado: 'aprobado', motivo_rechazo: null, ...fijado })).toBe(antes)
+    }
   })
 
   it('una respuesta que se vuelve visible se agrega bajo su padre si el padre está cargado', () => {
@@ -267,12 +269,6 @@ describe('aplicarActualizacionMensaje', () => {
     expect(fijada[0].respuestas).toHaveLength(1)
     const desfijada = aplicarActualizacionMensaje(fijada, { ...base, estado: 'aprobado', motivo_rechazo: null })
     expect(desfijada[0]).toMatchObject(SIN_FIJAR)
-  })
-
-  it('una publicación fijada que no está cargada no se inserta sin sus reacciones ni respuestas (se recarga)', () => {
-    const antes = armarFeed([pub('p1', T(1))])
-    const siguiente = aplicarActualizacionMensaje(antes, { ...base, estado: 'aprobado', motivo_rechazo: null, fijado_en: T(5), fijado_hasta: null, fijado_por: 'dir' })
-    expect(siguiente).toBe(antes)
   })
 })
 

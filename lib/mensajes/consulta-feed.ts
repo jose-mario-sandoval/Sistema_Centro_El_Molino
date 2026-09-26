@@ -90,6 +90,25 @@ export async function consultarFijadas(supabase: Cliente, ahora: Date): Promise<
 }
 
 /**
+ * Una publicación con sus respuestas y reacciones, tal como la ve quien pregunta: null si no existe, es una
+ * respuesta o RLS no la deja ver (pendiente o rechazada ajena).
+ */
+export async function consultarPublicacion(supabase: Cliente, id: string): Promise<Publicacion | null> {
+  const { data: fila, error } = await supabase
+    .from('mensajes')
+    .select(COLUMNAS_FEED)
+    .eq('id', id)
+    .is('padre_id', null)
+    .order('creado_en', { referencedTable: 'respuestas', ascending: true })
+    .order('id', { referencedTable: 'respuestas', ascending: true })
+    .maybeSingle()
+  if (error) throw error
+  if (!fila) return null
+  const [publicacion] = armarFeed(await completarRespuestas(supabase, [fila]))
+  return publicacion
+}
+
+/**
  * Las TAMANO_PAGINA publicaciones más recientes (o anteriores a `antesDe`), con sus respuestas y reacciones;
  * en la primera página, también las fijadas vigentes. `antesDe` se usa tal como vino de la base (con
  * microsegundos); ver decisión de diseño 7.

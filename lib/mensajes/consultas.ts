@@ -1,6 +1,6 @@
 import 'server-only'
-import { consultarPaginaFeed, type PaginaFeed } from '@/lib/mensajes/consulta-feed'
-import type { MensajeFila } from '@/lib/mensajes/feed'
+import { consultarPaginaFeed, consultarPublicacion, type PaginaFeed } from '@/lib/mensajes/consulta-feed'
+import type { MensajeFila, Publicacion } from '@/lib/mensajes/feed'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import type { Tabla } from '@/lib/supabase/tipos'
 
@@ -13,6 +13,11 @@ export const LIMITE_REGISTRO = 100
 /** Página del feed con la sesión del usuario (RLS aplica); ver consultarPaginaFeed. */
 export async function listarPublicaciones(antesDe: string | null = null): Promise<PaginaFeed> {
   return consultarPaginaFeed(await crearClienteServidor(), antesDe)
+}
+
+/** Una publicación completa con la sesión del usuario (RLS aplica); ver consultarPublicacion. */
+export async function obtenerPublicacion(id: string): Promise<Publicacion | null> {
+  return consultarPublicacion(await crearClienteServidor(), id)
 }
 
 /** Solo devuelve filas al Director (RLS); la página además verifica el rol. */

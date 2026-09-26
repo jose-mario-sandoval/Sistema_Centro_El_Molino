@@ -99,32 +99,20 @@ describe('leerEvento: UPDATE de mensajes', () => {
     fijado_por: null,
   }
 
+  /** La publicación m1 ya cargada, sin fijar y pendiente. */
+  const cargada = () =>
+    armarFeed([{ ...(filaBase as MensajeFila), estado: 'pendiente', reacciones: [{ usuario_id: 'u2' }], respuestas: [] }])
+
   it('traduce un UPDATE a un cambio del feed', () => {
     const resultado = leerEvento({ table: 'mensajes', eventType: 'UPDATE', new: filaBase, old: {} })
     expect(resultado?.autorId).toBe('u1')
-    const siguiente = resultado!.cambio([])
-    expect(siguiente).toEqual([
-      {
-        id: 'm1',
-        autorId: 'u1',
-        texto: 'Hola',
-        creadoEn: filaBase.creado_en,
-        estado: 'aprobado',
-        motivoRechazo: null,
-        reacciones: [],
-        respuestas: [],
-        fijadoEn: null,
-        fijadoHasta: null,
-        fijadoPor: null,
-      },
-    ])
-    expect(resultado?.publicacionFijada).toBeUndefined()
+    const [p] = resultado!.cambio(cargada())
+    expect(p).toMatchObject({ id: 'm1', estado: 'aprobado', reacciones: ['u2'] })
   })
 
   it('lee los datos de fijado', () => {
     const fijada = { ...filaBase, fijado_en: '2026-01-02T00:00:00+00:00', fijado_hasta: '2026-01-03T00:00:00+00:00', fijado_por: 'adm' }
-    const cargada = leerEvento({ table: 'mensajes', eventType: 'UPDATE', new: filaBase, old: {} })!.cambio([])
-    const [p] = leerEvento({ table: 'mensajes', eventType: 'UPDATE', new: fijada, old: {} })!.cambio(cargada)
+    const [p] = leerEvento({ table: 'mensajes', eventType: 'UPDATE', new: fijada, old: {} })!.cambio(cargada())
     expect(p).toMatchObject({ fijadoEn: fijada.fijado_en, fijadoHasta: fijada.fijado_hasta, fijadoPor: 'adm' })
   })
 
@@ -132,7 +120,7 @@ describe('leerEvento: UPDATE de mensajes', () => {
     const sinColumnas: Record<string, unknown> = { ...filaBase }
     for (const columna of ['fijado_en', 'fijado_hasta', 'fijado_por']) delete sinColumnas[columna]
     const resultado = leerEvento({ table: 'mensajes', eventType: 'UPDATE', new: sinColumnas, old: {} })
-    expect(resultado!.cambio([])[0]).toMatchObject({ fijadoEn: null, fijadoHasta: null, fijadoPor: null })
+    expect(resultado!.cambio(cargada())[0]).toMatchObject({ fijadoEn: null, fijadoHasta: null, fijadoPor: null })
     expect(leerEvento(evento({ table: 'mensajes', eventType: 'INSERT', new: sinColumnas }))).not.toBeNull()
   })
 
@@ -142,12 +130,17 @@ describe('leerEvento: UPDATE de mensajes', () => {
     }
   })
 
-  it('el UPDATE de una publicación fijada avisa cuál es, para recargarla si no está cargada', () => {
+  it('el UPDATE de una publicación avisa cuál es: si no está cargada, el feed la trae completa', () => {
     const fijada = { ...filaBase, fijado_en: '2026-01-02T00:00:00+00:00' }
-    expect(leerEvento({ table: 'mensajes', eventType: 'UPDATE', new: fijada, old: {} })?.publicacionFijada).toBe('m1')
-    // Una respuesta nunca está fijada; y una desfijada ya no hace falta traerla.
+    for (const fila of [filaBase, fijada]) {
+      const leido = leerEvento({ table: 'mensajes', eventType: 'UPDATE', new: fila, old: {} })
+      expect(leido?.publicacionActualizada).toBe('m1')
+      // No la inserta sin reacciones ni respuestas.
+      expect(leido!.cambio([])).toEqual([])
+    }
+    // Una respuesta viaja bajo su publicación: no se trae suelta.
     const respuesta = { ...filaBase, id: 'r1', padre_id: 'm1' }
-    expect(leerEvento({ table: 'mensajes', eventType: 'UPDATE', new: respuesta, old: {} })?.publicacionFijada).toBeUndefined()
+    expect(leerEvento({ table: 'mensajes', eventType: 'UPDATE', new: respuesta, old: {} })?.publicacionActualizada).toBeUndefined()
   })
 
   it('un estado desconocido se ignora (fila inválida)', () => {

@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
+  cargarPublicacion,
   desfijarPublicacion,
   fijarPublicacion,
   moderarMensaje,
@@ -7,6 +8,7 @@ import {
   responderMensaje,
 } from '@/app/(app)/mensajes/acciones'
 import { perfilParaAccion, type Perfil } from '@/lib/auth/sesion'
+import { obtenerPublicacion } from '@/lib/mensajes/consultas'
 import type { Rol } from '@/lib/perfiles/roles'
 import { avisarNuevaPublicacion, avisarNuevaRespuesta } from '@/lib/push/avisos'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
@@ -18,7 +20,7 @@ vi.mock('next/server', () => ({ after: vi.fn() }))
 vi.mock('@/lib/auth/sesion', () => ({ perfilParaAccion: vi.fn() }))
 vi.mock('@/lib/supabase/servidor', () => ({ crearClienteServidor: vi.fn() }))
 vi.mock('@/lib/push/avisos', () => ({ avisarNuevaPublicacion: vi.fn(), avisarNuevaRespuesta: vi.fn() }))
-vi.mock('@/lib/mensajes/consultas', () => ({ listarPublicaciones: vi.fn() }))
+vi.mock('@/lib/mensajes/consultas', () => ({ listarPublicaciones: vi.fn(), obtenerPublicacion: vi.fn() }))
 vi.mock('@/lib/perfiles/consultas', () => ({ listarPerfiles: vi.fn() }))
 
 const { revalidatePath } = await import('next/cache')
@@ -266,5 +268,23 @@ describe('desfijarPublicacion', () => {
       ok: false,
       error: 'No tenés permiso para quitar publicaciones fijadas.',
     })
+  })
+})
+
+describe('cargarPublicacion', () => {
+  it('trae una publicación con la sesión de quien pregunta (o null si no la puede ver)', async () => {
+    como('residente')
+    const publicacion = { id: ID, autorId: 'x', texto: 'Hola', creadoEn: '2026-09-26T00:00:00Z', estado: 'aprobado' as const, motivoRechazo: null, reacciones: [], respuestas: [], fijadoEn: null, fijadoHasta: null, fijadoPor: null }
+    vi.mocked(obtenerPublicacion).mockResolvedValueOnce(publicacion).mockResolvedValueOnce(null)
+    expect(await cargarPublicacion({ id: ID })).toEqual({ ok: true, data: publicacion })
+    expect(await cargarPublicacion({ id: ID })).toEqual({ ok: true, data: null })
+    expect(obtenerPublicacion).toHaveBeenCalledWith(ID)
+  })
+
+  it('id inválido o error de la base: fallo', async () => {
+    como('residente')
+    expect(await cargarPublicacion({ id: 'x' })).toMatchObject({ ok: false })
+    vi.mocked(obtenerPublicacion).mockRejectedValueOnce(new Error('caída'))
+    expect(await cargarPublicacion({ id: ID })).toMatchObject({ ok: false, error: 'No se pudo cargar la publicación.' })
   })
 })

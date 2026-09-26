@@ -47,6 +47,9 @@ export const esquemaFijar = z
 
 export const esquemaDesfijar = z.object({ id: idMensaje })
 
+/** Traer una sola publicación completa (una que llegó por tiempo real y no estaba cargada). */
+export const esquemaCargarPublicacion = z.object({ id: idMensaje })
+
 /** "Ver anteriores": `antesDe` es el creado_en de la publicación más antigua cargada; null = primera página. */
 export const esquemaPaginaMensajes = z.object({
   antesDe: z.iso.datetime({ offset: true, error: 'Fecha inválida.' }).nullable().default(null),

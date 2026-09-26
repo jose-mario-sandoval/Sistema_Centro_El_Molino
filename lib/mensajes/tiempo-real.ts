@@ -27,10 +27,10 @@ export type EventoLeido = {
   /** Autor de un mensaje nuevo: si su perfil no está cargado, hay que pedirlo. */
   autorId?: string
   /**
-   * Id de una publicación que quedó fijada. Si no está cargada (alguien fijó una vieja), `cambio` no la
-   * agrega —le faltarían reacciones y respuestas— y el feed tiene que recargar para traerla completa.
+   * UPDATE de una publicación (aprobada, fijada, quitada de fijados…). Si no está cargada, `cambio` no la
+   * agrega —le faltarían reacciones y respuestas— y el feed tiene que traerla completa.
    */
-  publicacionFijada?: string
+  publicacionActualizada?: string
 }
 
 function esTexto(valor: unknown): valor is string {
@@ -78,7 +78,7 @@ export function leerEvento(evento: EventoTiempoReal): EventoLeido | null {
       return {
         cambio: (feed) => aplicarActualizacionMensaje(feed, fila),
         autorId: fila.autor_id,
-        ...(fila.padre_id === null && fila.fijado_en !== null && { publicacionFijada: fila.id }),
+        ...(fila.padre_id === null && { publicacionActualizada: fila.id }),
       }
     }
     if (evento.eventType === 'DELETE') {

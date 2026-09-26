@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { afterEach, beforeAll, describe, expect, it } from 'vitest'
-import { consultarPaginaFeed } from '@/lib/mensajes/consulta-feed'
+import { consultarPaginaFeed, consultarPublicacion } from '@/lib/mensajes/consulta-feed'
 import { TAMANO_PAGINA } from '@/lib/mensajes/feed'
 import type { Database } from '@/lib/supabase/database.types'
 import {
@@ -485,6 +485,28 @@ describe('aprobación de mensajes', () => {
     expect(delDirector!.estado).toBe('aprobado')
   })
 
+  it('con sesión, la fecha la pone la base: nadie queda primero en el feed con una fecha futura', async () => {
+    const antes = Date.now()
+    for (const clave of ['residente', 'administracion'] as const) {
+      const cliente = await clienteComo(clave)
+      const { data, error } = await cliente
+        .from('mensajes')
+        .insert({ autor_id: ids[clave], texto: 'Del futuro', creado_en: '2099-01-01T00:00:00Z' })
+        .select('creado_en')
+        .single()
+      expect(error).toBeNull()
+      expect(Date.parse(data!.creado_en)).toBeLessThan(antes + 5 * 60_000)
+      expect(Date.parse(data!.creado_en)).toBeGreaterThan(antes - 5 * 60_000)
+    }
+    // Con la llave secreta (siembras y pruebas) se respeta la fecha que venga.
+    const { data: sembrado } = await admin
+      .from('mensajes')
+      .insert({ autor_id: ids.residente, texto: 'Sembrado viejo', creado_en: '2020-01-01T00:00:00Z' })
+      .select('creado_en')
+      .single()
+    expect(Date.parse(sembrado!.creado_en)).toBe(Date.parse('2020-01-01T00:00:00Z'))
+  })
+
   it('el cliente no puede autoaprobarse mandando estado en el insert', async () => {
     const residente = await clienteComo('residente')
     const { data } = await residente
@@ -703,6 +725,27 @@ describe('fijar publicaciones', () => {
     expect(data).toEqual({ fijado_en: null, fijado_por: null })
   })
 
+  it('Administración con la cuenta inactiva no quita de fijados', async () => {
+    const id = await aprobada()
+    await (await clienteComo('director')).rpc('fijar_mensaje', { p_id: id, p_hasta: null })
+    await admin.from('perfiles').update({ activo: false }).eq('id', ids.administracion)
+    const inactiva = await clienteComo('administracion')
+    expect((await inactiva.rpc('desfijar_mensaje', { p_id: id })).error?.code).toBe('42501')
+    expect((await fijado(id)).fijado_en).not.toBeNull()
+  })
+
+  it('quitar de fijados un pendiente o rechazado ajeno responde igual que si no existiera (no los delata)', async () => {
+    const administracion = await clienteComo('administracion')
+    const pendiente = await publicar('residente', 'Pendiente oculto')
+    const rechazado = await publicar('residente', 'Rechazado oculto')
+    await (await clienteComo('director')).from('mensajes').update({ estado: 'rechazado' }).eq('id', rechazado)
+    for (const id of [pendiente, rechazado, randomUUID()]) {
+      expect((await administracion.rpc('desfijar_mensaje', { p_id: id })).error?.code).toBe('P0002')
+    }
+    expect((await fijado(pendiente)).estado).toBe('pendiente')
+    expect((await fijado(rechazado)).estado).toBe('rechazado')
+  })
+
   it('rechazar una fijada la desfija', async () => {
     const id = await aprobada('residente')
     const director = await clienteComo('director')
@@ -750,5 +793,34 @@ describe('fijar publicaciones', () => {
     expect(fijadas.find((p) => p.id === segunda)).toMatchObject({ fijadoPor: ids.administracion })
     // En la página por fecha están todas: separar las vigentes es cosa del navegador (lib/mensajes/fijados.ts).
     expect(publicaciones.map((p) => p.id)).toEqual(expect.arrayContaining([primera, segunda, vencida, quitada]))
+  })
+})
+
+describe('una sola publicación (la que llega por tiempo real sin estar cargada)', () => {
+  async function publicacionComo(clave: ClaveUsuario, id: string) {
+    const cliente = (await clienteComo(clave)) as unknown as SupabaseClient<Database>
+    return consultarPublicacion(cliente, id)
+  }
+
+  it('viene completa, con sus respuestas y reacciones, y con los datos de fijado', async () => {
+    const id = await publicar('director', 'Vieja que alguien fija')
+    const respuesta = await publicar('administracion', 'Respuesta de la cocina', id)
+    await (await clienteComo('residente')).from('reacciones').insert({ mensaje_id: id, usuario_id: ids.residente })
+    await (await clienteComo('administracion')).rpc('fijar_mensaje', { p_id: id, p_hasta: null })
+
+    const p = await publicacionComo('residente2', id)
+    expect(p).toMatchObject({ id, autorId: ids.director, fijadoPor: ids.administracion, reacciones: [ids.residente] })
+    expect(p!.respuestas.map((r) => r.id)).toEqual([respuesta])
+  })
+
+  it('null si no la puede ver (pendiente ajeno), si es una respuesta o si no existe', async () => {
+    const pendiente = await publicar('residente', 'Pendiente')
+    expect(await publicacionComo('residente2', pendiente)).toBeNull()
+    expect(await publicacionComo('residente', pendiente)).not.toBeNull()
+
+    const publicacion = await publicar('director', 'Con respuesta')
+    const respuesta = await publicar('director', 'Respuesta', publicacion)
+    expect(await publicacionComo('residente', respuesta)).toBeNull()
+    expect(await publicacionComo('residente', randomUUID())).toBeNull()
   })
 })

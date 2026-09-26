@@ -45,10 +45,15 @@ begin
     -- `null in (...)` es null y el case cae en pendiente.
     new.estado := case when v_rol in ('director', 'administracion') then 'aprobado' else 'pendiente' end;
     new.motivo_rechazo := null;
-    -- authenticated tiene INSERT sobre toda la tabla: nadie publica algo ya fijado.
+    -- authenticated tiene INSERT sobre toda la tabla: nadie publica algo ya fijado...
     new.fijado_en := null;
     new.fijado_hasta := null;
     new.fijado_por := null;
+    -- ...ni con una fecha inventada (una de 2099 quedaría primera en el feed para siempre, y la cola de
+    -- moderación mostraría esa hora). Sin sesión (llave secreta: siembras y pruebas) se respeta la que venga.
+    if (select auth.uid()) is not null then
+      new.creado_en := now();
+    end if;
     return new;
   end if;
 
@@ -134,9 +139,12 @@ begin
    where id = p_id
      and fijado_en is not null;
 
-  -- Ya desfijada (dos personas la quitan a la vez): no es error.
-  if not found and not exists (select 1 from public.mensajes m where m.id = p_id and m.padre_id is null) then
-    raise exception 'No hay una publicación con ese id' using errcode = 'P0002';
+  -- Ya desfijada (dos personas la quitan a la vez): no es error. Solo entre las aprobadas: esta función no
+  -- pasa por RLS, y distinguir "existe pero no la ves" de "no existe" delataría pendientes y rechazados ajenos.
+  if not found and not exists (
+    select 1 from public.mensajes m where m.id = p_id and m.padre_id is null and m.estado = 'aprobado'
+  ) then
+    raise exception 'No hay una publicación aprobada con ese id' using errcode = 'P0002';
   end if;
 end;
 $$;
