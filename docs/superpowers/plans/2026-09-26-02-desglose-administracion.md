@@ -41,6 +41,10 @@ scroll horizontal, sin tarjetas dentro de tarjetas), §12 (anclas de los E2E).
   de la ficha.
 - **Guardia de truncado** también para `selecciones_comida` de la semana (PostgREST `max_rows =
   1000`), con un helper puro `exigirFilasCompletas()` que usan las tres guardias.
+- **La tabla se apila por el ancho de su tarjeta** (consulta de contenedor, ≤40rem), no por el de
+  la pantalla. Salió de verificar: con la media query de antes, entre 640 y ~1100px con letra
+  "Grande"/"Muy grande" el desglose se salía de sus columnas (en una media query el rem es siempre
+  16px; en una de contenedor sigue a la letra elegida). `.user-table` sigue con su media query.
 
 ---
 
@@ -53,11 +57,13 @@ lib/comidas/consultas.ts                                        guardias con el 
 app/(app)/comidas/_componentes/celda-resumen.tsx                 nuevo — CeldaResumen
 app/(app)/comidas/_componentes/semana-agregada-administracion.tsx transpuesta, usa CeldaResumen
 app/(app)/comidas/_componentes/plan-agregado-administracion.tsx   transpuesta, usa CeldaResumen
-app/globals.css                                                  §6 celda + apilado del teléfono
+app/globals.css                                                  §6 celda + apilado por contenedor
+DESIGN.md                                                        §12 nota del apilado por contenedor
 tests/unit/comidas/resumen.test.ts                               partesParaCocina, textos de "no"
 tests/unit/comidas/vista.test.ts                                 textos de "no" si cambian
 tests/unit/supabase/filas-completas.test.ts                      nuevo
 tests/unit/comidas/celda-resumen.test.ts                         nuevo — renderToStaticMarkup
+tests/unit/comidas/tablas-administracion.test.ts                 nuevo — estructura de las dos tablas
 tests/e2e/comidas.spec.ts                                        selectores nuevos, desglose, Plan, 375px
 ```
 
@@ -98,9 +104,10 @@ tests/e2e/comidas.spec.ts                                        selectores nuev
 ### Tarea 5: CSS
 
 - [ ] Celda en escritorio: número + "comen" en una línea, partes en columna debajo.
-- [ ] Teléfono (≤40rem): cada día es una ficha; cada comida, etiqueta a la izquierda y número a la
+- [ ] Tarjeta angosta (contenedor ≤40rem): cada día es una ficha; cada comida, etiqueta a la izquierda y número a la
       derecha, partes debajo a todo el ancho. Nada de scroll lateral a 320px con letra "enorme".
-- [ ] Revisar contraste alto (bordes de `.parte`) y tema oscuro. Commit.
+- [ ] Revisar contraste alto (bordes de `.parte` y de cada fila, que sin relieve no se veían) y tema
+      oscuro. Commit.
 
 ### Tarea 6: E2E
 
