@@ -9,17 +9,15 @@ import {
   ETIQUETA_TIEMPO,
   INFO_ESTADO,
   type EstadoComida,
-  type TiempoComida,
   type ValorComida,
   type ValorEfectivo,
 } from '@/lib/comidas/tipos'
 import { valorTrasGuardar, type ComidaDeSemana } from '@/lib/comidas/vista'
+import { preguntaComida, textoOrigen, textoVolver } from '@/lib/comidas/voz'
 import type { FechaISO } from '@/lib/fechas'
 import { guardarSeleccion, volverAPlan } from '../acciones'
 import { textoNota } from './insignia-estado'
 import { SelectorComida } from './selector-comida'
-
-const VERBO: Record<TiempoComida, string> = { desayuno: 'desayunar', almuerzo: 'almorzar', cena: 'cenar' }
 
 /** 'cierra hoy 10:00' → 'Cierra hoy 10:00' */
 function conMayuscula(texto: string): string {
@@ -118,8 +116,9 @@ export function ComidaDelDia({
         nombre={nombre}
         estado={valor?.estado ?? null}
         marcado={estadoMarcado}
-        pregunta={`¿Vas a ${VERBO[datos.comida]} el ${dia.toLowerCase()}?`}
-        origen={valor ? { texto: textoOrigen(valor), cambiada: valor.origen === 'persona' } : null}
+        pregunta={preguntaComida(datos.comida, dia, 'propia')}
+        // "la cambió el Director" cuando fue él (modificado_por): la persona tiene que saberlo.
+        origen={valor ? { texto: textoOrigen(valor, 'propia'), cambiada: valor.origen === 'persona' } : null}
         nota={!escribiendoNota && valor?.nota ? textoNota(valor.estado, valor.nota) : null}
         cierre={editable ? conMayuscula(datos.cierre) : null}
         cerrada={editable ? null : 'Cerrada: ya no se puede cambiar.'}
@@ -156,16 +155,11 @@ export function ComidaDelDia({
           !escribiendoNota &&
           valor?.origen === 'persona' && (
             <button type="button" className="btn ghost" disabled={pendiente} onClick={volver}>
-              {datos.ausente ? 'Volver a mi ausencia' : 'Volver a mi plan'}
+              {textoVolver(datos.ausente, 'propia')}
             </button>
           )
         }
       />
     </div>
   )
-}
-
-function textoOrigen(valor: NonNullable<ValorEfectivo>): string {
-  if (valor.origen === 'persona') return 'cambiada'
-  return valor.origen === 'ausencia' ? 'por tu ausencia' : 'según tu plan'
 }
