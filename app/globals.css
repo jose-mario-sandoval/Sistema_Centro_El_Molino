@@ -561,19 +561,22 @@ a{color:var(--acento);}
 .notas-extra{display:flex;flex-direction:column;gap:.2rem;margin-top:.25rem;font-size:var(--t-sm);color:var(--tinta-suave);}
 .notas-extra > *{display:block;}
 
+/* Contraste alto sin relieve: cada fila (un día) lleva su borde, como toda superficie hundida.
+   Apilada, el borde lo lleva la ficha entera (abajo se quitan los de las celdas). */
+[data-contraste="alto"] .admin-week-table td,
+[data-contraste="alto"] .admin-week-table .namecell{border-block:2px solid var(--borde-hundido);}
+[data-contraste="alto"] .admin-week-table .namecell{border-left:2px solid var(--borde-hundido);}
+[data-contraste="alto"] .admin-week-table td:last-child{border-right:2px solid var(--borde-hundido);}
+
 /* Tarjeta angosta: la tabla se apila como fichas (un día por ficha, una comida por renglón) con
    sus etiquetas escritas. Sin scroll lateral (DESIGN.md §8). Se mide la tarjeta y no la pantalla:
    en una consulta de contenedor el rem sigue al tamaño de letra elegido, así que con letra "Muy
-   grande" la tabla se apila antes de que el desglose deje de caber en sus columnas. */
-.admin-table-scroll{container-type:inline-size;}
-/* Contraste alto sin relieve: cada fila (un día) lleva su borde, como toda superficie hundida. */
-@container (min-width:40.001rem){
-  [data-contraste="alto"] .admin-week-table td,
-  [data-contraste="alto"] .admin-week-table .namecell{border-block:2px solid var(--borde-hundido);}
-  [data-contraste="alto"] .admin-week-table .namecell{border-left:2px solid var(--borde-hundido);}
-  [data-contraste="alto"] .admin-week-table td:last-child{border-right:2px solid var(--borde-hundido);}
-}
-@container (max-width:40rem){
+   grande" la tabla se apila antes de que el desglose deje de caber en sus columnas. El umbral es
+   el menor que no desborda con ninguna letra entre 320 y 1700px (así una tablet vertical ve la
+   tabla y no fichas). Contenedor con nombre: si la tabla va dentro de otro contenedor (PR 5), la
+   consulta no se equivoca de caja. */
+.admin-table-scroll{container:tabla-admin / inline-size;}
+@container tabla-admin (width <= 34rem){
   .admin-week-table,.admin-week-table tbody,.admin-week-table tr{display:block;width:100%;}
   .admin-week-table thead{display:none;}
   .admin-week-table tr{
@@ -583,6 +586,9 @@ a{color:var(--acento);}
   .admin-week-table th.namecell,.admin-week-table td,.admin-week-table td:last-child{
     display:block;width:100%;padding:.35rem 0;background:none;box-shadow:none;border-radius:0;
   }
+  [data-contraste="alto"] .admin-week-table .namecell,
+  [data-contraste="alto"] .admin-week-table td,
+  [data-contraste="alto"] .admin-week-table td:last-child{border:0;}
   .admin-week-table th.namecell{font-size:var(--t-base);padding-bottom:.5rem;}
   /* Cada comida: etiqueta a la izquierda, cuántos comen a la derecha y el desglose debajo, a todo
      el ancho y en renglones. Una línea separa las comidas del día. */
@@ -597,6 +603,38 @@ a{color:var(--acento);}
   .admin-week-table td[data-et] .notas-extra{flex-basis:100%;text-align:right;margin:0;}
   .admin-week-table td.excepcion{background:var(--dorado-suave);padding:.35rem .6rem;border-radius:var(--r-sm);}
   .admin-week-table td .plan-linea{white-space:normal;}
+}
+/* Navegadores sin consultas de contenedor (iOS 15 y anteriores): mismo apilado, por ancho de
+   pantalla. Mantener igual al bloque de arriba. */
+@supports not (container-type:inline-size){
+  @media (max-width:40rem){
+    .admin-week-table,.admin-week-table tbody,.admin-week-table tr{display:block;width:100%;}
+    .admin-week-table thead{display:none;}
+    .admin-week-table tr{
+      margin-bottom:.9rem;padding:.75rem var(--marco);border-radius:var(--r-md);
+      border:2px solid var(--borde-hundido);box-shadow:var(--hundido-suave);
+    }
+    .admin-week-table th.namecell,.admin-week-table td,.admin-week-table td:last-child{
+      display:block;width:100%;padding:.35rem 0;background:none;box-shadow:none;border-radius:0;
+    }
+    [data-contraste="alto"] .admin-week-table .namecell,
+    [data-contraste="alto"] .admin-week-table td,
+    [data-contraste="alto"] .admin-week-table td:last-child{border:0;}
+    .admin-week-table th.namecell{font-size:var(--t-base);padding-bottom:.5rem;}
+    /* Cada comida: etiqueta a la izquierda, cuántos comen a la derecha y el desglose debajo, a todo
+       el ancho y en renglones. Una línea separa las comidas del día. */
+    .admin-week-table td[data-et]{display:flex;align-items:center;flex-wrap:wrap;gap:.3rem .6rem;}
+    .admin-week-table td[data-et]::before{
+      content:attr(data-et);flex:1 1 auto;font-size:var(--t-xs);font-weight:700;color:var(--tinta-suave);
+      text-transform:uppercase;letter-spacing:.04em;
+    }
+    .admin-week-table td[data-et] + td[data-et]{border-top:2px solid var(--separador);margin-top:.35rem;padding-top:.7rem;}
+    .admin-week-table td[data-et] .partes{flex-basis:100%;flex-direction:row;flex-wrap:wrap;margin-top:.15rem;}
+    .admin-week-table td[data-et] .status-note,
+    .admin-week-table td[data-et] .notas-extra{flex-basis:100%;text-align:right;margin:0;}
+    .admin-week-table td.excepcion{background:var(--dorado-suave);padding:.35rem .6rem;border-radius:var(--r-sm);}
+    .admin-week-table td .plan-linea{white-space:normal;}
+  }
 }
 
 .plan-linea{display:flex;align-items:center;gap:.35rem;margin-bottom:.35rem;white-space:nowrap;}

@@ -41,10 +41,15 @@ scroll horizontal, sin tarjetas dentro de tarjetas), §12 (anclas de los E2E).
   de la ficha.
 - **Guardia de truncado** también para `selecciones_comida` de la semana (PostgREST `max_rows =
   1000`), con un helper puro `exigirFilasCompletas()` que usan las tres guardias.
-- **La tabla se apila por el ancho de su tarjeta** (consulta de contenedor, ≤40rem), no por el de
-  la pantalla. Salió de verificar: con la media query de antes, entre 640 y ~1100px con letra
-  "Grande"/"Muy grande" el desglose se salía de sus columnas (en una media query el rem es siempre
-  16px; en una de contenedor sigue a la letra elegida). `.user-table` sigue con su media query.
+- **La tabla se apila por el ancho de su tarjeta** (contenedor con nombre `tabla-admin`, `width <=
+  34rem`), no por el de la pantalla. Salió de verificar: con la media query de antes, entre 640 y
+  ~1100px con letra "Grande"/"Muy grande" el desglose se salía de sus columnas (en una media query
+  el rem es siempre 16px; en una de contenedor sigue a la letra elegida). 34rem sale de un barrido
+  cada 2px entre 320 y 1700px con las fuentes reales: la rejilla deja de desbordar en ~31.8rem con
+  cualquier letra, y una tablet de 768px o 1024px con lateral queda como tabla. Sin consultas de
+  contenedor (iOS 15), `@supports not` apila por pantalla a 40rem. `.user-table` no cambia.
+- **Revisión:** la prueba de 375px mide también la tarjeta (`overflow-x:auto` esconde el desborde
+  de la tabla dentro de ella) y "normal" es sin atributo `data-texto`, como lo deja el driver.
 
 ---
 
@@ -73,54 +78,62 @@ tests/e2e/comidas.spec.ts                                        selectores nuev
 
 ### Tarea 1: `partesParaCocina()` y "no comen"
 
-- [ ] Prueba: orden temprano → tarde → bolsa → enfermo → sí → no → sin definir; solo partes con
+- [x] Prueba: orden temprano → tarde → bolsa → enfermo → sí → no → sin definir; solo partes con
       cantidad; resumen vacío → `[]`; no muta el resumen.
-- [ ] Prueba: "1 no come", "2 no comen" (actualizar las expectativas de `resumenComida` y
+- [x] Prueba: "1 no come", "2 no comen" (actualizar las expectativas de `resumenComida` y
       `textoResumen`).
-- [ ] Verla fallar, implementar, verla pasar. Commit.
+- [x] Verla fallar, implementar, verla pasar. Commit.
 
 ### Tarea 2: `exigirFilasCompletas()` y guardia de selecciones
 
-- [ ] Prueba: sin `count` (null) no lanza; `count === data.length` no lanza; `count > data.length`
+- [x] Prueba: sin `count` (null) no lanza; `count === data.length` no lanza; `count > data.length`
       lanza con "llegaron N de M".
-- [ ] Implementar en `lib/supabase/filas-completas.ts` (puro, sin `server-only`).
-- [ ] `consultas.ts`: reemplazar las dos guardias de planes por el helper y agregar `{ count:
+- [x] Implementar en `lib/supabase/filas-completas.ts` (puro, sin `server-only`).
+- [x] `consultas.ts`: reemplazar las dos guardias de planes por el helper y agregar `{ count:
       'exact' }` + guardia a las selecciones de `obtenerSemanaParaAdministracion`. Commit.
 
 ### Tarea 3: `CeldaResumen`
 
-- [ ] Pruebas con `renderToStaticMarkup`: número en `.conteo-numero` sin texto extra; "comen"/"come";
+- [x] Pruebas con `renderToStaticMarkup`: número en `.conteo-numero` sin texto extra; "comen"/"come";
       partes en orden de cocina con icono (`svg.icono`) y `--c`/`--cbg`; "sin definir" con clase
       `sin-definir`; "+N extra"; `notas` en lista; `como='spans'` sin `ul`/`li`.
-- [ ] Implementar. Commit.
+- [x] Implementar. Commit.
 
 ### Tarea 4: tablas transpuestas
 
-- [ ] `SemanaAgregadaAdministracion`: filas = días (`th.namecell scope=row` "Miércoles 23/9"),
+- [x] `SemanaAgregadaAdministracion`: filas = días (`th.namecell scope=row` "Miércoles 23/9"),
       columnas Desayuno/Almuerzo/Cena; `td data-fecha data-comida data-et`.
-- [ ] `PlanAgregadoAdministracion`: filas = "Lunes"…"Domingo"; `td data-dia data-comida data-et`.
-- [ ] Lint + typecheck. Commit.
+- [x] `PlanAgregadoAdministracion`: filas = "Lunes"…"Domingo"; `td data-dia data-comida data-et`.
+- [x] Lint + typecheck. Commit.
 
 ### Tarea 5: CSS
 
-- [ ] Celda en escritorio: número + "comen" en una línea, partes en columna debajo.
-- [ ] Tarjeta angosta (contenedor ≤40rem): cada día es una ficha; cada comida, etiqueta a la izquierda y número a la
+- [x] Celda en escritorio: número + "comen" en una línea, partes en columna debajo.
+- [x] Tarjeta angosta (contenedor ≤40rem): cada día es una ficha; cada comida, etiqueta a la izquierda y número a la
       derecha, partes debajo a todo el ancho. Nada de scroll lateral a 320px con letra "enorme".
-- [ ] Revisar contraste alto (bordes de `.parte` y de cada fila, que sin relieve no se veían) y tema
+- [x] Revisar contraste alto (bordes de `.parte` y de cada fila, que sin relieve no se veían) y tema
       oscuro. Commit.
 
 ### Tarea 6: E2E
 
-- [ ] `td[data-et="Almuerzo …"]` → `td[data-fecha="…"][data-comida="almuerzo"]` (con `.conteo-numero`).
-- [ ] El residente que eligió "Comer tarde 13:30" aparece como `1 tarde (13:30)`.
-- [ ] Plan: el plan habitual del residente aparece en `td[data-dia="3"][data-comida="almuerzo"]`.
-- [ ] 375×812: `scrollWidth <= innerWidth` en la Semana de Administración.
-- [ ] Se conservan: sin "Persona" en la tabla, sin siglas, sin nombres en el HTML, sin /ausen/i.
+- [x] `td[data-et="Almuerzo …"]` → `td[data-fecha="…"][data-comida="almuerzo"]` (con `.conteo-numero`).
+- [x] El residente que eligió "Comer tarde 13:30" aparece como `1 tarde (13:30)`.
+- [x] Plan: el plan habitual del residente aparece en `td[data-dia="3"][data-comida="almuerzo"]`.
+- [x] 375×812: `scrollWidth <= innerWidth` en la Semana de Administración.
+- [x] Se conservan: sin "Persona" en la tabla, sin siglas, sin nombres en el HTML, sin /ausen/i.
       Commit.
 
 ### Tarea 7: verificación y PR
 
-- [ ] `npm run lint`, `npm run typecheck`, `npm test`.
-- [ ] Capturas (render estático + `globals.css`) a 320, 375 y 1280, con oscuro, contraste alto y
+- [x] `npm run lint`, `npm run typecheck`, `npm test`.
+- [x] Capturas (render estático + `globals.css`) a 320, 375 y 1280, con oscuro, contraste alto y
       letra enorme.
-- [ ] PR a `master`, CI en verde.
+- [x] PR a `master` (#20), CI en verde.
+
+### Tarea 8: correcciones de la revisión
+
+- [x] Prueba: `ORDEN_COCINA` nombra todos los estados y "sin definir".
+- [x] E2E de 375px: medir también `.admin-table-scroll`; letra normal = quitar `data-texto`.
+- [x] Contenedor con nombre y sintaxis de rango; `@supports not` para navegadores sin consultas de
+      contenedor.
+- [x] Umbral 34rem (barrido 320–1700px, normal/grande/enorme, fuentes reales).
