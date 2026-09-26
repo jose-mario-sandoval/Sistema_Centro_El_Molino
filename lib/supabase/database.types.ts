@@ -225,7 +225,7 @@ export type Database = {
         Row: {
           cantidad: number
           creado_en: string
-          creado_por: string
+          creado_por: string | null
           fecha: string
           id: string
           nota: string | null
@@ -234,7 +234,7 @@ export type Database = {
         Insert: {
           cantidad: number
           creado_en?: string
-          creado_por?: string
+          creado_por?: string | null
           fecha: string
           id?: string
           nota?: string | null
@@ -243,7 +243,7 @@ export type Database = {
         Update: {
           cantidad?: number
           creado_en?: string
-          creado_por?: string
+          creado_por?: string | null
           fecha?: string
           id?: string
           nota?: string | null
@@ -636,6 +636,14 @@ export type Database = {
     Functions: {
       ausentes_en: { Args: { p_fecha: string }; Returns: string[] }
       comida_editable: {
+        Args: {
+          p_ahora?: string
+          p_comida: Database["public"]["Enums"]["tiempo_comida"]
+          p_fecha: string
+        }
+        Returns: boolean
+      }
+      comida_sin_cerrar: {
         Args: {
           p_ahora?: string
           p_comida: Database["public"]["Enums"]["tiempo_comida"]

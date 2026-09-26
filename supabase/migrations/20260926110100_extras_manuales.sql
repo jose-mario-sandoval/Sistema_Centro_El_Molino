@@ -14,20 +14,55 @@ create table public.extras_manuales (
   cantidad smallint not null check (cantidad between 1 and 50),
   -- Llega recortada (zod): la base rechaza espacios al inicio o al final y la nota vacía.
   nota text check (nota is null or (nota = btrim(nota) and length(nota) between 1 and 200)),
-  creado_por uuid not null default auth.uid() references public.perfiles (id) on delete cascade,
+  -- set null, no cascade: borrar la cuenta de un Director no borra lo que la cocina ya preparó.
+  creado_por uuid default auth.uid() references public.perfiles (id) on delete set null,
   creado_en timestamptz not null default now()
 );
 
 comment on table public.extras_manuales is
   'Comidas extra que agrega el Director a mano. Administración ve cantidad y nota (extras_de_la_semana, extras_manuales_de_la_semana), nunca el autor.';
+comment on column public.extras_manuales.creado_por is
+  'Director que lo agregó. null si después se borró su cuenta: el extra queda para la historia de la cocina.';
 
 create index extras_manuales_fecha_idx on public.extras_manuales (fecha, tiempo_comida);
+
+-- ---------- ¿Todavía no cerró esa comida? ----------
+-- Hora límite (horas_limite) sin pasar y sin cierre del job (comidas_cerradas). A diferencia de
+-- comida_editable() no mira la ventana de la semana actual y la siguiente: un extra de dentro de un
+-- mes tiene que poder quitarse. security definer: la usa una política y lee comidas_cerradas.
+create function public.comida_sin_cerrar(
+  p_fecha date,
+  p_comida public.tiempo_comida,
+  p_ahora timestamptz default now()
+)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select exists (
+      select 1
+        from public.horas_limite hl
+       where hl.comida = p_comida
+         and p_ahora < ((p_fecha + hl.dia_relativo) + hl.hora) at time zone public.zona_horaria_app()
+    )
+    and not exists (
+      select 1 from public.comidas_cerradas c
+       where c.fecha = p_fecha and c.comida = p_comida
+    )
+$$;
+
+revoke execute on function public.comida_sin_cerrar(date, public.tiempo_comida, timestamptz) from public, anon;
+grant execute on function public.comida_sin_cerrar(date, public.tiempo_comida, timestamptz) to authenticated, service_role;
 
 -- ---------- RLS: solo el Director; sin UPDATE (se quita y se vuelve a agregar) ----------
 alter table public.extras_manuales enable row level security;
 
 revoke all on table public.extras_manuales from anon, authenticated;
-grant select, insert, delete on table public.extras_manuales to authenticated;
+grant select, delete on table public.extras_manuales to authenticated;
+-- INSERT solo de lo que elige el Director: id y creado_en los pone la base.
+grant insert (fecha, tiempo_comida, cantidad, nota, creado_por) on table public.extras_manuales to authenticated;
 grant select, insert, update, delete on table public.extras_manuales to service_role;
 
 create policy "extras_manuales: el Director los lee"
@@ -35,7 +70,9 @@ create policy "extras_manuales: el Director los lee"
   to authenticated
   using ((select public.mi_rol()) = 'director');
 
--- Desde hoy (hora de la casa): un extra de un día que ya pasó no le sirve a la cocina.
+-- Desde hoy (hora de la casa), aunque esa comida ya haya cerrado: un invitado de último momento
+-- también hay que avisarlo (la pantalla advierte que la cocina puede no verlo a tiempo). Un día
+-- que ya pasó no le sirve a la cocina.
 create policy "extras_manuales: el Director agrega desde hoy"
   on public.extras_manuales for insert
   to authenticated
@@ -45,13 +82,14 @@ create policy "extras_manuales: el Director agrega desde hoy"
     and fecha >= (select (now() at time zone public.zona_horaria_app())::date)
   );
 
--- Los de días pasados quedan: son lo que la cocina ya preparó.
-create policy "extras_manuales: el Director quita desde hoy"
+-- Solo mientras esa comida no cerró: después, la cocina ya pudo contarlo o prepararlo. comida_sin_cerrar
+-- depende de la fila: no se envuelve en (select …).
+create policy "extras_manuales: el Director quita mientras la comida no cerró"
   on public.extras_manuales for delete
   to authenticated
   using (
     (select public.mi_rol()) = 'director'
-    and fecha >= (select (now() at time zone public.zona_horaria_app())::date)
+    and public.comida_sin_cerrar(fecha, tiempo_comida)
   );
 
 -- ---------- Cenas extra de la semana: enlace público + manuales ----------

@@ -121,8 +121,8 @@ describe('guardarPlan: escribe la celda del objetivo', () => {
 
   it('"Sin definir" borra la celda del objetivo', async () => {
     sesionDe(DIRECTOR)
-    const falso = usarCliente(clienteSupabaseFalso())
-    await guardarPlan({ ...CELDA, estado: null, usuarioId: OTRA })
+    const falso = usarCliente(clienteSupabaseFalso({ consultas: [{ data: [{ comida: 'cena' }], error: null }] }))
+    expect(await guardarPlan({ ...CELDA, estado: null, usuarioId: OTRA })).toEqual({ ok: true, data: null })
     expect(falso.operaciones[0]).toMatchObject({
       operacion: 'delete',
       filtros: [
@@ -131,6 +131,17 @@ describe('guardarPlan: escribe la celda del objetivo', () => {
         ['comida', 'cena'],
       ],
     })
+  })
+
+  it('si el borrado no afecta ninguna fila (RLS: la persona ya no está activa), no dice que guardó', async () => {
+    sesionDe(DIRECTOR)
+    usarCliente(clienteSupabaseFalso({ consultas: [{ data: [], error: null }] }))
+    expect(await guardarPlan({ ...CELDA, estado: null, usuarioId: OTRA })).toEqual({
+      ok: false,
+      error: 'No se pudo guardar el cambio. Volvé a cargar la página.',
+      campos: undefined,
+    })
+    expect(revalidatePath).toHaveBeenCalledWith('/comidas', 'layout')
   })
 
   it('sin usuarioId, la propia; un Residente no toca la de otra persona', async () => {
@@ -206,10 +217,10 @@ describe('quitarExtra', () => {
     expect(revalidatePath).toHaveBeenCalledWith('/comidas', 'layout')
   })
 
-  it('0 filas: ya no existe o es de un día que ya pasó', async () => {
+  it('0 filas: ya no existe o esa comida ya cerró', async () => {
     sesionDe(DIRECTOR)
     usarCliente(clienteSupabaseFalso({ consultas: [{ data: [], error: null }] }))
-    expect(await quitarExtra({ id: ID })).toMatchObject({ ok: false, error: 'Ese extra ya no existe o es de un día que ya pasó.' })
+    expect(await quitarExtra({ id: ID })).toMatchObject({ ok: false, error: 'Ese extra ya no existe o esa comida ya cerró.' })
   })
 
   it('un Residente no quita extras; un id inválido tampoco llega a la base', async () => {

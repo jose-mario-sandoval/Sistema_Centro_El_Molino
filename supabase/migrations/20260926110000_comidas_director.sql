@@ -6,9 +6,10 @@
 --     su semana, su plan semanal y sus ausencias. Administración nunca.
 --   - Con los MISMOS cierres que todos: todo sigue pasando por security invoker + RLS, así que
 --     comida_editable() y el congelado aplican igual. Lo cerrado no se cambia.
---   - La persona ve quién cambió: modificado_por / creado_por, llenados por trigger (nunca por el
---     cliente) con nullif(auth.uid(), usuario_id). null = la propia persona, el congelado o el
---     servidor con la llave secreta.
+--   - La persona ve quién cambió: modificado_por / creado_por. Con sesión (authenticated) los fija
+--     un trigger, sin importar lo que mande el cliente: nullif(auth.uid(), usuario_id), o sea null
+--     si fue la propia persona. Fuera de una sesión el trigger no actúa: el congelado y el job de
+--     cierre no los escriben (quedan null) y el servidor con la llave secreta guarda lo que mande.
 --   - Consecuencia: el Director pasa a LEER las ausencias de todos. Administración sigue sin
 --     leerlas (solo ausentes_en()).
 --   - De paso se cierra un hueco que ya existía: editar plan_semanal entre la hora límite de una
@@ -66,7 +67,7 @@ alter table public.ausencias
   add column creado_por uuid references public.perfiles (id) on delete set null;
 
 comment on column public.selecciones_comida.modificado_por is
-  'Quién la cambió, si no fue la propia persona (el Director). null = la persona, el congelado o el servidor.';
+  'Quién la cambió con su sesión, si no fue la propia persona (el Director). null = la propia persona o el congelado; con la llave secreta, lo que mande el servidor.';
 comment on column public.plan_semanal.modificado_por is
   'Quién cambió esta celda del plan, si no fue la propia persona (el Director).';
 comment on column public.ausencias.creado_por is

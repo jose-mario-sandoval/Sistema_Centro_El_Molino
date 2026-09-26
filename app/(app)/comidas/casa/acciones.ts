@@ -14,7 +14,10 @@ import { esquemaExtra, esquemaQuitarExtra } from '@/lib/validacion/comidas'
  * y la fecha. Revalida todo /comidas: la Semana de Administración suma estos extras.
  */
 
-/** Agrega un extra (día + comida + cantidad + nota opcional para la cocina), desde hoy. */
+/**
+ * Agrega un extra (día + comida + cantidad + nota opcional para la cocina), desde hoy. También para
+ * una comida que ya cerró (un invitado de último momento): la pantalla advierte antes de guardar.
+ */
 export async function agregarExtra(entrada: unknown): Promise<Resultado<null>> {
   const permiso = await perfilParaAccion('director')
   if (!permiso.ok) return permiso
@@ -42,7 +45,10 @@ export async function agregarExtra(entrada: unknown): Promise<Resultado<null>> {
   return exito(null)
 }
 
-/** Quita un extra de hoy en adelante (los de días pasados quedan: la cocina ya los preparó). */
+/**
+ * Quita un extra mientras esa comida no cerró (hora límite o job de cierre): después, la cocina ya
+ * pudo contarlo o prepararlo. Lo exige RLS (comida_sin_cerrar); la pantalla no ofrece "Quitar".
+ */
 export async function quitarExtra(entrada: unknown): Promise<Resultado<null>> {
   const permiso = await perfilParaAccion('director')
   if (!permiso.ok) return permiso
@@ -56,10 +62,10 @@ export async function quitarExtra(entrada: unknown): Promise<Resultado<null>> {
     console.error('La casa: no se pudo quitar el extra', error)
     return fallo('No se pudo quitar el extra. Intentá de nuevo.')
   }
-  // RLS no da error si no hay filas afectadas: 0 filas = ya no existe o es de un día pasado.
+  // RLS no da error si no hay filas afectadas: 0 filas = ya no existe o esa comida ya cerró.
   if (data.length === 0) {
     revalidatePath('/comidas', 'layout')
-    return fallo('Ese extra ya no existe o es de un día que ya pasó.')
+    return fallo('Ese extra ya no existe o esa comida ya cerró.')
   }
 
   revalidatePath('/comidas', 'layout')

@@ -71,13 +71,21 @@ export async function guardarPlan(entrada: unknown): Promise<Resultado<null>> {
   const clave = { usuario_id: objetivo.usuarioId, dia_semana: diaSemana, comida }
   const supabase = await crearClienteServidor()
 
-  const { error } =
-    estado === null
-      ? await supabase.from('plan_semanal').delete().match(clave)
-      : await supabase
-          .from('plan_semanal')
-          .upsert({ ...clave, estado, nota }, { onConflict: 'usuario_id,dia_semana,comida' })
-  if (error) return fallo(await mensajeDeError(error, { comida, estado }))
+  if (estado === null) {
+    const { data, error } = await supabase.from('plan_semanal').delete().match(clave).select('comida')
+    if (error) return fallo(await mensajeDeError(error, { comida, estado }))
+    // RLS no da error si no hay filas afectadas: 0 filas = la persona dejó de estar activa (o ya no
+    // se puede tocar su plan) desde que se cargó la página. Se revalida para mostrar lo real.
+    if (data.length === 0) {
+      revalidatePath('/comidas', 'layout')
+      return fallo('No se pudo guardar el cambio. Volvé a cargar la página.')
+    }
+  } else {
+    const { error } = await supabase
+      .from('plan_semanal')
+      .upsert({ ...clave, estado, nota }, { onConflict: 'usuario_id,dia_semana,comida' })
+    if (error) return fallo(await mensajeDeError(error, { comida, estado }))
+  }
 
   revalidatePath('/comidas', 'layout')
   return exito(null)

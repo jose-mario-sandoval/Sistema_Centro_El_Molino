@@ -414,6 +414,14 @@ describe('extras manuales', () => {
     expect((await cocina.from('extras_manuales').select('id')).data).toEqual([])
   })
 
+  it('una comida que ya cerró acepta un extra de último momento, pero ya no se quita', async () => {
+    // El desayuno de hoy cierra la noche anterior: con las horas por defecto ya cerró.
+    const director = await clienteComo('director')
+    const { data, error } = await director.from('extras_manuales').insert({ fecha: HOY, tiempo_comida: 'desayuno', cantidad: 1 }).select('id').single()
+    expect(error).toBeNull()
+    expect((await director.from('extras_manuales').delete().eq('id', data!.id).select('id')).data).toEqual([])
+  })
+
   it('el Director los quita; un residente no', async () => {
     const director = await clienteComo('director')
     const { data } = await director.from('extras_manuales').insert({ fecha: FECHA_ABIERTA, tiempo_comida: 'almuerzo', cantidad: 4 }).select('id').single()

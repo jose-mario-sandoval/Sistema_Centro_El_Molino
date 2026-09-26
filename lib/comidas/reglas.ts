@@ -26,6 +26,21 @@ export function estaAbierta(p: {
   return p.ahora.getTime() < cierreDe(p.fecha, p.comida, p.horas).getTime()
 }
 
+/**
+ * Espejo de public.comida_sin_cerrar(): la hora límite no pasó y el job no la cerró. A diferencia de
+ * `estaAbierta`, no mira la ventana editable: decide si un extra manual todavía se puede quitar.
+ */
+export function comidaSinCerrar(p: {
+  fecha: FechaISO
+  comida: TiempoComida
+  ahora: Date
+  horas: HorasLimite
+  cerrada: boolean
+}): boolean {
+  if (p.cerrada) return false
+  return p.ahora.getTime() < cierreDe(p.fecha, p.comida, p.horas).getTime()
+}
+
 /** Lo que vale una comida cuando la persona está ausente: "No comer". */
 export const VALOR_POR_AUSENCIA: SeleccionGuardada = { estado: 'no', nota: null, origen: 'ausencia' }
 
