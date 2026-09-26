@@ -8,6 +8,7 @@ import {
   USUARIOS_PRUEBA,
   type ClaveUsuario,
 } from '../soporte/usuarios-prueba'
+import { esperarAltoMinimo, esperarSinScrollLateral } from '../soporte/medidas-e2e'
 
 let ids: Record<ClaveUsuario, string>
 
@@ -33,6 +34,16 @@ function fechaCorta(fecha: string): string {
 async function abrirOpciones(fila: Locator) {
   await fila.locator('.estado-actual').click()
   await expect(fila.locator('.estado-actual')).toHaveAttribute('aria-expanded', 'true')
+}
+
+/**
+ * La semana son tarjetas por día: las comidas de un día aparecen al abrir su tarjeta. Se busca dentro
+ * de `.tarjetas-semana` porque los grupos de cada comida también llevan el nombre del día.
+ */
+async function abrirDia(page: Page, etiqueta: string) {
+  const tarjeta = page.locator('.tarjetas-semana').getByRole('button', { name: new RegExp(`^${etiqueta}[,.]`) })
+  await tarjeta.click()
+  await expect(tarjeta).toHaveAttribute('aria-expanded', 'true')
 }
 
 /** Administración solo ve siglas: ningún nombre ajeno en pantalla ni en el HTML (datos de hidratación incluidos). */
@@ -90,6 +101,7 @@ test('un residente cambia el almuerzo y Administración lo ve en Semana', async 
   // Residente
   await iniciarSesion(page, 'residente')
   await page.goto(`/comidas/semana?semana=${lunesSiguiente}`)
+  await abrirDia(page, `Miércoles ${fechaCorta(miercolesSiguiente)}`)
   const almuerzo = page.locator(`[data-fecha="${miercolesSiguiente}"][data-comida="almuerzo"]`)
   await expect(almuerzo.getByText('según tu plan', { exact: true })).toBeVisible()
   await expect(almuerzo.locator('.estado-actual')).toContainText('Sí comer')
@@ -153,8 +165,14 @@ test('en una semana pasada el residente no puede cambiar nada', async ({ page })
   await page.goto(`/comidas/semana?semana=${lunesPasado}`)
 
   await expect(page.locator('.locked-banner')).toContainText('Semana pasada: solo consulta.')
-  // Cada comida cerrada muestra su estado sin poder abrir las opciones.
-  await expect(page.locator('.week-list .estado-actual')).toHaveCount(7 * 3)
+  // Siete tarjetas, todas cerradas y ninguna abierta de entrada.
+  const tarjetas = page.locator('.tarjetas-semana .tarjeta-dia')
+  await expect(tarjetas).toHaveCount(7)
+  await expect(tarjetas.filter({ hasText: 'Cerrado' })).toHaveCount(7)
+  await expect(page.locator('.panel-dia')).toHaveCount(0)
+  // Al abrir un día, cada comida muestra su estado sin poder abrir las opciones.
+  await tarjetas.first().click()
+  await expect(page.locator('.week-list .estado-actual')).toHaveCount(3)
   await expect(page.locator('.week-list .estado-actual:enabled')).toHaveCount(0)
   await expect(page.locator('.week-list .status-chip')).toHaveCount(0)
   await expect(page.getByRole('button', { name: 'Volver a mi plan' })).toHaveCount(0)
@@ -177,6 +195,7 @@ test('"Volver a mi plan" quita el cambio y restaura el plan', async ({ page }) =
 
   await iniciarSesion(page, 'residente')
   await page.goto(`/comidas/semana?semana=${lunesSiguiente}`)
+  await abrirDia(page, `Miércoles ${fechaCorta(miercolesSiguiente)}`)
   const almuerzo = page.locator(`[data-fecha="${miercolesSiguiente}"][data-comida="almuerzo"]`)
   await expect(almuerzo.getByText('cambiada', { exact: true })).toBeVisible()
   await abrirOpciones(almuerzo)
@@ -218,6 +237,7 @@ test('una persona marca su ausencia: sus comidas se cancelan solas, puede reacti
 
   // Sus comidas de ese día quedaron canceladas por la ausencia, y el día lo dice.
   await page.goto(`/comidas/semana?semana=${lunesSiguiente}`)
+  await abrirDia(page, `Miércoles ${fechaCorta(miercolesSiguiente)}`)
   const almuerzo = page.locator(`[data-fecha="${miercolesSiguiente}"][data-comida="almuerzo"]`)
   await expect(almuerzo.getByText('por tu ausencia', { exact: true })).toBeVisible()
   await expect(almuerzo.locator('.estado-actual')).toContainText('No comer')
@@ -241,6 +261,7 @@ test('una persona marca su ausencia: sus comidas se cancelan solas, puede reacti
   await expect(page.getByText('Ausencia quitada.')).toBeVisible()
 
   await page.goto(`/comidas/semana?semana=${lunesSiguiente}`)
+  await abrirDia(page, `Miércoles ${fechaCorta(miercolesSiguiente)}`)
   await expect(almuerzo.getByText('según tu plan', { exact: true })).toBeVisible()
   await expect(almuerzo.locator('.estado-actual')).toContainText('Sí comer')
 })
@@ -265,3 +286,79 @@ test('Administración ve "No comer" de quien está ausente, sin saber que es una
   await page.goto('/calendario')
   await expect(page.getByText('Mis ausencias')).toHaveCount(0)
 })
+
+test('el plan se edita desde la cuadrícula: el almuerzo de los martes pasa a "Comer temprano" 12:00', async ({ page }) => {
+  await iniciarSesion(page, 'residente')
+  await page.goto('/comidas/plan')
+
+  // La cuadrícula es el editor: 21 celdas y ninguna lista de comidas debajo.
+  await expect(page.locator('.cuadro-plan .celda-plan')).toHaveCount(21)
+  await expect(page.locator('.estado-actual')).toHaveCount(0)
+
+  const celda = page.getByRole('button', { name: /^Martes, almuerzo:/ })
+  await expect(celda).toContainText('Falta')
+  await celda.click()
+  await expect(celda).toHaveAttribute('aria-expanded', 'true')
+
+  const panel = page.locator('.cuadro-panel')
+  await expect(panel).toContainText('¿Normalmente almorzás los martes?')
+  await panel.getByRole('button', { name: 'Comer temprano', exact: true }).click()
+  await panel.getByLabel('Hora', { exact: true }).fill('12:00')
+  await panel.getByRole('button', { name: 'Guardar' }).click()
+
+  await expect(page.locator('.toast')).toHaveText('Plan semanal actualizado')
+  await expect(celda).toHaveAccessibleName('Martes, almuerzo: Comer temprano 12:00. Cambiar')
+  await expect(celda).toContainText('Temprano')
+  await expect(celda).toContainText('12:00')
+  await expect
+    .poll(async () => {
+      const { data } = await clienteAdminPrueba()
+        .from('plan_semanal')
+        .select('dia_semana, comida, estado, nota')
+        .eq('usuario_id', ids.residente)
+      return data
+    })
+    .toEqual([{ dia_semana: 2, comida: 'almuerzo', estado: 'temprano', nota: '12:00' }])
+
+  // Una celda abierta a la vez.
+  const cena = page.getByRole('button', { name: /^Martes, cena:/ })
+  await cena.click()
+  await expect(page.locator('.celda-plan[aria-expanded="true"]')).toHaveCount(1)
+  await expect(celda).toHaveAttribute('aria-expanded', 'false')
+
+  // "Listo" cierra el panel y devuelve el foco a la celda.
+  await page.locator('.cuadro-panel').getByRole('button', { name: 'Listo' }).click()
+  await expect(page.locator('.cuadro-panel')).toHaveCount(0)
+  await expect(cena).toBeFocused()
+
+  // Al volver a la página, el plan guardado sigue ahí.
+  await page.reload()
+  await expect(page.getByRole('button', { name: /^Martes, almuerzo:/ })).toContainText('12:00')
+})
+
+for (const viewport of [
+  { width: 320, height: 640 },
+  { width: 375, height: 812 },
+]) {
+  test.describe(`en un teléfono de ${viewport.width}px`, () => {
+    test.use({ viewport })
+
+    test('Plan y Semana caben sin scroll lateral y todo lo que se toca mide al menos 56px', async ({ page }) => {
+      const { lunesSiguiente, miercolesSiguiente } = fechas()
+      await planAlmuerzoMiercoles()
+      await iniciarSesion(page, 'residente')
+
+      await page.goto('/comidas/plan')
+      await page.getByRole('button', { name: /^Miércoles, almuerzo:/ }).click()
+      await expect(page.locator('.cuadro-panel')).toBeVisible()
+      await esperarSinScrollLateral(page)
+      await esperarAltoMinimo(page.locator('.cuadro-plan button'))
+
+      await page.goto(`/comidas/semana?semana=${lunesSiguiente}`)
+      await abrirDia(page, `Miércoles ${fechaCorta(miercolesSiguiente)}`)
+      await abrirOpciones(page.locator(`[data-fecha="${miercolesSiguiente}"][data-comida="almuerzo"]`))
+      await esperarSinScrollLateral(page)
+      await esperarAltoMinimo(page.locator('.tarjetas-semana button'))
+    })
+  })
+}
