@@ -43,9 +43,10 @@ Sin migraciones ni cambios de servidor.
   otras semanas, ninguno.
 - **Día cerrado = sus tres comidas cerradas** (no "fecha < hoy"): cubre días pasados, semanas pasadas
   y hoy después del cierre de la cena. Tarjeta plana, candado + "Cerrado", panel de solo lectura.
-- **Mismas piezas, mismo comportamiento de nota:** en Plan y Semana la nota se confirma con
-  Guardar/Cancelar (`EditorNota`), sin guardar al salir del campo; temprano ↔ tarde conservan la hora
-  escrita; el error va debajo del campo.
+- **Mismas piezas, mismo comportamiento de nota:** en Plan y Semana (`EditorNota` + `useBorradorNota`)
+  lo escrito se guarda con "Guardar" o al cerrar ("Listo", volver a tocar, pasar a otra celda o día);
+  si no sirve, no se cierra y el error va debajo del campo; solo Escape y "Cancelar" descartan; nada
+  se guarda al salir del campo; temprano ↔ tarde conservan la hora escrita.
 - **Al abrir un panel que quedó fuera de la pantalla se desplaza lo justo** (`scrollIntoView` con
   `block: 'nearest'`, instantáneo con `prefers-reduced-motion`): tocar el domingo en un teléfono no
   puede abrir algo invisible.
@@ -178,3 +179,7 @@ tests/e2e/comidas.spec.ts                           abrir el día antes de tocar
   campo nuevo) · **S-5** orden de tabulación en DESIGN.md · **S-6** `abrirDia` no cierra una tarjeta
   ya abierta · **S-7** el aviso de falla dice qué celda volvió atrás (`mensajeFalloCelda`) ·
   `PanelOpciones` acepta `etiquetaGrupo` (para textos en tercera persona en el PR 5).
+- [x] **Nada escrito se pierde al cerrar:** "Listo", volver a tocar la comida o pasar a otra celda o
+  día guardan una nota válida como "Guardar"; vacía o inválida, el panel no se cierra y muestra el
+  error (con cómo salir: "Cancelar"). Escape y "Cancelar" descartan. `resolverBorrador` (pura, con
+  pruebas) + `useBorradorNota` compartido; `borradores-del-grupo.ts` para cerrar un día de la Semana.

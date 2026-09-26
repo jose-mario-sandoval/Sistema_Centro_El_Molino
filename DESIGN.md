@@ -304,12 +304,15 @@ de sección, pasa al contenido principal para que un lector de pantalla anuncie 
   `PanelOpciones` (la bandeja de las seis opciones) y `EditorNota` (el campo de hora o de nota
   cuando el estado lo pide). Quien aprende una pantalla ya sabe la otra. Es la decisión de mayor
   impacto de todo el rediseño.
-- **La nota se comporta igual en todas partes.** Un estado sin nota se guarda al tocarlo. Uno que la
-  pide (temprano, tarde, enfermo) abre el campo, que toma el foco, y se guarda **solo con
-  "Guardar"**; "Cancelar", "Listo" o elegir otra opción lo descartan. Nada se guarda al salir del
-  campo: guardar en ese momento dejaba el toque siguiente sin efecto mientras se guardaba. Entre
-  temprano y tarde la hora ya escrita se conserva, pero hay que confirmarla. Si la nota no sirve, el
-  motivo aparece debajo del campo (no en un aviso flotante que se va solo).
+- **La nota se comporta igual en todas partes, y lo escrito nunca se pierde en silencio.** Un estado
+  sin nota se guarda al tocarlo. Uno que la pide (temprano, tarde, enfermo) abre el campo, que toma
+  el foco. Lo escrito se guarda con "Guardar" **y también al cerrar**: "Listo", volver a tocar la
+  comida, pasar a otra celda o a otro día. Si la nota está vacía o no sirve, no se cierra nada: el
+  motivo aparece debajo del campo ("…Si no querés cambiarla, tocá 'Cancelar'") y el foco vuelve a
+  él. Solo Escape y "Cancelar" descartan, porque son pedidos explícitos; elegir otra opción la
+  reemplaza. Nada se guarda al salir del campo: guardar en ese momento dejaba el toque siguiente sin
+  efecto mientras se guardaba. Entre temprano y tarde la hora ya escrita se conserva. La lógica es
+  una sola (`resolverBorrador` + `useBorradorNota`) para que Plan y Semana no puedan diferir.
 - **El plan se edita en la cuadrícula.** Siete filas (días) × tres columnas (comidas), a todo ancho.
   Cada celda es un botón con icono + texto corto + color (la hora debajo en temprano y tarde;
   "Falta" con la campana si no está definida). Tocarla abre las opciones debajo de su fila, una
