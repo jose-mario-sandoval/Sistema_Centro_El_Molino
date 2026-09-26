@@ -1,9 +1,9 @@
 'use client'
 
-import { useId, useOptimistic, useState, useTransition } from 'react'
+import { useOptimistic, useState, useTransition } from 'react'
 import { useAviso } from '@/components/ui/avisos'
 import { fallo, type Resultado } from '@/lib/acciones/resultado'
-import { LARGO_MAXIMO_NOTA, mensajeNota, normalizarNota, notaValida } from '@/lib/comidas/notas'
+import { mensajeNota, normalizarNota, notaValida } from '@/lib/comidas/notas'
 import { VALOR_POR_AUSENCIA } from '@/lib/comidas/reglas'
 import {
   ETIQUETA_TIEMPO,
@@ -16,6 +16,7 @@ import {
 import { valorTrasGuardar, type ComidaDeSemana } from '@/lib/comidas/vista'
 import type { FechaISO } from '@/lib/fechas'
 import { guardarSeleccion, volverAPlan } from '../acciones'
+import { EditorNota } from './editor-nota'
 import { textoNota } from './insignia-estado'
 import { SelectorComida } from './selector-comida'
 
@@ -40,7 +41,6 @@ export function ComidaDelDia({
   datos: ComidaDeSemana
 }) {
   const aviso = useAviso()
-  const idNota = useId()
   const [valor, aplicarValor] = useOptimistic(datos.valor)
   const [borrador, setBorrador] = useState<{ estado: EstadoComida; nota: string } | null>(null)
   const [pendiente, iniciar] = useTransition()
@@ -85,8 +85,7 @@ export function ComidaDelDia({
     guardar({ estado, nota: null })
   }
 
-  function confirmarNota(evento: React.FormEvent<HTMLFormElement>) {
-    evento.preventDefault()
+  function confirmarNota() {
     if (!borrador) return
     const nota = normalizarNota(borrador.estado, borrador.nota)
     if (!notaValida(borrador.estado, nota)) {
@@ -128,28 +127,19 @@ export function ComidaDelDia({
         alElegir={elegir}
         alCerrar={() => setBorrador(null)}
         editorNota={
-          escribiendoNota && (
-            <form className="note-field editor-nota" onSubmit={confirmarNota}>
-              <label htmlFor={idNota}>{tipoNota === 'hora' ? 'Hora' : 'Qué podés comer'}</label>
-              <input
-                id={idNota}
-                type={tipoNota === 'hora' ? 'time' : 'text'}
-                maxLength={tipoNota === 'texto' ? LARGO_MAXIMO_NOTA : undefined}
-                value={borrador.nota}
-                onChange={(e) => setBorrador({ ...borrador, nota: e.target.value })}
-                required
-                // La persona acaba de elegir un estado que pide nota: el teclado es lo esperado.
-                autoFocus
-              />
-              <div className="acciones-formulario">
-                <button type="submit" className="btn" disabled={pendiente}>
-                  Guardar
-                </button>
-                <button type="button" className="btn ghost" disabled={pendiente} onClick={() => setBorrador(null)}>
-                  Cancelar
-                </button>
-              </div>
-            </form>
+          escribiendoNota &&
+          tipoNota && (
+            <EditorNota
+              tipo={tipoNota}
+              etiqueta={tipoNota === 'hora' ? 'Hora' : 'Qué podés comer'}
+              valor={borrador.nota}
+              alCambiar={(nota) => setBorrador({ ...borrador, nota })}
+              alGuardar={confirmarNota}
+              alCancelar={() => setBorrador(null)}
+              pendiente={pendiente}
+              // La persona acaba de elegir un estado que pide nota: el teclado es lo esperado.
+              enfocar
+            />
           )
         }
         acciones={
