@@ -23,6 +23,19 @@ export const INFO_ESTADO: Record<EstadoComida, { etiqueta: string; nota: TipoNot
 }
 
 /**
+ * Texto corto para celdas y tarjetas, siempre junto al icono y el color del estado. Cada uno está
+ * contenido en la etiqueta completa, que es la que va en el nombre accesible.
+ */
+export const ETIQUETA_CORTA_ESTADO: Record<EstadoComida, string> = {
+  si: 'Sí',
+  no: 'No',
+  temprano: 'Temprano',
+  tarde: 'Tarde',
+  bolsa: 'Bolsa',
+  enfermo: 'Enfermo',
+}
+
+/**
  * persona: la eligió la persona (excepción). plan: patrón habitual, o plan congelado al cerrar.
  * ausencia: la comida quedó cancelada porque la persona no estará en la casa.
  */
