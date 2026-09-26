@@ -50,3 +50,9 @@ export type SeleccionGuardada = ValorComida & {
 }
 /** null = "Sin definir" */
 export type ValorEfectivo = SeleccionGuardada | null
+
+/**
+ * Un extra manual que agregó el Director, tal como lo ven la cocina y el Director: nunca quién lo
+ * agregó. `id` sirve para quitarlo (Director) y como clave de la lista.
+ */
+export type ExtraManual = { id: string; fecha: string; comida: TiempoComida; cantidad: number; nota: string | null }

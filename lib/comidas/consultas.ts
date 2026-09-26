@@ -1,18 +1,22 @@
 import 'server-only'
+import { obtenerPerfilActual } from '@/lib/auth/sesion'
 import { diaSemana, horaHHMM, sumarDias, type FechaISO } from '@/lib/fechas'
 import { listarPerfiles } from '@/lib/perfiles/consultas'
 import { ROLES_CON_COMIDAS } from '@/lib/perfiles/roles'
+import { exigirFilasCompletas } from '@/lib/supabase/filas-completas'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { diasDeSemana } from './semana'
-import { TIEMPOS_COMIDA, type HorasLimite, type TiempoComida } from './tipos'
+import { TIEMPOS_COMIDA, type ExtraManual, type HorasLimite, type TiempoComida } from './tipos'
 import {
   agregarSemana,
   armarDiaAdministracion,
+  armarSemanaDeLaCasa,
   armarSemanaPersona,
   planDesdeFilas,
   resumenPlanSemanal,
   type DiaAdministracion,
   type DiaAgregado,
+  type DiaDeLaCasa,
   type DiaDeSemana,
   type PersonaConPlan,
   type PlanSemanal,
@@ -33,32 +37,39 @@ export async function obtenerHorasLimite(): Promise<HorasLimite> {
   return horas
 }
 
-export async function obtenerPlanPropio(usuarioId: string): Promise<PlanSemanal> {
+/**
+ * Plan semanal de una persona: la propia, o la de otra si quien pregunta es el Director (RLS).
+ * Filtra por persona explícitamente: el Director puede leer todos los planes.
+ */
+export async function obtenerPlanDe(usuarioId: string): Promise<PlanSemanal> {
   const supabase = await crearClienteServidor()
   const { data, error } = await supabase
     .from('plan_semanal')
-    .select('dia_semana, comida, estado, nota')
+    .select('dia_semana, comida, estado, nota, modificado_por')
     .eq('usuario_id', usuarioId)
   if (error) throw error
   return planDesdeFilas(data)
 }
 
-/** Semana de lunes a domingo con el valor efectivo y el estado de cierre de cada comida. */
-export async function obtenerSemanaPropia(usuarioId: string, lunes: FechaISO): Promise<DiaDeSemana[]> {
+/**
+ * Semana de lunes a domingo de una persona (la propia, o la de otra para el Director) con el valor
+ * efectivo, el estado de cierre y quién cambió cada comida.
+ */
+export async function obtenerSemanaDe(usuarioId: string, lunes: FechaISO): Promise<DiaDeSemana[]> {
   const domingo = sumarDias(lunes, 6)
   const supabase = await crearClienteServidor()
 
   const [horas, plan, selecciones, cerradas, ausencias] = await Promise.all([
     obtenerHorasLimite(),
-    obtenerPlanPropio(usuarioId),
+    obtenerPlanDe(usuarioId),
     supabase
       .from('selecciones_comida')
-      .select('fecha, comida, estado, nota, origen')
+      .select('fecha, comida, estado, nota, origen, modificado_por')
       .eq('usuario_id', usuarioId)
       .gte('fecha', lunes)
       .lte('fecha', domingo),
     supabase.from('comidas_cerradas').select('fecha, comida').gte('fecha', lunes).lte('fecha', domingo),
-    // Solo las propias: la política de la tabla no deja ver las de nadie más.
+    // Filtradas por persona: el Director puede leer las ausencias de todos.
     supabase.from('ausencias').select('desde, hasta').eq('usuario_id', usuarioId).lte('desde', domingo).gte('hasta', lunes),
   ])
   if (selecciones.error) throw selecciones.error
@@ -173,7 +184,10 @@ export async function obtenerSemanaParaAdministracion(lunes: FechaISO): Promise<
   return agregarSemana(diasAdministracion)
 }
 
-/** Cenas/comidas extra confirmadas por el enlace público, por fecha y tiempo de comida. */
+/**
+ * Comidas extra por fecha y tiempo de comida: las confirmadas por el enlace público más las que
+ * agregó el Director a mano. Para Administración y el Director (a los demás la función no les da nada).
+ */
 export async function obtenerExtrasDeLaSemana(lunes: FechaISO): Promise<Record<string, Partial<Record<TiempoComida, number>>>> {
   const domingo = sumarDias(lunes, 6)
   const supabase = await crearClienteServidor()
@@ -192,4 +206,79 @@ export async function obtenerExtrasDeLaSemana(lunes: FechaISO): Promise<Record<s
 export async function obtenerResumenPlanSemanal(): Promise<Record<number, Record<TiempoComida, import('./resumen').ResumenComida>>> {
   const personas = await obtenerPlanesDeTodos()
   return resumenPlanSemanal(personas)
+}
+
+/**
+ * Cada extra manual de la semana, con su nota y sin autor (extras_manuales_de_la_semana). Para
+ * Administración (la nota para la cocina) y el Director (la lista con "Quitar").
+ */
+export async function obtenerNotasExtras(lunes: FechaISO): Promise<ExtraManual[]> {
+  const supabase = await crearClienteServidor()
+  const { data, error } = await supabase.rpc('extras_manuales_de_la_semana', { p_desde: lunes, p_hasta: sumarDias(lunes, 6) })
+  if (error) throw error
+  return data.map((fila) => ({
+    id: fila.id,
+    fecha: fila.fecha,
+    comida: fila.tiempo_comida,
+    cantidad: fila.cantidad,
+    // Los tipos generados declaran text como string; la nota es opcional.
+    nota: fila.nota || null,
+  }))
+}
+
+/**
+ * La semana de toda la casa para "La casa" (solo el Director): cada Director/Residente activo con
+ * su nombre real y su valor efectivo en cada comida, y el mismo resumen que ve Administración.
+ * Lleva nombres y el detalle de cada persona: por eso exige el rol aquí también, no solo en la página.
+ */
+export async function obtenerSemanaDeLaCasa(lunes: FechaISO): Promise<DiaDeLaCasa[]> {
+  const observador = await obtenerPerfilActual()
+  if (observador?.rol !== 'director') throw new Error('La semana de la casa es solo para el Director.')
+
+  const domingo = sumarDias(lunes, 6)
+  const supabase = await crearClienteServidor()
+  const personas = await listarPerfiles({ soloActivos: true, roles: ROLES_CON_COMIDAS })
+  const ids = personas.map((persona) => persona.id)
+
+  const [horas, planes, selecciones, cerradas, ausencias] = await Promise.all([
+    obtenerHorasLimite(),
+    supabase
+      .from('plan_semanal')
+      .select('usuario_id, dia_semana, comida, estado, nota, modificado_por', { count: 'exact' })
+      .in('usuario_id', ids),
+    supabase
+      .from('selecciones_comida')
+      .select('usuario_id, fecha, comida, estado, nota, origen, modificado_por', { count: 'exact' })
+      .in('usuario_id', ids)
+      .gte('fecha', lunes)
+      .lte('fecha', domingo),
+    supabase.from('comidas_cerradas').select('fecha, comida').gte('fecha', lunes).lte('fecha', domingo),
+    // El Director lee las ausencias de todos (RLS); solo las que tocan la semana.
+    supabase
+      .from('ausencias')
+      .select('usuario_id, desde, hasta', { count: 'exact' })
+      .in('usuario_id', ids)
+      .lte('desde', domingo)
+      .gte('hasta', lunes),
+  ])
+  if (planes.error) throw planes.error
+  if (selecciones.error) throw selecciones.error
+  if (cerradas.error) throw cerradas.error
+  if (ausencias.error) throw ausencias.error
+  // Planes: personas × 21 filas; selecciones de la semana, igual. Con ~48 personas pasarían de
+  // max_rows (1000): fallar antes que mostrar una casa incompleta.
+  exigirFilasCompletas(planes, 'Planes semanales')
+  exigirFilasCompletas(selecciones, 'Selecciones de la semana')
+  exigirFilasCompletas(ausencias, 'Ausencias de la semana')
+
+  return armarSemanaDeLaCasa({
+    lunes,
+    ahora: new Date(),
+    horas,
+    personas: personas.map(({ id, nombre }) => ({ id, nombre })),
+    planes: planes.data,
+    selecciones: selecciones.data,
+    cerradas: cerradas.data,
+    ausencias: ausencias.data,
+  })
 }

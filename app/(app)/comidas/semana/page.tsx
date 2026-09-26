@@ -1,5 +1,5 @@
 import { exigirPerfil } from '@/lib/auth/sesion'
-import { obtenerExtrasDeLaSemana, obtenerSemanaParaAdministracion, obtenerSemanaPropia } from '@/lib/comidas/consultas'
+import { obtenerExtrasDeLaSemana, obtenerSemanaDe, obtenerSemanaParaAdministracion } from '@/lib/comidas/consultas'
 import { semanaPedida, tipoSemana } from '@/lib/comidas/semana'
 import { fechaISOEn } from '@/lib/fechas'
 import { NavegacionSemana } from '../_componentes/navegacion-semana'
@@ -31,7 +31,7 @@ export default async function PaginaSemana({
     )
   }
 
-  const dias = await obtenerSemanaPropia(perfil.id, lunes)
+  const dias = await obtenerSemanaDe(perfil.id, lunes)
   return (
     <>
       {/* Al volver a la pestaña, trae cierres y cambios hechos mientras tanto. */}
