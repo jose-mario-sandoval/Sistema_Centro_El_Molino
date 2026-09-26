@@ -1,4 +1,5 @@
-import { ZONA_HORARIA, instanteEnZona, lunesDe, sumarDias, type FechaISO } from '@/lib/fechas'
+import { lunesDe, sumarDias, type FechaISO } from '@/lib/fechas'
+import { etiquetaDiaLarga, etiquetaMesLarga } from '@/lib/fechas/etiquetas'
 
 /** Mes de calendario 'YYYY-MM'. */
 export type MesISO = string
@@ -11,7 +12,7 @@ export type DiaCuadricula = {
   enMes: boolean
 }
 
-/** Día con su etiqueta legible, calculada en el servidor para no depender del Intl del navegador. */
+/** Día con su etiqueta legible (lib/fechas/etiquetas.ts). */
 export type DiaConEtiqueta = DiaCuadricula & { etiqueta: string }
 
 /** 6 semanas × 7 días: alcanza para cualquier mes. */
@@ -65,28 +66,14 @@ export function cuadriculaMes(mes: MesISO): DiaCuadricula[] {
   })
 }
 
-const formatoMes = new Intl.DateTimeFormat('es', { timeZone: ZONA_HORARIA, month: 'long', year: 'numeric' })
-const formatoDia = new Intl.DateTimeFormat('es', {
-  timeZone: ZONA_HORARIA,
-  weekday: 'long',
-  day: 'numeric',
-  month: 'long',
-  year: 'numeric',
-})
-
-function conMayuscula(texto: string): string {
-  return texto.charAt(0).toUpperCase() + texto.slice(1)
-}
-
-/** 'Septiembre de 2026' */
+/** 'Septiembre de 2026'. Sin Intl: lib/fechas/etiquetas.ts dice lo mismo en el servidor y en el navegador. */
 export function etiquetaMes(mes: MesISO): string {
-  // Mediodía del día 15 en la zona de la app: nunca cae en otro mes.
-  return conMayuscula(formatoMes.format(instanteEnZona(`${mes}-15`, '12:00')))
+  return etiquetaMesLarga(mes)
 }
 
 /** 'Miércoles, 16 de septiembre de 2026'. Con año: la cuadrícula incluye días de meses (y años) vecinos. */
 export function etiquetaDia(fecha: FechaISO): string {
-  return conMayuscula(formatoDia.format(instanteEnZona(fecha, '12:00')))
+  return etiquetaDiaLarga(fecha)
 }
 
 /** Agrupa por fecha conservando el orden de entrada. */

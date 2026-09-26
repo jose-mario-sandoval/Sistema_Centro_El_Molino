@@ -50,7 +50,6 @@ export default async function PaginaCalendario({
               : 'Vista de solo lectura de los eventos de la casa. Tocá un día para ver sus eventos.'}
         </div>
       </div>
-      {conAusencias && <PanelAusencias ausencias={ausencias} hoy={hoy} />}
       <div className="card">
         <div className="cal-head">
           <div className="month-label">{etiquetaMes(mes)}</div>
@@ -77,6 +76,8 @@ export default async function PaginaCalendario({
           ausencias={ausencias}
         />
       </div>
+      {/* Debajo del calendario, compacta. `hoy` va del servidor: el navegador nunca calcula "hoy". */}
+      {conAusencias && <PanelAusencias ausencias={ausencias} hoy={hoy} />}
     </>
   )
 }
