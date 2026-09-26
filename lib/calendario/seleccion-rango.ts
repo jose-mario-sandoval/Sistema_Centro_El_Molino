@@ -1,4 +1,4 @@
-import { DIAS_MAXIMOS_AUSENCIA } from '@/lib/ausencias/tipos'
+import { DIAS_MAXIMOS_AUSENCIA, estaAusente, type RangoAusencia } from '@/lib/ausencias/tipos'
 import { cuadriculaMes, mesAnterior, mesDe, mesSiguiente, type MesISO } from '@/lib/calendario/cuadricula'
 import { lunesDe, sumarDias, type FechaISO } from '@/lib/fechas'
 import { rangoLegible } from '@/lib/fechas/rango'
@@ -135,20 +135,52 @@ function diasEntre(desde: FechaISO, hasta: FechaISO): number {
 }
 
 /**
- * Lo elegido, escrito, para leerlo antes de guardar (y para el lector de pantalla). La cantidad de
- * días desambigua un rango que cruza de año, que rangoLegible escribe sin año.
+ * Cuántos días hay elegidos y cuántos ya caen en una ausencia marcada. La base admite ausencias que
+ * se solapan (sirve para alargar una), pero volver a marcar solo días ya marcados duplicaría la
+ * ausencia sin cambiar nada, y al quitar una de las dos los días seguirían ausentes.
  */
-export function resumenSeleccion(seleccion: SeleccionRango): string {
+export function diasYaMarcados(
+  seleccion: SeleccionRango,
+  ausencias: readonly RangoAusencia[],
+): { elegidos: number; marcados: number } {
+  const { desde } = seleccion
+  if (desde === null) return { elegidos: 0, marcados: 0 }
+  const hasta = seleccion.hasta ?? desde
+  let elegidos = 0
+  let marcados = 0
+  for (let fecha = desde; fecha <= hasta; fecha = sumarDias(fecha, 1)) {
+    elegidos++
+    if (estaAusente(ausencias, fecha)) marcados++
+  }
+  return { elegidos, marcados }
+}
+
+/**
+ * Lo elegido, escrito, para leerlo antes de guardar (y para el lector de pantalla). La cantidad de
+ * días ayuda a comprobar un rango largo de un vistazo; si ya había días marcados en él, lo dice.
+ */
+export function resumenSeleccion(seleccion: SeleccionRango, ausencias: readonly RangoAusencia[] = []): string {
   const { desde, hasta } = seleccion
   if (desde === null) return 'Todavía no elegiste ningún día.'
   if (hasta === null) return `El ${rangoLegible(desde, desde)}: un solo día. Si son más días, tocá el último.`
   if (hasta === desde) return `El ${rangoLegible(desde, desde)}: un solo día.`
-  return `Del ${rangoLegible(desde, hasta)} (${diasEntre(desde, hasta)} días).`
+  const resumen = `Del ${rangoLegible(desde, hasta)} (${diasEntre(desde, hasta)} días).`
+  const { elegidos, marcados } = diasYaMarcados(seleccion, ausencias)
+  return marcados > 0 && marcados < elegidos ? `${resumen} Algunos de esos días ya estaban marcados.` : resumen
 }
 
-/** El mismo tope que zod y la base: hasta ≤ desde + DIAS_MAXIMOS_AUSENCIA. */
-export function errorSeleccion(seleccion: SeleccionRango): string | null {
+/**
+ * Por qué no se puede guardar lo elegido, o null. El mismo tope que zod y la base (hasta ≤ desde +
+ * DIAS_MAXIMOS_AUSENCIA), y nada que guardar si todos los días ya estaban marcados: para quitarlos
+ * está "Quitar" (tocar un día marcado no lo desmarca).
+ */
+export function errorSeleccion(seleccion: SeleccionRango, ausencias: readonly RangoAusencia[] = []): string | null {
   const { desde, hasta } = seleccion
-  if (desde === null || hasta === null) return null
-  return hasta > sumarDias(desde, DIAS_MAXIMOS_AUSENCIA) ? 'Una ausencia puede durar hasta un año.' : null
+  if (desde === null) return null
+  if (hasta !== null && hasta > sumarDias(desde, DIAS_MAXIMOS_AUSENCIA)) return 'Una ausencia puede durar hasta un año.'
+  const { elegidos, marcados } = diasYaMarcados(seleccion, ausencias)
+  if (elegidos === 0 || marcados < elegidos) return null
+  return elegidos === 1
+    ? 'Ese día ya lo tenés marcado. Para quitarlo, usá «Quitar» arriba.'
+    : 'Esos días ya los tenés marcados. Para quitarlos, usá «Quitar» arriba.'
 }

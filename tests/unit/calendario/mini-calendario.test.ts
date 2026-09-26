@@ -28,6 +28,13 @@ function dia(html: string, fecha: string): string {
   return encontrado[0]
 }
 
+/** La etiqueta de apertura de la celda (td) que contiene ese día. */
+function celda(html: string, fecha: string): string {
+  const encontrado = html.match(new RegExp(`(<td[^>]*>)<button[^>]*data-fecha="${fecha}"`))
+  if (!encontrado) throw new Error(`No hay celda para ${fecha}`)
+  return encontrado[1]
+}
+
 const contar = (html: string, texto: string) => html.split(texto).length - 1
 
 describe('MiniCalendario', () => {
@@ -70,10 +77,17 @@ describe('MiniCalendario', () => {
     expect(contar(html, 'mini-icono')).toBe(2)
   })
 
-  it('los días elegidos quedan presionados, con sus extremos marcados', () => {
+  it('los días elegidos: celda seleccionada (patrón APG), clase para el estilo y extremos marcados', () => {
     const html = pintar({ seleccion: { desde: '2026-09-28', hasta: '2026-09-30' } })
-    expect(dia(html, '2026-09-27')).toContain('aria-pressed="false"')
-    for (const fecha of ['2026-09-28', '2026-09-29', '2026-09-30']) expect(dia(html, fecha)).toContain('aria-pressed="true"')
+    // aria-selected en la celda, no aria-pressed en el botón: tocar un día elegido no lo "suelta",
+    // empieza otro rango.
+    expect(html).not.toContain('aria-pressed')
+    expect(celda(html, '2026-09-27')).toBe('<td>')
+    expect(dia(html, '2026-09-27')).not.toMatch(/\belegido\b/)
+    for (const fecha of ['2026-09-28', '2026-09-29', '2026-09-30']) {
+      expect(celda(html, fecha)).toBe('<td aria-selected="true">')
+      expect(dia(html, fecha)).toMatch(/\belegido\b/)
+    }
     expect(dia(html, '2026-09-28')).toMatch(/\bextremo\b/)
     expect(dia(html, '2026-09-29')).not.toMatch(/\bextremo\b/)
     expect(dia(html, '2026-09-30')).toMatch(/\bextremo\b/)

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { DIAS_MAXIMOS_AUSENCIA } from '@/lib/ausencias/tipos'
 import {
   SIN_SELECCION,
+  diasYaMarcados,
   enSeleccion,
   errorSeleccion,
   extremoDeSeleccion,
@@ -175,7 +176,35 @@ describe('resumenSeleccion', () => {
   it('un rango, con la cantidad de días', () => {
     expect(resumenSeleccion(rango('2026-10-14', '2026-10-16'))).toBe('Del 14 al 16 de octubre (3 días).')
     expect(resumenSeleccion(rango('2026-09-30', '2026-10-02'))).toBe('Del 30 de septiembre al 2 de octubre (3 días).')
-    expect(resumenSeleccion(rango('2026-12-28', '2027-01-03'))).toBe('Del 28 de diciembre al 3 de enero (7 días).')
+    expect(resumenSeleccion(rango('2026-12-28', '2027-01-03'))).toBe('Del 28 de diciembre de 2026 al 3 de enero de 2027 (7 días).')
+  })
+
+  it('un rango que ya estaba marcado en parte lo dice', () => {
+    const ausencias = [{ desde: '2026-10-14', hasta: '2026-10-15' }]
+    expect(resumenSeleccion(rango('2026-10-12', '2026-10-16'), ausencias)).toBe(
+      'Del 12 al 16 de octubre (5 días). Algunos de esos días ya estaban marcados.',
+    )
+    // Sin ningún día marcado, o con todos marcados (eso lo dice errorSeleccion), no agrega nada.
+    expect(resumenSeleccion(rango('2026-10-20', '2026-10-21'), ausencias)).toBe('Del 20 al 21 de octubre (2 días).')
+    expect(resumenSeleccion(rango('2026-10-14', '2026-10-15'), ausencias)).toBe('Del 14 al 15 de octubre (2 días).')
+  })
+})
+
+describe('diasYaMarcados', () => {
+  const ausencias = [
+    { desde: '2026-10-14', hasta: '2026-10-15' },
+    { desde: '2026-10-20', hasta: '2026-10-20' },
+  ]
+
+  it('sin días elegidos, nada', () => {
+    expect(diasYaMarcados(SIN_SELECCION, ausencias)).toEqual({ elegidos: 0, marcados: 0 })
+  })
+
+  it('cuenta los días elegidos y cuántos ya caen en una ausencia', () => {
+    expect(diasYaMarcados(rango('2026-10-14', null), ausencias)).toEqual({ elegidos: 1, marcados: 1 })
+    expect(diasYaMarcados(rango('2026-10-13', '2026-10-21'), ausencias)).toEqual({ elegidos: 9, marcados: 3 })
+    expect(diasYaMarcados(rango('2026-10-14', '2026-10-15'), ausencias)).toEqual({ elegidos: 2, marcados: 2 })
+    expect(diasYaMarcados(rango('2026-10-16', '2026-10-19'), [])).toEqual({ elegidos: 4, marcados: 0 })
   })
 })
 
@@ -188,5 +217,26 @@ describe('errorSeleccion', () => {
 
   it(`más de ${DIAS_MAXIMOS_AUSENCIA} días después del primero: el mismo límite que la base`, () => {
     expect(errorSeleccion(rango('2026-01-01', '2027-01-02'))).toBe('Una ausencia puede durar hasta un año.')
+  })
+
+  describe('días que ya estaban marcados', () => {
+    const ausencias = [{ desde: '2026-10-14', hasta: '2026-10-16' }]
+
+    it('si todos lo estaban, no hay nada que guardar: se quitan con «Quitar»', () => {
+      expect(errorSeleccion(rango('2026-10-14', '2026-10-16'), ausencias)).toBe(
+        'Esos días ya los tenés marcados. Para quitarlos, usá «Quitar» arriba.',
+      )
+      expect(errorSeleccion(rango('2026-10-15', null), ausencias)).toBe(
+        'Ese día ya lo tenés marcado. Para quitarlo, usá «Quitar» arriba.',
+      )
+      expect(errorSeleccion(rango('2026-10-15', '2026-10-15'), ausencias)).toBe(
+        'Ese día ya lo tenés marcado. Para quitarlo, usá «Quitar» arriba.',
+      )
+    })
+
+    it('si solo algunos lo estaban, se puede guardar (sirve para alargar una ausencia)', () => {
+      expect(errorSeleccion(rango('2026-10-14', '2026-10-18'), ausencias)).toBeNull()
+      expect(errorSeleccion(rango('2026-10-10', '2026-10-14'), ausencias)).toBeNull()
+    })
   })
 })

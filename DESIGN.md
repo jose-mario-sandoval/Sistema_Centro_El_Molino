@@ -204,10 +204,12 @@ botones "chicos": una variante compacta puede tener menos texto o menos relleno,
      dentro de la tarjeta y con 3px entre días, para darle a cada día todo el ancho posible.
    - **Resumen escrito antes de guardar:** *"Del 14 al 16 de octubre (3 días)."* debajo del
      calendario, en una región `aria-live`. Un toque errado se ve antes de que cuente, y se corrige
-     tocando de nuevo; nada se guarda hasta *"Guardar ausencia"*.
+     tocando de nuevo; nada se guarda hasta *"Guardar ausencia"*. Tocar un día ya marcado no lo
+     desmarca: si todo lo elegido ya estaba marcado no hay nada que guardar y el aviso manda a
+     *"Quitar"*; si solo una parte, el resumen lo dice (sirve para alargar una ausencia).
    - **Ruta completa por teclado y lector de pantalla:** una sola parada de tabulación y flechas,
      Inicio/Fin y RePág/AvPág (patrón APG de selector de fecha); cada día se anuncia con su fecha
-     completa, "hoy" y "ya marcado como ausente", y su estado con `aria-pressed`.
+     completa, "hoy" y "ya marcado como ausente", y la selección con `aria-selected` en su celda.
 
 ### Tres reglas de ancho que salieron de verificar, no de planificar
 

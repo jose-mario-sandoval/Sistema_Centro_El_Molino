@@ -123,18 +123,25 @@ export function MiniCalendario({
                 if (fecha === null) return <td key={i} />
                 const esHoy = fecha === hoy
                 const ausente = estaAusente(ausencias, fecha)
-                const clases = ['mini-dia', ausente ? 'marcado' : '', extremoDeSeleccion(seleccion, fecha) ? 'extremo' : '']
+                const elegido = enSeleccion(seleccion, fecha)
+                const clases = [
+                  'mini-dia',
+                  ausente ? 'marcado' : '',
+                  elegido ? 'elegido' : '',
+                  extremoDeSeleccion(seleccion, fecha) ? 'extremo' : '',
+                ]
                   .filter(Boolean)
                   .join(' ')
                 return (
-                  <td key={fecha}>
+                  // La selección va en la celda (aria-selected, patrón APG de selector de fecha) y no
+                  // como aria-pressed en el botón: tocar un día elegido no lo suelta, empieza otro rango.
+                  <td key={fecha} aria-selected={elegido || undefined}>
                     <button
                       type="button"
                       className={clases}
                       data-fecha={fecha}
                       tabIndex={fecha === tabulable ? 0 : -1}
                       aria-label={etiquetaAccesible(fecha, esHoy, ausente)}
-                      aria-pressed={enSeleccion(seleccion, fecha)}
                       aria-current={esHoy ? 'date' : undefined}
                       disabled={!elegible(fecha)}
                       onClick={() => {

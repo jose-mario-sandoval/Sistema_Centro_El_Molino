@@ -383,7 +383,7 @@ test('un Residente marca en el mini calendario una ausencia que cruza de mes, la
   await mini.locator(`.mini-dia[data-fecha="${desde}"]`).click()
   await irAlMesDe(mini, hasta)
   await mini.locator(`.mini-dia[data-fecha="${hasta}"]`).click()
-  await expect(mini.locator(`.mini-dia[data-fecha="${hasta}"]`)).toHaveAttribute('aria-pressed', 'true')
+  await expect(mini.locator(`td:has(> .mini-dia[data-fecha="${hasta}"])`)).toHaveAttribute('aria-selected', 'true')
   await expect(panel.getByText(`Del ${rango} (3 días).`)).toBeVisible()
 
   await guardar.click()
@@ -400,6 +400,10 @@ test('un Residente marca en el mini calendario una ausencia que cruza de mes, la
   const diaMarcado = mini.locator(`.mini-dia[data-fecha="${desde}"]`)
   await expect(diaMarcado).toHaveClass(/\bmarcado\b/)
   await expect(diaMarcado).toHaveAccessibleName(/, ya marcado como ausente$/)
+  // Tocar un día ya marcado no lo desmarca ni lo duplica: no hay nada que guardar, y se quita con «Quitar».
+  await diaMarcado.click()
+  await expect(panel.getByText('Ese día ya lo tenés marcado. Para quitarlo, usá «Quitar» arriba.')).toBeVisible()
+  await expect(guardar).toBeDisabled()
   await panel.getByRole('button', { name: 'Cancelar', exact: true }).click()
   await expect(abrir).toBeFocused()
 
@@ -443,7 +447,7 @@ test('en el mini calendario los días pasados no se tocan y el teclado no sale d
   const celdaManana = mini.locator(`.mini-dia[data-fecha="${manana}"]`)
   await expect(celdaManana).toBeFocused()
   await page.keyboard.press('Enter')
-  await expect(celdaManana).toHaveAttribute('aria-pressed', 'true')
+  await expect(mini.locator(`td:has(> .mini-dia[data-fecha="${manana}"])`)).toHaveAttribute('aria-selected', 'true')
   await expect(panel.getByText(`El ${rangoLegible(manana, manana)}: un solo día.`)).toBeVisible()
   await expect(panel.getByRole('button', { name: 'Guardar ausencia' })).toBeEnabled()
 

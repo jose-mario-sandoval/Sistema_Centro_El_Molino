@@ -759,10 +759,10 @@ a{color:var(--acento);}
 /* Ya ausente: el lenguaje de .cal-day.ausente (punteado dorado + valija). */
 .mini-dia.marcado{border:2px dashed var(--dorado);}
 /* Elegido: hundido, con color y borde; el primer y el último día, rellenos. */
-.mini-dia[aria-pressed="true"]{box-shadow:var(--hundido);background:var(--acento-suave);color:var(--acento);border-color:var(--acento);}
+.mini-dia.elegido{box-shadow:var(--hundido);background:var(--acento-suave);color:var(--acento);border-color:var(--acento);}
 .mini-dia.extremo{background:var(--acento);color:var(--acento-tinta);box-shadow:var(--hundido-suave);}
-.mini-dia[aria-pressed="true"] .mini-icono{color:currentColor;}
-[data-contraste="alto"] .mini-dia[aria-pressed="true"]{border-width:3px;}
+.mini-dia.elegido .mini-icono{color:currentColor;}
+[data-contraste="alto"] .mini-dia.elegido{border-width:3px;}
 /* Pasado o fuera de rango: plano (solo se lee) y atenuado. */
 .mini-dia:disabled{box-shadow:none;border-color:transparent;color:var(--tinta-tenue);opacity:.5;cursor:not-allowed;}
 .mini-dia.marcado:disabled{border-color:var(--dorado);}

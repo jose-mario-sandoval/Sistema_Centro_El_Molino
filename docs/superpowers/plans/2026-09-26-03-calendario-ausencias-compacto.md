@@ -32,9 +32,17 @@ dejan de depender de `Intl` (`lib/fechas/etiquetas.ts`) para que servidor y nave
   (mensaje amable) porque el PR 5 puede pasar otros límites, y el servidor lo vuelve a exigir.
 - **Días ya ausentes** se pueden tocar (la base admite rangos que se solapan: sirve para alargar una
   ausencia); se ven con el lenguaje de `.cal-day.ausente` (borde dorado discontinuo + valija) y su
-  nombre accesible dice "ya marcado como ausente".
-- **Resumen en vivo** con `rangoLegible` más la cantidad de días ("Del 14 al 16 de octubre (3 días)"):
-  la cantidad desambigua un rango que cruza de año, que `rangoLegible` escribe sin año.
+  nombre accesible dice "ya marcado como ausente". *(Tras la revisión)* Tocarlos no los desmarca: si
+  **todo** lo elegido ya estaba marcado, "Guardar ausencia" se deshabilita con "Esos días ya los
+  tenés marcados. Para quitarlos, usá «Quitar» arriba." (así no se duplica una ausencia que después,
+  al quitar una de las dos, dejaría los días ausentes igual); si solo **una parte**, el resumen agrega
+  "Algunos de esos días ya estaban marcados." (`diasYaMarcados`).
+- **Resumen en vivo** con `rangoLegible` más la cantidad de días ("Del 14 al 16 de octubre (3 días)").
+  *(Tras la revisión)* `rangoLegible` compara también el año: si cruza de año lo escribe en las dos
+  puntas ("28 de diciembre de 2026 al 3 de enero de 2027"); antes, dentro del tope de un año, se
+  leía "Del 26 al 26 de septiembre".
+- **Selección con `aria-selected` en la celda** *(tras la revisión)*, patrón APG, y no `aria-pressed`
+  en el botón: tocar un día elegido no lo "suelta", empieza otro rango. El estilo usa `.elegido`.
 - **Sin `.cal-day`** ni `data-fecha` suelto: los días son `.mini-calendario .mini-dia[data-fecha]`, así
   los E2E del calendario grande (`.cal-day[data-fecha=…]`) siguen encontrando un único elemento.
 - **Navegación de mes con `aria-disabled`**, no `disabled`: al llegar al último mes el botón no pierde
@@ -99,7 +107,7 @@ tests/e2e/calendario.spec.ts                               + rango que cruza de 
 - [x] Prueba de render estático (`renderToStaticMarkup`): `<th scope="col" abbr="Miércoles">Mié</th>`,
   un `.mini-dia` por día del mes con `data-fecha`, días pasados `disabled`, hoy con
   `aria-current="date"` y ", hoy" en el nombre, días ya ausentes con `.marcado` y ", ya marcado como
-  ausente", los de la selección con `aria-pressed="true"`, un único `tabindex="0"`, anterior con
+  ausente", los de la selección con `aria-selected="true"` en la celda (sin `aria-pressed`), un único `tabindex="0"`, anterior con
   `aria-disabled` en el mes de hoy, ninguna clase `cal-day`.
 - [x] Verla fallar; implementar `components/ui/mini-calendario.tsx` (estado: mes visible y día con
   foco; flechas vía `moverFoco`, cambia de mes y enfoca tras pintar; título del mes `aria-live`).
@@ -149,4 +157,4 @@ tests/e2e/calendario.spec.ts                               + rango que cruza de 
 
 - [x] lint, typecheck, test en verde. Push, `gh pr create --base master` (título y cuerpo en español,
   con la excepción táctil y el plan de pruebas). Sin migración.
-- [ ] `gh pr checks --watch` hasta verde (relanzar `base-de-datos` si falla por "port already in use").
+- [x] `gh pr checks --watch` hasta verde (relanzar `base-de-datos` si falla por "port already in use").

@@ -111,7 +111,8 @@ function FormularioAusencia({
     },
     null,
   )
-  const errorLocal = errorSeleccion(seleccion)
+  // Incluye "esos días ya los tenés marcados": tocar un día marcado no lo desmarca, y guardarlo lo duplicaría.
+  const errorLocal = errorSeleccion(seleccion, ausencias)
   const error = errorLocal ?? errorServidor
 
   return (
@@ -143,7 +144,7 @@ function FormularioAusencia({
       />
       {/* Lo elegido, escrito, antes de guardar: el día se toca en ~39px, así que se confirma leyendo. */}
       <div className="resumen-ausencia" aria-live="polite">
-        <p className="resumen-ausencia-texto">{resumenSeleccion(seleccion)}</p>
+        <p className="resumen-ausencia-texto">{resumenSeleccion(seleccion, ausencias)}</p>
         {error && <p className="campo-error">{error}</p>}
       </div>
       <input type="hidden" name="desde" value={seleccion.desde ?? ''} />
