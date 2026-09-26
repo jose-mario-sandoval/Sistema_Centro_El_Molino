@@ -189,10 +189,10 @@ export function fijarReaccion(feed: Publicacion[], mensajeId: string, usuarioId:
 }
 
 /**
- * Deja la publicación `id` fijada con `datos`, o sin fijar con `null`. Idempotente como fijarReaccion: sirve
- * para el resultado de la acción y para el evento de tiempo real que llega después.
+ * Deja la publicación `id` fijada arriba con `datos`, o sin fijar con `null`. Idempotente como fijarReaccion:
+ * sirve para el resultado de la acción y para el evento de tiempo real que llega después.
  */
-export function fijarPublicacion(feed: Publicacion[], id: string, datos: DatosFijado | null): Publicacion[] {
+export function aplicarFijado(feed: Publicacion[], id: string, datos: DatosFijado | null): Publicacion[] {
   const final: DatosFijado = datos ?? { fijadoEn: null, fijadoHasta: null, fijadoPor: null }
   let cambio = false
   const siguiente = feed.map((p) => {

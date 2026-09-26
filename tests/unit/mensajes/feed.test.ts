@@ -3,10 +3,10 @@ import {
   agregarAnteriores,
   aplicarActualizacionMensaje,
   aplicarBorradoMensaje,
+  aplicarFijado,
   aplicarInsercionMensaje,
   armarFeed,
   cursorAnteriores,
-  fijarPublicacion,
   fijarReaccion,
   publicaDirecto,
   tieneReaccion,
@@ -284,29 +284,29 @@ describe('publicaDirecto', () => {
   })
 })
 
-describe('fijarPublicacion', () => {
+describe('aplicarFijado', () => {
   const base = () => armarFeed([pub('p2', T(2), { reacciones: ['u2'] }), pub('p1', T(1))])
   const DATOS = { fijadoEn: T(5), fijadoHasta: T(9), fijadoPor: 'dir' }
 
   it('fija y desfija una publicación sin tocar las demás', () => {
-    const fijada = fijarPublicacion(base(), 'p1', DATOS)
+    const fijada = aplicarFijado(base(), 'p1', DATOS)
     expect(fijada[1]).toMatchObject({ id: 'p1', ...DATOS })
     expect(fijada[0]).toMatchObject({ id: 'p2', ...SIN_FIJAR, reacciones: ['u2'] })
-    expect(fijarPublicacion(fijada, 'p1', null)[1]).toMatchObject({ id: 'p1', ...SIN_FIJAR })
+    expect(aplicarFijado(fijada, 'p1', null)[1]).toMatchObject({ id: 'p1', ...SIN_FIJAR })
   })
 
   it('es idempotente: mismo estado o publicación desconocida devuelven el mismo arreglo', () => {
     const antes = base()
-    expect(fijarPublicacion(antes, 'p1', null)).toBe(antes)
-    expect(fijarPublicacion(antes, 'desconocida', DATOS)).toBe(antes)
-    const fijada = fijarPublicacion(antes, 'p1', DATOS)
-    expect(fijarPublicacion(fijada, 'p1', { ...DATOS })).toBe(fijada)
+    expect(aplicarFijado(antes, 'p1', null)).toBe(antes)
+    expect(aplicarFijado(antes, 'desconocida', DATOS)).toBe(antes)
+    const fijada = aplicarFijado(antes, 'p1', DATOS)
+    expect(aplicarFijado(fijada, 'p1', { ...DATOS })).toBe(fijada)
   })
 
   it('no modifica el estado recibido', () => {
     const antes = base()
     const copia = structuredClone(antes)
-    fijarPublicacion(antes, 'p1', DATOS)
+    aplicarFijado(antes, 'p1', DATOS)
     expect(antes).toEqual(copia)
   })
 })
