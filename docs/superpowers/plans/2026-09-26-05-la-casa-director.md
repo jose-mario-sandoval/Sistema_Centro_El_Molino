@@ -1,6 +1,6 @@
 # "La casa" del Director — plan de implementación
 
-> **Para agentes:** SUB-SKILL REQUERIDO: usar superpowers:subagent-driven-development (recomendado) o superpowers:executing-plans para implementar este plan tarea por tarea. Los pasos usan casillas (`- [ ]`) para el seguimiento.
+> **Para agentes:** SUB-SKILL REQUERIDO: usar superpowers:subagent-driven-development (recomendado) o superpowers:executing-plans para implementar este plan tarea por tarea. Los pasos usan casillas (`- [x]`) para el seguimiento.
 
 **Objetivo:** el Director ve y cambia, de cualquier persona activa con comidas (Director o
 Residente), su semana, su plan semanal y sus ausencias, con los **mismos cierres** que todos; la
@@ -122,9 +122,13 @@ tests/e2e/comidas.spec.ts                                 orden de limpieza
 
 ## Fase A — base de datos y capa de datos
 
+Hecha. Banco local (`probar-la-casa.mjs`, scratchpad): 151 comprobaciones en verde; en
+`probar-ausencias.mjs` solo cambia, a propósito, "el Director ve 0 ausencias ajenas". Las pruebas
+de integración nuevas y actualizadas corren en CI.
+
 ### Tarea 1: migración `20260926110000_comidas_director.sql`
 
-- [ ] **Paso 1:** banco (`probar-la-casa.mjs` en el scratchpad): escribir los casos primero y verlos
+- [x] **Paso 1:** banco (`probar-la-casa.mjs` en el scratchpad): escribir los casos primero y verlos
   fallar contra las migraciones actuales — lectura por rol (Director lee todo; residente solo lo
   suyo; Administración sin ausencias); `guardar_seleccion_de` (Director por residente → persona +
   `modificado_por`; igual a la referencia borra; cerrada → MOL01; objetivo Administración o inactivo
@@ -134,77 +138,77 @@ tests/e2e/comidas.spec.ts                                 orden de limpieza
   (congela antes, `creado_por`), la quita; residente2 no; congelado del plan (editar tras el cierre no
   cambia el valor; solo la celda; comida cerrada "Sin definir" no se toca; cascada de cuenta); el job
   sigue congelando con `modificado_por` null; las pruebas de ausencias de siempre siguen pasando.
-- [ ] **Paso 2:** escribir la migración; `node probar-la-casa.mjs` (con `RAIZ_REPO` = este worktree)
+- [x] **Paso 2:** escribir la migración; `node probar-la-casa.mjs` (con `RAIZ_REPO` = este worktree)
   hasta TODO BIEN, y `probar-ausencias.mjs` contra la rama.
-- [ ] **Paso 3:** commit.
+- [x] **Paso 3:** commit.
 
 ### Tarea 2: migración `20260926110100_extras_manuales.sql`
 
-- [ ] **Paso 1:** banco: RLS (residente/Administración no insertan ni leen; Director inserta desde
+- [x] **Paso 1:** banco: RLS (residente/Administración no insertan ni leen; Director inserta desde
   hoy, no en el pasado, `creado_por` = él; borra desde hoy), checks (cantidad 1–50, nota recortada
   ≤ 200), `extras_de_la_semana` suma enlace + manuales para Administración y Director, residente
   recibe `[]`; `extras_manuales_de_la_semana` sin autor. Ver fallar.
-- [ ] **Paso 2:** migración; banco verde. **Paso 3:** commit.
+- [x] **Paso 2:** migración; banco verde. **Paso 3:** commit.
 
 ### Tarea 3: tipos de Supabase y `exigirFilasCompletas`
 
-- [ ] **Paso 1:** `database.types.ts` a mano: columnas nuevas (Row/Insert/Update + relaciones), tabla
+- [x] **Paso 1:** `database.types.ts` a mano: columnas nuevas (Row/Insert/Update + relaciones), tabla
   `extras_manuales`, funciones nuevas y `congelar_comidas_de` con args opcionales, en orden
   alfabético como el generador.
-- [ ] **Paso 2:** `lib/supabase/filas-completas.ts` + prueba, idénticos a los del PR 2.
-- [ ] **Paso 3:** typecheck. Commit.
+- [x] **Paso 2:** `lib/supabase/filas-completas.ts` + prueba, idénticos a los del PR 2.
+- [x] **Paso 3:** typecheck. Commit.
 
 ### Tarea 4: `usuarioObjetivo` y validación
 
-- [ ] **Paso 1:** pruebas: `tests/unit/comidas/permisos.test.ts` (Director → otro id; residente →
+- [x] **Paso 1:** pruebas: `tests/unit/comidas/permisos.test.ts` (Director → otro id; residente →
   solo él; Administración nunca; pedido vacío/igual = uno mismo); `validacion.test.ts` y
   `ausencias.test.ts` (`usuarioId` opcional y uuid; `esquemaExtra`: fecha, comida, cantidad entera
   1–50 también como texto, nota recortada ≤ 200 y vacía → null; `esquemaQuitarExtra`). Ver fallar.
-- [ ] **Paso 2:** implementar. Verde. Commit.
+- [x] **Paso 2:** implementar. Verde. Commit.
 
 ### Tarea 5: vista — `cambiadaPorOtro`, `armarSemanaDeLaCasa`, `agruparPorEstado`
 
-- [ ] **Paso 1:** pruebas en `vista.test.ts`/`reglas.test.ts`: `valorEfectivo` deja pasar
+- [x] **Paso 1:** pruebas en `vista.test.ts`/`reglas.test.ts`: `valorEfectivo` deja pasar
   `cambiadaPorOtro`; `armarSemanaPersona` lo marca desde `modificado_por` (y no agrega la clave si es
   null: las pruebas con `toEqual` siguen iguales); `planDesdeFilas` idem; `valorTrasGuardar(…,
   porOtro)`; `armarSemanaDeLaCasa` (7 días × 3 comidas, personas en orden, `abierta`/`cierre`,
   ausencias por persona) y **paridad del resumen** con `armarDiaAdministracion`;
   `agruparPorEstado` (sin definir primero, solo grupos con personas, etiquetas). Ver fallar.
-- [ ] **Paso 2:** implementar. Verde. Commit.
+- [x] **Paso 2:** implementar. Verde. Commit.
 
 ### Tarea 6: `voz.ts` y "la cambió el Director" en `comida-del-dia.tsx`
 
-- [ ] **Paso 1:** `tests/unit/comidas/voz.test.ts`: pregunta, origen, botón de volver y etiqueta de
+- [x] **Paso 1:** `tests/unit/comidas/voz.test.ts`: pregunta, origen, botón de volver y etiqueta de
   nota en las dos voces. Ver fallar.
-- [ ] **Paso 2:** implementar; `comida-del-dia.tsx` usa `voz.ts` con voz propia. Verde. Commit.
+- [x] **Paso 2:** implementar; `comida-del-dia.tsx` usa `voz.ts` con voz propia. Verde. Commit.
 
 ### Tarea 7: consultas
 
-- [ ] **Paso 1:** `obtenerSemanaDe(usuarioId, lunes)` y `obtenerPlanDe(usuarioId)` (con
+- [x] **Paso 1:** `obtenerSemanaDe(usuarioId, lunes)` y `obtenerPlanDe(usuarioId)` (con
   `modificado_por`); `listarAusenciasDe(usuarioId, hoy)` con `marcadaPorOtro`;
   `obtenerSemanaDeLaCasa(lunes)` (solo Director: personas de `listarPerfiles`, planes y selecciones
   con `{ count: 'exact' }` + `exigirFilasCompletas`, ausencias, cerradas, horas límite);
   `obtenerNotasExtras(lunes)`. Páginas actuales con los nombres nuevos.
-- [ ] **Paso 2:** typecheck + tests. Commit.
+- [x] **Paso 2:** typecheck + tests. Commit.
 
 ### Tarea 8: acciones
 
-- [ ] **Paso 1:** pruebas con cliente falso (`tests/unit/comidas/acciones.test.ts`,
+- [x] **Paso 1:** pruebas con cliente falso (`tests/unit/comidas/acciones.test.ts`,
   `tests/unit/ausencias/acciones.test.ts`): `guardarSeleccion`/`volverAPlan` llaman a `*_de` con el
   objetivo (propio por defecto; el del pedido para el Director; residente con otro id → fallo sin
   tocar la base); `guardarPlan` escribe `usuario_id` del objetivo; `marcarAusencia` lee `usuarioId`
   del formulario; `quitarAusencia` filtra por `usuario_id`; `agregarExtra` (solo Director, no en el
   pasado, inserta con `creado_por`) y `quitarExtra` (0 filas → "ya no existe"). Ver fallar.
-- [ ] **Paso 2:** implementar (`app/(app)/comidas/casa/acciones.ts` nuevo). Verde. Commit.
+- [x] **Paso 2:** implementar (`app/(app)/comidas/casa/acciones.ts` nuevo). Verde. Commit.
 
 ### Tarea 9: pruebas de integración y textos
 
-- [ ] **Paso 1:** `tests/integration/comidas-director.test.ts` (espejo del banco, limpia
+- [x] **Paso 1:** `tests/integration/comidas-director.test.ts` (espejo del banco, limpia
   `extras_manuales`); actualizar `ausencias.test.ts` (el Director ve las de todos) y
   `comidas.test.ts` (`extras_de_la_semana` responde al Director); orden de limpieza plan → selecciones
   en integración y e2e.
-- [ ] **Paso 2:** "Solo vos y el Director ven estas fechas." en el panel de ausencias.
-- [ ] **Paso 3:** lint + typecheck + test + banco. Commit. `git push -u origin claude/comidas-la-casa`
+- [x] **Paso 2:** "Solo vos y el Director ven estas fechas." en el panel de ausencias.
+- [x] **Paso 3:** lint + typecheck + test + banco. Commit. `git push -u origin claude/comidas-la-casa`
   (sin PR todavía).
 
 ---
