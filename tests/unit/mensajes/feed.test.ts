@@ -6,9 +6,12 @@ import {
   aplicarInsercionMensaje,
   armarFeed,
   cursorAnteriores,
+  fijarPublicacion,
   fijarReaccion,
+  publicaDirecto,
   tieneReaccion,
   type MensajeFila,
+  type Publicacion,
   type PublicacionFila,
 } from '@/lib/mensajes/feed'
 
@@ -16,8 +19,21 @@ import {
 const T = (minuto: number) => `2026-09-16T16:${String(minuto).padStart(2, '0')}:00.000000+00:00`
 
 function fila(id: string, creadoEn: string, padreId: string | null = null, autorId = 'u1'): MensajeFila {
-  return { id, autor_id: autorId, padre_id: padreId, texto: `texto ${id}`, creado_en: creadoEn, estado: 'aprobado', motivo_rechazo: null }
+  return {
+    id,
+    autor_id: autorId,
+    padre_id: padreId,
+    texto: `texto ${id}`,
+    creado_en: creadoEn,
+    estado: 'aprobado',
+    motivo_rechazo: null,
+    fijado_en: null,
+    fijado_hasta: null,
+    fijado_por: null,
+  }
 }
+
+const SIN_FIJAR = { fijadoEn: null, fijadoHasta: null, fijadoPor: null }
 
 /** Publicación como la devuelve la consulta del feed (respuestas y reacciones embebidas). */
 function pub(
@@ -52,7 +68,13 @@ describe('armarFeed', () => {
       motivoRechazo: null,
       reacciones: ['u2', 'u3'],
       respuestas: [{ id: 'r1', autorId: 'otro', texto: 'texto r1', creadoEn: T(2), estado: 'aprobado', motivoRechazo: null }],
+      ...SIN_FIJAR,
     })
+  })
+
+  it('lleva los datos de fijado de la publicación', () => {
+    const fijada = { ...pub('p1', T(1)), fijado_en: T(5), fijado_hasta: T(9), fijado_por: 'dir' }
+    expect(armarFeed([fijada])[0]).toMatchObject({ fijadoEn: T(5), fijadoHasta: T(9), fijadoPor: 'dir' })
   })
 
   it('a igual instante desempata por id descendente, como la consulta', () => {
@@ -198,21 +220,30 @@ describe('reacciones', () => {
 })
 
 describe('aplicarActualizacionMensaje', () => {
-  const base = { id: 'm1', autor_id: 'u1', padre_id: null, texto: 'Hola', creado_en: '2026-01-01T00:00:00.000000+00:00' }
+  const base = {
+    id: 'm1',
+    autor_id: 'u1',
+    padre_id: null,
+    texto: 'Hola',
+    creado_en: '2026-01-01T00:00:00.000000+00:00',
+    fijado_en: null,
+    fijado_hasta: null,
+    fijado_por: null,
+  }
 
   it('actualiza el estado de una publicación que ya estaba en el feed', () => {
-    const feed = [{ id: 'm1', autorId: 'u1', texto: 'Hola', creadoEn: base.creado_en, estado: 'pendiente' as const, motivoRechazo: null, reacciones: [], respuestas: [] }]
+    const feed: Publicacion[] = [{ id: 'm1', autorId: 'u1', texto: 'Hola', creadoEn: base.creado_en, estado: 'pendiente', motivoRechazo: null, reacciones: [], respuestas: [], ...SIN_FIJAR }]
     const siguiente = aplicarActualizacionMensaje(feed, { ...base, estado: 'aprobado', motivo_rechazo: null })
     expect(siguiente[0].estado).toBe('aprobado')
   })
 
   it('un mensaje que se vuelve visible por primera vez (no estaba en el feed) se inserta', () => {
     const siguiente = aplicarActualizacionMensaje([], { ...base, estado: 'aprobado', motivo_rechazo: null })
-    expect(siguiente).toEqual([{ id: 'm1', autorId: 'u1', texto: 'Hola', creadoEn: base.creado_en, estado: 'aprobado', motivoRechazo: null, reacciones: [], respuestas: [] }])
+    expect(siguiente).toEqual([{ id: 'm1', autorId: 'u1', texto: 'Hola', creadoEn: base.creado_en, estado: 'aprobado', motivoRechazo: null, reacciones: [], respuestas: [], ...SIN_FIJAR }])
   })
 
   it('una respuesta que se vuelve visible se agrega bajo su padre si el padre está cargado', () => {
-    const feed = [{ id: 'padre', autorId: 'u2', texto: 'Publicación', creadoEn: '2026-01-01T00:00:00.000000+00:00', estado: 'aprobado' as const, motivoRechazo: null, reacciones: [], respuestas: [] }]
+    const feed: Publicacion[] = [{ id: 'padre', autorId: 'u2', texto: 'Publicación', creadoEn: '2026-01-01T00:00:00.000000+00:00', estado: 'aprobado', motivoRechazo: null, reacciones: [], respuestas: [], ...SIN_FIJAR }]
     const siguiente = aplicarActualizacionMensaje(feed, { ...base, id: 'r1', padre_id: 'padre', estado: 'aprobado', motivo_rechazo: null })
     expect(siguiente[0].respuestas).toHaveLength(1)
     expect(siguiente[0].respuestas[0].id).toBe('r1')
@@ -224,8 +255,58 @@ describe('aplicarActualizacionMensaje', () => {
   })
 
   it('actualiza una respuesta que ya estaba cargada', () => {
-    const feed = [{ id: 'padre', autorId: 'u2', texto: 'Publicación', creadoEn: '2026-01-01T00:00:00.000000+00:00', estado: 'aprobado' as const, motivoRechazo: null, reacciones: [], respuestas: [{ id: 'r1', autorId: 'u1', texto: 'Vieja', creadoEn: base.creado_en, estado: 'pendiente' as const, motivoRechazo: null }] }]
+    const feed: Publicacion[] = [{ id: 'padre', autorId: 'u2', texto: 'Publicación', creadoEn: '2026-01-01T00:00:00.000000+00:00', estado: 'aprobado', motivoRechazo: null, reacciones: [], respuestas: [{ id: 'r1', autorId: 'u1', texto: 'Vieja', creadoEn: base.creado_en, estado: 'pendiente', motivoRechazo: null }], ...SIN_FIJAR }]
     const siguiente = aplicarActualizacionMensaje(feed, { ...base, id: 'r1', padre_id: 'padre', texto: 'Corregida', estado: 'rechazado', motivo_rechazo: 'Ofensivo' })
     expect(siguiente[0].respuestas[0]).toEqual({ id: 'r1', autorId: 'u1', texto: 'Corregida', creadoEn: base.creado_en, estado: 'rechazado', motivoRechazo: 'Ofensivo' })
+  })
+
+  it('lleva fijar y desfijar a una publicación cargada, sin perder reacciones ni respuestas', () => {
+    const cargada = armarFeed([pub('m1', base.creado_en, { reacciones: ['u2'], respuestas: [fila('r1', T(2), 'm1')] })])
+    const fijada = aplicarActualizacionMensaje(cargada, { ...base, estado: 'aprobado', motivo_rechazo: null, fijado_en: T(5), fijado_hasta: null, fijado_por: 'adm' })
+    expect(fijada[0]).toMatchObject({ fijadoEn: T(5), fijadoHasta: null, fijadoPor: 'adm', reacciones: ['u2'] })
+    expect(fijada[0].respuestas).toHaveLength(1)
+    const desfijada = aplicarActualizacionMensaje(fijada, { ...base, estado: 'aprobado', motivo_rechazo: null })
+    expect(desfijada[0]).toMatchObject(SIN_FIJAR)
+  })
+
+  it('una publicación fijada que no está cargada no se inserta sin sus reacciones ni respuestas (se recarga)', () => {
+    const antes = armarFeed([pub('p1', T(1))])
+    const siguiente = aplicarActualizacionMensaje(antes, { ...base, estado: 'aprobado', motivo_rechazo: null, fijado_en: T(5), fijado_hasta: null, fijado_por: 'dir' })
+    expect(siguiente).toBe(antes)
+  })
+})
+
+describe('publicaDirecto', () => {
+  it('Director y Administración publican sin aprobación; Residente espera', () => {
+    expect(publicaDirecto('director')).toBe(true)
+    expect(publicaDirecto('administracion')).toBe(true)
+    expect(publicaDirecto('residente')).toBe(false)
+  })
+})
+
+describe('fijarPublicacion', () => {
+  const base = () => armarFeed([pub('p2', T(2), { reacciones: ['u2'] }), pub('p1', T(1))])
+  const DATOS = { fijadoEn: T(5), fijadoHasta: T(9), fijadoPor: 'dir' }
+
+  it('fija y desfija una publicación sin tocar las demás', () => {
+    const fijada = fijarPublicacion(base(), 'p1', DATOS)
+    expect(fijada[1]).toMatchObject({ id: 'p1', ...DATOS })
+    expect(fijada[0]).toMatchObject({ id: 'p2', ...SIN_FIJAR, reacciones: ['u2'] })
+    expect(fijarPublicacion(fijada, 'p1', null)[1]).toMatchObject({ id: 'p1', ...SIN_FIJAR })
+  })
+
+  it('es idempotente: mismo estado o publicación desconocida devuelven el mismo arreglo', () => {
+    const antes = base()
+    expect(fijarPublicacion(antes, 'p1', null)).toBe(antes)
+    expect(fijarPublicacion(antes, 'desconocida', DATOS)).toBe(antes)
+    const fijada = fijarPublicacion(antes, 'p1', DATOS)
+    expect(fijarPublicacion(fijada, 'p1', { ...DATOS })).toBe(fijada)
+  })
+
+  it('no modifica el estado recibido', () => {
+    const antes = base()
+    const copia = structuredClone(antes)
+    fijarPublicacion(antes, 'p1', DATOS)
+    expect(antes).toEqual(copia)
   })
 })

@@ -32,9 +32,23 @@ export async function listarMensajesPendientes(): Promise<MensajeFila[]> {
   const supabase = await crearClienteServidor()
   const { data, error } = await supabase
     .from('mensajes')
-    .select('id, autor_id, padre_id, texto, creado_en, estado, motivo_rechazo')
+    .select('id, autor_id, padre_id, texto, creado_en, estado, motivo_rechazo, fijado_en, fijado_hasta, fijado_por')
     .eq('estado', 'pendiente')
     .order('creado_en')
   if (error) throw error
   return data
+}
+
+/**
+ * Cuántos mensajes esperan aprobación: el globito del Director (components/app/pendientes.tsx). Solo el
+ * Director ve los pendientes ajenos (RLS); a otro rol le contaría únicamente los propios.
+ */
+export async function contarMensajesPendientes(): Promise<number> {
+  const supabase = await crearClienteServidor()
+  const { count, error } = await supabase
+    .from('mensajes')
+    .select('id', { count: 'exact', head: true })
+    .eq('estado', 'pendiente')
+  if (error) throw error
+  return count ?? 0
 }

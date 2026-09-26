@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { LARGO_MAXIMO_MENSAJE } from '@/lib/mensajes/feed'
+import { DURACIONES_FIJADO } from '@/lib/mensajes/fijados'
 
 const texto = z
   .string({ error: 'Escribí un mensaje.' })
@@ -31,6 +32,20 @@ export const esquemaModeracion = z.object({
 })
 
 export const esquemaEdicionPropia = z.object({ id: idMensaje, texto })
+
+/** Fijar una publicación. El fin lo calcula el servidor con su reloj (lib/mensajes/fijados.ts). */
+export const esquemaFijar = z
+  .object({
+    id: idMensaje,
+    duracion: z.enum(DURACIONES_FIJADO, { error: 'Elegí por cuánto tiempo.' }),
+    fecha: z.iso.date({ error: 'Elegí hasta qué día.' }).optional(),
+  })
+  .refine((d) => d.duracion !== 'fecha' || d.fecha !== undefined, {
+    path: ['fecha'],
+    error: 'Elegí hasta qué día.',
+  })
+
+export const esquemaDesfijar = z.object({ id: idMensaje })
 
 /** "Ver anteriores": `antesDe` es el creado_en de la publicación más antigua cargada; null = primera página. */
 export const esquemaPaginaMensajes = z.object({

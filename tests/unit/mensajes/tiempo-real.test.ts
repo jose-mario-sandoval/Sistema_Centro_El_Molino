@@ -7,7 +7,18 @@ const T = (minuto: number) => `2026-09-16T16:${String(minuto).padStart(2, '0')}:
 // Tipado explícito: sin él, `estado: 'aprobado'` se ampliaría a `string` (objeto literal sin
 // contexto) y dejaría de encajar en MensajeFila donde se use este helper.
 function mensaje(id: string, creadoEn: string, padreId: string | null = null, autorId = 'u1'): MensajeFila {
-  return { id, autor_id: autorId, padre_id: padreId, texto: `texto ${id}`, creado_en: creadoEn, estado: 'aprobado', motivo_rechazo: null }
+  return {
+    id,
+    autor_id: autorId,
+    padre_id: padreId,
+    texto: `texto ${id}`,
+    creado_en: creadoEn,
+    estado: 'aprobado',
+    motivo_rechazo: null,
+    fijado_en: null,
+    fijado_hasta: null,
+    fijado_por: null,
+  }
 }
 
 function evento(parcial: Partial<EventoTiempoReal> & Pick<EventoTiempoReal, 'table' | 'eventType'>): EventoTiempoReal {
@@ -83,13 +94,60 @@ describe('leerEvento: UPDATE de mensajes', () => {
     creado_en: '2026-01-01T00:00:00.000000+00:00',
     estado: 'aprobado',
     motivo_rechazo: null,
+    fijado_en: null,
+    fijado_hasta: null,
+    fijado_por: null,
   }
 
   it('traduce un UPDATE a un cambio del feed', () => {
     const resultado = leerEvento({ table: 'mensajes', eventType: 'UPDATE', new: filaBase, old: {} })
     expect(resultado?.autorId).toBe('u1')
     const siguiente = resultado!.cambio([])
-    expect(siguiente).toEqual([{ id: 'm1', autorId: 'u1', texto: 'Hola', creadoEn: filaBase.creado_en, estado: 'aprobado', motivoRechazo: null, reacciones: [], respuestas: [] }])
+    expect(siguiente).toEqual([
+      {
+        id: 'm1',
+        autorId: 'u1',
+        texto: 'Hola',
+        creadoEn: filaBase.creado_en,
+        estado: 'aprobado',
+        motivoRechazo: null,
+        reacciones: [],
+        respuestas: [],
+        fijadoEn: null,
+        fijadoHasta: null,
+        fijadoPor: null,
+      },
+    ])
+    expect(resultado?.publicacionFijada).toBeUndefined()
+  })
+
+  it('lee los datos de fijado', () => {
+    const fijada = { ...filaBase, fijado_en: '2026-01-02T00:00:00+00:00', fijado_hasta: '2026-01-03T00:00:00+00:00', fijado_por: 'adm' }
+    const cargada = leerEvento({ table: 'mensajes', eventType: 'UPDATE', new: filaBase, old: {} })!.cambio([])
+    const [p] = leerEvento({ table: 'mensajes', eventType: 'UPDATE', new: fijada, old: {} })!.cambio(cargada)
+    expect(p).toMatchObject({ fijadoEn: fijada.fijado_en, fijadoHasta: fijada.fijado_hasta, fijadoPor: 'adm' })
+  })
+
+  it('una base sin la migración (columnas de fijado ausentes) se lee como no fijada', () => {
+    const sinColumnas: Record<string, unknown> = { ...filaBase }
+    for (const columna of ['fijado_en', 'fijado_hasta', 'fijado_por']) delete sinColumnas[columna]
+    const resultado = leerEvento({ table: 'mensajes', eventType: 'UPDATE', new: sinColumnas, old: {} })
+    expect(resultado!.cambio([])[0]).toMatchObject({ fijadoEn: null, fijadoHasta: null, fijadoPor: null })
+    expect(leerEvento(evento({ table: 'mensajes', eventType: 'INSERT', new: sinColumnas }))).not.toBeNull()
+  })
+
+  it('datos de fijado de un tipo inesperado invalidan la fila', () => {
+    for (const malo of [{ fijado_en: 5 }, { fijado_hasta: true }, { fijado_por: {} }, { fijado_en: '' }]) {
+      expect(leerEvento({ table: 'mensajes', eventType: 'UPDATE', new: { ...filaBase, ...malo }, old: {} })).toBeNull()
+    }
+  })
+
+  it('el UPDATE de una publicación fijada avisa cuál es, para recargarla si no está cargada', () => {
+    const fijada = { ...filaBase, fijado_en: '2026-01-02T00:00:00+00:00' }
+    expect(leerEvento({ table: 'mensajes', eventType: 'UPDATE', new: fijada, old: {} })?.publicacionFijada).toBe('m1')
+    // Una respuesta nunca está fijada; y una desfijada ya no hace falta traerla.
+    const respuesta = { ...filaBase, id: 'r1', padre_id: 'm1' }
+    expect(leerEvento({ table: 'mensajes', eventType: 'UPDATE', new: respuesta, old: {} })?.publicacionFijada).toBeUndefined()
   })
 
   it('un estado desconocido se ignora (fila inválida)', () => {

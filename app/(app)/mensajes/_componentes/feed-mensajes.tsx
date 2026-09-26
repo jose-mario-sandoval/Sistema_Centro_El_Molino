@@ -10,6 +10,7 @@ import {
   aplicarInsercionMensaje,
   cursorAnteriores,
   fijarReaccion,
+  publicaDirecto,
   tieneReaccion,
   type MensajeFila,
 } from '@/lib/mensajes/feed'
@@ -112,10 +113,13 @@ export function FeedMensajes({
       padre_id: padreId,
       texto,
       creado_en: new Date().toISOString(),
-      // Provisorio: si no es director, el servidor lo deja 'pendiente' y el evento de tiempo real lo confirma.
+      // Provisorio: el servidor decide (mensajes_forzar_estado) y el evento de tiempo real lo confirma.
       // Fijarlo en 'aprobado' acá haría que un Residente vea su propio mensaje aprobado por un instante.
-      estado: usuario.rol === 'director' ? 'aprobado' : 'pendiente',
+      estado: publicaDirecto(usuario.rol) ? 'aprobado' : 'pendiente',
       motivo_rechazo: null,
+      fijado_en: null,
+      fijado_hasta: null,
+      fijado_por: null,
     }
     aplicar((feed) => aplicarInsercionMensaje(feed, fila))
   }

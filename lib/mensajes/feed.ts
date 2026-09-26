@@ -1,3 +1,4 @@
+import type { Rol } from '@/lib/perfiles/roles'
 import type { Tabla } from '@/lib/supabase/tipos'
 
 /** Publicaciones por carga (spec §7). */
@@ -8,7 +9,7 @@ export const LARGO_MAXIMO_MENSAJE = 2000
 export type EstadoMensaje = 'pendiente' | 'aprobado' | 'rechazado'
 export type MensajeFila = Pick<
   Tabla<'mensajes'>,
-  'id' | 'autor_id' | 'padre_id' | 'texto' | 'creado_en' | 'estado' | 'motivo_rechazo'
+  'id' | 'autor_id' | 'padre_id' | 'texto' | 'creado_en' | 'estado' | 'motivo_rechazo' | 'fijado_en' | 'fijado_hasta' | 'fijado_por'
 >
 export type ReaccionFila = Pick<Tabla<'reacciones'>, 'mensaje_id' | 'usuario_id'>
 /** Publicación tal como la devuelve la consulta del feed, con respuestas y reacciones embebidas. */
@@ -18,8 +19,18 @@ export type PublicacionFila = MensajeFila & {
 }
 
 export type Respuesta = { id: string; autorId: string; texto: string; creadoEn: string; estado: EstadoMensaje; motivoRechazo: string | null }
+/**
+ * Solo las publicaciones se fijan. `fijadoEn` nulo = no fijada; `fijadoHasta` nulo = hasta que la quiten;
+ * `fijadoPor`: quién la fijó (en pantalla, solo su rol).
+ */
+export type DatosFijado = { fijadoEn: string | null; fijadoHasta: string | null; fijadoPor: string | null }
 /** `reacciones`: ids de quienes reaccionaron. */
-export type Publicacion = Respuesta & { reacciones: string[]; respuestas: Respuesta[] }
+export type Publicacion = Respuesta & DatosFijado & { reacciones: string[]; respuestas: Respuesta[] }
+
+/** Espejo de mensajes_forzar_estado() en SQL: quién publica sin pasar por la aprobación del Director. */
+export function publicaDirecto(rol: Rol): boolean {
+  return rol === 'director' || rol === 'administracion'
+}
 
 /**
  * Microsegundos desde 1970. Postgres guarda microsegundos y Date solo milisegundos: comparando con Date, dos
@@ -55,8 +66,12 @@ function aRespuesta(fila: MensajeFila): Respuesta {
   }
 }
 
+function datosFijado(fila: MensajeFila): DatosFijado {
+  return { fijadoEn: fila.fijado_en, fijadoHasta: fila.fijado_hasta, fijadoPor: fila.fijado_por }
+}
+
 function aPublicacion(fila: MensajeFila): Publicacion {
-  return { ...aRespuesta(fila), reacciones: [], respuestas: [] }
+  return { ...aRespuesta(fila), ...datosFijado(fila), reacciones: [], respuestas: [] }
 }
 
 /** Convierte las filas de la consulta (respuestas y reacciones embebidas) al formato del feed, ordenado. */
@@ -64,6 +79,7 @@ export function armarFeed(filas: PublicacionFila[]): Publicacion[] {
   return filas
     .map((fila) => ({
       ...aRespuesta(fila),
+      ...datosFijado(fila),
       reacciones: [...new Set(fila.reacciones.map((r) => r.usuario_id))],
       respuestas: fila.respuestas.map(aRespuesta).sort(compararRespuestas),
     }))
@@ -112,18 +128,21 @@ export function aplicarInsercionMensaje(
 }
 
 /**
- * Evento UPDATE de `mensajes` (aprobar/rechazar/editar). A diferencia de una inserción, no se puede
+ * Evento UPDATE de `mensajes` (aprobar/rechazar/editar/fijar). A diferencia de una inserción, no se puede
  * asumir que el mensaje ya está en el feed local: quien lo recibe puede estar viéndolo por primera
  * vez recién ahora que se volvió visible (antes estaba pendiente). Si el padre de una respuesta
  * recién visible no está cargado, no hay nada que hacer todavía — aparecerá al recargar cuando el
- * padre también sea visible.
+ * padre también sea visible. Tampoco se inserta una publicación fijada que no estaba cargada (una
+ * vieja que alguien fijó): llegaría sin sus reacciones ni respuestas; el feed la recarga completa
+ * (ver `publicacionFijada` en leerEvento).
  */
 export function aplicarActualizacionMensaje(feed: Publicacion[], fila: MensajeFila): Publicacion[] {
   const padreId = fila.padre_id
   if (padreId === null) {
     const existe = feed.some((p) => p.id === fila.id)
+    if (!existe && fila.fijado_en !== null) return feed
     const siguiente = existe
-      ? feed.map((p) => (p.id === fila.id ? { ...p, ...aRespuesta(fila) } : p))
+      ? feed.map((p) => (p.id === fila.id ? { ...p, ...aRespuesta(fila), ...datosFijado(fila) } : p))
       : [...feed, aPublicacion(fila)]
     return siguiente.sort(compararPublicaciones)
   }
@@ -165,6 +184,26 @@ export function fijarReaccion(feed: Publicacion[], mensajeId: string, usuarioId:
       ...p,
       reacciones: presente ? [...p.reacciones, usuarioId] : p.reacciones.filter((u) => u !== usuarioId),
     }
+  })
+  return cambio ? siguiente : feed
+}
+
+/**
+ * Deja la publicación `id` fijada con `datos`, o sin fijar con `null`. Idempotente como fijarReaccion: sirve
+ * para el resultado de la acción y para el evento de tiempo real que llega después.
+ */
+export function fijarPublicacion(feed: Publicacion[], id: string, datos: DatosFijado | null): Publicacion[] {
+  const final: DatosFijado = datos ?? { fijadoEn: null, fijadoHasta: null, fijadoPor: null }
+  let cambio = false
+  const siguiente = feed.map((p) => {
+    if (
+      p.id !== id ||
+      (p.fijadoEn === final.fijadoEn && p.fijadoHasta === final.fijadoHasta && p.fijadoPor === final.fijadoPor)
+    ) {
+      return p
+    }
+    cambio = true
+    return { ...p, ...final }
   })
   return cambio ? siguiente : feed
 }
