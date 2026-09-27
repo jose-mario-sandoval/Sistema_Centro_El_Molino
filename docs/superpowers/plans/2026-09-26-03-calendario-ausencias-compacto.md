@@ -43,6 +43,11 @@ dejan de depender de `Intl` (`lib/fechas/etiquetas.ts`) para que servidor y nave
   leía "Del 26 al 26 de septiembre".
 - **Selección con `aria-selected` en la celda** *(tras la revisión)*, patrón APG, y no `aria-pressed`
   en el botón: tocar un día elegido no lo "suelta", empieza otro rango. El estilo usa `.elegido`.
+- **Letra mínima `--t-xs` en todo el mini calendario** *(tras la revisión)*: cabeceras a `--t-xs`,
+  números con `max(var(--t-xs), …)`. La abreviatura más ancha mide 2.156 × `--t-xs` (≈1.886rem), así
+  que cabe si el calendario mide ≥ 13.2rem + 24px; el umbral `@container (max-width:15.3rem)` lo
+  cumple a cualquier tamaño de letra (2rem ≥ 24px) y por debajo muestra la inicial. Medido a
+  320–480px × normal/grande/enorme: el texto más chico es exactamente `--t-xs` (15.75/17.5/20.02px).
 - **Sin `.cal-day`** ni `data-fecha` suelto: los días son `.mini-calendario .mini-dia[data-fecha]`, así
   los E2E del calendario grande (`.cal-day[data-fecha=…]`) siguen encontrando un único elemento.
 - **Navegación de mes con `aria-disabled`**, no `disabled`: al llegar al último mes el botón no pierde
