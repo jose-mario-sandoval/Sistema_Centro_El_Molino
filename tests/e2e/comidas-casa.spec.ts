@@ -102,7 +102,11 @@ test('el Director cambia la comida de un residente desde La casa y el residente 
   await expect(celda).toHaveAttribute('aria-expanded', 'true')
 
   const panel = panelCasa(page)
-  await expect(panel.getByRole('heading', { name: `Almuerzo del miércoles ${fechaCorta(miercolesSiguiente)}` })).toBeVisible()
+  // Se abre debajo de la fila de su día, y el foco va a su título.
+  const titulo = panel.getByRole('heading', { name: `Almuerzo del miércoles ${fechaCorta(miercolesSiguiente)}` })
+  await expect(titulo).toBeFocused()
+  await expect(titulo).toBeInViewport()
+  await expect(page.locator('.tabla-casa tr.fila-panel .panel-casa')).toHaveCount(1)
   // Sin definir primero; el residente, entre quienes comen según su plan.
   await expect(panel.locator('.grupo-casa-titulo').first()).toContainText('Sin definir')
   const grupoSi = panel.getByRole('group', { name: /^Sí comer \(\d+\)$/ })
@@ -135,6 +139,8 @@ test('el Director cambia la comida de un residente desde La casa y el residente 
   await iniciarSesion(page, 'residente')
   await page.goto(`/comidas/semana?semana=${lunesSiguiente}`)
   const tarjeta = page.locator('.tarjetas-semana').getByRole('button', { name: new RegExp(`^Miércoles ${fechaCorta(miercolesSiguiente)}[,.]`) })
+  // A la vista sin abrir la tarjeta: el Director cambió algo de ese día.
+  await expect(tarjeta).toContainText('Cambió el Director')
   await tarjeta.click()
   const suya = page.locator(`[data-fecha="${miercolesSiguiente}"][data-comida="almuerzo"]`)
   await expect(suya.getByText('la cambió el Director', { exact: true })).toBeVisible()
@@ -149,10 +155,16 @@ test('"Ver la semana de": el Director cambia el plan y marca una ausencia del re
   await page.getByLabel('Ver la semana de:').selectOption({ label: 'Residente Prueba' })
   await page.getByRole('button', { name: 'Ver', exact: true }).click()
   await expect(page).toHaveURL(new RegExp(`/comidas/casa/${ids.residente}\\?semana=${lunesSiguiente}$`))
-  await expect(page.getByRole('heading', { name: 'Residente Prueba' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Comidas de Residente Prueba' })).toBeVisible()
+  // Arriba sigue marcada "La casa": las pestañas del propio Director no se confunden con las de la persona.
+  await expect(page.getByRole('navigation', { name: 'Comidas', exact: true }).getByRole('link', { name: 'La casa' })).toHaveAttribute(
+    'aria-current',
+    'page',
+  )
+  await expect(page.getByText('Las comidas de toda la casa:', { exact: false })).toBeVisible()
 
-  // Plan de comida: la cuadrícula de siempre, en tercera persona.
-  await page.getByRole('link', { name: 'Plan de comida' }).last().click()
+  // Su plan: la cuadrícula de siempre, en tercera persona.
+  await page.getByRole('link', { name: 'Su plan' }).click()
   const celda = page.getByRole('button', { name: /^Martes, cena:/ })
   await celda.click()
   await expect(page.locator('.cuadro-panel')).toContainText('¿Normalmente cena los martes?')
@@ -168,8 +180,8 @@ test('"Ver la semana de": el Director cambia el plan y marca una ausencia del re
     })
     .toEqual([{ dia_semana: 2, comida: 'cena', estado: 'no', modificado_por: ids.director }])
 
-  // Ausencias: el mismo mini calendario.
-  await page.getByRole('link', { name: 'Ausencias' }).click()
+  // Sus ausencias: el mismo mini calendario.
+  await page.getByRole('link', { name: 'Sus ausencias' }).click()
   const panel = page.getByRole('region', { name: 'Ausencias de Residente Prueba' })
   await marcarAusencia(page, miercolesSiguiente, miercolesSiguiente, panel)
   await expect(page.getByText('Ausencia marcada. Sus comidas de esos días quedan canceladas.')).toBeVisible()
@@ -186,9 +198,11 @@ test('"Ver la semana de": el Director cambia el plan y marca una ausencia del re
   await page.goto('/calendario')
   await expect(panelAusencias(page).getByText('La marcó el Director', { exact: true })).toBeVisible()
   await page.goto('/comidas/plan')
-  await expect(page.getByRole('button', { name: /^Martes, cena:/ })).toHaveAccessibleName(
-    'Martes, cena: No comer, la cambió el Director. Cambiar',
-  )
+  const celdaPlan = page.getByRole('button', { name: /^Martes, cena:/ })
+  await expect(celdaPlan).toHaveAccessibleName('Martes, cena: No comer, la cambió el Director. Cambiar')
+  // Y a la vista, en la celda, con su leyenda.
+  await expect(celdaPlan).toContainText('Director')
+  await expect(page.locator('.leyenda-director')).toContainText('la cambió el Director')
 })
 
 test('una comida que ya cerró se ve en La casa, pero no se cambia', async ({ page }) => {
@@ -204,6 +218,10 @@ test('una comida que ya cerró se ve en La casa, pero no se cambia', async ({ pa
   await panel.getByRole('button', { name: 'Residente Prueba' }).click()
   await expect(panel.locator('.persona-comida .estado-actual')).toBeDisabled()
   await expect(panel.locator('.persona-comida').getByText('Cerrada: ya no se puede cambiar.')).toBeVisible()
+  // "Cerrar" devuelve el foco a la celda que lo abrió.
+  await panel.getByRole('button', { name: 'Cerrar' }).click()
+  await expect(panel).toHaveCount(0)
+  await expect(celda).toBeFocused()
 
   // En una semana pasada tampoco se agregan extras.
   await expect(page.getByText('Esta semana ya pasó: no se pueden agregar extras.')).toBeVisible()
@@ -291,10 +309,13 @@ for (const viewport of [
     test.use({ viewport })
 
     test('La casa cabe sin scroll lateral y todo lo que se toca mide al menos 56px', async ({ page }) => {
-      const { lunesSiguiente, miercolesSiguiente } = fechas()
+      const { lunesSiguiente } = fechas()
       await iniciarSesion(page, 'director')
       await page.goto(`/comidas/casa?semana=${lunesSiguiente}`)
-      await celdaCasa(page, miercolesSiguiente, 'cena').click()
+      // El lunes: el más lejos de lo que se abre si el panel fuera al final de la tabla.
+      await celdaCasa(page, lunesSiguiente, 'almuerzo').click()
+      await expect(panelCasa(page).getByRole('heading', { level: 2 })).toBeInViewport()
+      await expect(panelCasa(page).getByRole('heading', { level: 2 })).toBeFocused()
       await panelCasa(page).getByRole('button', { name: 'Residente Prueba' }).click()
       await page.getByRole('button', { name: 'Agregar extra' }).click()
       await esperarSinScrollLateral(page)

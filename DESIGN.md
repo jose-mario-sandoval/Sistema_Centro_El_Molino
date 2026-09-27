@@ -367,19 +367,31 @@ de sección, pasa al contenido principal para que un lector de pantalla anuncie 
 - **"La casa" del Director es la tabla de la cocina con nombres, no una pantalla nueva.** La misma
   tabla que ve Administración (un día por fila, una comida por columna, el mismo desglose y el mismo
   apilado en el teléfono), pero cada celda es un botón elevado dentro de su hueco. Tocarla abre,
-  **debajo de la tabla** y no en un modal, quiénes comen: agrupados por lo que eligieron (título de
-  grupo con icono + texto + color, *"Sin definir (2)"* primero, después el orden de la cocina), y
-  cada nombre es un botón de 56px que abre en el lugar la comida de esa persona con las mismas
-  piezas de siempre (`ComidaDelDia` → `PanelOpciones` + `EditorNota`) y los mismos cierres. Lo que
-  cambia es la voz: *"¿Va a almorzar…?"*, *"según su plan"*, *"Volver a su plan"*, *"Elegí qué hace
-  Juan con el almuerzo"* (`lib/comidas/voz.ts`). La semana, el plan y las ausencias de una persona
-  (`/comidas/casa/[persona]`) reutilizan las tarjetas, la cuadrícula y el mini calendario tal cual.
+  **debajo de la fila de su día** (una fila más de la tabla, a todo el ancho, también apilada) y no
+  en un modal, quiénes comen: agrupados por lo que eligieron (título de grupo con icono + texto +
+  color, *"Sin definir (2)"* primero, después el orden de la cocina), y cada nombre es un botón de
+  56px que abre en el lugar la comida de esa persona con las mismas piezas de siempre
+  (`ComidaDelDia` → `PanelOpciones` + `EditorNota`) y los mismos cierres. Como va dentro de la
+  tarjeta de la tabla, el panel es una bandeja hundida, no otra tarjeta. Al abrirlo, el foco va a su
+  título y la fila sube hasta arriba; si la fila apilada es más alta que la pantalla (teléfono, letra
+  grande), sube el panel: lo que se abrió siempre se ve. *"Cerrar"* devuelve el foco a la celda. Lo
+  que cambia es la voz: *"¿Va a almorzar…?"*, *"según su plan"*, *"Volver a su plan"*, *"Elegí qué
+  hace Juan con el almuerzo"*, *"Indicá qué puede comer"* (`lib/comidas/voz.ts`).
+- **La página de una persona dice de quién es.** `/comidas/casa/[persona]` reutiliza las tarjetas,
+  la cuadrícula y el mini calendario tal cual, bajo el título *"Comidas de Juan"* y la frase *"Lo que
+  cambies acá es de Juan, no tuyo"*. Sus vistas son *"Su semana"*, *"Su plan"*, *"Sus ausencias"*,
+  con icono, en un control segmentado (bandeja hundida, segmentos rectos, el elegido hundido y
+  teñido de acento), para que no se confundan con las pestañas de arriba, que son las del propio
+  Director (ahí sigue marcada *"La casa"*, y el texto bajo *"Comidas"* habla de la casa, no de
+  *"tu plan"*).
 - **Lo cerrado en La casa se dice escrito.** Una comida cerrada es plana (se toca igual, para ver
   quiénes comieron) y lleva candado + *"Cerrada"*; un día cerrado entero lo dice una vez en su fila,
   como su tarjeta en la Semana. Dentro, la comida de cada persona es de solo lectura.
-- **Quién cambió se ve donde se mira.** La persona lee *"la cambió el Director"* en la marca de
-  origen de su comida (y en el panel y el nombre accesible de la celda del plan), y *"La marcó el
-  Director"* junto a la ausencia. Misma marca de origen que *"cambiada"*: nada nuevo que aprender.
+- **Quién cambió se ve donde se mira, sin abrir nada.** La tarjeta del día lleva lápiz + *"Cambió el
+  Director"* si alguna de sus comidas la cambió él; la celda del plan, lápiz + *"Director"*, con la
+  leyenda escrita arriba de la cuadrícula. Al abrir, la marca de origen de la comida dice *"la cambió
+  el Director"* (también el panel y el nombre accesible de la celda del plan), y la ausencia, *"La
+  marcó el Director"*. Nunca el lápiz solo.
 - **Extras para la cocina: sin nombres, y avisando antes.** Día (pastillas), comida (pastillas),
   cantidad con botones − y + de 56px y una nota opcional con la advertencia escrita *"La cocina lee
   esta nota: no escribas nombres."* Si la comida elegida ya cerró se puede guardar igual (un
@@ -486,7 +498,9 @@ Decisiones tomadas al portar:
   (`.mini-calendario .mini-dia[data-fecha]`) y nunca `.cal-day`: los E2E del calendario grande
   buscan `.cal-day[data-fecha=…]` como único. La casa del Director suma
   `.tabla-casa td[data-fecha][data-comida] .celda-casa` (el botón de cada comida), `.panel-casa`
-  (quiénes comen, con un `role="group"` por estado nombrado *"Sin definir (2)"*), `.persona-casa` y
+  dentro de `tr.fila-panel` (quiénes comen, con un `role="group"` por estado nombrado *"Sin definir
+  (2)"*), `.sub-tabs`/`.sub-tab` (las vistas de una persona), `.etiqueta-director` y
+  `.celda-director` (lo que cambió el Director), `.persona-casa` y
   `.persona-comida` (la comida abierta de una persona, otra vez con `[data-fecha][data-comida]`) y
   `.fila-extra`.
 - **La tabla de Administración se apila por el ancho de su tarjeta, no de la pantalla** (contenedor
