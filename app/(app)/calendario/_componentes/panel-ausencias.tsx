@@ -1,6 +1,6 @@
 'use client'
 
-import { useActionState, useId, useRef, useState, useTransition } from 'react'
+import { useActionState, useEffect, useId, useRef, useState, useTransition } from 'react'
 import { useAviso } from '@/components/ui/avisos'
 import { BotonEnvio } from '@/components/ui/boton-envio'
 import { Icono } from '@/components/ui/iconos'
@@ -29,11 +29,36 @@ import { marcarAusencia, quitarAusencia } from '../acciones-ausencias'
 /** La persona cuyas ausencias se ven (La casa del Director); sin ella, las propias. */
 type PersonaAusencias = { id: string; nombre: string }
 
-function FilaAusencia({ ausencia, usuarioId, voz }: { ausencia: Ausencia; usuarioId?: string; voz: Voz }) {
+function FilaAusencia({
+  ausencia,
+  usuarioId,
+  voz,
+  alQuitar,
+}: {
+  ausencia: Ausencia
+  usuarioId?: string
+  voz: Voz
+  /** La fila desaparece al quitarla: quien la lista mueve el foco (nunca queda en la nada). */
+  alQuitar: () => void
+}) {
   const aviso = useAviso()
   const [confirmando, setConfirmando] = useState(false)
   const [pendiente, iniciar] = useTransition()
   const rango = rangoLegible(ausencia.desde, ausencia.hasta)
+  const botonQuitar = useRef<HTMLButtonElement>(null)
+  const volverAQuitar = useRef(false)
+
+  // Al cancelar (o si falla), los botones de confirmar desaparecen: el foco vuelve a "Quitar".
+  useEffect(() => {
+    if (confirmando || !volverAQuitar.current) return
+    volverAQuitar.current = false
+    botonQuitar.current?.focus()
+  }, [confirmando])
+
+  function dejarDeConfirmar() {
+    volverAQuitar.current = true
+    setConfirmando(false)
+  }
 
   function quitar() {
     iniciar(async () => {
@@ -43,10 +68,12 @@ function FilaAusencia({ ausencia, usuarioId, voz }: { ausencia: Ausencia; usuari
       } catch {
         resultado = fallo('No se pudo quitar la ausencia. Revisá tu conexión e intentá de nuevo.')
       }
-      if (resultado.ok) aviso(avisoAusenciaQuitada(voz))
-      else {
+      if (resultado.ok) {
+        aviso(avisoAusenciaQuitada(voz))
+        alQuitar()
+      } else {
         aviso(resultado.error)
-        setConfirmando(false)
+        dejarDeConfirmar()
       }
     })
   }
@@ -67,12 +94,13 @@ function FilaAusencia({ ausencia, usuarioId, voz }: { ausencia: Ausencia; usuari
             {pendiente ? 'Quitando…' : 'Sí, quitar'}
           </button>
           {/* Al pedir confirmación el foco va a la opción segura. */}
-          <button type="button" className="btn ghost small" onClick={() => setConfirmando(false)} disabled={pendiente} autoFocus>
+          <button type="button" className="btn ghost small" onClick={dejarDeConfirmar} disabled={pendiente} autoFocus>
             Cancelar
           </button>
         </span>
       ) : (
         <button
+          ref={botonQuitar}
           type="button"
           className="btn ghost small"
           onClick={() => setConfirmando(true)}
@@ -199,6 +227,7 @@ export function PanelAusencias({
   const [abierto, setAbierto] = useState(false)
   const idFormulario = useId()
   const boton = useRef<HTMLButtonElement>(null)
+  const titulo = useRef<HTMLHeadingElement>(null)
 
   function cerrar() {
     setAbierto(false)
@@ -207,7 +236,7 @@ export function PanelAusencias({
 
   return (
     <section className="card panel-ausencias" aria-labelledby="titulo-ausencias">
-      <h2 id="titulo-ausencias" className="section-title">
+      <h2 id="titulo-ausencias" ref={titulo} tabIndex={-1} className="section-title">
         {textos.titulo}
       </h2>
       <p className="hint">{textos.ayuda}</p>
@@ -216,7 +245,13 @@ export function PanelAusencias({
       ) : (
         <ul className="lista-ausencias">
           {ausencias.map((ausencia) => (
-            <FilaAusencia key={ausencia.id} ausencia={ausencia} usuarioId={persona?.id} voz={voz} />
+            <FilaAusencia
+              key={ausencia.id}
+              ausencia={ausencia}
+              usuarioId={persona?.id}
+              voz={voz}
+              alQuitar={() => titulo.current?.focus()}
+            />
           ))}
         </ul>
       )}

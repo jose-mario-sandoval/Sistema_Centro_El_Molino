@@ -1,6 +1,6 @@
 'use client'
 
-import { useId, useRef, useState, useTransition } from 'react'
+import { useEffect, useId, useRef, useState, useTransition } from 'react'
 import { useAviso } from '@/components/ui/avisos'
 import { Icono } from '@/components/ui/iconos'
 import { fallo, type Resultado } from '@/lib/acciones/resultado'
@@ -24,11 +24,25 @@ function clave(fecha: FechaISO, comida: TiempoComida): string {
   return `${fecha}|${comida}`
 }
 
-function FilaExtra({ extra, cerrada }: { extra: ExtraManual; cerrada: boolean }) {
+function FilaExtra({ extra, cerrada, alQuitar }: { extra: ExtraManual; cerrada: boolean; alQuitar: () => void }) {
   const aviso = useAviso()
   const [confirmando, setConfirmando] = useState(false)
   const [pendiente, iniciar] = useTransition()
   const texto = textoExtra(extra)
+  const botonQuitar = useRef<HTMLButtonElement>(null)
+  const volverAQuitar = useRef(false)
+
+  // Al cancelar (o si falla), los botones de confirmar desaparecen: el foco vuelve a "Quitar".
+  useEffect(() => {
+    if (confirmando || !volverAQuitar.current) return
+    volverAQuitar.current = false
+    botonQuitar.current?.focus()
+  }, [confirmando])
+
+  function dejarDeConfirmar() {
+    volverAQuitar.current = true
+    setConfirmando(false)
+  }
 
   function quitar() {
     iniciar(async () => {
@@ -38,10 +52,13 @@ function FilaExtra({ extra, cerrada }: { extra: ExtraManual; cerrada: boolean })
       } catch {
         resultado = fallo('No se pudo quitar el extra. Revisá tu conexión e intentá de nuevo.')
       }
-      if (resultado.ok) aviso('Extra quitado. La cocina ya no lo cuenta.')
-      else {
+      if (resultado.ok) {
+        aviso('Extra quitado. La cocina ya no lo cuenta.')
+        // La fila desaparece: el foco va al título de la lista, nunca a la nada.
+        alQuitar()
+      } else {
         aviso(resultado.error)
-        setConfirmando(false)
+        dejarDeConfirmar()
       }
     })
   }
@@ -64,12 +81,18 @@ function FilaExtra({ extra, cerrada }: { extra: ExtraManual; cerrada: boolean })
             {pendiente ? 'Quitando…' : 'Sí, quitar'}
           </button>
           {/* Al pedir confirmación el foco va a la opción segura. */}
-          <button type="button" className="btn ghost small" onClick={() => setConfirmando(false)} disabled={pendiente} autoFocus>
+          <button type="button" className="btn ghost small" onClick={dejarDeConfirmar} disabled={pendiente} autoFocus>
             Cancelar
           </button>
         </span>
       ) : (
-        <button type="button" className="btn ghost small" onClick={() => setConfirmando(true)} aria-label={`Quitar el extra: ${texto}`}>
+        <button
+          ref={botonQuitar}
+          type="button"
+          className="btn ghost small"
+          onClick={() => setConfirmando(true)}
+          aria-label={`Quitar el extra: ${texto}`}
+        >
           Quitar
         </button>
       )}
@@ -271,6 +294,7 @@ export function ExtrasCasa({
   const [abierto, setAbierto] = useState(false)
   const idFormulario = useId()
   const boton = useRef<HTMLButtonElement>(null)
+  const titulo = useRef<HTMLHeadingElement>(null)
   const conjunto = new Set(cerradas)
 
   function cerrar() {
@@ -280,7 +304,7 @@ export function ExtrasCasa({
 
   return (
     <section className="card extras-casa" aria-labelledby="titulo-extras">
-      <h2 id="titulo-extras" className="section-title">
+      <h2 id="titulo-extras" ref={titulo} tabIndex={-1} className="section-title">
         Extras para la cocina
       </h2>
       <p className="hint">
@@ -292,7 +316,12 @@ export function ExtrasCasa({
       ) : (
         <ul className="lista-ausencias">
           {extras.map((extra) => (
-            <FilaExtra key={extra.id} extra={extra} cerrada={conjunto.has(clave(extra.fecha, extra.comida))} />
+            <FilaExtra
+              key={extra.id}
+              extra={extra}
+              cerrada={conjunto.has(clave(extra.fecha, extra.comida))}
+              alQuitar={() => titulo.current?.focus()}
+            />
           ))}
         </ul>
       )}
