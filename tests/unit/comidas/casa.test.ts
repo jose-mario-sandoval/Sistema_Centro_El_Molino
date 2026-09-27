@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import {
   ajustarCantidad,
+  descripcionComidas,
   diasParaExtra,
   etiquetaCeldaCasa,
   etiquetaGrupo,
   notasPorComida,
   pestanasComidas,
+  pestanasPersona,
   textoExtra,
   tituloComidaCasa,
 } from '@/lib/comidas/casa'
@@ -22,6 +24,38 @@ describe('pestanasComidas: "La casa" solo para el Director', () => {
 
   it('los demás, solo Plan y Semana', () => {
     expect(pestanasComidas(false).map((p) => p.ruta)).toEqual(['/comidas/plan', '/comidas/semana'])
+  })
+})
+
+describe('descripcionComidas: el texto bajo "Comidas" según quién mira y dónde', () => {
+  it('Director o Residente en su Plan o su Semana: lo suyo', () => {
+    for (const rol of ['director', 'residente'] as const) {
+      expect(descripcionComidas(rol, '/comidas/semana')).toBe('Tu plan habitual y lo que vas a comer cada día de la semana.')
+    }
+  })
+
+  it('el Director en La casa (y en la página de una persona): la casa entera', () => {
+    const texto = 'Las comidas de toda la casa: quién come cada día, la comida de cada persona y los extras para la cocina.'
+    expect(descripcionComidas('director', '/comidas/casa')).toBe(texto)
+    expect(descripcionComidas('director', '/comidas/casa/0b8f7c4e-1a2b-4c3d-8e9f-0a1b2c3d4e5f')).toBe(texto)
+  })
+
+  it('Administración: solo lectura', () => {
+    expect(descripcionComidas('administracion', '/comidas/semana')).toBe('Planes y selecciones de comida de la casa, en solo lectura.')
+  })
+})
+
+describe('pestanasPersona: las vistas de una persona en La casa', () => {
+  it('de otra persona: "Su semana", "Su plan", "Sus ausencias"', () => {
+    expect(pestanasPersona('ajena').map((p) => [p.clave, p.etiqueta])).toEqual([
+      ['semana', 'Su semana'],
+      ['plan', 'Su plan'],
+      ['ausencias', 'Sus ausencias'],
+    ])
+  })
+
+  it('el Director mirándose a sí mismo: "Mi semana", "Mi plan", "Mis ausencias"', () => {
+    expect(pestanasPersona('propia').map((p) => p.etiqueta)).toEqual(['Mi semana', 'Mi plan', 'Mis ausencias'])
   })
 })
 

@@ -16,6 +16,32 @@ export function pestanasComidas(esDirector: boolean): { ruta: string; etiqueta: 
   return esDirector ? [...pestanas, { ruta: '/comidas/casa', etiqueta: 'La casa' }] : pestanas
 }
 
+/**
+ * El texto bajo "Comidas": lo propio para Director y Residente en su Plan y su Semana; la casa entera
+ * para el Director en La casa (y en la página de una persona); solo lectura para Administración.
+ */
+export function descripcionComidas(rol: 'director' | 'residente' | 'administracion', ruta: string): string {
+  if (rol === 'administracion') return 'Planes y selecciones de comida de la casa, en solo lectura.'
+  if (rol === 'director' && ruta.startsWith('/comidas/casa'))
+    return 'Las comidas de toda la casa: quién come cada día, la comida de cada persona y los extras para la cocina.'
+  return 'Tu plan habitual y lo que vas a comer cada día de la semana.'
+}
+
+export type VistaPersona = 'semana' | 'plan' | 'ausencias'
+
+/**
+ * Las vistas de una persona en La casa (`?ver=`). Con "Su"/"Sus" y no "Semana"/"Plan de comida":
+ * así no se confunden con las pestañas de arriba, que son las del propio Director.
+ */
+export function pestanasPersona(voz: 'propia' | 'ajena'): { clave: VistaPersona; etiqueta: string }[] {
+  const [su, sus] = voz === 'propia' ? ['Mi', 'Mis'] : ['Su', 'Sus']
+  return [
+    { clave: 'semana', etiqueta: `${su} semana` },
+    { clave: 'plan', etiqueta: `${su} plan` },
+    { clave: 'ausencias', etiqueta: `${sus} ausencias` },
+  ]
+}
+
 /** 'Almuerzo del miércoles 23/9' (`nombreDia`: 'Miércoles'). */
 export function tituloComidaCasa(comida: TiempoComida, nombreDia: string, fechaCorta: string): string {
   return `${ETIQUETA_TIEMPO[comida]} del ${nombreDia.toLowerCase()} ${fechaCorta}`

@@ -1,9 +1,10 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { z } from 'zod'
-import { Icono } from '@/components/ui/iconos'
+import { Icono, type NombreIcono } from '@/components/ui/iconos'
 import { listarAusenciasDe } from '@/lib/ausencias/consultas'
 import { exigirRol } from '@/lib/auth/sesion'
+import { pestanasPersona, type VistaPersona } from '@/lib/comidas/casa'
 import { obtenerPlanDe, obtenerSemanaDe } from '@/lib/comidas/consultas'
 import { semanaPedida, tipoSemana } from '@/lib/comidas/semana'
 import { diaParaAbrir } from '@/lib/comidas/vista'
@@ -17,15 +18,10 @@ import { PlanEditable } from '../../_componentes/plan-editable'
 import { RefrescarAlVolver } from '../../_componentes/refrescar-al-volver'
 import { SemanaPersona } from '../../_componentes/semana-persona'
 
-const VISTAS = [
-  { clave: 'semana', etiqueta: 'Semana' },
-  { clave: 'plan', etiqueta: 'Plan de comida' },
-  { clave: 'ausencias', etiqueta: 'Ausencias' },
-] as const
-type Vista = (typeof VISTAS)[number]['clave']
+const ICONO_VISTA: Record<VistaPersona, NombreIcono> = { semana: 'calendario', plan: 'comidas', ausencias: 'ausencia' }
 
-function vistaPedida(valor: unknown): Vista {
-  return VISTAS.find((v) => v.clave === valor)?.clave ?? 'semana'
+function vistaPedida(valor: unknown): VistaPersona {
+  return valor === 'plan' || valor === 'ausencias' ? valor : 'semana'
 }
 
 /**
@@ -63,22 +59,31 @@ export default async function PaginaPersonaDeLaCasa({
         <Icono nombre="izquierda" />
         Volver a La casa
       </Link>
-      <h2 className="persona-titulo">{propia ? `${persona.nombre} (vos)` : persona.nombre}</h2>
-      <nav className="tabs sub-tabs" aria-label={`Comidas de ${persona.nombre}`}>
-        {VISTAS.map((v) => {
-          const activa = v.clave === vista
-          return (
-            <Link
-              key={v.clave}
-              href={`${ruta}?ver=${v.clave}&semana=${lunes}`}
-              className={`tab-btn${activa ? ' active' : ''}`}
-              aria-current={activa ? 'page' : undefined}
-            >
-              {v.etiqueta}
-            </Link>
-          )
-        })}
-      </nav>
+      {/* De quién es lo que sigue, bien a la vista: las pestañas de arriba son las del propio Director. */}
+      <div className="persona-cabecera">
+        <h2 className="persona-titulo">{propia ? 'Tus comidas' : `Comidas de ${persona.nombre}`}</h2>
+        {!propia && (
+          <p className="hint">
+            Lo que cambies acá es de {persona.nombre}, no tuyo, y va a ver que lo cambió el Director.
+          </p>
+        )}
+        <nav className="sub-tabs" aria-label={propia ? 'Tus comidas' : `Comidas de ${persona.nombre}`}>
+          {pestanasPersona(voz).map((v) => {
+            const activa = v.clave === vista
+            return (
+              <Link
+                key={v.clave}
+                href={`${ruta}?ver=${v.clave}&semana=${lunes}`}
+                className={`sub-tab${activa ? ' active' : ''}`}
+                aria-current={activa ? 'page' : undefined}
+              >
+                <Icono nombre={ICONO_VISTA[v.clave]} />
+                {v.etiqueta}
+              </Link>
+            )
+          })}
+        </nav>
+      </div>
 
       {vista === 'semana' && <VistaSemana ruta={ruta} usuarioId={persona.id} nombre={persona.nombre} voz={voz} lunes={lunes} hoy={hoy} />}
       {vista === 'plan' && <VistaPlan usuarioId={persona.id} nombre={persona.nombre} voz={voz} />}
