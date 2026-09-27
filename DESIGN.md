@@ -364,6 +364,28 @@ de sección, pasa al contenido principal para que un lector de pantalla anuncie 
 - **Una rejilla de solo iconos lleva leyenda escrita.** La matriz del plan en la vista de
   Administración muestra solo icono y color, así que cada celda tiene nombre accesible y la pantalla
   explica cada icono con su texto.
+- **"La casa" del Director es la tabla de la cocina con nombres, no una pantalla nueva.** La misma
+  tabla que ve Administración (un día por fila, una comida por columna, el mismo desglose y el mismo
+  apilado en el teléfono), pero cada celda es un botón elevado dentro de su hueco. Tocarla abre,
+  **debajo de la tabla** y no en un modal, quiénes comen: agrupados por lo que eligieron (título de
+  grupo con icono + texto + color, *"Sin definir (2)"* primero, después el orden de la cocina), y
+  cada nombre es un botón de 56px que abre en el lugar la comida de esa persona con las mismas
+  piezas de siempre (`ComidaDelDia` → `PanelOpciones` + `EditorNota`) y los mismos cierres. Lo que
+  cambia es la voz: *"¿Va a almorzar…?"*, *"según su plan"*, *"Volver a su plan"*, *"Elegí qué hace
+  Juan con el almuerzo"* (`lib/comidas/voz.ts`). La semana, el plan y las ausencias de una persona
+  (`/comidas/casa/[persona]`) reutilizan las tarjetas, la cuadrícula y el mini calendario tal cual.
+- **Lo cerrado en La casa se dice escrito.** Una comida cerrada es plana (se toca igual, para ver
+  quiénes comieron) y lleva candado + *"Cerrada"*; un día cerrado entero lo dice una vez en su fila,
+  como su tarjeta en la Semana. Dentro, la comida de cada persona es de solo lectura.
+- **Quién cambió se ve donde se mira.** La persona lee *"la cambió el Director"* en la marca de
+  origen de su comida (y en el panel y el nombre accesible de la celda del plan), y *"La marcó el
+  Director"* junto a la ausencia. Misma marca de origen que *"cambiada"*: nada nuevo que aprender.
+- **Extras para la cocina: sin nombres, y avisando antes.** Día (pastillas), comida (pastillas),
+  cantidad con botones − y + de 56px y una nota opcional con la advertencia escrita *"La cocina lee
+  esta nota: no escribas nombres."* Si la comida elegida ya cerró se puede guardar igual (un
+  invitado de último momento), pero antes aparece, con candado y borde punteado, *"Esa comida ya
+  cerró: la cocina puede no verlo a tiempo."* Un extra de una comida cerrada ya no ofrece
+  *"Quitar"*: muestra el candado y *"Cerrada"*.
 
 ---
 
@@ -448,6 +470,7 @@ El diseño ya está en la app Next.js. Dónde vive cada pieza:
 | Desplazar un panel recién abierto | `app/(app)/comidas/_componentes/revelar.ts` |
 | Mini calendario para marcar un rango de días (ausencias) | `components/ui/mini-calendario.tsx`; su lógica pura (toques, teclado, límites, resumen) en `lib/calendario/seleccion-rango.ts` |
 | Nombres de mes y de día, sin `Intl` (iguales en servidor y navegador) | `lib/fechas/etiquetas.ts` |
+| La casa del Director: tabla, quiénes comen y extras | `app/(app)/comidas/casa/` (`tabla-casa.tsx`, `extras-casa.tsx`, `[persona]/page.tsx`); textos y cálculos en `lib/comidas/casa.ts`; segunda y tercera persona en `lib/comidas/voz.ts` |
 
 Decisiones tomadas al portar:
 
@@ -461,7 +484,11 @@ Decisiones tomadas al portar:
   specs donde cambió la interacción (abrir las opciones de una comida antes de elegir) y el título
   de la sección. El mini calendario de ausencias usa **anclas propias**
   (`.mini-calendario .mini-dia[data-fecha]`) y nunca `.cal-day`: los E2E del calendario grande
-  buscan `.cal-day[data-fecha=…]` como único.
+  buscan `.cal-day[data-fecha=…]` como único. La casa del Director suma
+  `.tabla-casa td[data-fecha][data-comida] .celda-casa` (el botón de cada comida), `.panel-casa`
+  (quiénes comen, con un `role="group"` por estado nombrado *"Sin definir (2)"*), `.persona-casa` y
+  `.persona-comida` (la comida abierta de una persona, otra vez con `[data-fecha][data-comida]`) y
+  `.fila-extra`.
 - **La tabla de Administración se apila por el ancho de su tarjeta, no de la pantalla** (contenedor
   `tabla-admin` sobre `.admin-table-scroll`, umbral 34rem). En una media query el `rem` es siempre
   16px; en una consulta de contenedor sigue al tamaño de letra elegido, así que con letra "Muy

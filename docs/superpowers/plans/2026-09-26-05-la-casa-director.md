@@ -63,8 +63,11 @@ la celda de desglose, las tarjetas/cuadrícula y el mini calendario).
   congelar y "Sin definir" no se puede congelar como tal (no hay fila que la represente); si en esos
   ≤ 5 minutos la persona crea el plan de esa celda, el job la congela con el plan nuevo.
 - **Extras manuales en su propia tabla.** `extras_manuales` (fecha, comida, cantidad 1–50, nota
-  ≤ 200 recortada, `creado_por`, `creado_en`). Solo el Director inserta y borra, desde hoy (hora de
-  la casa); lee solo el Director. Sin UPDATE: se quita y se vuelve a agregar.
+  ≤ 200 recortada, `creado_por`, `creado_en`). Solo el Director inserta, desde hoy (hora de la casa)
+  aunque esa comida ya haya cerrado (un invitado de último momento; la pantalla avisa), y borra solo
+  mientras la comida no cerró (`comida_sin_cerrar()`: hora límite y `comidas_cerradas`, sin la
+  ventana editable). `creado_por` con `on delete set null`: la historia de la cocina sobrevive al
+  borrado de una cuenta. Lee solo el Director. Sin UPDATE: se quita y se vuelve a agregar.
   `extras_de_la_semana()` conserva firma y tipo, suma enlace + manuales y responde a Administración
   **y** al Director. `extras_manuales_de_la_semana()` (`security definer`, mismos roles) devuelve
   `id, fecha, tiempo_comida, cantidad, nota` **sin autor**: una sola consulta sirve a la lista del
@@ -213,26 +216,39 @@ de integración nuevas y actualizadas corren en CI.
 
 ---
 
-## Fase B — pantallas (después de mergear los PR 2–4)
+## Fase B — pantallas (con los PR 1–4 adentro)
 
-- [ ] Rebasar sobre `master` con los PR 1–4; regenerar `database.types.ts` desde el artefacto del CI;
-  reemplazar el `filas-completas.ts` propio por el del PR 2 si difiere.
-- [ ] Subpestaña **"La casa"** en `PestanasComidas` (solo Director) → `/comidas/casa`
-  (`exigirRol('director')`): navegación de semana, "Ver la semana de: [persona]", tabla de la semana
-  con la celda de desglose del PR 2 (modo botón) usando `obtenerSemanaDeLaCasa`; al tocar una celda,
-  debajo "Almuerzo del miércoles 23/9" con `agruparPorEstado` (nombres reales); cada nombre abre su
-  `ComidaDelDia` en línea con `usuarioId` y voz ajena (solo lectura si cerró).
-- [ ] "Agregar extra" (día, comida, cantidad, nota con el aviso "La cocina lee esta nota: no
-  escribas nombres") → `agregarExtra`; lista de extras de la semana (`obtenerNotasExtras`) con
-  "Quitar" → `quitarExtra`.
-- [ ] **`/comidas/casa/[persona]`**: Semana (tarjetas del PR 4), Plan (cuadrícula del PR 4) y
+- [x] Revisión de la fase A: un extra se quita solo mientras su comida no cerró
+  (`comida_sin_cerrar()`, sin la ventana editable: uno de dentro de semanas se puede quitar) y se
+  agrega desde hoy aunque haya cerrado (la pantalla avisa antes); `extras_manuales.creado_por` pasa a
+  `on delete set null`; INSERT solo de las columnas que elige el Director; comentarios de
+  `modificado_por`/`creado_por` corregidos; borrar una celda del plan sin filas afectadas ya no dice
+  que guardó.
+- [x] Traer los PR 1–4 (#22, #20, #21, #23) con merge, no con rebase: el repo mergea con squash y un
+  merge posterior de `origin/master` los absorbe. `filas-completas.ts` coincide con el del PR 2.
+- [ ] Regenerar `database.types.ts` desde el artefacto del CI (tras el push).
+- [x] Subpestaña **"La casa"** en `PestanasComidas` (solo Director) → `/comidas/casa`
+  (`exigirRol('director')`): navegación de semana, "Ver la semana de: [persona]" (formulario GET),
+  tabla de la semana con la celda de desglose del PR 2 (modo botón) usando `obtenerSemanaDeLaCasa`;
+  al tocar una celda, debajo "Almuerzo del miércoles 23/9" con `agruparPorEstado` (nombres reales);
+  cada nombre abre su `ComidaDelDia` en línea con `usuarioId` y voz ajena (solo lectura si cerró).
+- [x] "Agregar extra" (día, comida, cantidad con − y +, nota con el aviso "La cocina lee esta nota:
+  no escribas nombres", aviso si la comida ya cerró) → `agregarExtra`; lista de extras de la semana
+  (`obtenerNotasExtras`) con "Quitar" solo mientras la comida no cerró → `quitarExtra`.
+- [x] **`/comidas/casa/[persona]`**: Semana (tarjetas del PR 4), Plan (cuadrícula del PR 4) y
   Ausencias (mini calendario del PR 3) de esa persona, en tercera persona (`voz.ts`), pasando
   `usuarioId` a las acciones. Persona inválida, inactiva o de Administración → 404.
-- [ ] La persona ve "La marcó el Director" en sus ausencias (`marcadaPorOtro`) y "la cambió el
-  Director" en la celda del plan (`cambiadaPorOtro` del plan).
-- [ ] Administración ve las notas de los extras (`obtenerNotasExtras`) junto a "+N extra".
-- [ ] e2e: Director cambia la comida de un residente → el residente ve "la cambió el Director";
-  extra manual con nota → Administración ve la cifra y la nota, sin nombres; comida cerrada de otra
-  persona en solo lectura.
-- [ ] DESIGN.md/README si cambian patrones; CLAUDE.md (reglas nuevas de permiso y congelado del
-  plan); abrir el PR con CI en verde.
+- [x] La persona ve "La marcó el Director" en sus ausencias (`marcadaPorOtro`) y "la cambió el
+  Director" en la celda del plan (`cambiadaPorOtro` del plan: panel y nombre accesible).
+- [x] Administración ve las notas de los extras (`notasPorComida`) debajo de "+N extra".
+- [x] e2e (`tests/e2e/comidas-casa.spec.ts`): Director cambia la comida de un residente → el
+  residente ve "la cambió el Director"; "Ver la semana de" → plan y ausencia del residente, que ve
+  "La marcó el Director"; comida cerrada en solo lectura; extra manual con nota → Administración ve
+  la cifra y la nota, sin nombres; sin pestaña ni acceso para Residente y Administración; "Mis
+  ausencias" del Director solo con las suyas; teléfonos de 320 y 375px.
+- [x] DESIGN.md §8 y §12 (La casa, anclas). CLAUDE.md no está en `master` (PR aparte): sus reglas
+  nuevas van en la descripción del PR.
+- [x] Barrido visual: banco estático (esbuild + Playwright) a 320/375/768/1280 × claro, oscuro,
+  alto, alto oscuro, grande y enorme, con paneles cerrados y abiertos: sin scroll lateral, sin
+  controles de menos de 56px y ninguna letra bajo `--t-xs` en lo nuevo.
+- [ ] Abrir el PR con CI en verde.
