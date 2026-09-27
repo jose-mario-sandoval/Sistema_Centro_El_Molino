@@ -202,6 +202,10 @@ botones "chicos": una variante compacta puede tener menos texto o menos relleno,
    de ancho a 375px (~39px en un teléfono con más margen, ~36px a 320px). Mitigaciones:
    - **Alto completo:** 56px siempre; el ancho es lo único que cede. El calendario va casi a sangre
      dentro de la tarjeta y con 3px entre días, para darle a cada día todo el ancho posible.
+   - **La letra no cede:** ningún texto baja de `--t-xs`, a ningún ancho ni tamaño de letra. Si
+     "Mié" no cabe a ese tamaño en la columna (320px con letra grande, o letra enorme por debajo de
+     ~414px), la cabecera pasa a la inicial ("L M M J V S D") con una consulta de contenedor en `rem`,
+     que sigue a la letra elegida; el lector de pantalla oye siempre el nombre entero.
    - **Resumen escrito antes de guardar:** *"Del 14 al 16 de octubre (3 días)."* debajo del
      calendario, en una región `aria-live`. Un toque errado se ve antes de que cuente, y se corrige
      tocando de nuevo; nada se guarda hasta *"Guardar ausencia"*. Tocar un día ya marcado no lo

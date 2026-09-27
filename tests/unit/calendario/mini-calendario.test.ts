@@ -40,9 +40,15 @@ const contar = (html: string, texto: string) => html.split(texto).length - 1
 describe('MiniCalendario', () => {
   it('cabecera de la semana con el nombre completo del día como abreviatura', () => {
     const html = pintar()
-    expect(html).toMatch(/<th scope="col" abbr="Lunes">Lun<\/th>/)
-    expect(html).toMatch(/<th scope="col" abbr="Miércoles">Mié<\/th>/)
-    expect(html).toMatch(/<th scope="col" abbr="Domingo">Dom<\/th>/)
+    // El nombre completo siempre para el lector de pantalla; a la vista, la abreviatura de tres letras
+    // o, si no cabe con la letra mínima (DESIGN.md §4), la inicial. Las dos formas visibles, ocultas al lector.
+    const cabecera = (completo: string, corto: string, inicial: string) =>
+      `<th scope="col" abbr="${completo}"><span class="sr-only">${completo}</span>` +
+      `<span class="dia-corto" aria-hidden="true">${corto}</span>` +
+      `<span class="dia-inicial" aria-hidden="true">${inicial}</span></th>`
+    expect(html).toContain(cabecera('Lunes', 'Lun', 'L'))
+    expect(html).toContain(cabecera('Miércoles', 'Mié', 'M'))
+    expect(html).toContain(cabecera('Domingo', 'Dom', 'D'))
   })
 
   it('una tabla de cuadrícula nombrada por el mes, con un botón .mini-dia por día del mes', () => {

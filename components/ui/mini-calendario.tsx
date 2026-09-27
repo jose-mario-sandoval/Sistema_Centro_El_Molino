@@ -109,8 +109,16 @@ export function MiniCalendario({
         <thead>
           <tr>
             {DIAS_SEMANA_CORTOS.map((corto, i) => (
+              // Nunca por debajo de la letra mínima (DESIGN.md §4): si "Mié" no cabe a ese tamaño en la
+              // columna, se ve la inicial (CSS, consulta de contenedor). El lector oye siempre el nombre entero.
               <th key={corto} scope="col" abbr={DIAS_SEMANA[i]}>
-                {corto}
+                <span className="sr-only">{DIAS_SEMANA[i]}</span>
+                <span className="dia-corto" aria-hidden="true">
+                  {corto}
+                </span>
+                <span className="dia-inicial" aria-hidden="true">
+                  {DIAS_SEMANA[i].charAt(0)}
+                </span>
               </th>
             ))}
           </tr>

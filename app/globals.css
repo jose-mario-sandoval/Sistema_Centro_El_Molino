@@ -1108,13 +1108,22 @@ a{color:var(--acento);}
 /* Mini calendario para marcar ausencias. Excepción táctil documentada (DESIGN.md §4): en un
    teléfono de 375px cada día mide ~43px de ancho (≈36 en 320), pero siempre 56px de alto. Clases
    propias: nunca .cal-day, que los E2E del calendario grande buscan como único. */
-.mini-calendario{max-width:30rem;}
+/* Contenedor con nombre: la cabecera cambia a iniciales según el ancho del calendario, no de la pantalla. */
+.mini-calendario{max-width:30rem;container:mini-calendario / inline-size;}
 .mini-cabeza{display:flex;align-items:center;gap:.5rem;margin-bottom:.5rem;}
 .mini-mes{flex:1;min-width:0;text-align:center;font-family:var(--fuente-display);font-size:var(--t-base);font-weight:600;}
 .mini-tabla{width:100%;table-layout:fixed;border-collapse:separate;border-spacing:3px;}
+/* Ningún texto del mini calendario baja de --t-xs, el piso absoluto (DESIGN.md §4): si "Mié" no
+   cabe a ese tamaño en la columna, se ve la inicial. El umbral va en rem, así que también sigue a la
+   letra que eligió la persona (grande/enorme cambian a iniciales antes). */
 .mini-tabla th{
   padding:.2rem 0 .3rem;text-align:center;
-  font-size:min(var(--t-xs), 4.2vw);font-weight:700;color:var(--tinta-suave);
+  font-size:var(--t-xs);font-weight:700;color:var(--tinta-suave);white-space:nowrap;
+}
+.mini-tabla .dia-inicial{display:none;}
+@container mini-calendario (max-width:15.3rem){
+  .mini-tabla .dia-corto{display:none;}
+  .mini-tabla .dia-inicial{display:inline;}
 }
 .mini-tabla td{padding:0;}
 .mini-dia{
@@ -1122,13 +1131,14 @@ a{color:var(--acento);}
   width:100%;min-height:var(--toque);padding:0;
   border-radius:var(--r-sm);border:2px solid var(--borde-elevado);
   background:var(--fondo);color:var(--tinta);box-shadow:var(--relieve-bajo);
-  font-size:min(var(--t-base), 5.4vw);font-weight:700;line-height:1;
+  font-size:max(var(--t-xs), min(var(--t-base), 5.4vw));font-weight:700;line-height:1;
   transition:box-shadow var(--dur) var(--curva),background-color var(--dur) var(--curva);
 }
 .mini-dia:active{box-shadow:var(--hundido);}
 /* Por encima de los vecinos: con 3px entre días, el anillo pisa el borde del de al lado. */
 .mini-dia:focus-visible{position:relative;z-index:1;outline-offset:2px;}
-.mini-num{display:inline-grid;place-items:center;min-width:1.7em;height:1.7em;}
+/* El anillo de hoy nunca más ancho que el día (a 320px con letra enorme, 1.7em no entra). */
+.mini-num{display:inline-grid;place-items:center;min-width:min(1.7em, 100%);height:1.7em;}
 /* Hoy: anillo alrededor del número (con color, forma y "hoy" en el nombre accesible). */
 .mini-dia[aria-current="date"] .mini-num{border:2px solid currentColor;border-radius:var(--r-full);}
 .mini-icono{width:.8em;height:.8em;color:var(--dorado);}
