@@ -23,6 +23,20 @@ describe('estaAbierta', () => {
   })
 })
 
+describe('comidaSinCerrar: casos compartidos con la paridad de SQL (tests/fixtures/casos-comidas.json)', () => {
+  it.each(casos.sinCerrar)('$nombre', ({ ahora, fecha, comida, cerrada, horas, sinCerrar }) => {
+    expect(
+      comidaSinCerrar({
+        fecha,
+        comida: comida as TiempoComida,
+        ahora: new Date(ahora),
+        horas: (horas as HorasLimite | null) ?? HORAS_LIMITE_POR_DEFECTO,
+        cerrada,
+      }),
+    ).toBe(sinCerrar)
+  })
+})
+
 describe('comidaSinCerrar (espejo de public.comida_sin_cerrar: quitar un extra)', () => {
   const ahora = new Date('2026-09-16T08:00:00-06:00') // miércoles 08:00
   const base = { ahora, horas: HORAS_LIMITE_POR_DEFECTO, cerrada: false }

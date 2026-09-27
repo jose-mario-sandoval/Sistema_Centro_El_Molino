@@ -19,5 +19,16 @@
     { "nombre": "día pasado de la semana actual", "ahora": "2026-09-16T08:00:00-06:00", "fecha": "2026-09-15", "comida": "cena", "cerrada": false, "horas": null, "abierta": false },
     { "nombre": "hora límite cambiada a día anterior 22:00", "ahora": "2026-09-16T08:00:00-06:00", "fecha": "2026-09-16", "comida": "almuerzo", "cerrada": false, "horas": { "desayuno": { "diaRelativo": -1, "hora": "21:00" }, "almuerzo": { "diaRelativo": -1, "hora": "22:00" }, "cena": { "diaRelativo": 0, "hora": "16:00" } }, "abierta": false },
     { "nombre": "ventana se calcula en hora local y no en UTC", "ahora": "2026-09-21T05:30:00Z", "fecha": "2026-09-28", "comida": "cena", "cerrada": false, "horas": null, "abierta": false }
+  ],
+  "sinCerrar": [
+    { "nombre": "almuerzo un minuto antes del cierre", "ahora": "2026-09-16T09:59:00-06:00", "fecha": "2026-09-16", "comida": "almuerzo", "cerrada": false, "horas": null, "sinCerrar": true },
+    { "nombre": "almuerzo justo a la hora de cierre", "ahora": "2026-09-16T10:00:00-06:00", "fecha": "2026-09-16", "comida": "almuerzo", "cerrada": false, "horas": null, "sinCerrar": false },
+    { "nombre": "desayuno de mañana a las 21:00 de hoy", "ahora": "2026-09-16T21:00:00-06:00", "fecha": "2026-09-17", "comida": "desayuno", "cerrada": false, "horas": null, "sinCerrar": false },
+    { "nombre": "fuera de la ventana editable (dentro de dos semanas) sigue sin cerrar", "ahora": "2026-09-16T08:00:00-06:00", "fecha": "2026-09-28", "comida": "almuerzo", "cerrada": false, "horas": null, "sinCerrar": true },
+    { "nombre": "dentro de un mes sigue sin cerrar", "ahora": "2026-09-16T08:00:00-06:00", "fecha": "2026-10-20", "comida": "cena", "cerrada": false, "horas": null, "sinCerrar": true },
+    { "nombre": "cerrada por el job aunque falte para la hora", "ahora": "2026-09-16T08:00:00-06:00", "fecha": "2026-09-16", "comida": "cena", "cerrada": true, "horas": null, "sinCerrar": false },
+    { "nombre": "día pasado", "ahora": "2026-09-16T08:00:00-06:00", "fecha": "2026-09-15", "comida": "cena", "cerrada": false, "horas": null, "sinCerrar": false },
+    { "nombre": "hora límite cambiada a día anterior 22:00", "ahora": "2026-09-16T08:00:00-06:00", "fecha": "2026-09-16", "comida": "almuerzo", "cerrada": false, "horas": { "desayuno": { "diaRelativo": -1, "hora": "21:00" }, "almuerzo": { "diaRelativo": -1, "hora": "22:00" }, "cena": { "diaRelativo": 0, "hora": "16:00" } }, "sinCerrar": false },
+    { "nombre": "hora local y no UTC: 21:30 del domingo en UTC es 15:30 en la casa", "ahora": "2026-09-20T21:30:00Z", "fecha": "2026-09-20", "comida": "cena", "cerrada": false, "horas": null, "sinCerrar": true }
   ]
 }
