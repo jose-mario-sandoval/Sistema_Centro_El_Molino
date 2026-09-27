@@ -226,7 +226,8 @@ de integración nuevas y actualizadas corren en CI.
   que guardó.
 - [x] Traer los PR 1–4 (#22, #20, #21, #23) con merge, no con rebase: el repo mergea con squash y un
   merge posterior de `origin/master` los absorbe. `filas-completas.ts` coincide con el del PR 2.
-- [ ] Regenerar `database.types.ts` desde el artefacto del CI (tras el push).
+- [x] Regenerar `database.types.ts` desde el artefacto del CI (tras el push): salió idéntico al
+  escrito a mano.
 - [x] Subpestaña **"La casa"** en `PestanasComidas` (solo Director) → `/comidas/casa`
   (`exigirRol('director')`): navegación de semana, "Ver la semana de: [persona]" (formulario GET),
   tabla de la semana con la celda de desglose del PR 2 (modo botón) usando `obtenerSemanaDeLaCasa`;
@@ -251,4 +252,12 @@ de integración nuevas y actualizadas corren en CI.
 - [x] Barrido visual: banco estático (esbuild + Playwright) a 320/375/768/1280 × claro, oscuro,
   alto, alto oscuro, grande y enorme, con paneles cerrados y abiertos: sin scroll lateral, sin
   controles de menos de 56px y ninguna letra bajo `--t-xs` en lo nuevo.
-- [ ] Abrir el PR con CI en verde.
+- [x] Abrir el PR con CI en verde (#24).
+- [x] Segunda revisión: "quiénes comen" como una fila más de la tabla, debajo del día tocado, con el
+  foco en su título (y a la vista también cuando la fila apilada es más alta que la pantalla);
+  la página de una persona titulada "Comidas de Juan" con "Su semana"/"Su plan"/"Sus ausencias" en
+  un control segmentado propio y el texto de "Comidas" de la casa; paridad `comida_sin_cerrar` ↔
+  `comidaSinCerrar` con casos compartidos; "Indicá qué puede comer" en tercera persona; el foco no se
+  pierde al quitar un extra o una ausencia; "Cambió el Director" a la vista en la tarjeta del día y
+  "Director" en la celda del plan (con leyenda).
+- [x] Traer de nuevo el PR #21 (piso de letra del mini calendario) antes del último push.
