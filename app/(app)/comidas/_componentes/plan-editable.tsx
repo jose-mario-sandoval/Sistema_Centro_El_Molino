@@ -112,9 +112,13 @@ export function PlanEditable({
   const valorAbierto = abierta ? editor.valor(abierta.dia, abierta.comida) : null
   const pendienteAbierta = abierta ? editor.pendiente(abierta.dia, abierta.comida) : false
   // La nota a medio escribir de la celda abierta: la misma lógica que en la Semana.
-  const nota = useBorradorNota(valorAbierto, (valor) => {
-    if (abierta) editor.guardar(abierta.dia, abierta.comida, valor)
-  })
+  const nota = useBorradorNota(
+    valorAbierto,
+    (valor) => {
+      if (abierta) editor.guardar(abierta.dia, abierta.comida, valor)
+    },
+    voz,
+  )
 
   /**
    * Volver a tocar la celda abierta cierra, y tocar otra cambia de celda: en los dos casos lo que

@@ -73,6 +73,19 @@ describe('guardarSeleccion: siempre por guardar_seleccion_de, con el objetivo', 
     expect(falso.rpcs).toEqual([])
   })
 
+  it('una nota que la base rechaza (MOL04) se explica en tercera persona si es de otra persona', async () => {
+    sesionDe(DIRECTOR)
+    usarCliente(clienteSupabaseFalso({ rpc: [{ data: null, error: { code: 'MOL04', message: 'Nota inválida' } }] }))
+    expect(await guardarSeleccion({ ...SELECCION, estado: 'enfermo', nota: 'Sopa', usuarioId: OTRA })).toMatchObject({
+      ok: false,
+      error: 'Indicá qué puede comer (hasta 200 caracteres).',
+    })
+    usarCliente(clienteSupabaseFalso({ rpc: [{ data: null, error: { code: 'MOL04', message: 'Nota inválida' } }] }))
+    expect(await guardarSeleccion({ ...SELECCION, estado: 'enfermo', nota: 'Sopa' })).toMatchObject({
+      error: 'Indicá qué podés comer (hasta 200 caracteres).',
+    })
+  })
+
   it('si la base lo rechaza (persona inactiva o de Administración) avisa sin permiso', async () => {
     sesionDe(DIRECTOR)
     usarCliente(clienteSupabaseFalso({ rpc: [{ data: null, error: { code: '42501', message: 'Solo el Director…' } }] }))

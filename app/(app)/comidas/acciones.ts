@@ -31,7 +31,7 @@ function falloDeValidacion(error: Parameters<typeof camposConError>[0]) {
 
 async function mensajeDeError(
   error: ErrorBase,
-  datos: { fecha?: FechaISO; comida: TiempoComida; estado?: EstadoComida | null },
+  datos: { fecha?: FechaISO; comida: TiempoComida; estado?: EstadoComida | null; ajena?: boolean },
 ): Promise<string> {
   switch (error.code) {
     case 'MOL01': {
@@ -47,7 +47,7 @@ async function mensajeDeError(
     }
     case 'MOL04':
     case '23514':
-      return datos.estado ? mensajeNota(datos.estado) : ERROR_GENERAL
+      return datos.estado ? mensajeNota(datos.estado, datos.ajena ? 'ajena' : 'propia') : ERROR_GENERAL
     case '42501':
       return 'No tenés permiso para hacer esto.'
     default:
@@ -84,7 +84,7 @@ export async function guardarPlan(entrada: unknown): Promise<Resultado<null>> {
     const { error } = await supabase
       .from('plan_semanal')
       .upsert({ ...clave, estado, nota }, { onConflict: 'usuario_id,dia_semana,comida' })
-    if (error) return fallo(await mensajeDeError(error, { comida, estado }))
+    if (error) return fallo(await mensajeDeError(error, { comida, estado, ajena: objetivo.usuarioId !== permiso.perfil.id }))
   }
 
   revalidatePath('/comidas', 'layout')
@@ -116,7 +116,7 @@ export async function guardarSeleccion(entrada: unknown): Promise<Resultado<null
     // MOL01: la ventana se cerró justo antes de guardar. Revalidamos igual: la respuesta
     // de la acción trae la vista con el estado real (spec §6.4), sin refresco extra del cliente.
     if (error.code === 'MOL01') revalidatePath('/comidas', 'layout')
-    return fallo(await mensajeDeError(error, { fecha, comida, estado }))
+    return fallo(await mensajeDeError(error, { fecha, comida, estado, ajena: objetivo.usuarioId !== permiso.perfil.id }))
   }
 
   revalidatePath('/comidas', 'layout')

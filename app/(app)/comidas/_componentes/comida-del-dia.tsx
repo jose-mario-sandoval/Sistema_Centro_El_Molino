@@ -58,7 +58,7 @@ export function ComidaDelDia({
   const aviso = useAviso()
   const [valor, aplicarValor] = useOptimistic(datos.valor)
   const [pendiente, iniciar] = useTransition()
-  const nota = useBorradorNota(valor, guardar)
+  const nota = useBorradorNota(valor, guardar, voz)
 
   const nombre = ETIQUETA_TIEMPO[datos.comida]
   const editable = datos.abierta

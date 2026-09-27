@@ -52,22 +52,25 @@ export type DecisionBorrador =
 export function resolverBorrador(
   borrador: Borrador | null,
   guardado: ValorComida | null,
-  { alCerrar }: { alCerrar: boolean },
+  { alCerrar, voz = 'propia' }: { alCerrar: boolean; voz?: 'propia' | 'ajena' },
 ): DecisionBorrador {
   if (!borrador) return { tipo: 'nada' }
   const nota = normalizarNota(borrador.estado, borrador.nota)
   if (!notaValida(borrador.estado, nota)) {
     const salida = alCerrar ? ' Si no querés cambiarla, tocá "Cancelar".' : ''
-    return { tipo: 'error', mensaje: mensajeNota(borrador.estado) + salida }
+    return { tipo: 'error', mensaje: mensajeNota(borrador.estado, voz) + salida }
   }
   if (guardado?.estado === borrador.estado && guardado.nota === nota) return { tipo: 'nada' }
   return { tipo: 'guardar', valor: { estado: borrador.estado, nota } }
 }
 
-/** Texto para el aviso o el campo cuando la nota no es válida. */
-export function mensajeNota(estado: EstadoComida): string {
+/**
+ * Texto para el aviso o el campo cuando la nota no es válida. `voz` 'ajena': el Director escribe la
+ * nota de otra persona ("qué puede comer").
+ */
+export function mensajeNota(estado: EstadoComida, voz: 'propia' | 'ajena' = 'propia'): string {
   const { etiqueta, nota } = INFO_ESTADO[estado]
   if (nota === 'hora') return `Indicá la hora para "${etiqueta}" (HH:MM).`
-  if (nota === 'texto') return `Indicá qué podés comer (hasta ${LARGO_MAXIMO_NOTA} caracteres).`
+  if (nota === 'texto') return `Indicá qué ${voz === 'propia' ? 'podés' : 'puede'} comer (hasta ${LARGO_MAXIMO_NOTA} caracteres).`
   return `"${etiqueta}" no lleva nota.`
 }
