@@ -80,6 +80,13 @@ const TRAZOS = {
   izquierda: <path d="M15 5l-7 7 7 7" />,
   derecha: <path d="M9 5l7 7-7 7" />,
   abajo: <path d="M5 9l7 7 7-7" />,
+  // "La cambió el Director": un lápiz, siempre junto a su texto.
+  editado: (
+    <>
+      <path d="M4 20h4L19 9l-4-4L4 16z" />
+      <path d="M13 7l4 4" />
+    </>
+  ),
   // Para sumar y restar una cantidad (extras de La casa).
   mas: <path d="M12 5v14M5 12h14" />,
   menos: <path d="M5 12h14" />,

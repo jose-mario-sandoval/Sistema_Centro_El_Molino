@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { Fragment, useEffect, useId, useRef, useState } from 'react'
 import { Icono } from '@/components/ui/iconos'
 import type { TipoSemana } from '@/lib/comidas/semana'
-import { diaCerrado, etiquetaTarjeta, lineasTarjeta, type DiaDeSemana } from '@/lib/comidas/vista'
+import { diaCambiadoPorOtro, diaCerrado, etiquetaTarjeta, lineasTarjeta, type DiaDeSemana } from '@/lib/comidas/vista'
 import type { Voz } from '@/lib/comidas/voz'
 import type { FechaISO } from '@/lib/fechas'
 import { ContextoBorradores, useBorradoresDelGrupo } from './borradores-del-grupo'
@@ -28,6 +28,8 @@ function TarjetaDia({
   alTocar: () => void
 }) {
   const cerrado = diaCerrado(dia)
+  // Si el Director cambió alguna comida del día, la persona lo ve sin abrir la tarjeta.
+  const delDirector = diaCambiadoPorOtro(dia)
   return (
     <button
       type="button"
@@ -41,7 +43,7 @@ function TarjetaDia({
         <span className="tarjeta-nombre">{dia.nombre}</span>
         <span className="tarjeta-fecha">{dia.fechaCorta}</span>
       </span>
-      {(dia.esHoy || dia.ausente || cerrado) && (
+      {(dia.esHoy || dia.ausente || cerrado || delDirector) && (
         <span className="tarjeta-marcas">
           {dia.esHoy && <span className="etiqueta-hoy">Hoy</span>}
           {dia.ausente && (
@@ -54,6 +56,12 @@ function TarjetaDia({
             <span className="etiqueta-cerrado">
               <Icono nombre="candado" />
               Cerrado
+            </span>
+          )}
+          {delDirector && (
+            <span className="etiqueta-director">
+              <Icono nombre="editado" />
+              Cambió el Director
             </span>
           )}
         </span>

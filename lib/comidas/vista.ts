@@ -3,6 +3,7 @@ import { diaSemana, fechaISOEn, type FechaISO } from '@/lib/fechas'
 import { comidaSinCerrar, estaAbierta, VALOR_POR_AUSENCIA, valorEfectivo } from './reglas'
 import { resumenComida, type ClaveResumen, type ResumenComida } from './resumen'
 import { diasDeSemana, fechaCorta, nombreDia, textoCierre } from './semana'
+import { CAMBIADA_POR_EL_DIRECTOR } from './voz'
 import {
   ETIQUETA_CORTA_ESTADO,
   ETIQUETA_TIEMPO,
@@ -219,10 +220,23 @@ export function diaCerrado(dia: DiaDeSemana): boolean {
 
 /** Nombre accesible de la tarjeta: 'Miércoles 23/9, hoy. Desayuno: Sí comer. Almuerzo: …'. */
 export function etiquetaTarjeta(dia: DiaDeSemana): string {
-  const marcas = [dia.esHoy && 'hoy', dia.ausente && 'ausente', diaCerrado(dia) && 'cerrado'].filter(Boolean)
+  const marcas = [
+    dia.esHoy && 'hoy',
+    dia.ausente && 'ausente',
+    diaCerrado(dia) && 'cerrado',
+    diaCambiadoPorOtro(dia) && 'cambió el Director',
+  ].filter(Boolean)
   const cabeza = [`${dia.nombre} ${dia.fechaCorta}`, ...marcas].join(', ')
-  const comidas = dia.comidas.map(({ comida, valor }) => `${ETIQUETA_TIEMPO[comida]}: ${textoValor(valor)}.`)
+  const comidas = dia.comidas.map(({ comida, valor }) => {
+    const quien = valor?.cambiadaPorOtro ? `, ${CAMBIADA_POR_EL_DIRECTOR}` : ''
+    return `${ETIQUETA_TIEMPO[comida]}: ${textoValor(valor)}${quien}.`
+  })
   return `${cabeza}. ${comidas.join(' ')}`
+}
+
+/** Algún valor del día lo cambió otra persona (el Director): la tarjeta lo dice a la vista. */
+export function diaCambiadoPorOtro(dia: DiaDeSemana): boolean {
+  return dia.comidas.some((comida) => comida.valor?.cambiadaPorOtro === true)
 }
 
 /**

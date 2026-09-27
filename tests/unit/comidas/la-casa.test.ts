@@ -6,6 +6,8 @@ import {
   armarDiaAdministracion,
   armarSemanaDeLaCasa,
   armarSemanaPersona,
+  diaCambiadoPorOtro,
+  etiquetaTarjeta,
   planDesdeFilas,
   valorTrasGuardar,
   type PersonaEnComida,
@@ -225,6 +227,27 @@ describe('quién cambió: modificado_por → cambiadaPorOtro', () => {
       cerradas: [],
     })
     expect(dias[3].comidas[1].valor).toEqual({ estado: 'si', nota: null, origen: 'plan' })
+  })
+})
+
+describe('la persona ve de un vistazo lo que cambió el Director', () => {
+  const dias = armarSemanaPersona({
+    lunes: LUNES,
+    ahora: AHORA,
+    horas,
+    plan: {},
+    selecciones: [{ fecha: '2026-09-17', comida: 'almuerzo', estado: 'no', nota: null, origen: 'persona', modificado_por: 'dir' }],
+    cerradas: [],
+  })
+
+  it('diaCambiadoPorOtro: el día con alguna comida que cambió el Director', () => {
+    expect(dias.map(diaCambiadoPorOtro)).toEqual([false, false, false, true, false, false, false])
+  })
+
+  it('etiquetaTarjeta lo dice en la comida que cambió', () => {
+    expect(etiquetaTarjeta(dias[3])).toBe(
+      'Jueves 17/9, cambió el Director. Desayuno: Falta, sin definir. Almuerzo: No comer, la cambió el Director. Cena: Falta, sin definir.',
+    )
   })
 })
 

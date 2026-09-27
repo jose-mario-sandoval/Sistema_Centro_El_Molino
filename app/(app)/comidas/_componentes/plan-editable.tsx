@@ -74,6 +74,13 @@ function CeldaPlan({
         <span className="celda-texto">{corto.texto}</span>
         {corto.hora && <span className="celda-hora">{corto.hora}</span>}
       </span>
+      {/* La cambió el Director: lápiz + texto a la vista (la leyenda de arriba lo explica entero). */}
+      {valor && cambiadaPorOtro && (
+        <span className="celda-director">
+          <Icono nombre="editado" />
+          Director
+        </span>
+      )}
     </button>
   )
 }
@@ -159,8 +166,21 @@ export function PlanEditable({
     editor.guardar(abierta.dia, abierta.comida, null)
   }
 
+  const hayDelDirector = NOMBRES_DIA.some((_, i) =>
+    TIEMPOS_COMIDA.some((comida) => editor.valor(i + 1, comida) !== null && editor.cambiadaPorOtro(i + 1, comida)),
+  )
+
   return (
     <div className="cuadro-marco">
+      {hayDelDirector && (
+        <p className="leyenda-director">
+          <span className="celda-director">
+            <Icono nombre="editado" />
+            Director
+          </span>
+          {voz === 'propia' ? '= la cambió el Director, no vos.' : '= la cambió un Director.'}
+        </p>
+      )}
       <div
         className="cuadro-plan"
         // Escape con el foco todavía en la celda abierta también cierra (dentro del panel lo atiende él).
