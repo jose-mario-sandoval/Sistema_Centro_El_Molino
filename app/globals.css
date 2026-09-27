@@ -776,6 +776,8 @@ a{color:var(--acento);}
 [data-contraste="alto"] .celda-casa[aria-expanded="true"]{border-width:5px;background:var(--acento-suave);}
 /* Cerrada: plana, porque ya solo se lee (tocarla igual muestra quiénes comieron). */
 .celda-casa.cerrada{box-shadow:none;border-color:var(--separador);}
+.tabla-casa .namecell .etiqueta-cerrado{display:flex;margin-top:.35rem;font-size:var(--t-xs);}
+.celda-casa-cerrada{display:flex;margin-top:.45rem;font-size:var(--t-xs);}
 /* Dentro de un botón el desglose va en <span>: se ordena igual que la lista de Administración. */
 .celda-casa .partes{display:flex;}
 .celda-casa .parte,.celda-casa .conteo-extra{display:flex;}
@@ -822,7 +824,8 @@ a{color:var(--acento);}
 .persona-casa[aria-expanded="true"]{box-shadow:var(--hundido);border-color:var(--acento);color:var(--acento);}
 .persona-casa[aria-expanded="true"] .flecha{transform:rotate(180deg);}
 [data-contraste="alto"] .persona-casa[aria-expanded="true"]{border-width:3px;background:var(--acento-suave);}
-.persona-comida{padding:0 0 .5rem;}
+/* La comida de la persona abierta, un poco adentro: se lee como parte de su nombre. */
+.persona-comida{padding:0 0 .5rem min(1rem, 3vw);}
 .persona-comida .comida-fila{padding-bottom:.5rem;}
 .enlace-persona{
   display:inline-flex;align-items:center;gap:.4rem;min-height:var(--toque);padding:.4rem 0;

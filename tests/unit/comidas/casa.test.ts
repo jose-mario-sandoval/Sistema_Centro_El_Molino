@@ -54,6 +54,12 @@ describe('etiquetaCeldaCasa: nombre accesible del botón de una celda', () => {
     )
   })
 
+  it('si ya cerró, lo dice (se toca igual, para ver quiénes comieron)', () => {
+    expect(etiquetaCeldaCasa('almuerzo', 'Lunes', '21/9', resumen, 2, true)).toBe(
+      'Almuerzo del lunes 21/9: 2 comen. 1 temprano (07:30), 1 sí, 1 sin definir. +2 extra. Cerrada. Ver quiénes',
+    )
+  })
+
   it('una sola persona: "come"; sin personas, lo dice', () => {
     expect(etiquetaCeldaCasa('cena', 'Viernes', '25/9', resumenComida([{ estado: 'si', nota: null, origen: 'plan' }]))).toBe(
       'Cena del viernes 25/9: 1 come. 1 sí. Ver quiénes',

@@ -111,8 +111,15 @@ export function TablaCasa({
                 <th scope="row" className="namecell">
                   {etiquetaDia(d.fecha)}
                   {d.esHoy && <span className="etiqueta-hoy">Hoy</span>}
+                  {/* Día cerrado: plano, con candado y "Cerrado" escritos (como su tarjeta en la Semana). */}
+                  {d.comidas.every((c) => !c.abierta) && (
+                    <span className="etiqueta-cerrado">
+                      <Icono nombre="candado" />
+                      Cerrado
+                    </span>
+                  )}
                 </th>
-                {d.comidas.map((c) => {
+                {d.comidas.map((c, _i, todas) => {
                   const esta = abierta?.fecha === d.fecha && abierta.comida === c.comida
                   const extra = extras[d.fecha]?.[c.comida]
                   return (
@@ -122,12 +129,19 @@ export function TablaCasa({
                         ref={esta ? celdaAbierta : undefined}
                         type="button"
                         className={`celda-casa${c.abierta ? '' : ' cerrada'}`}
-                        aria-label={etiquetaCeldaCasa(c.comida, d.nombre, d.fechaCorta, c.resumen, extra)}
+                        aria-label={etiquetaCeldaCasa(c.comida, d.nombre, d.fechaCorta, c.resumen, extra, !c.abierta)}
                         aria-expanded={esta}
                         aria-controls={esta ? idPanel : undefined}
                         onClick={() => tocarCelda({ fecha: d.fecha, comida: c.comida })}
                       >
                         <CeldaResumen resumen={c.resumen} extra={extra} como="spans" />
+                        {/* En un día a medio cerrar (hoy), cada comida cerrada lo dice escrito. */}
+                        {!c.abierta && todas.some((otra) => otra.abierta) && (
+                          <span className="etiqueta-cerrado celda-casa-cerrada">
+                            <Icono nombre="candado" />
+                            Cerrada
+                          </span>
+                        )}
                       </button>
                     </td>
                   )

@@ -32,12 +32,14 @@ export function etiquetaCeldaCasa(
   fechaCorta: string,
   resumen: ResumenComida,
   extra?: number,
+  cerrada = false,
 ): string {
   const comen = totalQueComen(resumen)
   const partes = [`${comen} ${comen === 1 ? 'come' : 'comen'}`]
   const desglose = partesParaCocina(resumen).map((parte) => parte.texto)
   if (desglose.length > 0) partes.push(desglose.join(', '))
   if (extra) partes.push(`+${extra} extra`)
+  if (cerrada) partes.push('Cerrada')
   return `${tituloComidaCasa(comida, nombreDia, fechaCorta)}: ${partes.join('. ')}. Ver quiénes`
 }
 
