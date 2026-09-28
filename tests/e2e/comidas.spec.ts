@@ -27,6 +27,11 @@ function fechaCorta(fecha: string): string {
   return `${Number(dia)}/${Number(mes)}`
 }
 
+/** Celda de una comida en la Semana de Administración (un día por fila, una comida por columna). */
+function celdaSemana(page: Page, fecha: string, comida: 'desayuno' | 'almuerzo' | 'cena'): Locator {
+  return page.locator(`.admin-week-table td[data-fecha="${fecha}"][data-comida="${comida}"]`)
+}
+
 /**
  * Cada comida muestra su estado actual como un botón grande; las seis opciones aparecen al tocarlo.
  * Las opciones se buscan con `exact`: el botón del estado se llama igual más ", cambiar".
@@ -119,14 +124,16 @@ test('un residente cambia el almuerzo y Administración lo ve en Semana', async 
     })
     .toEqual([{ estado: 'tarde', nota: '13:30', origen: 'persona' }])
 
-  // Administración: ve el agregado del miércoles, sin filas por persona.
+  // Administración: ve el agregado del miércoles y cómo se come, sin filas por persona.
   await page.context().clearCookies()
   await iniciarSesion(page, 'administracion')
   await page.goto(`/comidas/semana?semana=${lunesSiguiente}`)
 
-  const celdaAlmuerzo = page.locator(`td[data-et="Almuerzo ${fechaCorta(miercolesSiguiente)}"]`)
+  const celdaAlmuerzo = celdaSemana(page, miercolesSiguiente, 'almuerzo')
   await expect(celdaAlmuerzo).toBeVisible()
-  await expect(celdaAlmuerzo).toContainText('1') // solo el residente que confirmó "tarde" comió ese almuerzo.
+  // Solo el residente que eligió "tarde" come ese almuerzo; la cocina ve a qué hora.
+  await expect(celdaAlmuerzo.locator('.conteo-numero')).toHaveText('1')
+  await expect(celdaAlmuerzo.getByText('1 tarde (13:30)', { exact: true })).toBeVisible()
 
   await expect(page.locator('.admin-week-table')).not.toContainText('Persona')
   await expect(page.getByRole('row', { name: /^RP\b/ })).toHaveCount(0)
@@ -255,13 +262,78 @@ test('Administración ve "No comer" de quien está ausente, sin saber que es una
 
   await iniciarSesion(page, 'administracion')
   await page.goto(`/comidas/semana?semana=${lunesSiguiente}`)
-  const celdaAlmuerzo = page.locator(`td[data-et="Almuerzo ${fechaCorta(miercolesSiguiente)}"]`)
+  const celdaAlmuerzo = celdaSemana(page, miercolesSiguiente, 'almuerzo')
   // El residente ausente cuenta como "no" (no suma) y el director no tiene plan ese día ("sin
   // definir", tampoco suma): el total que come queda en 0, sin exponer que fue por una ausencia.
   await expect(celdaAlmuerzo.locator('.conteo-numero')).toHaveText('0')
+  await expect(celdaAlmuerzo.getByText('1 no come', { exact: true })).toBeVisible()
 
   // Las ausencias son privadas: la cocina ve el efecto, nunca el motivo ni las fechas.
   expect(await page.content()).not.toMatch(/ausen/i)
   await page.goto('/calendario')
   await expect(page.getByText('Mis ausencias')).toHaveCount(0)
+})
+
+test('Administración ve en Plan semanal cuántos comen y cómo, sin nombres', async ({ page }) => {
+  const { error } = await clienteAdminPrueba()
+    .from('plan_semanal')
+    .insert([
+      { usuario_id: ids.residente, dia_semana: 3, comida: 'almuerzo', estado: 'temprano', nota: '11:30' },
+      { usuario_id: ids.residente2, dia_semana: 3, comida: 'almuerzo', estado: 'bolsa', nota: null },
+      { usuario_id: ids.director, dia_semana: 3, comida: 'almuerzo', estado: 'no', nota: null },
+    ])
+  expect(error).toBeNull()
+
+  await iniciarSesion(page, 'administracion')
+  await page.goto('/comidas/plan')
+  const celda = page.locator('.admin-week-table td[data-dia="3"][data-comida="almuerzo"]')
+  await expect(celda.locator('.conteo-numero')).toHaveText('2')
+  // Primero lo que cambia la preparación; "sin definir" (quien no tiene plan) al final.
+  await expect(celda.locator('.parte')).toHaveText(['1 temprano (11:30)', '1 en bolsa', '1 no come', /^\d+ sin definir$/])
+
+  await expect(page.locator('.admin-week-table')).not.toContainText('Persona')
+  await sinNombresAjenos(page, 'administracion')
+})
+
+test.describe('en el teléfono', () => {
+  test.use({ viewport: { width: 375, height: 812 } })
+
+  test('la Semana de Administración se apila en fichas por día, sin scroll lateral', async ({ page }) => {
+    const { lunesSiguiente, miercolesSiguiente } = fechas()
+    const { error } = await clienteAdminPrueba()
+      .from('plan_semanal')
+      .insert([
+        { usuario_id: ids.residente, dia_semana: 3, comida: 'almuerzo', estado: 'tarde', nota: '13:30' },
+        { usuario_id: ids.residente2, dia_semana: 3, comida: 'almuerzo', estado: 'bolsa', nota: null },
+      ])
+    expect(error).toBeNull()
+
+    await iniciarSesion(page, 'administracion')
+    await page.goto(`/comidas/semana?semana=${lunesSiguiente}`)
+    const celda = celdaSemana(page, miercolesSiguiente, 'almuerzo')
+    await expect(celda.getByText('1 tarde (13:30)', { exact: true })).toBeVisible()
+    await expect(celda.getByText('1 en bolsa', { exact: true })).toBeVisible()
+    // Apilada: sin la fila de encabezados; cada celda lleva escrita su comida.
+    await expect(page.locator('.admin-week-table thead')).toBeHidden()
+
+    // Letra normal = sin atributo (así lo deja lib/apariencia.ts), y la más grande.
+    for (const texto of [null, 'enorme'] as const) {
+      await page.evaluate((valor) => {
+        if (valor === null) document.documentElement.removeAttribute('data-texto')
+        else document.documentElement.setAttribute('data-texto', valor)
+      }, texto)
+      const sobra = await page.evaluate(() => {
+        const tarjeta = document.querySelector('.admin-table-scroll')
+        return {
+          pagina: document.documentElement.scrollWidth - window.innerWidth,
+          // La tarjeta tiene overflow-x:auto: si la tabla no cabe, se desplaza adentro sin
+          // ensanchar la página, así que también hay que medirla a ella.
+          tarjeta: tarjeta ? tarjeta.scrollWidth - tarjeta.clientWidth : Number.NaN,
+        }
+      })
+      expect(sobra.pagina, `scroll lateral de la página con letra ${texto ?? 'normal'}`).toBeLessThanOrEqual(0)
+      expect(sobra.tarjeta, `scroll lateral dentro de la tabla con letra ${texto ?? 'normal'}`).toBeLessThanOrEqual(0)
+    }
+    await sinNombresAjenos(page, 'administracion')
+  })
 })

@@ -52,16 +52,20 @@ async function enviarConAutor(
   }
 }
 
-/** Tras publicar: avisa a todos menos al autor. */
+/**
+ * Cuando una publicación queda aprobada (al publicar si publicaDirecto, o al aprobarla el Director): avisa a
+ * todos menos al autor. Un pendiente nunca se avisa: el aviso lleva el texto y le llegaría a quien todavía
+ * no puede verlo. Quien llama ya lo decide así; esto es la segunda barrera.
+ */
 export async function avisarNuevaPublicacion(mensajeId: string): Promise<void> {
   try {
     const { data: mensaje, error } = await crearClienteAdmin()
       .from('mensajes')
-      .select('id, autor_id, padre_id, texto')
+      .select('id, autor_id, padre_id, texto, estado')
       .eq('id', mensajeId)
       .maybeSingle()
     if (error) throw error
-    if (!mensaje || mensaje.padre_id !== null) return
+    if (!mensaje || mensaje.padre_id !== null || mensaje.estado !== 'aprobado') return
 
     const perfiles = await leerPerfiles()
     const ids = destinatariosPublicacion({ autorId: mensaje.autor_id, perfiles })
@@ -74,26 +78,29 @@ export async function avisarNuevaPublicacion(mensajeId: string): Promise<void> {
   }
 }
 
-/** Tras responder: avisa al autor de la publicación y a quienes ya respondieron. */
+/**
+ * Cuando una respuesta queda aprobada: avisa al autor de la publicación y a quienes ya respondieron. Igual
+ * que avisarNuevaPublicacion, nada que esté pendiente; tampoco si la publicación todavía no está aprobada.
+ */
 export async function avisarNuevaRespuesta(respuestaId: string): Promise<void> {
   try {
     const admin = crearClienteAdmin()
     const { data: respuesta, error } = await admin
       .from('mensajes')
-      .select('id, autor_id, padre_id, texto')
+      .select('id, autor_id, padre_id, texto, estado')
       .eq('id', respuestaId)
       .maybeSingle()
     if (error) throw error
-    if (!respuesta?.padre_id) return
+    if (!respuesta?.padre_id || respuesta.estado !== 'aprobado') return
 
     const [publicacion, hilo, perfiles] = await Promise.all([
-      admin.from('mensajes').select('autor_id').eq('id', respuesta.padre_id).maybeSingle(),
+      admin.from('mensajes').select('autor_id, estado').eq('id', respuesta.padre_id).maybeSingle(),
       admin.from('mensajes').select('autor_id').eq('padre_id', respuesta.padre_id),
       leerPerfiles(),
     ])
     if (publicacion.error) throw publicacion.error
     if (hilo.error) throw hilo.error
-    if (!publicacion.data) return
+    if (!publicacion.data || publicacion.data.estado !== 'aprobado') return
 
     const ids = destinatariosRespuesta({
       autorPublicacionId: publicacion.data.autor_id,
