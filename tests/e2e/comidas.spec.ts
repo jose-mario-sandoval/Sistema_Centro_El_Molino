@@ -9,7 +9,7 @@ import {
   type ClaveUsuario,
 } from '../soporte/usuarios-prueba'
 import { marcarAusencia } from './soporte/ausencias'
-import { esperarAltoMinimo, esperarSinScrollLateral } from '../soporte/medidas-e2e'
+import { esperarAltoMinimo, esperarDentroDeLaPantalla, esperarSinScrollLateral } from '../soporte/medidas-e2e'
 
 let ids: Record<ClaveUsuario, string>
 
@@ -33,24 +33,38 @@ function celdaSemana(page: Page, fecha: string, comida: 'desayuno' | 'almuerzo' 
   return page.locator(`.admin-week-table td[data-fecha="${fecha}"][data-comida="${comida}"]`)
 }
 
+type Comida = 'desayuno' | 'almuerzo' | 'cena'
+const NOMBRE_COMIDA: Record<Comida, string> = { desayuno: 'Desayuno', almuerzo: 'Almuerzo', cena: 'Cena' }
+
 /**
- * Cada comida muestra su estado actual como un botón grande; las seis opciones aparecen al tocarlo.
- * Las opciones se buscan con `exact`: el botón del estado se llama igual más ", cambiar".
+ * El botón de una comida en la tarjeta de su día (Semana). Su nombre accesible dice cuál es, qué
+ * tiene y qué hace tocarlo: 'Almuerzo del miércoles 30/9: Sí comer. Cambiar'.
  */
-async function abrirOpciones(fila: Locator) {
-  await fila.locator('.estado-actual').click()
-  await expect(fila.locator('.estado-actual')).toHaveAttribute('aria-expanded', 'true')
+function comidaSemana(page: Page, fecha: string, comida: Comida): Locator {
+  return page.locator(`.tarjetas-semana button.comida-tarjeta[data-fecha="${fecha}"][data-comida="${comida}"]`)
 }
 
 /**
- * La semana son tarjetas por día: las comidas de un día aparecen al abrir su tarjeta. Se busca dentro
- * de `.tarjetas-semana` porque los grupos de cada comida también llevan el nombre del día.
+ * Toca la comida y devuelve su burbuja: un diálogo no modal junto al botón, nombrado por su título
+ * ('Almuerzo del miércoles 30/9'), con las seis opciones. Las opciones se buscan con `exact`.
  */
-async function abrirDia(page: Page, etiqueta: string) {
-  const tarjeta = page.locator('.tarjetas-semana').getByRole('button', { name: new RegExp(`^${etiqueta}[,.]`) })
-  // Tocar una tarjeta abierta la cierra: en la semana en curso, hoy ya viene abierto.
-  if ((await tarjeta.getAttribute('aria-expanded')) !== 'true') await tarjeta.click()
-  await expect(tarjeta).toHaveAttribute('aria-expanded', 'true')
+async function abrirComida(page: Page, fecha: string, comida: Comida): Promise<Locator> {
+  const boton = comidaSemana(page, fecha, comida)
+  await boton.click()
+  await expect(boton).toHaveAttribute('aria-expanded', 'true')
+  const dia = await boton.getAttribute('aria-label')
+  const titulo = dia?.split(':')[0] ?? NOMBRE_COMIDA[comida]
+  const burbuja = page.getByRole('dialog', { name: titulo, exact: true })
+  await expect(burbuja).toBeVisible()
+  return burbuja
+}
+
+/**
+ * Un toque fuera de la burbuja, en un lugar que no hace nada: el borde izquierdo de la pantalla (la
+ * burbuja nunca llega ahí: siempre deja 16px de margen).
+ */
+async function tocarFuera(page: Page) {
+  await page.mouse.click(4, 300)
 }
 
 /** Administración solo ve siglas: ningún nombre ajeno en pantalla ni en el HTML (datos de hidratación incluidos). */
@@ -112,21 +126,30 @@ test('un residente cambia el almuerzo y Administración lo ve en Semana', async 
   // Residente
   await iniciarSesion(page, 'residente')
   await page.goto(`/comidas/semana?semana=${lunesSiguiente}`)
-  await abrirDia(page, `Miércoles ${fechaCorta(miercolesSiguiente)}`)
-  const almuerzo = page.locator(`[data-fecha="${miercolesSiguiente}"][data-comida="almuerzo"]`)
-  await expect(almuerzo.getByText('según tu plan', { exact: true })).toBeVisible()
-  await expect(almuerzo.locator('.estado-actual')).toContainText('Sí comer')
-  await abrirOpciones(almuerzo)
-  await expect(almuerzo.getByRole('button', { name: 'Sí comer', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  // En la tarjeta de su día, cada comida es un botón con su valor escrito.
+  const almuerzo = comidaSemana(page, miercolesSiguiente, 'almuerzo')
+  await expect(almuerzo).toHaveAccessibleName(`Almuerzo del miércoles ${fechaCorta(miercolesSiguiente)}: Sí comer. Cambiar`)
+  await expect(almuerzo).toContainText('Sí')
+  // Tocarla abre la burbuja junto a ella, con el foco en la opción marcada.
+  const burbuja = await abrirComida(page, miercolesSiguiente, 'almuerzo')
+  await expect(burbuja.getByText('según tu plan', { exact: true })).toBeVisible()
+  await expect(burbuja.getByRole('button', { name: 'Sí comer', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  await expect(burbuja.getByRole('button', { name: 'Sí comer', exact: true })).toBeFocused()
 
-  await almuerzo.getByRole('button', { name: 'Comer tarde', exact: true }).click()
-  await almuerzo.getByLabel('Hora', { exact: true }).fill('13:30')
-  await almuerzo.getByRole('button', { name: 'Guardar' }).click()
+  await burbuja.getByRole('button', { name: 'Comer tarde', exact: true }).click()
+  await burbuja.getByLabel('Hora', { exact: true }).fill('13:30')
+  await burbuja.getByRole('button', { name: 'Guardar' }).click()
 
-  await expect(almuerzo.getByText('cambiada', { exact: true })).toBeVisible()
-  await expect(almuerzo.getByText('Hora: 13:30')).toBeVisible()
-  await expect(almuerzo.getByRole('button', { name: 'Comer tarde', exact: true })).toHaveAttribute('aria-pressed', 'true')
-  await expect(almuerzo.locator('.estado-actual')).toContainText('Comer tarde')
+  await expect(burbuja.getByText('cambiada', { exact: true })).toBeVisible()
+  await expect(burbuja.getByText('Hora: 13:30')).toBeVisible()
+  await expect(burbuja.getByRole('button', { name: 'Comer tarde', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  await expect(almuerzo).toContainText('Tarde')
+  await expect(almuerzo).toContainText('13:30')
+  // Escape cierra la burbuja y el foco vuelve a la comida.
+  await page.keyboard.press('Escape')
+  await expect(burbuja).toHaveCount(0)
+  await expect(almuerzo).toBeFocused()
+  await expect(almuerzo).toHaveAttribute('aria-expanded', 'false')
 
   const admin = clienteAdminPrueba()
   await expect
@@ -178,17 +201,16 @@ test('en una semana pasada el residente no puede cambiar nada', async ({ page })
   await page.goto(`/comidas/semana?semana=${lunesPasado}`)
 
   await expect(page.locator('.locked-banner')).toContainText('Semana pasada: solo consulta.')
-  // Siete tarjetas, todas cerradas y ninguna abierta de entrada.
+  // Siete tarjetas, todas cerradas.
   const tarjetas = page.locator('.tarjetas-semana .tarjeta-dia')
   await expect(tarjetas).toHaveCount(7)
   await expect(tarjetas.filter({ hasText: 'Cerrado' })).toHaveCount(7)
-  await expect(page.locator('.panel-dia')).toHaveCount(0)
-  // Al abrir un día, cada comida muestra su estado sin poder abrir las opciones.
-  await tarjetas.first().click()
-  await expect(page.locator('.week-list .estado-actual')).toHaveCount(3)
-  await expect(page.locator('.week-list .estado-actual:enabled')).toHaveCount(0)
-  await expect(page.locator('.week-list .status-chip')).toHaveCount(0)
-  await expect(page.getByRole('button', { name: 'Volver a mi plan' })).toHaveCount(0)
+  // Cada comida se lee (plana, con su valor), pero ninguna es un botón: no hay burbuja que abrir.
+  await expect(page.locator('.week-list .comida-tarjeta')).toHaveCount(21)
+  await expect(page.locator('.week-list button')).toHaveCount(0)
+  await page.locator('.week-list .comida-tarjeta').first().click()
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+  await expect(page.locator('.status-chip')).toHaveCount(0)
   await expect(page.getByRole('link', { name: 'Ir a la semana actual' })).toBeVisible()
 })
 
@@ -208,17 +230,16 @@ test('"Volver a mi plan" quita el cambio y restaura el plan', async ({ page }) =
 
   await iniciarSesion(page, 'residente')
   await page.goto(`/comidas/semana?semana=${lunesSiguiente}`)
-  await abrirDia(page, `Miércoles ${fechaCorta(miercolesSiguiente)}`)
-  const almuerzo = page.locator(`[data-fecha="${miercolesSiguiente}"][data-comida="almuerzo"]`)
-  await expect(almuerzo.getByText('cambiada', { exact: true })).toBeVisible()
-  await abrirOpciones(almuerzo)
-  await expect(almuerzo.getByRole('button', { name: 'No comer', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  const burbuja = await abrirComida(page, miercolesSiguiente, 'almuerzo')
+  await expect(burbuja.getByText('cambiada', { exact: true })).toBeVisible()
+  await expect(burbuja.getByRole('button', { name: 'No comer', exact: true })).toHaveAttribute('aria-pressed', 'true')
 
-  await almuerzo.getByRole('button', { name: 'Volver a mi plan' }).click()
+  await burbuja.getByRole('button', { name: 'Volver a mi plan' }).click()
 
-  await expect(almuerzo.getByText('según tu plan', { exact: true })).toBeVisible()
-  await expect(almuerzo.getByRole('button', { name: 'Sí comer', exact: true })).toHaveAttribute('aria-pressed', 'true')
-  await expect(almuerzo.getByRole('button', { name: 'Volver a mi plan' })).toHaveCount(0)
+  await expect(burbuja.getByText('según tu plan', { exact: true })).toBeVisible()
+  await expect(burbuja.getByRole('button', { name: 'Sí comer', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  await expect(burbuja.getByRole('button', { name: 'Volver a mi plan' })).toHaveCount(0)
+  await expect(comidaSemana(page, miercolesSiguiente, 'almuerzo')).toContainText('Sí')
   // Filtramos por fecha y comida del caso: el job de cierre de cada 5 minutos puede
   // insertar selecciones de otras comidas para este usuario y volver flaky el poll.
   await expect
@@ -249,22 +270,22 @@ test('una persona marca su ausencia: sus comidas se cancelan solas, puede reacti
 
   // Sus comidas de ese día quedaron canceladas por la ausencia, y el día lo dice.
   await page.goto(`/comidas/semana?semana=${lunesSiguiente}`)
-  await abrirDia(page, `Miércoles ${fechaCorta(miercolesSiguiente)}`)
-  const almuerzo = page.locator(`[data-fecha="${miercolesSiguiente}"][data-comida="almuerzo"]`)
-  await expect(almuerzo.getByText('por tu ausencia', { exact: true })).toBeVisible()
-  await expect(almuerzo.locator('.estado-actual')).toContainText('No comer')
+  const almuerzo = comidaSemana(page, miercolesSiguiente, 'almuerzo')
+  await expect(almuerzo).toHaveAccessibleName(`Almuerzo del miércoles ${fechaCorta(miercolesSiguiente)}: No comer. Cambiar`)
   await expect(page.getByLabel(new RegExp(`^Miércoles ${fechaCorta(miercolesSiguiente)}`)).getByText('Ausente')).toBeVisible()
+  const burbuja = await abrirComida(page, miercolesSiguiente, 'almuerzo')
+  await expect(burbuja.getByText('por tu ausencia', { exact: true })).toBeVisible()
+  await expect(burbuja.getByRole('button', { name: 'No comer', exact: true })).toHaveAttribute('aria-pressed', 'true')
 
   // Puede reactivar una comida puntual: su elección gana sobre la ausencia.
-  await abrirOpciones(almuerzo)
-  await almuerzo.getByRole('button', { name: 'Sí comer', exact: true }).click()
-  await expect(almuerzo.getByText('cambiada', { exact: true })).toBeVisible()
-  await expect(almuerzo.locator('.estado-actual')).toContainText('Sí comer')
+  await burbuja.getByRole('button', { name: 'Sí comer', exact: true }).click()
+  await expect(burbuja.getByText('cambiada', { exact: true })).toBeVisible()
+  await expect(almuerzo).toContainText('Sí')
 
   // "Volver a mi ausencia" la devuelve a "No comer" por la ausencia (no a su plan).
-  await almuerzo.getByRole('button', { name: 'Volver a mi ausencia' }).click()
-  await expect(almuerzo.getByText('por tu ausencia', { exact: true })).toBeVisible()
-  await expect(almuerzo.locator('.estado-actual')).toContainText('No comer')
+  await burbuja.getByRole('button', { name: 'Volver a mi ausencia' }).click()
+  await expect(burbuja.getByText('por tu ausencia', { exact: true })).toBeVisible()
+  await expect(burbuja.getByRole('button', { name: 'No comer', exact: true })).toHaveAttribute('aria-pressed', 'true')
 
   // Al quitar la ausencia vuelve a regir su plan semanal.
   await page.goto('/calendario')
@@ -273,9 +294,9 @@ test('una persona marca su ausencia: sus comidas se cancelan solas, puede reacti
   await expect(page.getByText('Ausencia quitada.')).toBeVisible()
 
   await page.goto(`/comidas/semana?semana=${lunesSiguiente}`)
-  await abrirDia(page, `Miércoles ${fechaCorta(miercolesSiguiente)}`)
-  await expect(almuerzo.getByText('según tu plan', { exact: true })).toBeVisible()
-  await expect(almuerzo.locator('.estado-actual')).toContainText('Sí comer')
+  await expect(almuerzo).toHaveAccessibleName(`Almuerzo del miércoles ${fechaCorta(miercolesSiguiente)}: Sí comer. Cambiar`)
+  const deNuevo = await abrirComida(page, miercolesSiguiente, 'almuerzo')
+  await expect(deNuevo.getByText('según tu plan', { exact: true })).toBeVisible()
 })
 
 test('Administración ve "No comer" de quien está ausente, sin saber que es una ausencia', async ({ page }) => {
@@ -367,20 +388,21 @@ test('el plan se edita desde la cuadrícula: el almuerzo de los martes pasa a "C
   await iniciarSesion(page, 'residente')
   await page.goto('/comidas/plan')
 
-  // La cuadrícula es el editor: 21 celdas y ninguna lista de comidas debajo.
+  // La cuadrícula es el editor: 21 celdas y ninguna lista de comidas debajo ni nada abierto.
   await expect(page.locator('.cuadro-plan .celda-plan')).toHaveCount(21)
-  await expect(page.locator('.estado-actual')).toHaveCount(0)
+  await expect(page.getByRole('dialog')).toHaveCount(0)
 
   const celda = page.getByRole('button', { name: /^Martes, almuerzo:/ })
   await expect(celda).toContainText('Falta')
   await celda.click()
   await expect(celda).toHaveAttribute('aria-expanded', 'true')
 
-  const panel = page.locator('.cuadro-panel')
-  await expect(panel).toContainText('¿Normalmente almorzás los martes?')
-  await panel.getByRole('button', { name: 'Comer temprano', exact: true }).click()
-  await panel.getByLabel('Hora', { exact: true }).fill('12:00')
-  await panel.getByRole('button', { name: 'Guardar' }).click()
+  // La misma burbuja que en la Semana, junto a la celda.
+  const burbuja = page.getByRole('dialog', { name: 'Almuerzo de los martes' })
+  await expect(burbuja).toContainText('¿Normalmente almorzás los martes?')
+  await burbuja.getByRole('button', { name: 'Comer temprano', exact: true }).click()
+  await burbuja.getByLabel('Hora', { exact: true }).fill('12:00')
+  await burbuja.getByRole('button', { name: 'Guardar' }).click()
 
   await expect(page.locator('.toast')).toHaveText('Plan semanal actualizado')
   await expect(celda).toHaveAccessibleName('Martes, almuerzo: Comer temprano 12:00. Cambiar')
@@ -397,22 +419,24 @@ test('el plan se edita desde la cuadrícula: el almuerzo de los martes pasa a "C
     .toEqual([{ dia_semana: 2, comida: 'almuerzo', estado: 'temprano', nota: '12:00' }])
 
   // Como en la Semana: pasar a "Comer tarde" trae la misma hora, pero nada cambia hasta "Guardar".
-  await panel.getByRole('button', { name: 'Comer tarde', exact: true }).click()
-  await expect(panel.getByLabel('Hora', { exact: true })).toHaveValue('12:00')
+  await burbuja.getByRole('button', { name: 'Comer tarde', exact: true }).click()
+  await expect(burbuja.getByLabel('Hora', { exact: true })).toHaveValue('12:00')
   await expect(celda).toContainText('Temprano')
-  await panel.getByRole('button', { name: 'Cancelar' }).click()
-  await expect(panel.getByLabel('Hora', { exact: true })).toHaveCount(0)
+  await burbuja.getByRole('button', { name: 'Cancelar' }).click()
+  await expect(burbuja.getByLabel('Hora', { exact: true })).toHaveCount(0)
   await expect(celda).toHaveAccessibleName('Martes, almuerzo: Comer temprano 12:00. Cambiar')
 
-  // Una celda abierta a la vez.
+  // Una burbuja a la vez: tocar otra celda cierra esta y abre aquella.
   const cena = page.getByRole('button', { name: /^Martes, cena:/ })
   await cena.click()
+  await expect(page.getByRole('dialog')).toHaveCount(1)
+  await expect(page.getByRole('dialog', { name: 'Cena de los martes' })).toBeVisible()
   await expect(page.locator('.celda-plan[aria-expanded="true"]')).toHaveCount(1)
   await expect(celda).toHaveAttribute('aria-expanded', 'false')
 
-  // "Listo" cierra el panel y devuelve el foco a la celda.
-  await page.locator('.cuadro-panel').getByRole('button', { name: 'Listo' }).click()
-  await expect(page.locator('.cuadro-panel')).toHaveCount(0)
+  // "Listo" cierra la burbuja y devuelve el foco a la celda.
+  await page.getByRole('dialog').getByRole('button', { name: 'Listo' }).click()
+  await expect(page.getByRole('dialog')).toHaveCount(0)
   await expect(cena).toBeFocused()
 
   // Al volver a la página, el plan guardado sigue ahí.
@@ -420,26 +444,29 @@ test('el plan se edita desde la cuadrícula: el almuerzo de los martes pasa a "C
   await expect(page.getByRole('button', { name: /^Martes, almuerzo:/ })).toContainText('12:00')
 })
 
-test('una hora escrita y "Listo" (sin "Guardar") se guarda; sin hora, "Listo" no cierra y dice por qué', async ({ page }) => {
+test('una hora escrita se guarda con "Listo" o con un toque fuera (sin "Guardar"); sin hora, no se cierra y dice por qué', async ({
+  page,
+}) => {
   const { lunesSiguiente, miercolesSiguiente } = fechas()
   await planAlmuerzoMiercoles()
   const admin = clienteAdminPrueba()
   await iniciarSesion(page, 'residente')
 
-  // Plan semanal
+  // Plan semanal: sin hora, "Listo" no cierra; con la hora, "Listo" la guarda.
   await page.goto('/comidas/plan')
   const celda = page.getByRole('button', { name: /^Jueves, cena:/ })
   await celda.click()
-  const panel = page.locator('.cuadro-panel')
-  await panel.getByRole('button', { name: 'Comer temprano', exact: true }).click()
-  await panel.getByRole('button', { name: 'Listo' }).click()
-  await expect(panel).toBeVisible()
-  await expect(panel.locator('.campo-error')).toContainText('Indicá la hora para "Comer temprano"')
-  await expect(panel.getByLabel('Hora', { exact: true })).toBeFocused()
-  await panel.getByLabel('Hora', { exact: true }).fill('18:30')
-  await panel.getByRole('button', { name: 'Listo' }).click()
-  await expect(panel).toHaveCount(0)
+  const burbujaPlan = page.getByRole('dialog', { name: 'Cena de los jueves' })
+  await burbujaPlan.getByRole('button', { name: 'Comer temprano', exact: true }).click()
+  await burbujaPlan.getByRole('button', { name: 'Listo' }).click()
+  await expect(burbujaPlan).toBeVisible()
+  await expect(burbujaPlan.locator('.campo-error')).toContainText('Indicá la hora para "Comer temprano"')
+  await expect(burbujaPlan.getByLabel('Hora', { exact: true })).toBeFocused()
+  await burbujaPlan.getByLabel('Hora', { exact: true }).fill('18:30')
+  await burbujaPlan.getByRole('button', { name: 'Listo' }).click()
+  await expect(burbujaPlan).toHaveCount(0)
   await expect(celda).toHaveAccessibleName('Jueves, cena: Comer temprano 18:30. Cambiar')
+  await expect(celda).toBeFocused()
   await expect
     .poll(async () => {
       const { data } = await admin
@@ -452,20 +479,23 @@ test('una hora escrita y "Listo" (sin "Guardar") se guarda; sin hora, "Listo" no
     })
     .toEqual([{ estado: 'temprano', nota: '18:30' }])
 
-  // Semana
+  // Semana: sin hora, ni "Listo" ni un toque fuera cierran; con la hora, un toque fuera la guarda.
   await page.goto(`/comidas/semana?semana=${lunesSiguiente}`)
-  await abrirDia(page, `Miércoles ${fechaCorta(miercolesSiguiente)}`)
-  const almuerzo = page.locator(`[data-fecha="${miercolesSiguiente}"][data-comida="almuerzo"]`)
-  await abrirOpciones(almuerzo)
-  await almuerzo.getByRole('button', { name: 'Comer tarde', exact: true }).click()
-  await almuerzo.getByRole('button', { name: 'Listo' }).click()
-  await expect(almuerzo.getByRole('button', { name: 'Listo' })).toBeVisible()
-  await expect(almuerzo.locator('.campo-error')).toContainText('Si no querés cambiarla, tocá "Cancelar".')
-  await almuerzo.getByLabel('Hora', { exact: true }).fill('13:15')
-  await almuerzo.getByRole('button', { name: 'Listo' }).click()
-  await expect(almuerzo.getByRole('button', { name: 'Listo' })).toHaveCount(0)
-  await expect(almuerzo.getByText('cambiada', { exact: true })).toBeVisible()
-  await expect(almuerzo.getByText('Hora: 13:15')).toBeVisible()
+  const almuerzo = comidaSemana(page, miercolesSiguiente, 'almuerzo')
+  const burbuja = await abrirComida(page, miercolesSiguiente, 'almuerzo')
+  await burbuja.getByRole('button', { name: 'Comer tarde', exact: true }).click()
+  await burbuja.getByRole('button', { name: 'Listo' }).click()
+  await expect(burbuja).toBeVisible()
+  await expect(burbuja.locator('.campo-error')).toContainText('Si no querés cambiarla, tocá "Cancelar".')
+  await expect(burbuja.getByLabel('Hora', { exact: true })).toBeFocused()
+  await tocarFuera(page)
+  await expect(burbuja).toBeVisible()
+  await expect(burbuja.locator('.campo-error')).toBeVisible()
+
+  await burbuja.getByLabel('Hora', { exact: true }).fill('13:15')
+  await tocarFuera(page)
+  await expect(burbuja).toHaveCount(0)
+  await expect(almuerzo).toContainText('13:15')
   await expect
     .poll(async () => {
       const { data } = await admin
@@ -477,6 +507,43 @@ test('una hora escrita y "Listo" (sin "Guardar") se guarda; sin hora, "Listo" no
       return data
     })
     .toEqual([{ estado: 'tarde', nota: '13:15', origen: 'persona' }])
+  const deNuevo = await abrirComida(page, miercolesSiguiente, 'almuerzo')
+  await expect(deNuevo.getByText('cambiada', { exact: true })).toBeVisible()
+  await expect(deNuevo.getByText('Hora: 13:15')).toBeVisible()
+})
+
+test('Escape descarta la hora a medio escribir y devuelve el foco; tocar otra comida cierra esta y abre aquella', async ({
+  page,
+}) => {
+  const { lunesSiguiente, miercolesSiguiente } = fechas()
+  await planAlmuerzoMiercoles()
+  await iniciarSesion(page, 'residente')
+  await page.goto(`/comidas/semana?semana=${lunesSiguiente}`)
+
+  const almuerzo = comidaSemana(page, miercolesSiguiente, 'almuerzo')
+  const burbuja = await abrirComida(page, miercolesSiguiente, 'almuerzo')
+  await burbuja.getByRole('button', { name: 'Comer temprano', exact: true }).click()
+  await burbuja.getByLabel('Hora', { exact: true }).fill('11:45')
+  await page.keyboard.press('Escape')
+  await expect(burbuja).toHaveCount(0)
+  await expect(almuerzo).toBeFocused()
+  await expect(almuerzo).toHaveAccessibleName(`Almuerzo del miércoles ${fechaCorta(miercolesSiguiente)}: Sí comer. Cambiar`)
+
+  // Una burbuja a la vez: tocar otra comida (el almuerzo del lunes, que la burbuja no tapa y que en la
+  // semana siguiente nunca está cerrado) cierra esta y abre aquella.
+  await abrirComida(page, miercolesSiguiente, 'almuerzo')
+  const otra = await abrirComida(page, lunesSiguiente, 'almuerzo')
+  await expect(page.getByRole('dialog')).toHaveCount(1)
+  await expect(otra).toBeVisible()
+  await expect(almuerzo).toHaveAttribute('aria-expanded', 'false')
+
+  // Nada se guardó.
+  const { data } = await clienteAdminPrueba()
+    .from('selecciones_comida')
+    .select('estado')
+    .eq('usuario_id', ids.residente)
+    .eq('fecha', miercolesSiguiente)
+  expect(data).toEqual([])
 })
 
 for (const viewport of [
@@ -486,22 +553,39 @@ for (const viewport of [
   test.describe(`en un teléfono de ${viewport.width}px`, () => {
     test.use({ viewport })
 
-    test('Plan y Semana caben sin scroll lateral y todo lo que se toca mide al menos 56px', async ({ page }) => {
+    test('Plan y Semana caben sin scroll lateral, la burbuja entra en la pantalla y todo lo que se toca mide al menos 56px', async ({
+      page,
+    }) => {
       const { lunesSiguiente, miercolesSiguiente } = fechas()
       await planAlmuerzoMiercoles()
       await iniciarSesion(page, 'residente')
 
       await page.goto('/comidas/plan')
       await page.getByRole('button', { name: /^Miércoles, almuerzo:/ }).click()
-      await expect(page.locator('.cuadro-panel')).toBeVisible()
+      const burbujaPlan = page.getByRole('dialog', { name: 'Almuerzo de los miércoles' })
+      await esperarDentroDeLaPantalla(page, burbujaPlan)
       await esperarSinScrollLateral(page)
       await esperarAltoMinimo(page.locator('.cuadro-plan button'))
+      await esperarAltoMinimo(burbujaPlan.getByRole('button'))
+      // La del domingo, al final: arriba de la celda si abajo no entra, y siempre dentro.
+      await page.keyboard.press('Escape')
+      await page.getByRole('button', { name: /^Domingo, cena:/ }).click()
+      await esperarDentroDeLaPantalla(page, page.getByRole('dialog', { name: 'Cena de los domingos' }))
+      await esperarSinScrollLateral(page)
 
       await page.goto(`/comidas/semana?semana=${lunesSiguiente}`)
-      await abrirDia(page, `Miércoles ${fechaCorta(miercolesSiguiente)}`)
-      await abrirOpciones(page.locator(`[data-fecha="${miercolesSiguiente}"][data-comida="almuerzo"]`))
-      await esperarSinScrollLateral(page)
       await esperarAltoMinimo(page.locator('.tarjetas-semana button'))
+      const burbuja = await abrirComida(page, miercolesSiguiente, 'almuerzo')
+      await burbuja.getByRole('button', { name: 'Comer temprano', exact: true }).click()
+      await esperarDentroDeLaPantalla(page, burbuja)
+      await esperarSinScrollLateral(page)
+      await esperarAltoMinimo(burbuja.getByRole('button'))
+
+      // Con la letra más grande, tampoco se sale.
+      await page.evaluate(() => document.documentElement.setAttribute('data-texto', 'enorme'))
+      await esperarDentroDeLaPantalla(page, burbuja)
+      await esperarSinScrollLateral(page)
+      await esperarAltoMinimo(burbuja.getByRole('button'))
     })
   })
 }

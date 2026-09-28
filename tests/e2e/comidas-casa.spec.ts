@@ -1,6 +1,6 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
 import { fechaISOEn, lunesDe, sumarDias } from '../../lib/fechas'
-import { esperarAltoMinimo, esperarSinScrollLateral } from '../soporte/medidas-e2e'
+import { esperarAltoMinimo, esperarDentroDeLaPantalla, esperarSinScrollLateral } from '../soporte/medidas-e2e'
 import {
   asegurarUsuariosPrueba,
   clienteAdminPrueba,
@@ -13,7 +13,8 @@ import { marcarAusencia, panelAusencias } from './soporte/ausencias'
 
 /*
  * "La casa" del Director: ve y cambia las comidas de todos con los mismos cierres; la persona ve que
- * fue el Director. Extras para la cocina, que Administración ve sin nombres.
+ * fue el Director. Extras para la cocina desde el "+ Extra" de cada comida, que Administración ve sin
+ * nombres. Tocar un nombre o un "+ Extra" abre una burbuja junto a él (un diálogo no modal).
  */
 
 let ids: Record<ClaveUsuario, string>
@@ -71,9 +72,23 @@ function celdaCasa(page: Page, fecha: string, comida: 'desayuno' | 'almuerzo' | 
   return page.locator(`.tabla-casa td[data-fecha="${fecha}"][data-comida="${comida}"] .celda-casa`)
 }
 
-/** El panel de quiénes comen, debajo de la tabla. */
+/** El panel de quiénes comen, debajo de la fila de su día. */
 function panelCasa(page: Page): Locator {
   return page.locator('.panel-casa')
+}
+
+/** El "+ Extra" de una comida: en la esquina de su celda, al lado (no dentro) de su botón. */
+function botonExtra(page: Page, comida: 'desayuno' | 'almuerzo' | 'cena', fecha: string): Locator {
+  const nombre = { desayuno: 'al desayuno', almuerzo: 'al almuerzo', cena: 'a la cena' }[comida]
+  const [, mes, dia] = fecha.split('-')
+  const dias = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado']
+  const nombreDia = dias[new Date(`${fecha}T12:00:00Z`).getUTCDay()]
+  return page.getByRole('button', { name: `Agregar extra ${nombre} del ${nombreDia} ${Number(dia)}/${Number(mes)}`, exact: true })
+}
+
+/** Un toque fuera de la burbuja, en un lugar que no hace nada (la burbuja siempre deja 16px de margen). */
+async function tocarFuera(page: Page) {
+  await page.mouse.click(4, 300)
 }
 
 test.beforeEach(async () => {
@@ -114,14 +129,16 @@ test('el Director cambia la comida de un residente desde La casa y el residente 
   await nombre.click()
   await expect(nombre).toHaveAttribute('aria-expanded', 'true')
 
-  const comida = panel.locator(`.persona-comida [data-fecha="${miercolesSiguiente}"][data-comida="almuerzo"]`)
-  await expect(comida.getByText('según su plan', { exact: true })).toBeVisible()
-  await comida.locator('.estado-actual').click()
-  await expect(comida.getByRole('group', { name: 'Elegí qué hace Residente Prueba con el almuerzo' })).toBeVisible()
-  await comida.getByRole('button', { name: 'No comer', exact: true }).click()
+  // Su comida, en una burbuja junto a su nombre, con las mismas opciones que ve la persona.
+  const burbuja = page.getByRole('dialog', { name: `Almuerzo de Residente Prueba, miércoles ${fechaCorta(miercolesSiguiente)}` })
+  await expect(burbuja.getByText('según su plan', { exact: true })).toBeVisible()
+  await expect(burbuja.getByRole('group', { name: 'Elegí qué hace Residente Prueba con el almuerzo' })).toBeVisible()
+  await expect(burbuja.getByRole('button', { name: 'Sí comer', exact: true })).toBeFocused()
+  await burbuja.getByRole('button', { name: 'No comer', exact: true }).click()
 
-  // Pasa al grupo de lo que eligió, y la base guarda quién lo cambió.
+  // Pasa al grupo de lo que eligió (la burbuja sigue abierta), y la base guarda quién lo cambió.
   await expect(panel.getByRole('group', { name: /^No comer \(1\)$/ }).getByRole('button', { name: 'Residente Prueba' })).toBeVisible()
+  await expect(burbuja.getByText('la cambió el Director', { exact: true })).toBeVisible()
   await expect
     .poll(async () => {
       const { data } = await clienteAdminPrueba()
@@ -134,17 +151,25 @@ test('el Director cambia la comida de un residente desde La casa y el residente 
     })
     .toEqual([{ estado: 'no', origen: 'persona', modificado_por: ids.director }])
 
-  // El residente lo ve en su Semana.
+  // Escape cierra la burbuja y el foco vuelve a su nombre (ya en su nuevo grupo).
+  await page.keyboard.press('Escape')
+  await expect(burbuja).toHaveCount(0)
+  await expect(panel.getByRole('button', { name: 'Residente Prueba' })).toBeFocused()
+
+  // El residente lo ve en su Semana, sin abrir nada: lápiz + "Director" en esa comida, con la leyenda.
   await salir(page)
   await iniciarSesion(page, 'residente')
   await page.goto(`/comidas/semana?semana=${lunesSiguiente}`)
-  const tarjeta = page.locator('.tarjetas-semana').getByRole('button', { name: new RegExp(`^Miércoles ${fechaCorta(miercolesSiguiente)}[,.]`) })
-  // A la vista sin abrir la tarjeta: el Director cambió algo de ese día.
-  await expect(tarjeta).toContainText('Cambió el Director')
-  await tarjeta.click()
-  const suya = page.locator(`[data-fecha="${miercolesSiguiente}"][data-comida="almuerzo"]`)
-  await expect(suya.getByText('la cambió el Director', { exact: true })).toBeVisible()
-  await expect(suya.locator('.estado-actual')).toContainText('No comer')
+  const suya = page.locator(`.tarjetas-semana button.comida-tarjeta[data-fecha="${miercolesSiguiente}"][data-comida="almuerzo"]`)
+  await expect(suya).toContainText('Director')
+  await expect(suya).toHaveAccessibleName(
+    `Almuerzo del miércoles ${fechaCorta(miercolesSiguiente)}: No comer, la cambió el Director. Cambiar`,
+  )
+  await expect(page.locator('.leyenda-director')).toContainText('la cambió el Director')
+  await suya.click()
+  const suyaBurbuja = page.getByRole('dialog', { name: `Almuerzo del miércoles ${fechaCorta(miercolesSiguiente)}` })
+  await expect(suyaBurbuja.getByText('la cambió el Director', { exact: true })).toBeVisible()
+  await expect(suyaBurbuja.getByRole('button', { name: 'No comer', exact: true })).toHaveAttribute('aria-pressed', 'true')
 })
 
 test('"Ver la semana de": el Director cambia el plan y marca una ausencia del residente, que lo ve', async ({ page }) => {
@@ -167,8 +192,9 @@ test('"Ver la semana de": el Director cambia el plan y marca una ausencia del re
   await page.getByRole('link', { name: 'Su plan' }).click()
   const celda = page.getByRole('button', { name: /^Martes, cena:/ })
   await celda.click()
-  await expect(page.locator('.cuadro-panel')).toContainText('¿Normalmente cena los martes?')
-  await page.locator('.cuadro-panel').getByRole('button', { name: 'No comer', exact: true }).click()
+  const burbujaPlan = page.getByRole('dialog', { name: 'Cena de los martes' })
+  await expect(burbujaPlan).toContainText('¿Normalmente cena los martes?')
+  await burbujaPlan.getByRole('button', { name: 'No comer', exact: true }).click()
   await expect(page.locator('.toast')).toHaveText('Plan semanal actualizado')
   await expect
     .poll(async () => {
@@ -215,37 +241,55 @@ test('una comida que ya cerró se ve en La casa, pero no se cambia', async ({ pa
   await celda.click()
   const panel = panelCasa(page)
   await expect(panel.getByText('Cerrada: ya no se puede cambiar. Tocá un nombre para ver su comida.')).toBeVisible()
-  await panel.getByRole('button', { name: 'Residente Prueba' }).click()
-  await expect(panel.locator('.persona-comida .estado-actual')).toBeDisabled()
-  await expect(panel.locator('.persona-comida').getByText('Cerrada: ya no se puede cambiar.')).toBeVisible()
+  const nombre = panel.getByRole('button', { name: 'Residente Prueba' })
+  await nombre.click()
+  // La burbuja de una comida cerrada solo se lee: sin opciones, con candado y el motivo.
+  const burbuja = page.getByRole('dialog', { name: new RegExp(`^Almuerzo de Residente Prueba, lunes ${fechaCorta(lunesPasado)}$`) })
+  await expect(burbuja.getByText('Cerrada: ya no se puede cambiar.')).toBeVisible()
+  await expect(burbuja.locator('.status-chip')).toHaveCount(0)
+  await burbuja.getByRole('button', { name: 'Listo' }).click()
+  await expect(burbuja).toHaveCount(0)
+  await expect(nombre).toBeFocused()
   // "Cerrar" devuelve el foco a la celda que lo abrió.
   await panel.getByRole('button', { name: 'Cerrar' }).click()
   await expect(panel).toHaveCount(0)
   await expect(celda).toBeFocused()
 
-  // En una semana pasada tampoco se agregan extras.
-  await expect(page.getByText('Esta semana ya pasó: no se pueden agregar extras.')).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Agregar extra' })).toHaveCount(0)
+  // En una semana pasada no hay "+ Extra": los extras se agregan desde hoy. Y ya no hay formulario abajo.
+  await expect(page.getByRole('button', { name: /^Agregar extra/ })).toHaveCount(0)
+  await expect(page.getByText('Extras para la cocina')).toHaveCount(0)
 })
 
-test('un extra del Director: Administración ve la cantidad y la nota, sin nombres', async ({ page }) => {
+test('"+ Extra" en el almuerzo del miércoles: 3 personas y una nota; la celda y Administración lo ven, sin nombres', async ({
+  page,
+}) => {
   const { lunesSiguiente, miercolesSiguiente } = fechas()
   await iniciarSesion(page, 'director')
   await page.goto(`/comidas/casa?semana=${lunesSiguiente}`)
 
-  await page.getByRole('button', { name: 'Agregar extra' }).click()
-  await page.getByRole('radio', { name: `Miércoles ${fechaCorta(miercolesSiguiente)}` }).check()
-  await page.getByRole('radio', { name: 'Cena' }).check()
-  await page.getByRole('button', { name: 'Una persona más' }).click()
-  await page.getByRole('button', { name: 'Una persona más' }).click()
-  await expect(page.getByLabel('¿Cuántas personas de más?')).toHaveValue('3')
-  await page.getByLabel('Nota para la cocina (si hace falta)').fill('Sin sal')
+  const mas = botonExtra(page, 'almuerzo', miercolesSiguiente)
+  // En la esquina de la comida, con "Extra" escrito (nunca solo el +) y al lado de su botón, no dentro.
+  await expect(mas).toContainText('Extra')
+  await expect(page.locator(`.tabla-casa td[data-fecha="${miercolesSiguiente}"][data-comida="almuerzo"] .celda-casa .extra-mas`)).toHaveCount(0)
+  await mas.click()
+  await expect(mas).toHaveAttribute('aria-expanded', 'true')
+  const burbuja = page.getByRole('dialog', { name: `Extras para el almuerzo del miércoles ${fechaCorta(miercolesSiguiente)}` })
+  await expect(burbuja).toBeFocused()
+  await burbuja.getByRole('button', { name: 'Una persona más' }).click()
+  await burbuja.getByRole('button', { name: 'Una persona más' }).click()
+  await expect(burbuja.getByLabel('¿Cuántas personas de más?')).toHaveValue('3')
+  await burbuja.getByLabel('Nota para la cocina (si hace falta)').fill('Sin sal')
+  await expect(burbuja.getByText('La cocina lee esta nota: no escribas nombres.')).toBeVisible()
   // Una comida de la semana siguiente no cerró: no hay aviso.
-  await expect(page.getByText('Esa comida ya cerró: la cocina puede no verlo a tiempo.')).toHaveCount(0)
-  await page.getByRole('button', { name: 'Guardar extra' }).click()
+  await expect(burbuja.getByText('Esa comida ya cerró: la cocina puede no verlo a tiempo.')).toHaveCount(0)
+  await burbuja.getByRole('button', { name: 'Agregar', exact: true }).click()
+
   await expect(page.getByText('Extra agregado. La cocina ya lo ve.')).toBeVisible()
-  await expect(page.locator('.fila-extra')).toContainText(`Miércoles ${fechaCorta(miercolesSiguiente)} · Cena · 3 personas`)
-  await expect(celdaCasa(page, miercolesSiguiente, 'cena')).toContainText('+3 extra')
+  await expect(burbuja).toHaveCount(0)
+  await expect(mas).toBeFocused()
+  const celda = celdaCasa(page, miercolesSiguiente, 'almuerzo')
+  await expect(celda).toContainText('+3 extra')
+  await expect(celda).toContainText('3 extra: Sin sal')
   await expect
     .poll(async () => {
       const { data } = await clienteAdminPrueba()
@@ -254,16 +298,67 @@ test('un extra del Director: Administración ve la cantidad y la nota, sin nombr
         .eq('fecha', miercolesSiguiente)
       return data
     })
-    .toEqual([{ fecha: miercolesSiguiente, tiempo_comida: 'cena', cantidad: 3, nota: 'Sin sal', creado_por: ids.director }])
+    .toEqual([{ fecha: miercolesSiguiente, tiempo_comida: 'almuerzo', cantidad: 3, nota: 'Sin sal', creado_por: ids.director }])
+
+  // La burbuja lista los extras que ya tiene esa comida.
+  await mas.click()
+  await expect(burbuja.locator('.fila-extra')).toHaveCount(1)
+  await expect(burbuja.locator('.fila-extra')).toContainText('3 personas')
+  await expect(burbuja.locator('.fila-extra')).toContainText('Nota: Sin sal')
+  await page.keyboard.press('Escape')
+  await expect(burbuja).toHaveCount(0)
 
   await salir(page)
   await iniciarSesion(page, 'administracion')
   await page.goto(`/comidas/semana?semana=${lunesSiguiente}`)
-  const celda = page.locator(`.admin-week-table td[data-fecha="${miercolesSiguiente}"][data-comida="cena"]`)
-  await expect(celda).toContainText('+3 extra')
-  await expect(celda).toContainText('3 extra: Sin sal')
+  const celdaCocina = page.locator(`.admin-week-table td[data-fecha="${miercolesSiguiente}"][data-comida="almuerzo"]`)
+  await expect(celdaCocina).toContainText('+3 extra')
+  await expect(celdaCocina).toContainText('3 extra: Sin sal')
   const html = await page.content()
   for (const nombre of nombresQueNoDebeVer('administracion')) expect(html).not.toContain(nombre)
+})
+
+test('en la burbuja del extra: lo escrito sin agregar pregunta antes de cerrarse, y "Quitar" saca un extra', async ({ page }) => {
+  const { lunesSiguiente, miercolesSiguiente } = fechas()
+  const admin = clienteAdminPrueba()
+  const { error } = await admin
+    .from('extras_manuales')
+    .insert({ fecha: miercolesSiguiente, tiempo_comida: 'cena', cantidad: 2, nota: 'Vegetariano', creado_por: ids.director })
+  expect(error).toBeNull()
+
+  await iniciarSesion(page, 'director')
+  await page.goto(`/comidas/casa?semana=${lunesSiguiente}`)
+  const mas = botonExtra(page, 'cena', miercolesSiguiente)
+  await mas.click()
+  const burbuja = page.getByRole('dialog', { name: `Extras para la cena del miércoles ${fechaCorta(miercolesSiguiente)}` })
+
+  // Algo escrito y un toque fuera: no se pierde en silencio, pregunta.
+  await burbuja.getByRole('button', { name: 'Una persona más' }).click()
+  await tocarFuera(page)
+  await expect(burbuja).toBeVisible()
+  await expect(burbuja.getByRole('alert')).toContainText('¿Agregar o descartar?')
+  await burbuja.getByRole('button', { name: 'Descartar' }).click()
+  await expect(burbuja).toHaveCount(0)
+  await expect(mas).toBeFocused()
+
+  // "Quitar", con confirmación, mientras la comida no cerró.
+  await mas.click()
+  const fila = burbuja.locator('.fila-extra')
+  await expect(fila).toContainText('2 personas')
+  await expect(fila).toContainText('Nota: Vegetariano')
+  await fila.getByRole('button', { name: /^Quitar el extra: / }).click()
+  await fila.getByRole('button', { name: 'Sí, quitar' }).click()
+  await expect(page.getByText('Extra quitado. La cocina ya no lo cuenta.')).toBeVisible()
+  await expect(burbuja.locator('.fila-extra')).toHaveCount(0)
+  // Era el único: el foco va al título de la burbuja, nunca a la nada.
+  await expect(burbuja.getByRole('heading', { level: 2 })).toBeFocused()
+  await expect(celdaCasa(page, miercolesSiguiente, 'cena')).not.toContainText('+2 extra')
+  await expect
+    .poll(async () => {
+      const { data } = await admin.from('extras_manuales').select('id').eq('fecha', miercolesSiguiente)
+      return data
+    })
+    .toEqual([])
 })
 
 test('solo el Director tiene La casa: los demás no ven la pestaña y vuelven a su Semana', async ({ page }) => {
@@ -308,18 +403,41 @@ for (const viewport of [
   test.describe(`en un teléfono de ${viewport.width}px`, () => {
     test.use({ viewport })
 
-    test('La casa cabe sin scroll lateral y todo lo que se toca mide al menos 56px', async ({ page }) => {
+    test('La casa cabe sin scroll lateral, sus burbujas entran en la pantalla y todo lo que se toca mide al menos 56px', async ({
+      page,
+    }) => {
       const { lunesSiguiente } = fechas()
       await iniciarSesion(page, 'director')
       await page.goto(`/comidas/casa?semana=${lunesSiguiente}`)
+      await esperarSinScrollLateral(page)
+      // El "+ Extra" también: lo que se toca es el rincón entero (56×56), aunque la pastilla se vea chica.
+      await esperarAltoMinimo(page.locator('.content button, .content a.tab-btn'))
+      const anchos = await page.locator('.extra-mas').evaluateAll((botones) => botones.map((b) => b.getBoundingClientRect().width))
+      expect(anchos.filter((ancho) => ancho < 55.5)).toEqual([])
+
       // El lunes: el más lejos de lo que se abre si el panel fuera al final de la tabla.
       await celdaCasa(page, lunesSiguiente, 'almuerzo').click()
       await expect(panelCasa(page).getByRole('heading', { level: 2 })).toBeInViewport()
       await expect(panelCasa(page).getByRole('heading', { level: 2 })).toBeFocused()
       await panelCasa(page).getByRole('button', { name: 'Residente Prueba' }).click()
-      await page.getByRole('button', { name: 'Agregar extra' }).click()
+      const burbuja = page.getByRole('dialog', { name: /^Almuerzo de Residente Prueba, lunes / })
+      await esperarDentroDeLaPantalla(page, burbuja)
       await esperarSinScrollLateral(page)
-      await esperarAltoMinimo(page.locator('.content button, .content a.tab-btn'))
+      await esperarAltoMinimo(burbuja.getByRole('button'))
+      await page.keyboard.press('Escape')
+      await expect(burbuja).toHaveCount(0)
+
+      await botonExtra(page, 'almuerzo', lunesSiguiente).click()
+      const extras = page.getByRole('dialog', { name: /^Extras para el almuerzo del lunes / })
+      await esperarDentroDeLaPantalla(page, extras)
+      await esperarSinScrollLateral(page)
+      await esperarAltoMinimo(extras.getByRole('button'))
+
+      // Con la letra más grande, tampoco se sale.
+      await page.evaluate(() => document.documentElement.setAttribute('data-texto', 'enorme'))
+      await esperarDentroDeLaPantalla(page, extras)
+      await esperarSinScrollLateral(page)
+      await esperarAltoMinimo(extras.getByRole('button'))
     })
   })
 }
