@@ -51,6 +51,25 @@ export const HORAS_LIMITE_POR_DEFECTO: HorasLimite = {
 }
 
 export type ValorComida = { estado: EstadoComida; nota: string | null }
-export type SeleccionGuardada = ValorComida & { origen: OrigenSeleccion }
+/** Una celda del plan. `cambiadaPorOtro`: la cambió otra persona (solo puede un Director). */
+export type ValorPlan = ValorComida & { cambiadaPorOtro?: boolean }
+export type SeleccionGuardada = ValorComida & {
+  origen: OrigenSeleccion
+  /**
+   * La cambió otra persona (solo puede un Director): "la cambió el Director". Sin la clave, la
+   * propia persona (o el congelado). Viene de `modificado_por` en la base.
+   */
+  cambiadaPorOtro?: boolean
+}
 /** null = "Sin definir" */
 export type ValorEfectivo = SeleccionGuardada | null
+
+/**
+ * Un extra manual que agregó el Director, tal como lo ven la cocina y el Director: nunca quién lo
+ * agregó. `id` sirve para quitarlo (Director) y como clave de la lista.
+ */
+export type ExtraManual = { id: string; fecha: string; comida: TiempoComida; cantidad: number; nota: string | null }
+
+/** Igual que los checks de extras_manuales. */
+export const CANTIDAD_MAXIMA_EXTRA = 50
+export const LARGO_MAXIMO_NOTA_EXTRA = 200

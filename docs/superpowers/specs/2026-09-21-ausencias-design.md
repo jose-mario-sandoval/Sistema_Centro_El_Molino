@@ -22,6 +22,8 @@ Código: `supabase/migrations/20260921180000_ausencias_origen.sql` y `2026092118
 5. **Al quitar la ausencia** vuelve a regir el plan semanal.
 6. **Lo que ya cerró no se toca.** La cocina ya contó con esas comidas.
 7. **Privacidad.** Las ausencias son de su dueña: nadie más las lee, ni siquiera Administración.
+   *(Cambió el 2026-09-26: el Director también las lee y las gestiona — "La casa", spec
+   `2026-09-26-mensajes-comidas-calendario-design.md` §5. Administración sigue sin leerlas.)*
    La cocina ve el efecto («No comer»), nunca el motivo ni las fechas.
 8. **Sin editar.** Para cambiar un rango se quita y se vuelve a marcar (no hay `UPDATE`).
 

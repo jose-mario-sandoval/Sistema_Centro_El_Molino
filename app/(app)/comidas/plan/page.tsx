@@ -1,5 +1,5 @@
 import { exigirPerfil } from '@/lib/auth/sesion'
-import { obtenerPlanPropio, obtenerResumenPlanSemanal } from '@/lib/comidas/consultas'
+import { obtenerPlanDe, obtenerResumenPlanSemanal } from '@/lib/comidas/consultas'
 import { PlanAgregadoAdministracion } from '../_componentes/plan-agregado-administracion'
 import { PlanEditable } from '../_componentes/plan-editable'
 
@@ -11,7 +11,7 @@ export default async function PaginaPlanSemanal() {
     return <PlanAgregadoAdministracion resumenSemana={resumenSemana} />
   }
 
-  const plan = await obtenerPlanPropio(perfil.id)
+  const plan = await obtenerPlanDe(perfil.id)
   return (
     <>
       <div className="locked-banner">

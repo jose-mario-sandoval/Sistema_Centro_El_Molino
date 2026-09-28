@@ -5,12 +5,20 @@ import { exito, fallo, type Resultado } from '@/lib/acciones/resultado'
 import { perfilParaAccion } from '@/lib/auth/sesion'
 import { obtenerHorasLimite } from '@/lib/comidas/consultas'
 import { mensajeNota } from '@/lib/comidas/notas'
+import { usuarioObjetivo } from '@/lib/comidas/permisos'
 import { mensajeComidaCerrada } from '@/lib/comidas/semana'
 import type { EstadoComida, TiempoComida } from '@/lib/comidas/tipos'
 import type { FechaISO } from '@/lib/fechas'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { camposConError } from '@/lib/validacion/auth'
 import { esquemaPlan, esquemaSeleccion, esquemaVolverAPlan } from '@/lib/validacion/comidas'
+
+/*
+ * Las tres acciones sirven para las comidas propias y, con `usuarioId`, para las de otra persona
+ * (solo el Director: "La casa"). Siempre con los mismos cierres: la base aplica comida_editable()
+ * y el permiso (puedo_gestionar_comidas_de) sea quien sea el objetivo.
+ * revalidatePath('/comidas', 'layout') refresca todo /comidas, incluida La casa (/comidas/casa).
+ */
 
 const ERROR_GENERAL = 'No se pudo guardar. Intentá de nuevo.'
 
@@ -23,7 +31,7 @@ function falloDeValidacion(error: Parameters<typeof camposConError>[0]) {
 
 async function mensajeDeError(
   error: ErrorBase,
-  datos: { fecha?: FechaISO; comida: TiempoComida; estado?: EstadoComida | null },
+  datos: { fecha?: FechaISO; comida: TiempoComida; estado?: EstadoComida | null; ajena?: boolean },
 ): Promise<string> {
   switch (error.code) {
     case 'MOL01': {
@@ -39,7 +47,7 @@ async function mensajeDeError(
     }
     case 'MOL04':
     case '23514':
-      return datos.estado ? mensajeNota(datos.estado) : ERROR_GENERAL
+      return datos.estado ? mensajeNota(datos.estado, datos.ajena ? 'ajena' : 'propia') : ERROR_GENERAL
     case '42501':
       return 'No tenés permiso para hacer esto.'
     default:
@@ -48,7 +56,7 @@ async function mensajeDeError(
   }
 }
 
-/** Una celda del Plan semanal propio. `estado: null` borra la fila (spec §6.5). */
+/** Una celda del Plan semanal (propio, o de otra persona para el Director). `estado: null` borra la fila (spec §6.5). */
 export async function guardarPlan(entrada: unknown): Promise<Resultado<null>> {
   const permiso = await perfilParaAccion('director', 'residente')
   if (!permiso.ok) return permiso
@@ -56,23 +64,34 @@ export async function guardarPlan(entrada: unknown): Promise<Resultado<null>> {
   const datos = esquemaPlan.safeParse(entrada)
   if (!datos.success) return falloDeValidacion(datos.error)
 
+  const objetivo = usuarioObjetivo(permiso.perfil, datos.data.usuarioId)
+  if (!objetivo.ok) return fallo(objetivo.error)
+
   const { diaSemana, comida, estado, nota } = datos.data
-  const clave = { usuario_id: permiso.perfil.id, dia_semana: diaSemana, comida }
+  const clave = { usuario_id: objetivo.usuarioId, dia_semana: diaSemana, comida }
   const supabase = await crearClienteServidor()
 
-  const { error } =
-    estado === null
-      ? await supabase.from('plan_semanal').delete().match(clave)
-      : await supabase
-          .from('plan_semanal')
-          .upsert({ ...clave, estado, nota }, { onConflict: 'usuario_id,dia_semana,comida' })
-  if (error) return fallo(await mensajeDeError(error, { comida, estado }))
+  if (estado === null) {
+    const { data, error } = await supabase.from('plan_semanal').delete().match(clave).select('comida')
+    if (error) return fallo(await mensajeDeError(error, { comida, estado }))
+    // RLS no da error si no hay filas afectadas: 0 filas = la persona dejó de estar activa (o ya no
+    // se puede tocar su plan) desde que se cargó la página. Se revalida para mostrar lo real.
+    if (data.length === 0) {
+      revalidatePath('/comidas', 'layout')
+      return fallo('No se pudo guardar el cambio. Volvé a cargar la página.')
+    }
+  } else {
+    const { error } = await supabase
+      .from('plan_semanal')
+      .upsert({ ...clave, estado, nota }, { onConflict: 'usuario_id,dia_semana,comida' })
+    if (error) return fallo(await mensajeDeError(error, { comida, estado, ajena: objetivo.usuarioId !== permiso.perfil.id }))
+  }
 
   revalidatePath('/comidas', 'layout')
   return exito(null)
 }
 
-/** Selección de una comida de la semana actual o la siguiente (spec §6.4). */
+/** Selección de una comida de la semana actual o la siguiente (spec §6.4), propia o de otra persona. */
 export async function guardarSeleccion(entrada: unknown): Promise<Resultado<null>> {
   const permiso = await perfilParaAccion('director', 'residente')
   if (!permiso.ok) return permiso
@@ -80,9 +99,13 @@ export async function guardarSeleccion(entrada: unknown): Promise<Resultado<null
   const datos = esquemaSeleccion.safeParse(entrada)
   if (!datos.success) return falloDeValidacion(datos.error)
 
+  const objetivo = usuarioObjetivo(permiso.perfil, datos.data.usuarioId)
+  if (!objetivo.ok) return fallo(objetivo.error)
+
   const { fecha, comida, estado, nota } = datos.data
   const supabase = await crearClienteServidor()
-  const { error } = await supabase.rpc('guardar_seleccion', {
+  const { error } = await supabase.rpc('guardar_seleccion_de', {
+    p_usuario: objetivo.usuarioId,
     p_fecha: fecha,
     p_comida: comida,
     p_estado: estado,
@@ -93,14 +116,14 @@ export async function guardarSeleccion(entrada: unknown): Promise<Resultado<null
     // MOL01: la ventana se cerró justo antes de guardar. Revalidamos igual: la respuesta
     // de la acción trae la vista con el estado real (spec §6.4), sin refresco extra del cliente.
     if (error.code === 'MOL01') revalidatePath('/comidas', 'layout')
-    return fallo(await mensajeDeError(error, { fecha, comida, estado }))
+    return fallo(await mensajeDeError(error, { fecha, comida, estado, ajena: objetivo.usuarioId !== permiso.perfil.id }))
   }
 
   revalidatePath('/comidas', 'layout')
   return exito(null)
 }
 
-/** Borra el cambio de la persona y vuelve a su plan (spec §6.4). */
+/** Borra el cambio y vuelve a la referencia del día (plan o ausencia) (spec §6.4), propia o de otra persona. */
 export async function volverAPlan(entrada: unknown): Promise<Resultado<null>> {
   const permiso = await perfilParaAccion('director', 'residente')
   if (!permiso.ok) return permiso
@@ -108,9 +131,12 @@ export async function volverAPlan(entrada: unknown): Promise<Resultado<null>> {
   const datos = esquemaVolverAPlan.safeParse(entrada)
   if (!datos.success) return falloDeValidacion(datos.error)
 
+  const objetivo = usuarioObjetivo(permiso.perfil, datos.data.usuarioId)
+  if (!objetivo.ok) return fallo(objetivo.error)
+
   const { fecha, comida } = datos.data
   const supabase = await crearClienteServidor()
-  const { error } = await supabase.rpc('volver_a_plan', { p_fecha: fecha, p_comida: comida })
+  const { error } = await supabase.rpc('volver_a_plan_de', { p_usuario: objetivo.usuarioId, p_fecha: fecha, p_comida: comida })
   if (error) {
     // MOL01: la ventana se cerró justo antes de guardar. Revalidamos igual: la respuesta
     // de la acción trae la vista con el estado real (spec §6.4), sin refresco extra del cliente.

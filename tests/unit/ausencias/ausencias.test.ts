@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { z } from 'zod'
-import { DIAS_MAXIMOS_AUSENCIA, estaAusente } from '@/lib/ausencias/tipos'
+import { ausenciaDesdeFila, DIAS_MAXIMOS_AUSENCIA, estaAusente } from '@/lib/ausencias/tipos'
 import { camposConError } from '@/lib/validacion/auth'
 import { esquemaAusencia, esquemaQuitarAusencia } from '@/lib/validacion/ausencias'
 
@@ -74,5 +74,40 @@ describe('esquemaQuitarAusencia', () => {
   it('pide un id válido', () => {
     expect(esquemaQuitarAusencia.safeParse({ id: '3f1c2a9e-8b7d-4c6e-9a5b-1d2e3f4a5b6c' }).success).toBe(true)
     expect(esquemaQuitarAusencia.safeParse({ id: 'no-es-un-uuid' }).success).toBe(false)
+  })
+})
+
+describe('ausenciaDesdeFila', () => {
+  const fila = { id: '3f1c2a9e-8b7d-4c6e-9a5b-1d2e3f4a5b6c', desde: '2026-09-17', hasta: '2026-09-19' }
+
+  it('la que marcó la propia persona', () => {
+    expect(ausenciaDesdeFila({ ...fila, creado_por: null })).toEqual({ ...fila, marcadaPorOtro: false })
+  })
+
+  it('la que marcó otra persona (el Director)', () => {
+    expect(ausenciaDesdeFila({ ...fila, creado_por: '0b8f7c4e-1a2b-4c3d-8e9f-0a1b2c3d4e5f' })).toEqual({ ...fila, marcadaPorOtro: true })
+  })
+
+  it('no deja pasar quién la marcó: solo si fue otra persona', () => {
+    expect(ausenciaDesdeFila({ ...fila, creado_por: 'x' })).not.toHaveProperty('creado_por')
+  })
+})
+
+describe('usuarioId en las ausencias (opcional, lo usa el Director)', () => {
+  const ID = '3c4d5e6f-7a8b-4c9d-8e0f-1a2b3c4d5e6f'
+  const ID_AUSENCIA = '3f1c2a9e-8b7d-4c6e-9a5b-1d2e3f4a5b6c'
+
+  it('esquemaAusencia lo acepta y, sin él, no aparece', () => {
+    expect(esquemaAusencia.parse({ desde: '2026-09-17', hasta: '2026-09-19', usuarioId: ID })).toMatchObject({ usuarioId: ID })
+    expect(esquemaAusencia.parse({ desde: '2026-09-17', hasta: '2026-09-19' })).not.toHaveProperty('usuarioId')
+  })
+
+  it('esquemaQuitarAusencia también', () => {
+    expect(esquemaQuitarAusencia.parse({ id: ID_AUSENCIA, usuarioId: ID })).toMatchObject({ usuarioId: ID })
+  })
+
+  it('rechaza un usuarioId que no es un uuid', () => {
+    expect(camposInvalidos(esquemaAusencia, { desde: '2026-09-17', hasta: '2026-09-19', usuarioId: 'x' })).toEqual(['usuarioId'])
+    expect(esquemaQuitarAusencia.safeParse({ id: ID_AUSENCIA, usuarioId: 'x' }).success).toBe(false)
   })
 })

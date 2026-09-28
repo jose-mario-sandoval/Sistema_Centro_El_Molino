@@ -68,6 +68,7 @@ export function SelectorComida({
   alCerrar,
   editorNota,
   acciones,
+  etiquetaGrupo,
 }: {
   /** 'Almuerzo' */
   nombre: string
@@ -96,6 +97,8 @@ export function SelectorComida({
   alCerrar?: (motivo: MotivoCierre) => boolean | void
   editorNota?: React.ReactNode
   acciones?: React.ReactNode
+  /** Nombre del grupo de opciones si no sirve "Elegí qué hacés con …" (La casa: tercera persona). */
+  etiquetaGrupo?: string
 }) {
   const [abierto, setAbierto] = useState(false)
   const idPanel = useId()
@@ -145,6 +148,7 @@ export function SelectorComida({
         <PanelOpciones
           id={idPanel}
           nombre={nombre}
+          etiquetaGrupo={etiquetaGrupo}
           marcado={marcado}
           pendiente={pendiente}
           alElegir={alElegir}

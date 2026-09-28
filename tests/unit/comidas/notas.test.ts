@@ -67,6 +67,11 @@ describe('mensajeNota', () => {
     expect(mensajeNota('enfermo')).toBe('Indicá qué podés comer (hasta 200 caracteres).')
     expect(mensajeNota('si')).toBe('"Sí comer" no lleva nota.')
   })
+
+  it('en tercera persona (el Director cambia la comida de otra persona)', () => {
+    expect(mensajeNota('enfermo', 'ajena')).toBe('Indicá qué puede comer (hasta 200 caracteres).')
+    expect(mensajeNota('tarde', 'ajena')).toBe('Indicá la hora para "Comer tarde" (HH:MM).')
+  })
 })
 
 describe('resolverBorrador', () => {
@@ -124,5 +129,14 @@ describe('notaInicial', () => {
     expect(notaInicial({ estado: 'tarde', nota: '20:00' }, 'enfermo')).toBe('')
     expect(notaInicial({ estado: 'si', nota: null }, 'tarde')).toBe('')
     expect(notaInicial(null, 'temprano')).toBe('')
+  })
+})
+
+describe('resolverBorrador: el mensaje sigue la voz', () => {
+  it('enfermo sin nota, en tercera persona', () => {
+    expect(resolverBorrador({ estado: 'enfermo', nota: '' }, null, { alCerrar: false, voz: 'ajena' })).toEqual({
+      tipo: 'error',
+      mensaje: 'Indicá qué puede comer (hasta 200 caracteres).',
+    })
   })
 })

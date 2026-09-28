@@ -26,6 +26,20 @@ export function revelar(panel: HTMLElement | null, ancla: HTMLElement | null) {
 const PANEL_A_LA_VISTA = 160
 
 /**
+ * Como `revelar`, para un panel que va debajo de una fila que puede ser más alta que la pantalla (La
+ * casa en el teléfono o con letra grande: la fila de un día apilada son tres fichas). Si subir la fila
+ * deja el panel fuera de la vista, sube el panel: lo que se abrió tiene que verse.
+ */
+export function revelarDebajoDeFila(panel: HTMLElement | null, fila: HTMLElement | null) {
+  if (!panel || !fila) return
+  const { top, bottom } = panel.getBoundingClientRect()
+  const limite = bordeInferiorVisible(panel)
+  if (top >= 0 && bottom <= limite) return
+  const cabe = fila.getBoundingClientRect().height + PANEL_A_LA_VISTA <= limite
+  subir(cabe ? fila : panel, true)
+}
+
+/**
  * Al entrar a la semana en curso, el día que se abrió solo tiene que verse (DESIGN.md §8: lo primero
  * que se ofrece es algo que todavía se puede cambiar). Un jueves en el teléfono su tarjeta queda
  * debajo del borde. Si la tarjeta no se ve entera, o del panel no se ve ni el comienzo, sube la

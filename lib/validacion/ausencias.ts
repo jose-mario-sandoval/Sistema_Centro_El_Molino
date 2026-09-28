@@ -10,6 +10,9 @@ const fecha = (mensaje: string) =>
     .date(mensaje)
     .refine((f) => f >= FECHA_MINIMA && f <= FECHA_MAXIMA, 'Fecha fuera de rango.')
 
+/** De quién es la ausencia: sin él, de quien tiene la sesión; con él, de otra persona (solo el Director). */
+const usuarioId = z.uuid('Persona inválida.').optional()
+
 /**
  * Salida y regreso de una ausencia, ambos días incluidos. Un solo día es desde = hasta.
  * Que el rango no haya pasado por completo depende de la fecha de hoy: lo comprueba la acción.
@@ -18,6 +21,7 @@ export const esquemaAusencia = z
   .object({
     desde: fecha('Elegí el primer día que no vas a estar.'),
     hasta: fecha('Elegí el último día que no vas a estar.'),
+    usuarioId,
   })
   .refine((d) => d.hasta >= d.desde, {
     message: 'El último día no puede ser anterior al primero.',
@@ -30,4 +34,4 @@ export const esquemaAusencia = z
     path: ['hasta'],
   })
 
-export const esquemaQuitarAusencia = z.object({ id: z.uuid('Ausencia inválida.') })
+export const esquemaQuitarAusencia = z.object({ id: z.uuid('Ausencia inválida.'), usuarioId })

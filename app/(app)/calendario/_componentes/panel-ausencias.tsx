@@ -1,6 +1,6 @@
 'use client'
 
-import { useActionState, useId, useRef, useState, useTransition } from 'react'
+import { useActionState, useEffect, useId, useRef, useState, useTransition } from 'react'
 import { useAviso } from '@/components/ui/avisos'
 import { BotonEnvio } from '@/components/ui/boton-envio'
 import { Icono } from '@/components/ui/iconos'
@@ -15,28 +15,65 @@ import {
   tocarDia,
   type SeleccionRango,
 } from '@/lib/calendario/seleccion-rango'
+import {
+  avisoAusenciaMarcada,
+  avisoAusenciaQuitada,
+  MARCADA_POR_EL_DIRECTOR,
+  textosAusencias,
+  type Voz,
+} from '@/lib/comidas/voz'
 import type { FechaISO } from '@/lib/fechas'
 import { rangoLegible } from '@/lib/fechas/rango'
 import { marcarAusencia, quitarAusencia } from '../acciones-ausencias'
 
-function FilaAusencia({ ausencia }: { ausencia: Ausencia }) {
+/** La persona cuyas ausencias se ven (La casa del Director); sin ella, las propias. */
+type PersonaAusencias = { id: string; nombre: string }
+
+function FilaAusencia({
+  ausencia,
+  usuarioId,
+  voz,
+  alQuitar,
+}: {
+  ausencia: Ausencia
+  usuarioId?: string
+  voz: Voz
+  /** La fila desaparece al quitarla: quien la lista mueve el foco (nunca queda en la nada). */
+  alQuitar: () => void
+}) {
   const aviso = useAviso()
   const [confirmando, setConfirmando] = useState(false)
   const [pendiente, iniciar] = useTransition()
   const rango = rangoLegible(ausencia.desde, ausencia.hasta)
+  const botonQuitar = useRef<HTMLButtonElement>(null)
+  const volverAQuitar = useRef(false)
+
+  // Al cancelar (o si falla), los botones de confirmar desaparecen: el foco vuelve a "Quitar".
+  useEffect(() => {
+    if (confirmando || !volverAQuitar.current) return
+    volverAQuitar.current = false
+    botonQuitar.current?.focus()
+  }, [confirmando])
+
+  function dejarDeConfirmar() {
+    volverAQuitar.current = true
+    setConfirmando(false)
+  }
 
   function quitar() {
     iniciar(async () => {
       let resultado: Resultado<null>
       try {
-        resultado = await quitarAusencia({ id: ausencia.id })
+        resultado = await quitarAusencia({ id: ausencia.id, usuarioId })
       } catch {
         resultado = fallo('No se pudo quitar la ausencia. Revisá tu conexión e intentá de nuevo.')
       }
-      if (resultado.ok) aviso('Ausencia quitada. Tus comidas vuelven a tu plan.')
-      else {
+      if (resultado.ok) {
+        aviso(avisoAusenciaQuitada(voz))
+        alQuitar()
+      } else {
         aviso(resultado.error)
-        setConfirmando(false)
+        dejarDeConfirmar()
       }
     })
   }
@@ -45,7 +82,11 @@ function FilaAusencia({ ausencia }: { ausencia: Ausencia }) {
     <li className="fila-ausencia">
       <span className="ausencia-rango">
         <Icono nombre="ausencia" />
-        {rango}
+        <span>
+          {rango}
+          {/* Quién la marcó, si no fue la persona: tiene que saberlo (spec §5, regla 3). */}
+          {ausencia.marcadaPorOtro && <span className="origen cambiada ausencia-quien">{MARCADA_POR_EL_DIRECTOR}</span>}
+        </span>
       </span>
       {confirmando ? (
         <span className="ausencia-acciones">
@@ -53,12 +94,13 @@ function FilaAusencia({ ausencia }: { ausencia: Ausencia }) {
             {pendiente ? 'Quitando…' : 'Sí, quitar'}
           </button>
           {/* Al pedir confirmación el foco va a la opción segura. */}
-          <button type="button" className="btn ghost small" onClick={() => setConfirmando(false)} disabled={pendiente} autoFocus>
+          <button type="button" className="btn ghost small" onClick={dejarDeConfirmar} disabled={pendiente} autoFocus>
             Cancelar
           </button>
         </span>
       ) : (
         <button
+          ref={botonQuitar}
           type="button"
           className="btn ghost small"
           onClick={() => setConfirmando(true)}
@@ -80,11 +122,17 @@ function FormularioAusencia({
   hoy,
   ausencias,
   alCerrar,
+  usuarioId,
+  voz,
+  comoMarcar,
 }: {
   id: string
   hoy: FechaISO
   ausencias: Ausencia[]
   alCerrar: () => void
+  usuarioId?: string
+  voz: Voz
+  comoMarcar: string
 }) {
   const aviso = useAviso()
   const [seleccion, setSeleccion] = useState<SeleccionRango>(SIN_SELECCION)
@@ -100,7 +148,7 @@ function FormularioAusencia({
         resultado = fallo('No se pudo guardar la ausencia. Revisá tu conexión e intentá de nuevo.')
       }
       if (resultado.ok) {
-        aviso('Ausencia marcada. Tus comidas de esos días quedan canceladas.')
+        aviso(avisoAusenciaMarcada(voz))
         alCerrar()
       } else if (resultado.campos) {
         setErrorServidor(resultado.campos.desde ?? resultado.campos.hasta ?? resultado.error)
@@ -112,7 +160,7 @@ function FormularioAusencia({
     null,
   )
   // Incluye "esos días ya los tenés marcados": tocar un día marcado no lo desmarca, y guardarlo lo duplicaría.
-  const errorLocal = errorSeleccion(seleccion, ausencias)
+  const errorLocal = errorSeleccion(seleccion, ausencias, voz)
   const error = errorLocal ?? errorServidor
 
   return (
@@ -127,10 +175,7 @@ function FormularioAusencia({
         }
       }}
     >
-      <p className="hint">
-        Tocá el primer día y el último día que no vas a estar; si es uno solo, tocalo una vez. Si volvés antes, podés
-        pedir tu comida desde Comidas.
-      </p>
+      <p className="hint">{comoMarcar}</p>
       <MiniCalendario
         hoy={hoy}
         min={min}
@@ -147,6 +192,7 @@ function FormularioAusencia({
         <p className="resumen-ausencia-texto">{resumenSeleccion(seleccion, ausencias)}</p>
         {error && <p className="campo-error">{error}</p>}
       </div>
+      {usuarioId && <input type="hidden" name="usuarioId" value={usuarioId} />}
       <input type="hidden" name="desde" value={seleccion.desde ?? ''} />
       <input type="hidden" name="hasta" value={seleccion.hasta ?? seleccion.desde ?? ''} />
       <div className="acciones-formulario">
@@ -163,13 +209,25 @@ function FormularioAusencia({
 
 /**
  * Ausencias de la propia persona (Director y Residente), en una tarjeta compacta debajo del
- * calendario. Sus comidas de esos días se cancelan solas; son privadas: la cocina ve "No comer", no
- * el motivo ni las fechas.
+ * calendario. Sus comidas de esos días se cancelan solas. Las ven ella y el Director; la cocina ve
+ * "No comer", no el motivo ni las fechas. Con `persona`, las de otra persona en La casa del Director
+ * (textos en tercera persona, `usuarioId` en cada acción).
  */
-export function PanelAusencias({ ausencias, hoy }: { ausencias: Ausencia[]; hoy: FechaISO }) {
+export function PanelAusencias({
+  ausencias,
+  hoy,
+  persona,
+}: {
+  ausencias: Ausencia[]
+  hoy: FechaISO
+  persona?: PersonaAusencias
+}) {
+  const voz: Voz = persona ? 'ajena' : 'propia'
+  const textos = textosAusencias(voz, persona?.nombre)
   const [abierto, setAbierto] = useState(false)
   const idFormulario = useId()
   const boton = useRef<HTMLButtonElement>(null)
+  const titulo = useRef<HTMLHeadingElement>(null)
 
   function cerrar() {
     setAbierto(false)
@@ -178,16 +236,22 @@ export function PanelAusencias({ ausencias, hoy }: { ausencias: Ausencia[]; hoy:
 
   return (
     <section className="card panel-ausencias" aria-labelledby="titulo-ausencias">
-      <h2 id="titulo-ausencias" className="section-title">
-        Mis ausencias
+      <h2 id="titulo-ausencias" ref={titulo} tabIndex={-1} className="section-title">
+        {textos.titulo}
       </h2>
-      <p className="hint">Tus comidas de esos días se cancelan solas. Solo vos ves estas fechas.</p>
+      <p className="hint">{textos.ayuda}</p>
       {ausencias.length === 0 ? (
-        <p className="ausencias-vacio">No tenés ausencias marcadas.</p>
+        <p className="ausencias-vacio">{textos.vacio}</p>
       ) : (
         <ul className="lista-ausencias">
           {ausencias.map((ausencia) => (
-            <FilaAusencia key={ausencia.id} ausencia={ausencia} />
+            <FilaAusencia
+              key={ausencia.id}
+              ausencia={ausencia}
+              usuarioId={persona?.id}
+              voz={voz}
+              alQuitar={() => titulo.current?.focus()}
+            />
           ))}
         </ul>
       )}
@@ -202,7 +266,17 @@ export function PanelAusencias({ ausencias, hoy }: { ausencias: Ausencia[]; hoy:
         Marcar una ausencia
         <Icono nombre="abajo" className="flecha" />
       </button>
-      {abierto && <FormularioAusencia id={idFormulario} hoy={hoy} ausencias={ausencias} alCerrar={cerrar} />}
+      {abierto && (
+        <FormularioAusencia
+          id={idFormulario}
+          hoy={hoy}
+          ausencias={ausencias}
+          alCerrar={cerrar}
+          usuarioId={persona?.id}
+          voz={voz}
+          comoMarcar={textos.comoMarcar}
+        />
+      )}
     </section>
   )
 }

@@ -8,8 +8,8 @@ import {
   USUARIOS_PRUEBA,
   type ClaveUsuario,
 } from '../soporte/usuarios-prueba'
-import { esperarAltoMinimo, esperarSinScrollLateral } from '../soporte/medidas-e2e'
 import { marcarAusencia } from './soporte/ausencias'
+import { esperarAltoMinimo, esperarSinScrollLateral } from '../soporte/medidas-e2e'
 
 let ids: Record<ClaveUsuario, string>
 
@@ -73,10 +73,14 @@ async function iniciarSesion(page: Page, clave: ClaveUsuario) {
 async function limpiar(): Promise<Record<ClaveUsuario, string>> {
   const usuarios = await asegurarUsuariosPrueba()
   const admin = clienteAdminPrueba()
+  // Planes y ausencias antes que las selecciones: borrarlos congela lo vencido (triggers), y esas
+  // filas tienen que irse con el resto.
+  for (const tabla of ['plan_semanal', 'ausencias'] as const) {
+    const { error } = await admin.from(tabla).delete().in('usuario_id', Object.values(usuarios))
+    if (error) throw error
+  }
   const resultados = await Promise.all([
     admin.from('selecciones_comida').delete().in('usuario_id', Object.values(usuarios)),
-    admin.from('plan_semanal').delete().in('usuario_id', Object.values(usuarios)),
-    admin.from('ausencias').delete().in('usuario_id', Object.values(usuarios)),
     admin.from('horas_limite').update({ dia_relativo: -1, hora: '21:00' }).eq('comida', 'desayuno'),
     admin.from('horas_limite').update({ dia_relativo: 0, hora: '10:00' }).eq('comida', 'almuerzo'),
     admin.from('horas_limite').update({ dia_relativo: 0, hora: '16:00' }).eq('comida', 'cena'),
@@ -296,6 +300,69 @@ test('Administración ve "No comer" de quien está ausente, sin saber que es una
   await expect(page.getByText('Mis ausencias')).toHaveCount(0)
 })
 
+test('Administración ve en Plan semanal cuántos comen y cómo, sin nombres', async ({ page }) => {
+  const { error } = await clienteAdminPrueba()
+    .from('plan_semanal')
+    .insert([
+      { usuario_id: ids.residente, dia_semana: 3, comida: 'almuerzo', estado: 'temprano', nota: '11:30' },
+      { usuario_id: ids.residente2, dia_semana: 3, comida: 'almuerzo', estado: 'bolsa', nota: null },
+      { usuario_id: ids.director, dia_semana: 3, comida: 'almuerzo', estado: 'no', nota: null },
+    ])
+  expect(error).toBeNull()
+
+  await iniciarSesion(page, 'administracion')
+  await page.goto('/comidas/plan')
+  const celda = page.locator('.admin-week-table td[data-dia="3"][data-comida="almuerzo"]')
+  await expect(celda.locator('.conteo-numero')).toHaveText('2')
+  // Primero lo que cambia la preparación; "sin definir" (quien no tiene plan) al final.
+  await expect(celda.locator('.parte')).toHaveText(['1 temprano (11:30)', '1 en bolsa', '1 no come', /^\d+ sin definir$/])
+
+  await expect(page.locator('.admin-week-table')).not.toContainText('Persona')
+  await sinNombresAjenos(page, 'administracion')
+})
+
+test.describe('en el teléfono', () => {
+  test.use({ viewport: { width: 375, height: 812 } })
+
+  test('la Semana de Administración se apila en fichas por día, sin scroll lateral', async ({ page }) => {
+    const { lunesSiguiente, miercolesSiguiente } = fechas()
+    const { error } = await clienteAdminPrueba()
+      .from('plan_semanal')
+      .insert([
+        { usuario_id: ids.residente, dia_semana: 3, comida: 'almuerzo', estado: 'tarde', nota: '13:30' },
+        { usuario_id: ids.residente2, dia_semana: 3, comida: 'almuerzo', estado: 'bolsa', nota: null },
+      ])
+    expect(error).toBeNull()
+
+    await iniciarSesion(page, 'administracion')
+    await page.goto(`/comidas/semana?semana=${lunesSiguiente}`)
+    const celda = celdaSemana(page, miercolesSiguiente, 'almuerzo')
+    await expect(celda.getByText('1 tarde (13:30)', { exact: true })).toBeVisible()
+    await expect(celda.getByText('1 en bolsa', { exact: true })).toBeVisible()
+    // Apilada: sin la fila de encabezados; cada celda lleva escrita su comida.
+    await expect(page.locator('.admin-week-table thead')).toBeHidden()
+
+    // Letra normal = sin atributo (así lo deja lib/apariencia.ts), y la más grande.
+    for (const texto of [null, 'enorme'] as const) {
+      await page.evaluate((valor) => {
+        if (valor === null) document.documentElement.removeAttribute('data-texto')
+        else document.documentElement.setAttribute('data-texto', valor)
+      }, texto)
+      const sobra = await page.evaluate(() => {
+        const tarjeta = document.querySelector('.admin-table-scroll')
+        return {
+          pagina: document.documentElement.scrollWidth - window.innerWidth,
+          // La tarjeta tiene overflow-x:auto: si la tabla no cabe, se desplaza adentro sin
+          // ensanchar la página, así que también hay que medirla a ella.
+          tarjeta: tarjeta ? tarjeta.scrollWidth - tarjeta.clientWidth : Number.NaN,
+        }
+      })
+      expect(sobra.pagina, `scroll lateral de la página con letra ${texto ?? 'normal'}`).toBeLessThanOrEqual(0)
+      expect(sobra.tarjeta, `scroll lateral dentro de la tabla con letra ${texto ?? 'normal'}`).toBeLessThanOrEqual(0)
+    }
+    await sinNombresAjenos(page, 'administracion')
+  })
+})
 test('el plan se edita desde la cuadrícula: el almuerzo de los martes pasa a "Comer temprano" 12:00', async ({ page }) => {
   await iniciarSesion(page, 'residente')
   await page.goto('/comidas/plan')
@@ -438,67 +505,3 @@ for (const viewport of [
     })
   })
 }
-
-test('Administración ve en Plan semanal cuántos comen y cómo, sin nombres', async ({ page }) => {
-  const { error } = await clienteAdminPrueba()
-    .from('plan_semanal')
-    .insert([
-      { usuario_id: ids.residente, dia_semana: 3, comida: 'almuerzo', estado: 'temprano', nota: '11:30' },
-      { usuario_id: ids.residente2, dia_semana: 3, comida: 'almuerzo', estado: 'bolsa', nota: null },
-      { usuario_id: ids.director, dia_semana: 3, comida: 'almuerzo', estado: 'no', nota: null },
-    ])
-  expect(error).toBeNull()
-
-  await iniciarSesion(page, 'administracion')
-  await page.goto('/comidas/plan')
-  const celda = page.locator('.admin-week-table td[data-dia="3"][data-comida="almuerzo"]')
-  await expect(celda.locator('.conteo-numero')).toHaveText('2')
-  // Primero lo que cambia la preparación; "sin definir" (quien no tiene plan) al final.
-  await expect(celda.locator('.parte')).toHaveText(['1 temprano (11:30)', '1 en bolsa', '1 no come', /^\d+ sin definir$/])
-
-  await expect(page.locator('.admin-week-table')).not.toContainText('Persona')
-  await sinNombresAjenos(page, 'administracion')
-})
-
-test.describe('en el teléfono', () => {
-  test.use({ viewport: { width: 375, height: 812 } })
-
-  test('la Semana de Administración se apila en fichas por día, sin scroll lateral', async ({ page }) => {
-    const { lunesSiguiente, miercolesSiguiente } = fechas()
-    const { error } = await clienteAdminPrueba()
-      .from('plan_semanal')
-      .insert([
-        { usuario_id: ids.residente, dia_semana: 3, comida: 'almuerzo', estado: 'tarde', nota: '13:30' },
-        { usuario_id: ids.residente2, dia_semana: 3, comida: 'almuerzo', estado: 'bolsa', nota: null },
-      ])
-    expect(error).toBeNull()
-
-    await iniciarSesion(page, 'administracion')
-    await page.goto(`/comidas/semana?semana=${lunesSiguiente}`)
-    const celda = celdaSemana(page, miercolesSiguiente, 'almuerzo')
-    await expect(celda.getByText('1 tarde (13:30)', { exact: true })).toBeVisible()
-    await expect(celda.getByText('1 en bolsa', { exact: true })).toBeVisible()
-    // Apilada: sin la fila de encabezados; cada celda lleva escrita su comida.
-    await expect(page.locator('.admin-week-table thead')).toBeHidden()
-
-    // Letra normal = sin atributo (así lo deja lib/apariencia.ts), y la más grande.
-    for (const texto of [null, 'enorme'] as const) {
-      await page.evaluate((valor) => {
-        if (valor === null) document.documentElement.removeAttribute('data-texto')
-        else document.documentElement.setAttribute('data-texto', valor)
-      }, texto)
-      const sobra = await page.evaluate(() => {
-        const tarjeta = document.querySelector('.admin-table-scroll')
-        return {
-          pagina: document.documentElement.scrollWidth - window.innerWidth,
-          // La tarjeta tiene overflow-x:auto: si la tabla no cabe, se desplaza adentro sin
-          // ensanchar la página, así que también hay que medirla a ella.
-          tarjeta: tarjeta ? tarjeta.scrollWidth - tarjeta.clientWidth : Number.NaN,
-        }
-      })
-      expect(sobra.pagina, `scroll lateral de la página con letra ${texto ?? 'normal'}`).toBeLessThanOrEqual(0)
-      expect(sobra.tarjeta, `scroll lateral dentro de la tabla con letra ${texto ?? 'normal'}`).toBeLessThanOrEqual(0)
-    }
-    await sinNombresAjenos(page, 'administracion')
-  })
-})

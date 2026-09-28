@@ -40,7 +40,12 @@ export function propsEditorNota(nota: BorradorNota) {
  * La nota a medio escribir de una comida, con el mismo comportamiento en Plan, Semana y La casa
  * (DESIGN.md §8). Nada se guarda al salir del campo; nada escrito se pierde al cerrar.
  */
-export function useBorradorNota(guardado: ValorComida | null, guardar: (valor: ValorComida) => void): BorradorNota {
+export function useBorradorNota(
+  guardado: ValorComida | null,
+  guardar: (valor: ValorComida) => void,
+  /** 'ajena': el Director escribe la nota de otra persona (los errores en tercera persona). */
+  voz: 'propia' | 'ajena' = 'propia',
+): BorradorNota {
   const [borrador, setBorrador] = useState<Borrador | null>(null)
   const [error, setError] = useState<string | null>(null)
   const campo = useRef<HTMLInputElement>(null)
@@ -58,7 +63,7 @@ export function useBorradorNota(guardado: ValorComida | null, guardar: (valor: V
       setError(null)
     },
     confirmar({ alCerrar }) {
-      const decision = resolverBorrador(borrador, guardado, { alCerrar })
+      const decision = resolverBorrador(borrador, guardado, { alCerrar, voz })
       if (decision.tipo === 'error') {
         setError(decision.mensaje)
         campo.current?.focus()

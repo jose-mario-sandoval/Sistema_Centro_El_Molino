@@ -368,6 +368,40 @@ de sección, pasa al contenido principal para que un lector de pantalla anuncie 
 - **Una rejilla de solo iconos lleva leyenda escrita.** La matriz del plan en la vista de
   Administración muestra solo icono y color, así que cada celda tiene nombre accesible y la pantalla
   explica cada icono con su texto.
+- **"La casa" del Director es la tabla de la cocina con nombres, no una pantalla nueva.** La misma
+  tabla que ve Administración (un día por fila, una comida por columna, el mismo desglose y el mismo
+  apilado en el teléfono), pero cada celda es un botón elevado dentro de su hueco. Tocarla abre,
+  **debajo de la fila de su día** (una fila más de la tabla, a todo el ancho, también apilada) y no
+  en un modal, quiénes comen: agrupados por lo que eligieron (título de grupo con icono + texto +
+  color, *"Sin definir (2)"* primero, después el orden de la cocina), y cada nombre es un botón de
+  56px que abre en el lugar la comida de esa persona con las mismas piezas de siempre
+  (`ComidaDelDia` → `PanelOpciones` + `EditorNota`) y los mismos cierres. Como va dentro de la
+  tarjeta de la tabla, el panel es una bandeja hundida, no otra tarjeta. Al abrirlo, el foco va a su
+  título y la fila sube hasta arriba; si la fila apilada es más alta que la pantalla (teléfono, letra
+  grande), sube el panel: lo que se abrió siempre se ve. *"Cerrar"* devuelve el foco a la celda. Lo
+  que cambia es la voz: *"¿Va a almorzar…?"*, *"según su plan"*, *"Volver a su plan"*, *"Elegí qué
+  hace Juan con el almuerzo"*, *"Indicá qué puede comer"* (`lib/comidas/voz.ts`).
+- **La página de una persona dice de quién es.** `/comidas/casa/[persona]` reutiliza las tarjetas,
+  la cuadrícula y el mini calendario tal cual, bajo el título *"Comidas de Juan"* y la frase *"Lo que
+  cambies acá es de Juan, no tuyo"*. Sus vistas son *"Su semana"*, *"Su plan"*, *"Sus ausencias"*,
+  con icono, en un control segmentado (bandeja hundida, segmentos rectos, el elegido hundido y
+  teñido de acento), para que no se confundan con las pestañas de arriba, que son las del propio
+  Director (ahí sigue marcada *"La casa"*, y el texto bajo *"Comidas"* habla de la casa, no de
+  *"tu plan"*).
+- **Lo cerrado en La casa se dice escrito.** Una comida cerrada es plana (se toca igual, para ver
+  quiénes comieron) y lleva candado + *"Cerrada"*; un día cerrado entero lo dice una vez en su fila,
+  como su tarjeta en la Semana. Dentro, la comida de cada persona es de solo lectura.
+- **Quién cambió se ve donde se mira, sin abrir nada.** La tarjeta del día lleva lápiz + *"Cambió el
+  Director"* si alguna de sus comidas la cambió él; la celda del plan, lápiz + *"Director"*, con la
+  leyenda escrita arriba de la cuadrícula. Al abrir, la marca de origen de la comida dice *"la cambió
+  el Director"* (también el panel y el nombre accesible de la celda del plan), y la ausencia, *"La
+  marcó el Director"*. Nunca el lápiz solo.
+- **Extras para la cocina: sin nombres, y avisando antes.** Día (pastillas), comida (pastillas),
+  cantidad con botones − y + de 56px y una nota opcional con la advertencia escrita *"La cocina lee
+  esta nota: no escribas nombres."* Si la comida elegida ya cerró se puede guardar igual (un
+  invitado de último momento), pero antes aparece, con candado y borde punteado, *"Esa comida ya
+  cerró: la cocina puede no verlo a tiempo."* Un extra de una comida cerrada ya no ofrece
+  *"Quitar"*: muestra el candado y *"Cerrada"*.
 
 ---
 
@@ -452,6 +486,7 @@ El diseño ya está en la app Next.js. Dónde vive cada pieza:
 | Desplazar un panel recién abierto | `app/(app)/comidas/_componentes/revelar.ts` |
 | Mini calendario para marcar un rango de días (ausencias) | `components/ui/mini-calendario.tsx`; su lógica pura (toques, teclado, límites, resumen) en `lib/calendario/seleccion-rango.ts` |
 | Nombres de mes y de día, sin `Intl` (iguales en servidor y navegador) | `lib/fechas/etiquetas.ts` |
+| La casa del Director: tabla, quiénes comen y extras | `app/(app)/comidas/casa/` (`tabla-casa.tsx`, `extras-casa.tsx`, `[persona]/page.tsx`); textos y cálculos en `lib/comidas/casa.ts`; segunda y tercera persona en `lib/comidas/voz.ts` |
 
 Decisiones tomadas al portar:
 
@@ -461,10 +496,17 @@ Decisiones tomadas al portar:
   cambiar su estructura. Con las tarjetas de la semana se sumaron `.tarjetas-semana` (que conserva
   `.week-list`), `.tarjeta-dia` y `.panel-dia`; con la cuadrícula del plan, `.cuadro-plan`,
   `.celda-plan` y `.cuadro-panel`. Cada comida de la Semana sigue siendo `[data-fecha][data-comida]`
-  con su `.estado-actual`, pero ahora hay que abrir antes la tarjeta de su día. Solo cambiaron los specs donde cambió la interacción (abrir las opciones
-  de una comida antes de elegir) y el título de la sección. El mini calendario de ausencias usa
-  **anclas propias** (`.mini-calendario .mini-dia[data-fecha]`) y nunca `.cal-day`: los E2E del
-  calendario grande buscan `.cal-day[data-fecha=…]` como único.
+  con su `.estado-actual`, pero ahora hay que abrir antes la tarjeta de su día. Solo cambiaron los
+  specs donde cambió la interacción (abrir las opciones de una comida antes de elegir) y el título
+  de la sección. El mini calendario de ausencias usa **anclas propias**
+  (`.mini-calendario .mini-dia[data-fecha]`) y nunca `.cal-day`: los E2E del calendario grande
+  buscan `.cal-day[data-fecha=…]` como único. La casa del Director suma
+  `.tabla-casa td[data-fecha][data-comida] .celda-casa` (el botón de cada comida), `.panel-casa`
+  dentro de `tr.fila-panel` (quiénes comen, con un `role="group"` por estado nombrado *"Sin definir
+  (2)"*), `.sub-tabs`/`.sub-tab` (las vistas de una persona), `.etiqueta-director` y
+  `.celda-director` (lo que cambió el Director), `.persona-casa` y
+  `.persona-comida` (la comida abierta de una persona, otra vez con `[data-fecha][data-comida]`) y
+  `.fila-extra`.
 - **La tabla de Administración se apila por el ancho de su tarjeta, no de la pantalla** (contenedor
   `tabla-admin` sobre `.admin-table-scroll`, umbral 34rem). En una media query el `rem` es siempre
   16px; en una consulta de contenedor sigue al tamaño de letra elegido, así que con letra "Muy

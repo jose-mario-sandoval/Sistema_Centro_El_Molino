@@ -4,7 +4,8 @@ import Link from 'next/link'
 import { Fragment, useEffect, useId, useRef, useState } from 'react'
 import { Icono } from '@/components/ui/iconos'
 import type { TipoSemana } from '@/lib/comidas/semana'
-import { diaCerrado, etiquetaTarjeta, lineasTarjeta, type DiaDeSemana } from '@/lib/comidas/vista'
+import { diaCambiadoPorOtro, diaCerrado, etiquetaTarjeta, lineasTarjeta, type DiaDeSemana } from '@/lib/comidas/vista'
+import type { Voz } from '@/lib/comidas/voz'
 import type { FechaISO } from '@/lib/fechas'
 import { ContextoBorradores, useBorradoresDelGrupo } from './borradores-del-grupo'
 import { ComidaDelDia } from './comida-del-dia'
@@ -27,6 +28,8 @@ function TarjetaDia({
   alTocar: () => void
 }) {
   const cerrado = diaCerrado(dia)
+  // Si el Director cambió alguna comida del día, la persona lo ve sin abrir la tarjeta.
+  const delDirector = diaCambiadoPorOtro(dia)
   return (
     <button
       type="button"
@@ -40,7 +43,7 @@ function TarjetaDia({
         <span className="tarjeta-nombre">{dia.nombre}</span>
         <span className="tarjeta-fecha">{dia.fechaCorta}</span>
       </span>
-      {(dia.esHoy || dia.ausente || cerrado) && (
+      {(dia.esHoy || dia.ausente || cerrado || delDirector) && (
         <span className="tarjeta-marcas">
           {dia.esHoy && <span className="etiqueta-hoy">Hoy</span>}
           {dia.ausente && (
@@ -53,6 +56,12 @@ function TarjetaDia({
             <span className="etiqueta-cerrado">
               <Icono nombre="candado" />
               Cerrado
+            </span>
+          )}
+          {delDirector && (
+            <span className="etiqueta-director">
+              <Icono nombre="editado" />
+              Cambió el Director
             </span>
           )}
         </span>
@@ -82,19 +91,27 @@ function TarjetaDia({
 /**
  * La semana de una persona en siete tarjetitas (DESIGN.md §8). Tocar una abre sus tres comidas
  * debajo de su fila, con los mismos controles de siempre; una abierta a la vez. `diaInicial` es el
- * día que se abre solo (hoy en la semana en curso).
+ * día que se abre solo (hoy en la semana en curso). En La casa, el Director ve la de otra persona:
+ * `usuarioId` va a cada acción y los textos pasan a tercera persona (`voz` 'ajena').
  */
 export function SemanaPersona({
   dias,
   tipo,
   diaInicial,
   hrefSiguienteSemana,
+  usuarioId,
+  voz = 'propia',
+  persona,
 }: {
   dias: DiaDeSemana[]
   tipo: TipoSemana
   diaInicial: FechaISO | null
   /** Solo en la semana en curso: "mañana" nunca se esconde detrás de la paginación. */
   hrefSiguienteSemana: string | null
+  usuarioId?: string
+  voz?: Voz
+  /** Nombre de la persona (La casa). */
+  persona?: string
 }) {
   const idPanel = useId()
   const borradores = useBorradoresDelGrupo()
@@ -167,6 +184,9 @@ export function SemanaPersona({
                           dia={dia.nombre}
                           etiquetaDia={etiqueta}
                           datos={comida}
+                          usuarioId={usuarioId}
+                          voz={voz}
+                          persona={persona}
                         />
                       ))}
                     </ContextoBorradores>
@@ -185,7 +205,7 @@ export function SemanaPersona({
             <span className="hint">
               {ultimoDia
                 ? 'Hoy es el último día de esta semana. Mañana ya es la siguiente.'
-                : 'Ya podés elegir tus comidas de la próxima semana.'}
+                : `Ya podés elegir ${voz === 'propia' ? 'tus' : 'sus'} comidas de la próxima semana.`}
             </span>
           </span>
           <Icono nombre="derecha" />

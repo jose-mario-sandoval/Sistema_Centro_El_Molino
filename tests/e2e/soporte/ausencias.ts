@@ -26,9 +26,14 @@ export async function irAlMesDe(miniCalendario: Locator, fecha: FechaISO) {
  * solo día basta con no pasar `hasta`: un toque y "Guardar ausencia".
  *
  * No espera el aviso: cada prueba decide qué comprobar después ("Ausencia marcada.", un error…).
+ * `panel`: otro panel de ausencias (el de una persona en La casa del Director).
  */
-export async function marcarAusencia(page: Page, desde: FechaISO, hasta: FechaISO = desde) {
-  const panel = panelAusencias(page)
+export async function marcarAusencia(
+  page: Page,
+  desde: FechaISO,
+  hasta: FechaISO = desde,
+  panel: Locator = panelAusencias(page),
+) {
   await panel.getByRole('button', { name: 'Marcar una ausencia' }).click()
   const miniCalendario = panel.locator('.mini-calendario')
   await irAlMesDe(miniCalendario, desde)

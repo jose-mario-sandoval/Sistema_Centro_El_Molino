@@ -8,11 +8,11 @@ import {
   ETIQUETA_TIEMPO,
   INFO_ESTADO,
   type EstadoComida,
-  type TiempoComida,
   type ValorComida,
   type ValorEfectivo,
 } from '@/lib/comidas/tipos'
 import { valorTrasGuardar, type ComidaDeSemana } from '@/lib/comidas/vista'
+import { etiquetaNota, etiquetaOpciones, preguntaComida, textoOrigen, textoVolver, type Voz } from '@/lib/comidas/voz'
 import type { FechaISO } from '@/lib/fechas'
 import { guardarSeleccion, volverAPlan } from '../acciones'
 import { useAvisarAlGrupo } from './borradores-del-grupo'
@@ -21,18 +21,26 @@ import { textoNota } from './insignia-estado'
 import { SelectorComida } from './selector-comida'
 import { propsEditorNota, useBorradorNota } from './usar-borrador-nota'
 
-const VERBO: Record<TiempoComida, string> = { desayuno: 'desayunar', almuerzo: 'almorzar', cena: 'cenar' }
+const ARTICULO = { desayuno: 'el', almuerzo: 'el', cena: 'la' } as const
 
 /** 'cierra hoy 10:00' → 'Cierra hoy 10:00' */
 function conMayuscula(texto: string): string {
   return texto.charAt(0).toUpperCase() + texto.slice(1)
 }
 
+/**
+ * Una comida de un día: la de la propia persona (Semana) o, en La casa, la de otra persona que ve el
+ * Director (`usuarioId` + voz 'ajena': "¿Va a almorzar…?", "según su plan"). Los mismos controles y
+ * los mismos cierres para todos: lo cerrado se ve y no se toca.
+ */
 export function ComidaDelDia({
   fecha,
   dia,
   etiquetaDia,
   datos,
+  usuarioId,
+  voz = 'propia',
+  persona,
 }: {
   fecha: FechaISO
   /** 'Miércoles' */
@@ -40,11 +48,17 @@ export function ComidaDelDia({
   /** 'Miércoles 23/9' */
   etiquetaDia: string
   datos: ComidaDeSemana
+  /** De quién es la comida; sin él, de quien tiene la sesión. */
+  usuarioId?: string
+  /** 'ajena': el Director mira la comida de otra persona. */
+  voz?: Voz
+  /** Nombre de esa persona, para las opciones ("Elegí qué hace Juan con el almuerzo"). */
+  persona?: string
 }) {
   const aviso = useAviso()
   const [valor, aplicarValor] = useOptimistic(datos.valor)
   const [pendiente, iniciar] = useTransition()
-  const nota = useBorradorNota(valor, guardar)
+  const nota = useBorradorNota(valor, guardar, voz)
 
   const nombre = ETIQUETA_TIEMPO[datos.comida]
   const editable = datos.abierta
@@ -72,8 +86,9 @@ export function ComidaDelDia({
   }
 
   function guardar(nuevo: ValorComida) {
-    ejecutar(valorTrasGuardar(datos.plan, nuevo, datos.ausente), () =>
-      guardarSeleccion({ fecha, comida: datos.comida, estado: nuevo.estado, nota: nuevo.nota }),
+    // Si guarda otra persona (el Director), la excepción queda como "la cambió el Director".
+    ejecutar(valorTrasGuardar(datos.plan, nuevo, datos.ausente, voz === 'ajena'), () =>
+      guardarSeleccion({ fecha, comida: datos.comida, estado: nuevo.estado, nota: nuevo.nota, usuarioId }),
     )
   }
 
@@ -92,9 +107,11 @@ export function ComidaDelDia({
   function volver() {
     // Volver a la referencia: si está ausente ese día, "No comer" por la ausencia; si no, su plan.
     ejecutar(datos.ausente ? VALOR_POR_AUSENCIA : datos.plan ? { ...datos.plan, origen: 'plan' } : null, () =>
-      volverAPlan({ fecha, comida: datos.comida }),
+      volverAPlan({ fecha, comida: datos.comida, usuarioId }),
     )
   }
+
+  const tipoNota = borrador ? INFO_ESTADO[borrador.estado].nota : null
 
   return (
     <div
@@ -106,10 +123,14 @@ export function ComidaDelDia({
     >
       <SelectorComida
         nombre={nombre}
+        etiquetaGrupo={
+          voz === 'ajena' ? etiquetaOpciones(`${ARTICULO[datos.comida]} ${nombre.toLowerCase()}`, voz, persona) : undefined
+        }
         estado={valor?.estado ?? null}
         marcado={estadoMarcado}
-        pregunta={`¿Vas a ${VERBO[datos.comida]} el ${dia.toLowerCase()}?`}
-        origen={valor ? { texto: textoOrigen(valor), cambiada: valor.origen === 'persona' } : null}
+        pregunta={preguntaComida(datos.comida, dia, voz)}
+        // "la cambió el Director" cuando fue él (modificado_por): la persona tiene que saberlo.
+        origen={valor ? { texto: textoOrigen(valor, voz), cambiada: valor.origen === 'persona' } : null}
         nota={!borrador && valor?.nota ? textoNota(valor.estado, valor.nota) : null}
         cierre={editable ? conMayuscula(datos.cierre) : null}
         cerrada={editable ? null : 'Cerrada: ya no se puede cambiar.'}
@@ -126,23 +147,24 @@ export function ComidaDelDia({
         }}
         editorNota={
           borrador && (
-            <EditorNota key={borrador.estado} estado={borrador.estado} {...propsEditorNota(nota)} pendiente={pendiente} />
+            <EditorNota
+              key={borrador.estado}
+              estado={borrador.estado}
+              etiqueta={tipoNota ? etiquetaNota(tipoNota, voz) : undefined}
+              {...propsEditorNota(nota)}
+              pendiente={pendiente}
+            />
           )
         }
         acciones={
           !borrador &&
           valor?.origen === 'persona' && (
             <button type="button" className="btn ghost" disabled={pendiente} onClick={volver}>
-              {datos.ausente ? 'Volver a mi ausencia' : 'Volver a mi plan'}
+              {textoVolver(datos.ausente, voz)}
             </button>
           )
         }
       />
     </div>
   )
-}
-
-function textoOrigen(valor: NonNullable<ValorEfectivo>): string {
-  if (valor.origen === 'persona') return 'cambiada'
-  return valor.origen === 'ausencia' ? 'por tu ausencia' : 'según tu plan'
 }

@@ -750,6 +750,160 @@ a{color:var(--acento);}
 .plan-linea .status-badge{font-size:var(--t-xs);padding:.1rem .5rem;}
 .plan-linea .status-note{display:inline;margin:0;font-size:var(--t-xs);}
 
+/* ---------- 6b. Comidas: La casa (Director) ------------------------------ */
+
+/* "Ver la semana de:": un select nativo y "Ver", en la misma línea mientras entren. */
+.ver-persona{margin-bottom:1.25rem;}
+.ver-persona .field{margin-bottom:.5rem;}
+.ver-persona-fila{display:flex;flex-wrap:wrap;gap:.75rem;}
+.ver-persona-fila select{flex:1 1 min(13rem,100%);width:auto;min-width:0;}
+.ver-persona-fila .btn{flex:0 0 auto;}
+.tabla-casa-ayuda{margin:-.4rem 0 .5rem;}
+
+/* La misma tabla que Administración (contenedor tabla-admin, apilado incluido), pero cada celda es un
+   botón elevado dentro de su hueco: se toca para ver quiénes comen. Abierta: hundida con borde de acento. */
+.tabla-casa td{padding:.35rem;}
+.tabla-casa .namecell .etiqueta-hoy{margin-left:.4rem;vertical-align:middle;}
+.celda-casa{
+  display:block;width:100%;min-height:var(--toque);padding:.6rem .7rem;
+  border-radius:var(--r-sm);border:2px solid var(--borde-elevado);
+  background:var(--fondo);color:var(--tinta);box-shadow:var(--relieve-bajo);
+  text-align:left;line-height:1.25;
+  transition:box-shadow var(--dur) var(--curva);
+}
+.celda-casa:hover{box-shadow:var(--relieve);}
+.celda-casa[aria-expanded="true"]{box-shadow:var(--hundido);border:3px solid var(--acento);}
+[data-contraste="alto"] .celda-casa[aria-expanded="true"]{border-width:5px;background:var(--acento-suave);}
+/* Cerrada: plana, porque ya solo se lee (tocarla igual muestra quiénes comieron). */
+.celda-casa.cerrada{box-shadow:none;border-color:var(--separador);}
+.tabla-casa .namecell .etiqueta-cerrado{display:flex;margin-top:.35rem;font-size:var(--t-xs);}
+.celda-casa-cerrada{display:flex;margin-top:.45rem;font-size:var(--t-xs);}
+/* Dentro de un botón el desglose va en <span>: se ordena igual que la lista de Administración. */
+.celda-casa .partes{display:flex;}
+.celda-casa .parte,.celda-casa .conteo-extra{display:flex;}
+@container tabla-admin (width <= 34rem){
+  .tabla-casa td[data-et]{padding:.35rem 0;}
+  .tabla-casa td[data-et] .celda-casa{flex-basis:100%;}
+  .tabla-casa td[data-et] .celda-casa .partes{flex-direction:row;flex-wrap:wrap;}
+}
+@supports not (container-type:inline-size){
+  @media (max-width:40rem){
+    .tabla-casa td[data-et] .celda-casa{flex-basis:100%;}
+    .tabla-casa td[data-et] .celda-casa .partes{flex-direction:row;flex-wrap:wrap;}
+  }
+}
+
+/* Quiénes comen: una fila más de la tabla, justo debajo del día tocado y a todo el ancho (también
+   apilada en el teléfono), como el panel del Plan y de la Semana. Está dentro de la tarjeta de la
+   tabla, así que es una bandeja hundida (nunca una tarjeta dentro de otra). La fila y su celda no
+   llevan nada de la tabla: ni hueco, ni ficha apilada, ni la letra chica de las celdas. */
+.tabla-casa tr.fila-panel{padding:0;margin-bottom:.9rem;border:0;border-radius:0;box-shadow:none;background:none;}
+.tabla-casa tr.fila-panel > td{padding:0 0 .25rem;background:none;box-shadow:none;border-radius:0;font-size:var(--t-base);}
+[data-contraste="alto"] .tabla-casa tr.fila-panel > td{border:0;}
+.panel-casa{
+  padding:1.1rem var(--marco);scroll-margin-top:1rem;scroll-margin-bottom:1rem;
+  background:var(--fondo);border:2px solid var(--borde-hundido);border-radius:var(--r-md);box-shadow:var(--hundido);
+}
+.panel-casa > h2{outline-offset:4px;}
+[data-contraste="alto"] .panel-casa{border-color:var(--acento);border-width:3px;}
+.panel-casa.pasada{box-shadow:var(--hundido-suave);border-color:var(--separador);}
+.tabla-casa tr{scroll-margin-top:1rem;}
+.panel-casa > .detalle-cierre,.panel-casa > .motivo-cierre{margin-top:.25rem;}
+.grupos-casa{display:flex;flex-direction:column;gap:1.25rem;margin-top:1.1rem;}
+/* Cada grupo dice qué eligieron con icono + texto + color, como una línea del desglose. */
+.grupo-casa-titulo{
+  display:inline-flex;align-items:center;gap:.45rem;padding:.3rem .8rem;border-radius:var(--r-sm);
+  background:var(--cbg);color:var(--c);border:2px solid transparent;
+  font-family:var(--fuente-ui);font-size:var(--t-sm);font-weight:700;
+}
+[data-contraste="alto"] .grupo-casa-titulo{border-color:var(--c);}
+.grupo-casa-titulo.sin-definir{background:var(--fondo);color:var(--peligro);border:2px dashed var(--peligro);}
+.personas-casa{display:flex;flex-direction:column;gap:.6rem;margin-top:.6rem;}
+.persona-casa{
+  display:flex;align-items:center;gap:.6rem;width:100%;min-height:var(--toque);padding:.5rem 1.1rem;
+  border-radius:var(--r-md);border:2px solid var(--borde-elevado);
+  background:var(--fondo);color:var(--tinta);box-shadow:var(--relieve-bajo);
+  font-weight:700;text-align:left;
+  transition:box-shadow var(--dur) var(--curva);
+}
+.persona-casa:hover{box-shadow:var(--relieve);}
+.persona-casa-nombre{flex:1;min-width:0;overflow-wrap:anywhere;}
+.persona-casa .flecha{opacity:.8;transition:transform var(--dur) var(--curva);}
+.persona-casa[aria-expanded="true"]{box-shadow:var(--hundido);border-color:var(--acento);color:var(--acento);}
+.persona-casa[aria-expanded="true"] .flecha{transform:rotate(180deg);}
+[data-contraste="alto"] .persona-casa[aria-expanded="true"]{border-width:3px;background:var(--acento-suave);}
+/* La comida de la persona abierta, un poco adentro: se lee como parte de su nombre. */
+.persona-comida{padding:0 0 .5rem min(1rem, 3vw);}
+.persona-comida .comida-fila{padding-bottom:.5rem;}
+.enlace-persona{
+  display:inline-flex;align-items:center;gap:.4rem;min-height:var(--toque);padding:.4rem 0;
+  color:var(--acento);font-weight:700;
+}
+
+/* Extras para la cocina: una línea por extra (como las ausencias) y el formulario plegado. */
+.extras-casa{margin-top:1.5rem;}
+.extras-casa > .section-title{margin-bottom:.35rem;}
+.extras-casa > .hint{margin-bottom:1rem;max-width:65ch;}
+.fila-extra{
+  display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem;
+  padding:.35rem .35rem .35rem .9rem;border-radius:var(--r-md);
+  border:2px solid var(--borde-hundido);box-shadow:var(--hundido-suave);
+}
+.extra-texto{flex:1 1 10rem;display:flex;flex-direction:column;gap:.15rem;min-width:0;line-height:1.3;}
+.extra-cuanto{font-weight:700;}
+.extra-nota{font-size:var(--t-sm);color:var(--tinta-suave);overflow-wrap:anywhere;}
+.fila-extra > .btn,.fila-extra > .ausencia-acciones,.fila-extra > .etiqueta-cerrado{margin-left:auto;}
+.fila-extra > .etiqueta-cerrado{padding:.4rem .6rem;font-size:var(--t-sm);}
+.formulario-extra{margin-top:1.25rem;border-top:2px solid var(--separador);padding-top:1.25rem;}
+.formulario-extra .field{max-width:30rem;}
+/* Aviso antes de guardar un extra de una comida que ya cerró: candado + texto, nunca solo color. */
+.aviso-extra{
+  display:flex;align-items:center;gap:.5rem;margin:0 0 1.1rem;padding:.75rem var(--marco);
+  border-radius:var(--r-md);border:2px dashed var(--dorado);color:var(--tinta);font-weight:600;
+}
+.aviso-extra .icono{color:var(--dorado);flex:0 0 auto;}
+.cantidad-extra{display:flex;align-items:center;gap:.6rem;}
+.cantidad-extra input{width:6rem;flex:0 0 auto;text-align:center;font-weight:700;font-variant-numeric:tabular-nums;}
+
+/* La página de una persona: de quién es, bien a la vista ("Comidas de Juan"), y sus tres vistas en un
+   control segmentado distinto de las pestañas de arriba (que son las del propio Director): una
+   bandeja hundida con segmentos rectos, icono + "Su semana"/"Su plan"/"Sus ausencias", y la elegida
+   hundida y teñida de acento. En un teléfono angosto o con letra grande, un segmento por fila. */
+.volver-casa{margin-bottom:1rem;}
+.persona-cabecera{margin-bottom:1.25rem;container-type:inline-size;}
+.persona-titulo{font-size:var(--t-lg);margin-bottom:.35rem;overflow-wrap:anywhere;}
+.persona-cabecera > .hint{margin-bottom:.9rem;max-width:65ch;}
+.sub-tabs{
+  display:grid;grid-template-columns:minmax(0,1fr);gap:.4rem;padding:.4rem;
+  border-radius:var(--r-md);border:2px solid var(--borde-hundido);box-shadow:var(--hundido);
+}
+.sub-tab{
+  display:flex;align-items:center;justify-content:center;gap:.45rem;min-height:var(--toque);padding:.4rem .8rem;
+  border-radius:var(--r-sm);border:2px solid var(--borde-elevado);
+  background:var(--fondo);color:var(--tinta);box-shadow:var(--relieve-bajo);
+  font-weight:600;line-height:1.2;text-align:center;text-decoration:none;
+  transition:box-shadow var(--dur) var(--curva);
+}
+.sub-tab .icono{flex:0 0 auto;width:1.25em;height:1.25em;}
+.sub-tab.active{
+  box-shadow:var(--hundido);border-color:var(--acento);background:var(--acento-suave);color:var(--acento);font-weight:700;
+}
+[data-contraste="alto"] .sub-tab.active{border-width:3px;}
+@container (min-width:30rem){ .sub-tabs{grid-template-columns:repeat(3,minmax(0,1fr));} }
+
+/* "la cambió el Director" / "La marcó el Director": la misma marca de origen que la Semana. */
+.opciones-titulo .origen{margin-left:.5rem;vertical-align:middle;}
+.ausencia-quien{display:table;margin-top:.25rem;}
+/* A la vista sin abrir nada: lápiz + texto (nunca solo el lápiz). En la tarjeta del día, en dorado como
+   la marca "cambiada"; dentro de la celda del plan, en tinta, que sobre el fondo de color se lee mejor. */
+.etiqueta-director{display:inline-flex;align-items:center;gap:.3rem;color:var(--dorado);font-weight:700;}
+.tarjeta-marcas > .etiqueta-director{padding-inline:0;}
+.etiqueta-director .icono{width:1.1em;height:1.1em;}
+.celda-director{display:inline-flex;align-items:center;gap:.2rem;font-size:var(--t-xs);font-weight:700;color:var(--tinta);}
+.celda-plan .celda-director .icono,.leyenda-director .icono{width:1.05em;height:1.05em;}
+.leyenda-director{display:flex;flex-wrap:wrap;align-items:center;gap:.25rem .5rem;margin-bottom:.9rem;font-size:var(--t-sm);color:var(--tinta-suave);}
+.leyenda-director .celda-director{padding:.1rem .45rem;border-radius:var(--r-sm);border:2px solid var(--borde-hundido);}
+
 /* ---------- 7. Mensajes -------------------------------------------------- */
 
 .compose{margin-bottom:1.5rem;}

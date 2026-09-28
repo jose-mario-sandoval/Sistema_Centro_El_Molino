@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { z } from 'zod'
 import { camposConError } from '@/lib/validacion/auth'
-import { esquemaPlan, esquemaSeleccion, esquemaVolverAPlan } from '@/lib/validacion/comidas'
+import { esquemaExtra, esquemaPlan, esquemaQuitarExtra, esquemaSeleccion, esquemaVolverAPlan } from '@/lib/validacion/comidas'
 
 function camposInvalidos(esquema: z.ZodType, entrada: unknown): string[] {
   const resultado = esquema.safeParse(entrada)
@@ -66,5 +66,68 @@ describe('esquemaVolverAPlan', () => {
 
   it('rechaza una fecha inválida', () => {
     expect(camposInvalidos(esquemaVolverAPlan, { fecha: '23/09/2026', comida: 'almuerzo' })).toEqual(['fecha'])
+  })
+})
+
+describe('usuarioId: de quién son las comidas (opcional, lo usa el Director)', () => {
+  const ID = '3c4d5e6f-7a8b-4c9d-8e0f-1a2b3c4d5e6f'
+  const casos = [
+    ['esquemaSeleccion', esquemaSeleccion, SELECCION],
+    ['esquemaPlan', esquemaPlan, PLAN],
+    ['esquemaVolverAPlan', esquemaVolverAPlan, { fecha: '2026-09-23', comida: 'almuerzo' }],
+  ] as const
+
+  it.each(casos)('%s lo acepta y lo deja pasar; sin él, no aparece', (_nombre, esquema, base) => {
+    expect(esquema.parse({ ...base, usuarioId: ID })).toMatchObject({ usuarioId: ID })
+    expect(esquema.parse(base)).not.toHaveProperty('usuarioId')
+  })
+
+  it.each(casos)('%s rechaza un usuarioId que no es un uuid', (_nombre, esquema, base) => {
+    expect(camposInvalidos(esquema, { ...base, usuarioId: 'otra-persona' })).toEqual(['usuarioId'])
+  })
+})
+
+describe('esquemaExtra: un extra manual para la cocina', () => {
+  const EXTRA = { fecha: '2026-09-30', comida: 'cena', cantidad: 3, nota: 'Sin sal' }
+
+  it('acepta día, comida, cantidad y nota', () => {
+    expect(esquemaExtra.parse(EXTRA)).toEqual(EXTRA)
+  })
+
+  it('la cantidad puede llegar como texto (formulario)', () => {
+    expect(esquemaExtra.parse({ ...EXTRA, cantidad: '12' })).toMatchObject({ cantidad: 12 })
+  })
+
+  it.each([[undefined], [null], [''], ['   ']])('nota %j = sin nota', (nota) => {
+    expect(esquemaExtra.parse({ ...EXTRA, nota })).toEqual({ ...EXTRA, nota: null })
+  })
+
+  it('recorta la nota', () => {
+    expect(esquemaExtra.parse({ ...EXTRA, nota: '  Sin sal  ' })).toEqual(EXTRA)
+  })
+
+  it.each([
+    ['fecha inexistente', { fecha: '2026-02-30' }, 'fecha'],
+    ['fecha fuera de rango', { fecha: '1999-12-31' }, 'fecha'],
+    ['comida desconocida', { comida: 'merienda' }, 'comida'],
+    ['cantidad 0', { cantidad: 0 }, 'cantidad'],
+    ['cantidad 51', { cantidad: 51 }, 'cantidad'],
+    ['cantidad con decimales', { cantidad: 2.5 }, 'cantidad'],
+    ['cantidad que no es número', { cantidad: 'tres' }, 'cantidad'],
+    ['cantidad vacía', { cantidad: '' }, 'cantidad'],
+    ['nota de 201 caracteres', { nota: 'x'.repeat(201) }, 'nota'],
+  ])('rechaza %s', (_caso, cambio, campo) => {
+    expect(camposInvalidos(esquemaExtra, { ...EXTRA, ...cambio })).toEqual([campo])
+  })
+
+  it('sin cantidad no se acepta', () => {
+    expect(camposInvalidos(esquemaExtra, { fecha: EXTRA.fecha, comida: EXTRA.comida })).toEqual(['cantidad'])
+  })
+})
+
+describe('esquemaQuitarExtra', () => {
+  it('pide un id válido', () => {
+    expect(esquemaQuitarExtra.safeParse({ id: '3f1c2a9e-8b7d-4c6e-9a5b-1d2e3f4a5b6c' }).success).toBe(true)
+    expect(esquemaQuitarExtra.safeParse({ id: 'no-es-un-uuid' }).success).toBe(false)
   })
 })

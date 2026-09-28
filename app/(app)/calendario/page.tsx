@@ -13,7 +13,7 @@ import {
   mesSiguiente,
 } from '@/lib/calendario/cuadricula'
 import { fechaISOEn } from '@/lib/fechas'
-import { listarMisAusencias } from '@/lib/ausencias/consultas'
+import { listarAusenciasDe } from '@/lib/ausencias/consultas'
 import { CalendarioMes } from './_componentes/calendario-mes'
 import { PanelAusencias } from './_componentes/panel-ausencias'
 
@@ -34,7 +34,7 @@ export default async function PaginaCalendario({
   const conAusencias = perfil.rol !== 'administracion'
   const [eventos, ausencias] = await Promise.all([
     listarEventosDeCuadricula(mes, perfil.rol),
-    conAusencias ? listarMisAusencias(hoy) : Promise.resolve([]),
+    conAusencias ? listarAusenciasDe(perfil.id, hoy) : Promise.resolve([]),
   ])
   const dias = cuadriculaMes(mes).map((dia) => ({ ...dia, etiqueta: etiquetaDia(dia.fecha) }))
 

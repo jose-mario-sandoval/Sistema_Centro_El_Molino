@@ -1,0 +1,317 @@
+'use client'
+
+import Link from 'next/link'
+import { Fragment, useEffect, useId, useRef, useState } from 'react'
+import { Icono } from '@/components/ui/iconos'
+import { etiquetaCeldaCasa, etiquetaGrupo, tituloComidaCasa } from '@/lib/comidas/casa'
+import { etiquetaDia } from '@/lib/comidas/semana'
+import { ETIQUETA_TIEMPO, TIEMPOS_COMIDA, type TiempoComida } from '@/lib/comidas/tipos'
+import { agruparPorEstado, type ComidaDeLaCasa, type DiaDeLaCasa } from '@/lib/comidas/vista'
+import type { FechaISO } from '@/lib/fechas'
+import { ContextoBorradores, useBorradoresDelGrupo } from '../../_componentes/borradores-del-grupo'
+import { CeldaResumen } from '../../_componentes/celda-resumen'
+import { ComidaDelDia } from '../../_componentes/comida-del-dia'
+import { varsEstado } from '../../_componentes/insignia-estado'
+import { revelarDebajoDeFila } from '../../_componentes/revelar'
+
+type Abierta = { fecha: FechaISO; comida: TiempoComida }
+
+/** 'cierra hoy 10:00' → 'Cierra hoy 10:00' */
+function conMayuscula(texto: string): string {
+  return texto.charAt(0).toUpperCase() + texto.slice(1)
+}
+
+/**
+ * La semana de la casa para el Director: la misma tabla que ve Administración (un día por fila, una
+ * comida por columna, el mismo desglose), pero cada celda es un botón. Tocarla abre, justo debajo de
+ * la fila de su día (como el Plan y la Semana), quiénes comen y cómo, con sus nombres, agrupados por lo
+ * que eligieron ("Sin definir" primero); cada nombre abre su comida para cambiarla en el lugar, con los
+ * mismos cierres que todos. Al abrir, el foco va al título del panel; "Cerrar" lo devuelve a la celda.
+ */
+export function TablaCasa({
+  lunes,
+  dias,
+  extras,
+  yo,
+}: {
+  lunes: FechaISO
+  dias: DiaDeLaCasa[]
+  extras: Record<string, Partial<Record<TiempoComida, number>>>
+  /** El Director que mira: su propia comida va en segunda persona ("¿Vas a almorzar…?"). */
+  yo: string
+}) {
+  const idBase = useId()
+  const idPanel = `${idBase}-panel`
+  const borradores = useBorradoresDelGrupo()
+  const [abierta, setAbierta] = useState<Abierta | null>(null)
+  const [personaAbierta, setPersonaAbierta] = useState<string | null>(null)
+  const panel = useRef<HTMLElement>(null)
+  const titulo = useRef<HTMLHeadingElement>(null)
+  const filaAbierta = useRef<HTMLTableRowElement>(null)
+  const celdaAbierta = useRef<HTMLButtonElement>(null)
+
+  const dia = abierta ? dias.find((d) => d.fecha === abierta.fecha) : undefined
+  const comida = dia?.comidas.find((c) => c.comida === abierta?.comida)
+  const grupos = comida ? agruparPorEstado(comida.personas) : []
+  const grupoDeLaAbierta = grupos.find((g) => g.personas.some((p) => p.id === personaAbierta))?.clave ?? null
+
+  useEffect(() => {
+    if (!abierta) return
+    // El panel va debajo de la fila de su día: se lleva esa fila arriba si el panel no se ve (o el
+    // panel, si la fila apilada no deja lugar), y el foco pasa a su título (el teclado y el lector
+    // llegan a lo que se abrió).
+    titulo.current?.focus({ preventScroll: true })
+    revelarDebajoDeFila(panel.current, filaAbierta.current)
+    // Solo al abrir otra celda: después, el panel no se mueve solo.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [abierta?.fecha, abierta?.comida])
+
+  // Al guardar, la persona pasa al grupo de lo que eligió y su lugar se vuelve a pintar: si el foco
+  // se perdió con ese cambio, vuelve a su nombre (nunca queda en la nada).
+  useEffect(() => {
+    if (!personaAbierta || !grupoDeLaAbierta) return
+    if (document.activeElement && document.activeElement !== document.body) return
+    document.getElementById(`${idBase}-persona-${personaAbierta}`)?.focus()
+  }, [grupoDeLaAbierta, personaAbierta, idBase])
+
+  /** Cambiar de celda o de persona guarda lo que quedó escrito; si una nota no sirve, no se cambia. */
+  function puedeCambiar(): boolean {
+    return personaAbierta === null || borradores.confirmarTodos()
+  }
+
+  function tocarCelda(celda: Abierta) {
+    if (!puedeCambiar()) return
+    setPersonaAbierta(null)
+    setAbierta((antes) => (antes?.fecha === celda.fecha && antes.comida === celda.comida ? null : celda))
+  }
+
+  function tocarPersona(id: string) {
+    if (!puedeCambiar()) return
+    setPersonaAbierta((antes) => (antes === id ? null : id))
+  }
+
+  function cerrarPanel() {
+    if (!puedeCambiar()) return
+    const celda = celdaAbierta.current
+    setPersonaAbierta(null)
+    setAbierta(null)
+    celda?.focus()
+  }
+
+  return (
+    <div className="card admin-table-scroll">
+      <div className="section-title">La semana de la casa</div>
+      <p className="hint tabla-casa-ayuda">Tocá una comida para ver quiénes comen y cambiar la de cada persona.</p>
+      <table className="admin-week-table tabla-casa">
+        <thead>
+          <tr>
+            <th scope="col">Día</th>
+            {TIEMPOS_COMIDA.map((c) => (
+              <th key={c} scope="col">
+                {ETIQUETA_TIEMPO[c]}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {dias.map((d) => {
+            const diaAbierto = abierta?.fecha === d.fecha
+            return (
+              <Fragment key={d.fecha}>
+                <tr ref={diaAbierto ? filaAbierta : undefined} className={d.esHoy ? 'hoy' : undefined}>
+                  <th scope="row" className="namecell">
+                    {etiquetaDia(d.fecha)}
+                    {d.esHoy && <span className="etiqueta-hoy">Hoy</span>}
+                    {/* Día cerrado: plano, con candado y "Cerrado" escritos (como su tarjeta en la Semana). */}
+                    {d.comidas.every((c) => !c.abierta) && (
+                      <span className="etiqueta-cerrado">
+                        <Icono nombre="candado" />
+                        Cerrado
+                      </span>
+                    )}
+                  </th>
+                  {d.comidas.map((c, _i, todas) => {
+                    const esta = diaAbierto && abierta?.comida === c.comida
+                    const extra = extras[d.fecha]?.[c.comida]
+                    return (
+                      // data-et: en el teléfono la tabla se apila y cada celda muestra su comida.
+                      <td key={c.comida} data-fecha={d.fecha} data-comida={c.comida} data-et={ETIQUETA_TIEMPO[c.comida]}>
+                        <button
+                          ref={esta ? celdaAbierta : undefined}
+                          type="button"
+                          className={`celda-casa${c.abierta ? '' : ' cerrada'}`}
+                          aria-label={etiquetaCeldaCasa(c.comida, d.nombre, d.fechaCorta, c.resumen, extra, !c.abierta)}
+                          aria-expanded={esta}
+                          aria-controls={esta ? idPanel : undefined}
+                          onClick={() => tocarCelda({ fecha: d.fecha, comida: c.comida })}
+                        >
+                          <CeldaResumen resumen={c.resumen} extra={extra} como="spans" />
+                          {/* En un día a medio cerrar (hoy), cada comida cerrada lo dice escrito. */}
+                          {!c.abierta && todas.some((otra) => otra.abierta) && (
+                            <span className="etiqueta-cerrado celda-casa-cerrada">
+                              <Icono nombre="candado" />
+                              Cerrada
+                            </span>
+                          )}
+                        </button>
+                      </td>
+                    )
+                  })}
+                </tr>
+                {/* Justo debajo de la fila de su día, a todo el ancho (también apilada en el teléfono). */}
+                {diaAbierto && comida && abierta && (
+                  <tr className="fila-panel">
+                    <td colSpan={TIEMPOS_COMIDA.length + 1}>
+                      <PanelQuienes
+                        id={idPanel}
+                        panel={panel}
+                        titulo={titulo}
+                        idBase={idBase}
+                        textoTitulo={tituloComidaCasa(abierta.comida, d.nombre, d.fechaCorta)}
+                        dia={d}
+                        comida={comida}
+                        grupos={grupos}
+                        personaAbierta={personaAbierta}
+                        yo={yo}
+                        lunes={lunes}
+                        registrar={borradores.registrar}
+                        alTocarPersona={tocarPersona}
+                        alCerrar={cerrarPanel}
+                      />
+                    </td>
+                  </tr>
+                )}
+              </Fragment>
+            )
+          })}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+/** Quiénes comen una comida, agrupados por lo que eligieron; cada nombre abre su comida en el lugar. */
+function PanelQuienes({
+  id,
+  panel,
+  titulo,
+  idBase,
+  textoTitulo,
+  dia,
+  comida,
+  grupos,
+  personaAbierta,
+  yo,
+  lunes,
+  registrar,
+  alTocarPersona,
+  alCerrar,
+}: {
+  id: string
+  panel: React.RefObject<HTMLElement | null>
+  titulo: React.RefObject<HTMLHeadingElement | null>
+  idBase: string
+  textoTitulo: string
+  dia: DiaDeLaCasa
+  comida: ComidaDeLaCasa
+  grupos: ReturnType<typeof agruparPorEstado>
+  personaAbierta: string | null
+  yo: string
+  lunes: FechaISO
+  /** De useBorradoresDelGrupo: cada comida abierta se anota para guardar lo escrito antes de cerrar. */
+  registrar: (confirmar: () => boolean) => () => void
+  alTocarPersona: (id: string) => void
+  alCerrar: () => void
+}) {
+  return (
+    <section
+      id={id}
+      ref={panel}
+      className={`panel-casa${comida.abierta ? '' : ' pasada'}`}
+      aria-labelledby={`${id}-titulo`}
+      onKeyDown={(e) => {
+        // Escape con el foco en un nombre o en el título cierra el panel (dentro de una comida lo atiende ella).
+        if (e.key !== 'Escape' || !(e.target instanceof HTMLElement)) return
+        if (e.target.closest('.persona-casa') || e.target === titulo.current) alCerrar()
+      }}
+    >
+      <h2 id={`${id}-titulo`} ref={titulo} tabIndex={-1} className="panel-dia-titulo">
+        {textoTitulo}
+      </h2>
+      {comida.abierta ? (
+        <p className="detalle-cierre">{conMayuscula(comida.cierre)}. Tocá un nombre para cambiar su comida.</p>
+      ) : (
+        <p className="motivo-cierre">
+          <Icono nombre="candado" />
+          <span>Cerrada: ya no se puede cambiar. Tocá un nombre para ver su comida.</span>
+        </p>
+      )}
+
+      {grupos.length === 0 ? (
+        <p className="ausencias-vacio">No hay personas con comidas en la casa.</p>
+      ) : (
+        <div className="grupos-casa">
+          {grupos.map((grupo) => (
+            <div key={grupo.clave} className="grupo-casa" role="group" aria-labelledby={`${idBase}-grupo-${grupo.clave}`}>
+              <h3
+                id={`${idBase}-grupo-${grupo.clave}`}
+                className={`grupo-casa-titulo${grupo.clave === 'sin_definir' ? ' sin-definir' : ''}`}
+                style={grupo.clave === 'sin_definir' ? undefined : varsEstado(grupo.clave)}
+              >
+                <Icono nombre={grupo.clave === 'sin_definir' ? 'sinDefinir' : grupo.clave} />
+                {etiquetaGrupo(grupo.etiqueta, grupo.personas.length)}
+              </h3>
+              <ul className="personas-casa">
+                {grupo.personas.map((persona) => {
+                  const esta = personaAbierta === persona.id
+                  const idComida = `${idBase}-comida-${persona.id}`
+                  const propia = persona.id === yo
+                  return (
+                    <li key={persona.id}>
+                      <button
+                        id={`${idBase}-persona-${persona.id}`}
+                        type="button"
+                        className="persona-casa"
+                        aria-expanded={esta}
+                        aria-controls={esta ? idComida : undefined}
+                        onClick={() => alTocarPersona(persona.id)}
+                      >
+                        <span className="persona-casa-nombre">{persona.nombre}</span>
+                        <Icono nombre="abajo" className="flecha" />
+                      </button>
+                      {esta && (
+                        <div id={idComida} className="persona-comida">
+                          <ContextoBorradores value={registrar}>
+                            <ComidaDelDia
+                              fecha={dia.fecha}
+                              dia={dia.nombre}
+                              etiquetaDia={`${dia.nombre} ${dia.fechaCorta}`}
+                              datos={persona.datos}
+                              usuarioId={persona.id}
+                              voz={propia ? 'propia' : 'ajena'}
+                              persona={persona.nombre}
+                            />
+                          </ContextoBorradores>
+                          <Link href={`/comidas/casa/${persona.id}?semana=${lunes}`} className="enlace-persona">
+                            {propia ? 'Ver toda mi semana' : `Ver la semana de ${persona.nombre}`}
+                            <Icono nombre="derecha" />
+                          </Link>
+                        </div>
+                      )}
+                    </li>
+                  )
+                })}
+              </ul>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="acciones-formulario">
+        <button type="button" className="btn ghost" onClick={alCerrar}>
+          Cerrar
+        </button>
+      </div>
+    </section>
+  )
+}
