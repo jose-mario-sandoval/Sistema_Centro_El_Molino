@@ -81,7 +81,7 @@ export function usePlanEditable(
         aviso('Plan semanal actualizado')
         return
       }
-      // Dice qué celda vuelve atrás: el panel pudo haberse cerrado o estar en otra.
+      // Dice qué celda vuelve atrás: la burbuja pudo haberse cerrado o estar en otra.
       aviso(mensajeFalloCelda(dia, comida, resultado.error))
       // Si la persona ya eligió otra cosa después, no pisamos esa elección con el valor anterior.
       if (numero !== ultimoGuardado.current.get(clave)) return

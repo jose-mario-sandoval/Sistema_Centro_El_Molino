@@ -13,9 +13,9 @@ export type BorradorNota = {
   elegir: (estado: EstadoComida) => void
   cambiar: (nota: string) => void
   /**
-   * "Guardar" (alCerrar: false) o cerrar el panel (alCerrar: true: "Listo", volver a tocar la comida,
-   * pasar a otra). Guarda lo escrito si sirve; si no, muestra el error y devuelve false: el panel
-   * tiene que quedar abierto.
+   * "Guardar" (alCerrar: false) o cerrar la burbuja (alCerrar: true: "Listo", volver a tocar la
+   * comida, un toque fuera, pasar a otra). Guarda lo escrito si sirve; si no, muestra el error y
+   * devuelve false: la burbuja tiene que quedar abierta.
    */
   confirmar: (opciones: { alCerrar: boolean }) => boolean
   /** Escape y "Cancelar": lo único que descarta lo escrito. */

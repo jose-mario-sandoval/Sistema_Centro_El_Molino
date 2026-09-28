@@ -7,7 +7,7 @@ import {
   obtenerSemanaParaAdministracion,
 } from '@/lib/comidas/consultas'
 import { semanaPedida, tipoSemana } from '@/lib/comidas/semana'
-import { diaParaAbrir } from '@/lib/comidas/vista'
+import { diaParaMostrar } from '@/lib/comidas/vista'
 import { fechaISOEn, sumarDias } from '@/lib/fechas'
 import { NavegacionSemana } from '../_componentes/navegacion-semana'
 import { RefrescarAlVolver } from '../_componentes/refrescar-al-volver'
@@ -50,12 +50,12 @@ export default async function PaginaSemana({
       {/* Al volver a la pestaña, trae cierres y cambios hechos mientras tanto. */}
       <RefrescarAlVolver />
       <NavegacionSemana lunes={lunes} hoy={hoy} />
-      {/* key: al cambiar de semana, la tarjeta abierta vuelve a empezar desde el día que corresponde. */}
+      {/* key: al cambiar de semana, la burbuja abierta se cierra y la página empieza en el día que corresponde. */}
       <SemanaPersona
         key={lunes}
         dias={dias}
         tipo={tipo}
-        diaInicial={tipo === 'actual' ? diaParaAbrir(dias) : null}
+        diaAlEntrar={tipo === 'actual' ? diaParaMostrar(dias) : null}
         hrefSiguienteSemana={tipo === 'actual' ? `/comidas/semana?semana=${sumarDias(lunes, 7)}` : null}
       />
     </>

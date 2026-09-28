@@ -7,7 +7,8 @@ import {
   armarSemanaDeLaCasa,
   armarSemanaPersona,
   diaCambiadoPorOtro,
-  etiquetaTarjeta,
+  etiquetaComidaTarjeta,
+  semanaCambiadaPorOtro,
   planDesdeFilas,
   valorTrasGuardar,
   type PersonaEnComida,
@@ -244,10 +245,15 @@ describe('la persona ve de un vistazo lo que cambió el Director', () => {
     expect(dias.map(diaCambiadoPorOtro)).toEqual([false, false, false, true, false, false, false])
   })
 
-  it('etiquetaTarjeta lo dice en la comida que cambió', () => {
-    expect(etiquetaTarjeta(dias[3])).toBe(
-      'Jueves 17/9, cambió el Director. Desayuno: Falta, sin definir. Almuerzo: No comer, la cambió el Director. Cena: Falta, sin definir.',
+  it('el botón de la comida que cambió lo dice en su nombre', () => {
+    expect(etiquetaComidaTarjeta(dias[3], 'almuerzo', dias[3].comidas[1].valor)).toBe(
+      'Almuerzo del jueves 17/9: No comer, la cambió el Director. Cambiar',
     )
+  })
+
+  it('semanaCambiadaPorOtro: la semana lleva la leyenda del lápiz solo si algo lo cambió el Director', () => {
+    expect(semanaCambiadaPorOtro(dias)).toBe(true)
+    expect(semanaCambiadaPorOtro(dias.filter((_, i) => i !== 3))).toBe(false)
   })
 })
 

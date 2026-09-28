@@ -1,6 +1,6 @@
 import { sumarDias, type FechaISO } from '@/lib/fechas'
 import { partesParaCocina, totalQueComen, type ResumenComida } from './resumen'
-import { diasDeSemana, etiquetaDia } from './semana'
+import { diasDeSemana, etiquetaDia, tituloComida } from './semana'
 import { CANTIDAD_MAXIMA_EXTRA, ETIQUETA_TIEMPO, type ExtraManual, type TiempoComida } from './tipos'
 
 /*
@@ -42,9 +42,27 @@ export function pestanasPersona(voz: 'propia' | 'ajena'): { clave: VistaPersona;
   ]
 }
 
-/** 'Almuerzo del miércoles 23/9' (`nombreDia`: 'Miércoles'). */
-export function tituloComidaCasa(comida: TiempoComida, nombreDia: string, fechaCorta: string): string {
-  return `${ETIQUETA_TIEMPO[comida]} del ${nombreDia.toLowerCase()} ${fechaCorta}`
+const ARTICULO: Record<TiempoComida, 'el' | 'la'> = { desayuno: 'el', almuerzo: 'el', cena: 'la' }
+const TU: Record<TiempoComida, string> = { desayuno: 'Tu desayuno', almuerzo: 'Tu almuerzo', cena: 'Tu cena' }
+
+/** 'el almuerzo del miércoles 23/9' */
+function laComidaDel(comida: TiempoComida, nombreDia: string, fechaCorta: string): string {
+  return `${ARTICULO[comida]} ${ETIQUETA_TIEMPO[comida].toLowerCase()} del ${nombreDia.toLowerCase()} ${fechaCorta}`
+}
+
+/**
+ * El título de la burbuja de una persona en "quiénes comen": de quién es, qué comida y qué día.
+ * 'Almuerzo de Juan, miércoles 23/9' · el Director mirándose a sí mismo (`persona` null): 'Tu almuerzo
+ * del miércoles 23/9'.
+ */
+export function tituloComidaDePersona(
+  comida: TiempoComida,
+  nombreDia: string,
+  fechaCorta: string,
+  persona: string | null,
+): string {
+  if (persona === null) return `${TU[comida]} del ${nombreDia.toLowerCase()} ${fechaCorta}`
+  return `${ETIQUETA_TIEMPO[comida]} de ${persona}, ${nombreDia.toLowerCase()} ${fechaCorta}`
 }
 
 /**
@@ -59,14 +77,17 @@ export function etiquetaCeldaCasa(
   resumen: ResumenComida,
   extra?: number,
   cerrada = false,
+  /** Las notas de los extras que se ven en la celda ('3 extra: Sin sal'). */
+  notas: readonly string[] = [],
 ): string {
   const comen = totalQueComen(resumen)
   const partes = [`${comen} ${comen === 1 ? 'come' : 'comen'}`]
   const desglose = partesParaCocina(resumen).map((parte) => parte.texto)
   if (desglose.length > 0) partes.push(desglose.join(', '))
   if (extra) partes.push(`+${extra} extra`)
+  partes.push(...notas)
   if (cerrada) partes.push('Cerrada')
-  return `${tituloComidaCasa(comida, nombreDia, fechaCorta)}: ${partes.join('. ')}. Ver quiénes`
+  return `${tituloComida(comida, nombreDia, fechaCorta)}: ${partes.join('. ')}. Ver quiénes`
 }
 
 /** 'Sin definir (2)' */
@@ -89,10 +110,38 @@ export function ajustarCantidad(actual: number, delta: 1 | -1): number {
   return Math.min(CANTIDAD_MAXIMA_EXTRA, Math.max(1, base + delta))
 }
 
+/** '1 persona' · '3 personas' */
+export function textoCantidadExtra(cantidad: number): string {
+  return `${cantidad} ${cantidad === 1 ? 'persona' : 'personas'}`
+}
+
 /** 'Miércoles 23/9 · Cena · 3 personas' */
 export function textoExtra(extra: ExtraManual): string {
-  const personas = `${extra.cantidad} ${extra.cantidad === 1 ? 'persona' : 'personas'}`
-  return `${etiquetaDia(extra.fecha)} · ${ETIQUETA_TIEMPO[extra.comida]} · ${personas}`
+  return `${etiquetaDia(extra.fecha)} · ${ETIQUETA_TIEMPO[extra.comida]} · ${textoCantidadExtra(extra.cantidad)}`
+}
+
+/** Nombre accesible del "+ Extra" de una celda: 'Agregar extra al almuerzo del miércoles 30/9'. */
+export function etiquetaAgregarExtra(comida: TiempoComida, nombreDia: string, fechaCorta: string): string {
+  const laComida = laComidaDel(comida, nombreDia, fechaCorta)
+  return `Agregar extra ${laComida.startsWith('el ') ? `al ${laComida.slice(3)}` : `a ${laComida}`}`
+}
+
+/** 'Extras para el almuerzo del miércoles 30/9': el título de la burbuja del "+ Extra". */
+export function tituloExtras(comida: TiempoComida, nombreDia: string, fechaCorta: string): string {
+  return `Extras para ${laComidaDel(comida, nombreDia, fechaCorta)}`
+}
+
+/** Los extras manuales de una comida (su burbuja los lista, con "Quitar" mientras no cerró). */
+export function extrasDeComida(extras: readonly ExtraManual[], fecha: FechaISO, comida: TiempoComida): ExtraManual[] {
+  return extras.filter((extra) => extra.fecha === fecha && extra.comida === comida)
+}
+
+/**
+ * Hay algo escrito en el formulario del extra que todavía no se agregó (la cantidad no es la de
+ * partida o hay una nota): cerrar la burbuja pregunta "¿Agregar o descartar?" en lugar de perderlo.
+ */
+export function extraSinGuardar(formulario: { cantidad: string; nota: string }): boolean {
+  return formulario.cantidad.trim() !== '1' || formulario.nota.trim() !== ''
 }
 
 /**

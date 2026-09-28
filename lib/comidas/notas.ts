@@ -46,7 +46,7 @@ export type DecisionBorrador =
 /**
  * Qué hacer con lo escrito al tocar "Guardar" o al cerrar ("Listo", volver a tocar la comida, pasar a
  * otra): una nota válida y distinta de lo guardado se guarda; igual o sin borrador, nada; vacía o
- * inválida, el panel no se cierra y dice por qué. Nunca se pierde en silencio lo que se escribió.
+ * inválida, la burbuja no se cierra y dice por qué. Nunca se pierde en silencio lo que se escribió.
  * Escape y "Cancelar" son los únicos que descartan, y no pasan por acá.
  */
 export function resolverBorrador(

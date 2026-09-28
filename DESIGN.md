@@ -192,8 +192,8 @@ Longitud de línea máxima **65ch** en texto corrido.
 mínima de 8px entre objetivos contiguos. Es un gate verificable, y se verifica. Incluye a los
 botones "chicos": una variante compacta puede tener menos texto o menos relleno, nunca menos alto.
 
-**Dos excepciones, documentadas.** Las dos son siete columnas de días en un teléfono: cumplen WCAG
-2.2 AA (24px) pero no este contrato.
+**Tres excepciones, documentadas.** Las dos primeras son siete columnas de días en un teléfono:
+cumplen WCAG 2.2 AA (24px) pero no este contrato. La tercera es de separación, no de tamaño.
 
 1. **La cuadrícula mensual del calendario.** Siete columnas en 320px dejan días de ~36px de ancho;
    por eso en el teléfono el calendario abre en **lista** y la cuadrícula queda detrás de *"Ver mes"*.
@@ -214,6 +214,18 @@ botones "chicos": una variante compacta puede tener menos texto o menos relleno,
    - **Ruta completa por teclado y lector de pantalla:** una sola parada de tabulación y flechas,
      Inicio/Fin y RePág/AvPág (patrón APG de selector de fecha); cada día se anuncia con su fecha
      completa, "hoy" y "ya marcado como ausente", y la selección con `aria-selected` en su celda.
+3. **El "+ Extra" de cada comida en La casa** va en la esquina de arriba a la derecha del botón de su
+   celda (lo pidió el usuario: "en la esquina de cada comida"), así que los dos objetivos se tocan sin
+   los 8px de separación. Mitigaciones:
+   - **Tamaño completo, sin comerse la celda:** lo que se toca es la pastilla con 4px a cada lado y
+     56px de alto (nunca menos de 56×56); al lado y debajo de esa franja, la celda sigue siendo la
+     celda. Es un botón hermano del de la celda, nunca uno dentro de otro.
+   - **Su franja es suya:** la primera línea de la celda (*"N comen"*) deja libre ese ancho, así
+     ningún texto de la celda queda debajo del *"+ Extra"*; en una celda angosta, *"comen"* baja a la
+     línea siguiente, junto al número y no debajo de la pastilla.
+   - **Distinto a la vista y al oído:** relleno de acento como un botón principal (el desglose de la
+     celda es pergamino), icono **+** con *"Extra"* escrito, y nombre accesible completo: *"Agregar
+     extra al almuerzo del miércoles 30/9"*.
 
 ### Tres reglas de ancho que salieron de verificar, no de planificar
 
@@ -233,7 +245,10 @@ Y dos más que salieron de la cuadrícula del plan y las tarjetas de la semana:
    media query el `rem` es siempre 16px; en una container query sigue a la letra elegida. Así, con
    letra "Grande" o "Muy grande", la cuadrícula del plan pasa a una celda por fila (con el nombre de
    la comida escrito) y las tarjetas de la semana a una sola columna, en lugar de achicar la letra
-   para que entren.
+   para que entren. Lo mismo dentro de la burbuja: las seis opciones van 3×2 con el icono arriba si
+   hay lugar, 2×3 en el teléfono y, cuando cada opción tiene ancho para el icono al lado de su texto,
+   más bajitas (56px), para que la burbuja entre en la pantalla. Ojo: la consulta mide el ancho de
+   *adentro* del contenedor, sin su relleno.
 5. **`--t-xs` es el piso también dentro de una celda.** Una celda puede dejar de crecer al llegar a
    su ancho (`max(var(--t-xs), min(var(--t-sm), 4.8vw))` en la cuadrícula del plan), pero nunca baja
    de `--t-xs` del tamaño de letra elegido: si no entra, cambia la disposición (menos columnas, una
@@ -304,9 +319,10 @@ Ease-out-quart. Sin rebote, sin elástico. No se animan propiedades de layout.
 3px y offset positivo, porque un anillo de 2px pegado al borde se pierde dentro del degradado de la
 sombra. Donde `overflow:hidden` lo recortaría, se usa `outline-offset: -3px`, nunca `outline: none`.
 
-Cada vez que la interfaz se vuelve a pintar, el foco vuelve al control que lo tenía: al elegir una
-opción, el foco queda en esa opción; al tocar *Listo*, vuelve al botón que abrió la fila; al cambiar
-de sección, pasa al contenido principal para que un lector de pantalla anuncie dónde quedó la persona.
+Cada vez que la interfaz se vuelve a pintar, el foco vuelve al control que lo tenía: al abrir una
+burbuja, entra a la opción marcada; al elegir una opción, el foco queda en esa opción; al tocar
+*Listo* o Escape, vuelve al botón que abrió la burbuja; al cambiar de sección, pasa al contenido
+principal para que un lector de pantalla anuncie dónde quedó la persona.
 
 ---
 
@@ -318,43 +334,71 @@ de sección, pasa al contenido principal para que un lector de pantalla anuncie 
 - **Sin tarjetas dentro de tarjetas.** En neumorfismo se lee como un error de profundidad. Lo que va
   dentro de una meseta elevada es plano o hundido, nunca elevado otra vez.
 - **Sin modales como primer recurso.** El único modal justificado es la confirmación de borrado.
-- **Una sola interacción para una sola pregunta.** Plan semanal y Semana (y La casa del Director)
-  responden a "¿qué hacés con esta comida?" y por lo tanto usan **exactamente las mismas piezas**:
-  `PanelOpciones` (la bandeja de las seis opciones) y `EditorNota` (el campo de hora o de nota
-  cuando el estado lo pide). Quien aprende una pantalla ya sabe la otra. Es la decisión de mayor
-  impacto de todo el rediseño.
+- **Una sola interacción para una sola pregunta: tocá la comida y se abre una burbuja junto a
+  ella.** Plan semanal, Semana y La casa del Director responden a "¿qué hacés con esta comida?" y
+  por lo tanto se usan igual y con **exactamente las mismas piezas**: el botón de la comida (la celda
+  del plan, la comida en la tarjeta del día, el nombre de la persona), la `Burbuja` que abre junto a
+  él y, adentro, `PanelOpciones` (la bandeja de las seis opciones) y `EditorNota` (el campo de hora
+  o de nota cuando el estado lo pide). Quien aprende una pantalla ya sabe las otras. Es la decisión
+  de mayor impacto de todo el rediseño.
 - **La nota se comporta igual en todas partes, y lo escrito nunca se pierde en silencio.** Un estado
   sin nota se guarda al tocarlo. Uno que la pide (temprano, tarde, enfermo) abre el campo, que toma
   el foco. Lo escrito se guarda con "Guardar" **y también al cerrar**: "Listo", volver a tocar la
-  comida, pasar a otra celda o a otro día. Si la nota está vacía o no sirve, no se cierra nada: el
-  motivo aparece debajo del campo ("…Si no querés cambiarla, tocá 'Cancelar'") y el foco vuelve a
-  él. Solo Escape y "Cancelar" descartan, porque son pedidos explícitos; elegir otra opción la
-  reemplaza. Nada se guarda al salir del campo: guardar en ese momento dejaba el toque siguiente sin
-  efecto mientras se guardaba. Entre temprano y tarde la hora ya escrita se conserva. La lógica es
-  una sola (`resolverBorrador` + `useBorradorNota`) para que Plan y Semana no puedan diferir.
+  comida, tocar fuera de la burbuja o pasar a otra comida. Si la nota está vacía o no sirve, no se
+  cierra nada (y ese toque fuera no hace nada más: si era un enlace, no navega): el motivo aparece
+  debajo del campo ("…Si no querés cambiarla, tocá 'Cancelar'") y el foco vuelve a él. Solo Escape y
+  "Cancelar" descartan, porque son pedidos explícitos; elegir otra opción la reemplaza. Nada se
+  guarda al salir del campo: guardar en ese momento dejaba el toque siguiente sin efecto mientras se
+  guardaba. Entre temprano y tarde la hora ya escrita se conserva. La lógica es una sola
+  (`resolverBorrador` + `useBorradorNota`) para que Plan, Semana y La casa no puedan diferir.
 - **El plan se edita en la cuadrícula.** Siete filas (días) × tres columnas (comidas), a todo ancho.
   Cada celda es un botón con icono + texto corto + color (la hora debajo en temprano y tarde;
-  "Falta" con la campana si no está definida). Tocarla abre las opciones debajo de su fila, una
-  celda a la vez. En el teléfono el nombre del día va en su propia línea y la cabecera de comidas
+  "Falta" con la campana si no está definida). Tocarla abre las opciones en una burbuja junto a ella,
+  una a la vez. En el teléfono el nombre del día va en su propia línea y la cabecera de comidas
   queda fija arriba mientras se recorre la semana; con letra grande en el teléfono cada celda ocupa
   la fila y dice "Desayuno · Temprano 07:30". Si un guardado falla, el aviso dice qué celda volvió
   atrás ("No se pudo guardar el almuerzo del martes…").
-- **La semana en tarjetas por día, hoy abierto.** Siete tarjetitas resumen las tres comidas de cada
-  día con icono + texto corto + color, nunca solo icono; toda la semana se ve de un vistazo. Tocar
-  una abre sus tres comidas debajo de su fila, con los controles de siempre. En la semana en curso
-  se abre sola hoy (o, si hoy ya cerró, el primer día que todavía tenga algo por cambiar) y, si al
-  entrar no se ve, la página empieza en esa tarjeta: lo primero que se ofrece es algo que todavía se
-  puede cambiar. Un día cerrado es una tarjeta plana, con candado y "Cerrado" escritos, y su panel
-  también es plano.
-- **Al abrir un panel, se ve.** Si queda fuera de la pantalla, la fila o la tarjeta que se tocó sube
-  hasta arriba y el panel queda debajo: tocar el domingo en un teléfono no puede abrir algo invisible.
-- **El panel va en el código justo después de su tarjeta** (patrón de *disclosure*: botón con
-  `aria-expanded` y `aria-controls`, contenido a continuación). En la rejilla de tarjetas eso deja
-  el orden de tabulación en tarjeta → su panel → tarjeta siguiente, aunque a la vista el panel quede
-  debajo de toda la fila (`grid-auto-flow: dense` sube las tarjetas siguientes). Se acepta a
-  propósito: con el teclado o un lector de pantalla, lo que se abre llega inmediatamente después de
-  lo que se tocó, que es lo que se espera de un disclosure; la otra opción (el panel al final de la
-  fila en el código) obligaba a pasar por las otras tarjetas antes de llegar a lo abierto.
+- **La semana en tarjetas por día; cada comida, un botón.** Siete tarjetitas resumen las tres
+  comidas de cada día con icono + texto corto + color, nunca solo icono; toda la semana se ve de un
+  vistazo. La tarjeta no se toca entera: es una bandeja (hundida) y lo que se toca son sus tres
+  comidas, botones elevados con el color de su estado, como las celdas del plan (*"Desayuno ✓ Sí"*,
+  56px, nombre accesible *"Desayuno del lunes 28/9: Sí comer. Cambiar"*). Tocar una abre su burbuja;
+  no hay un panel del día debajo. Una comida cerrada es plana y no es un botón: se lee lo que quedó
+  y, en un día a medio cerrar (hoy), candado + *"Cerrada"* escritos; un día cerrado entero es una
+  tarjeta plana que lo dice una vez (*"Cerrado"*). Al entrar a la semana en curso, si la tarjeta de
+  hoy no se ve (un jueves en el teléfono), la página empieza en ella; si hoy ya cerró entero, en el
+  primer día que todavía tenga algo por cambiar: lo primero que se ofrece es algo que se puede
+  cambiar.
+- **La burbuja: junto a lo que se tocó, no encima de todo.** Es una capa pasajera, elevada, con una
+  flecha que señala el botón que la abrió y borde de acento (en contraste alto, más grueso y sin
+  sombras). No es una tarjeta dentro de otra (va en un portal sobre la página, no dentro de nada) ni
+  un modal: no oscurece, no bloquea, y la página sigue ahí.
+  - **Dónde va:** debajo del botón; arriba si abajo no entra y arriba sí; si no entra en ningún lado,
+    debajo, y la página baja hasta dejar el botón arriba, debajo de lo que esté fijo ahí (la cabecera
+    de comidas del plan: su `scroll-margin-top`); la barra inferior del teléfono no cuenta como lugar
+    libre. Siempre dentro de la pantalla con 16px de margen; en el teléfono ocupa todo el ancho menos
+    ese margen. Una vez abierta no salta de lado al crecer (aparece el campo de la hora) ni cuando el
+    teclado achica la pantalla; si está arriba del botón y crece, la página sube lo mismo, así lo que
+    se estaba tocando no se corre bajo el dedo.
+  - **Lo que se tocó no se mueve en la pantalla.** Si el botón cambia de lugar en la página mientras
+    la burbuja está abierta (en La casa, la persona pasa al grupo de lo que eligió y su nombre se pinta
+    más abajo), la página se mueve lo mismo: el nombre y su burbuja quedan donde estaban y es la
+    lista la que se corre.
+  - **Cómo se va:** "Listo" o volver a tocar el botón; un toque fuera (desplazar la página no es un
+    toque); Escape (descarta); Tab desde su último control. Tocar otra comida cierra esta con las
+    reglas de "Listo" y abre aquella: una burbuja a la vez. Un doble toque (o un dedo que rebota) no
+    la abre y la cierra: volver a tocar el mismo botón en los 400ms después de abrirla no hace nada.
+  - **Teclado y lector:** el botón lleva `aria-expanded`, `aria-controls` y `aria-haspopup="dialog"`;
+    la burbuja es un `role="dialog"` (no modal) nombrado por su título. Aunque está al final de la
+    página, el orden de tabulación es el de un *disclosure*: Tab desde el botón entra, Mayús+Tab
+    desde su primer control vuelve al botón y Tab desde el último sale al control que sigue al botón.
+    Se acepta a propósito que el gesto de "siguiente" de VoiceOver/TalkBack la encuentre al final de
+    la página: al abrirla el foco ya está adentro (en la opción marcada) y al cerrarla vuelve al botón,
+    así que el lector la anuncia en el momento en que se abre.
+  - **Sin API Popover ni anclas de CSS:** los iPhone con iOS 15 no los tienen. La posición la calcula
+    JavaScript (`lib/burbuja.ts`, con pruebas) y la burbuja va en `position:absolute` sobre la
+    página, no `fixed`: se mueve con lo que se desplaza, el teclado del teléfono no la deja flotando
+    en otro lado y, si es más alta que la pantalla, se llega a su final desplazando como siempre.
 - **"Mañana" nunca se esconde detrás de un control de paginación.** Al final de la semana en curso
   hay un botón grande, *"Ver la semana que viene"*, con el motivo escrito. Cada domingo, "mañana" es
   la semana siguiente.
@@ -374,13 +418,16 @@ de sección, pasa al contenido principal para que un lector de pantalla anuncie 
   **debajo de la fila de su día** (una fila más de la tabla, a todo el ancho, también apilada) y no
   en un modal, quiénes comen: agrupados por lo que eligieron (título de grupo con icono + texto +
   color, *"Sin definir (2)"* primero, después el orden de la cocina), y cada nombre es un botón de
-  56px que abre en el lugar la comida de esa persona con las mismas piezas de siempre
-  (`ComidaDelDia` → `PanelOpciones` + `EditorNota`) y los mismos cierres. Como va dentro de la
-  tarjeta de la tabla, el panel es una bandeja hundida, no otra tarjeta. Al abrirlo, el foco va a su
-  título y la fila sube hasta arriba; si la fila apilada es más alta que la pantalla (teléfono, letra
-  grande), sube el panel: lo que se abrió siempre se ve. *"Cerrar"* devuelve el foco a la celda. Lo
-  que cambia es la voz: *"¿Va a almorzar…?"*, *"según su plan"*, *"Volver a su plan"*, *"Elegí qué
-  hace Juan con el almuerzo"*, *"Indicá qué puede comer"* (`lib/comidas/voz.ts`).
+  56px que abre, en una burbuja junto a él, la comida de esa persona con las mismas piezas de
+  siempre (`ContenidoComida` → `PanelOpciones` + `EditorNota`) y los mismos cierres; su título dice
+  de quién es (*"Almuerzo de Juan, miércoles 30/9"*; el Director, *"Tu almuerzo…"*) y al pie va
+  *"Ver la semana de Juan"*. Si al guardar la persona pasa a otro grupo, la burbuja sigue junto a su
+  nombre. Como va dentro de la tarjeta de la tabla, el panel es una bandeja hundida, no otra tarjeta.
+  Al abrirlo, el foco va a su título y la fila sube hasta arriba; si la fila apilada es más alta que
+  la pantalla (teléfono, letra grande), sube el panel: lo que se abrió siempre se ve. *"Cerrar"*
+  devuelve el foco a la celda. Lo que cambia es la voz: *"¿Va a almorzar…?"*, *"según su plan"*,
+  *"Volver a su plan"*, *"Elegí qué hace Juan con el almuerzo"*, *"Indicá qué puede comer"*
+  (`lib/comidas/voz.ts`).
 - **La página de una persona dice de quién es.** `/comidas/casa/[persona]` reutiliza las tarjetas,
   la cuadrícula y el mini calendario tal cual, bajo el título *"Comidas de Juan"* y la frase *"Lo que
   cambies acá es de Juan, no tuyo"*. Sus vistas son *"Su semana"*, *"Su plan"*, *"Sus ausencias"*,
@@ -390,18 +437,27 @@ de sección, pasa al contenido principal para que un lector de pantalla anuncie 
   *"tu plan"*).
 - **Lo cerrado en La casa se dice escrito.** Una comida cerrada es plana (se toca igual, para ver
   quiénes comieron) y lleva candado + *"Cerrada"*; un día cerrado entero lo dice una vez en su fila,
-  como su tarjeta en la Semana. Dentro, la comida de cada persona es de solo lectura.
-- **Quién cambió se ve donde se mira, sin abrir nada.** La tarjeta del día lleva lápiz + *"Cambió el
-  Director"* si alguna de sus comidas la cambió él; la celda del plan, lápiz + *"Director"*, con la
-  leyenda escrita arriba de la cuadrícula. Al abrir, la marca de origen de la comida dice *"la cambió
-  el Director"* (también el panel y el nombre accesible de la celda del plan), y la ausencia, *"La
-  marcó el Director"*. Nunca el lápiz solo.
-- **Extras para la cocina: sin nombres, y avisando antes.** Día (pastillas), comida (pastillas),
-  cantidad con botones − y + de 56px y una nota opcional con la advertencia escrita *"La cocina lee
-  esta nota: no escribas nombres."* Si la comida elegida ya cerró se puede guardar igual (un
-  invitado de último momento), pero antes aparece, con candado y borde punteado, *"Esa comida ya
-  cerró: la cocina puede no verlo a tiempo."* Un extra de una comida cerrada ya no ofrece
-  *"Quitar"*: muestra el candado y *"Cerrada"*.
+  como su tarjeta en la Semana. Dentro, la burbuja de cada persona es de solo lectura: lo que quedó,
+  con candado y *"Cerrada: ya no se puede cambiar."*
+- **Quién cambió se ve donde se mira, sin abrir nada.** La comida que cambió el Director lleva lápiz
+  + *"Director"*, en la tarjeta del día y en la celda del plan por igual, con la leyenda escrita
+  arriba (*"Director = la cambió el Director, no vos."*). Al abrir, la marca de origen de la comida
+  dice *"la cambió el Director"* (también la burbuja del plan y el nombre accesible del botón), y la
+  ausencia, *"La marcó el Director"*. Nunca el lápiz solo.
+- **Extras para la cocina: desde la comida misma, sin nombres, y avisando antes.** Cada comida de La
+  casa, desde hoy, lleva en su esquina *"+ Extra"* (ver §4, excepción 3). Su burbuja ya sabe el día
+  y la comida (*"Extras para el almuerzo del miércoles 30/9"*): la cantidad con botones − y + de
+  56px, una nota opcional con la advertencia escrita *"La cocina lee esta nota: no escribas
+  nombres."* y *"Agregar"*; debajo, los extras que ya tiene esa comida, cada uno con *"Quitar"* (y
+  su confirmación) mientras la comida no cerró. La celda muestra *"+N extra"* y las notas, como la
+  ve la cocina. Si la comida ya cerró (hoy) el *"+"* sigue: se puede agregar igual (un invitado de
+  último momento), pero antes aparece, con candado y borde punteado, *"Esa comida ya cerró: la
+  cocina puede no verlo a tiempo."* Un extra de una comida cerrada ya no ofrece *"Quitar"*: muestra
+  el candado y *"Cerrada"*. Días pasados: sin *"+"*. Lo escrito sin agregar no se pierde en silencio,
+  pero tampoco se agrega solo (un toque accidental haría cocinar de más): *"Cerrar"*, un toque fuera
+  o pasar a otra comida no cierran y preguntan *"¿Agregar o descartar?"*; Escape descarta. La
+  pregunta y sus dos respuestas aparecen **debajo** de *"Agregar"* y *"Cerrar"*, que no se mueven: un
+  doble toque en *"Cerrar"* cae dos veces en *"Cerrar"* (sigue preguntando), nunca en *"Descartar"*.
 
 ---
 
@@ -480,13 +536,14 @@ El diseño ya está en la app Next.js. Dónde vive cada pieza:
 | Controles de apariencia y botón "Aa" | `components/ui/apariencia.tsx` |
 | Iconos (uno por estado de comida) | `components/ui/iconos.tsx` |
 | Lateral, barra superior y barra inferior | `components/app/estructura.tsx`, `components/app/navegacion.tsx` |
-| La interacción única de comidas | `app/(app)/comidas/_componentes/panel-opciones.tsx` (seis opciones) y `editor-nota.tsx` (hora o nota); `selector-comida.tsx` las compone para cada comida de la Semana (`comida-del-dia.tsx`) |
-| Plan semanal: la cuadrícula editable | `plan-editable.tsx`; guardado por celda en `usar-plan-editable.ts`; claves y nombres accesibles en `lib/comidas/plan.ts` |
-| Semana: tarjetas por día | `semana-persona.tsx`; textos cortos, día cerrado y qué día se abre solo en `lib/comidas/vista.ts` (`lineasTarjeta`, `diaCerrado`, `diaParaAbrir`) |
-| Desplazar un panel recién abierto | `app/(app)/comidas/_componentes/revelar.ts` |
+| La burbuja (junto a lo que se tocó: portal, posición, foco, cierre) | `components/ui/burbuja.tsx`; dónde va y cuánto desplazar, puro y con pruebas, en `lib/burbuja.ts` |
+| La interacción única de comidas | `app/(app)/comidas/_componentes/panel-opciones.tsx` (seis opciones) y `editor-nota.tsx` (hora o nota); `contenido-comida.tsx` las compone dentro de la burbuja de una comida de un día (Semana y La casa), con el guardado optimista de `usar-comida-del-dia.ts` |
+| Plan semanal: la cuadrícula editable | `plan-editable.tsx`; guardado por celda en `usar-plan-editable.ts`; claves, títulos y nombres accesibles en `lib/comidas/plan.ts` |
+| Semana: tarjetas por día | `semana-persona.tsx`; textos cortos, día cerrado, nombre de cada comida y qué tarjeta se trae a la vista al entrar en `lib/comidas/vista.ts` (`textoCorto`, `diaCerrado`, `etiquetaComidaTarjeta`, `diaParaMostrar`) |
+| Traer a la vista lo que se abrió debajo (la tarjeta de hoy al entrar, quiénes comen) | `app/(app)/comidas/_componentes/revelar.ts` (la burbuja se revela sola) |
 | Mini calendario para marcar un rango de días (ausencias) | `components/ui/mini-calendario.tsx`; su lógica pura (toques, teclado, límites, resumen) en `lib/calendario/seleccion-rango.ts` |
 | Nombres de mes y de día, sin `Intl` (iguales en servidor y navegador) | `lib/fechas/etiquetas.ts` |
-| La casa del Director: tabla, quiénes comen y extras | `app/(app)/comidas/casa/` (`tabla-casa.tsx`, `extras-casa.tsx`, `[persona]/page.tsx`); textos y cálculos en `lib/comidas/casa.ts`; segunda y tercera persona en `lib/comidas/voz.ts` |
+| La casa del Director: tabla, quiénes comen y extras | `app/(app)/comidas/casa/` (`tabla-casa.tsx`, `burbuja-extra.tsx`, `[persona]/page.tsx`); textos y cálculos en `lib/comidas/casa.ts`; segunda y tercera persona en `lib/comidas/voz.ts` |
 
 Decisiones tomadas al portar:
 
@@ -494,19 +551,22 @@ Decisiones tomadas al portar:
   `.feed-mensajes`, `.cal-day`, `.cal-event`, `.toast`, `.locked-banner`, `.week-list`,
   `.status-chip`), y también la tabla de Administración: en el teléfono se apila con CSS, sin
   cambiar su estructura. Con las tarjetas de la semana se sumaron `.tarjetas-semana` (que conserva
-  `.week-list`), `.tarjeta-dia` y `.panel-dia`; con la cuadrícula del plan, `.cuadro-plan`,
-  `.celda-plan` y `.cuadro-panel`. Cada comida de la Semana sigue siendo `[data-fecha][data-comida]`
-  con su `.estado-actual`, pero ahora hay que abrir antes la tarjeta de su día. Solo cambiaron los
-  specs donde cambió la interacción (abrir las opciones de una comida antes de elegir) y el título
-  de la sección. El mini calendario de ausencias usa **anclas propias**
+  `.week-list`) y `.tarjeta-dia` (la bandeja de un día, `section` nombrada *"Miércoles 30/9"*); con
+  la cuadrícula del plan, `.cuadro-plan` y `.celda-plan`. Cada comida de la Semana es
+  `.comida-tarjeta[data-fecha][data-comida]`: un `button` si se puede cambiar, plana y sin botón si
+  cerró. Lo que se abre al tocar una comida (Semana, Plan, un nombre o un *"+ Extra"* de La casa) es
+  la `.burbuja`, que los specs buscan por su rol y su título:
+  `getByRole('dialog', { name: 'Almuerzo del miércoles 30/9' })`. Ya no existen `.panel-dia`,
+  `.cuadro-panel`, `.estado-actual` ni `.persona-comida`. Solo cambiaron los specs donde cambió la
+  interacción (tocar la comida y elegir en su burbuja) y el título de la sección. El mini calendario de ausencias usa **anclas propias**
   (`.mini-calendario .mini-dia[data-fecha]`) y nunca `.cal-day`: los E2E del calendario grande
   buscan `.cal-day[data-fecha=…]` como único. La casa del Director suma
   `.tabla-casa td[data-fecha][data-comida] .celda-casa` (el botón de cada comida), `.panel-casa`
   dentro de `tr.fila-panel` (quiénes comen, con un `role="group"` por estado nombrado *"Sin definir
-  (2)"*), `.sub-tabs`/`.sub-tab` (las vistas de una persona), `.etiqueta-director` y
-  `.celda-director` (lo que cambió el Director), `.persona-casa` y
-  `.persona-comida` (la comida abierta de una persona, otra vez con `[data-fecha][data-comida]`) y
-  `.fila-extra`.
+  (2)"*), `.sub-tabs`/`.sub-tab` (las vistas de una persona), `.celda-director`
+  (lo que cambió el Director), `.persona-casa` (el nombre que abre su burbuja),
+  `.celda-casa-marco` con `.extra-mas` (el *"+ Extra"* de cada comida, hermano del botón de la
+  celda) y `.fila-extra` (cada extra ya agregado, dentro de su burbuja).
 - **La tabla de Administración se apila por el ancho de su tarjeta, no de la pantalla** (contenedor
   `tabla-admin` sobre `.admin-table-scroll`, umbral 34rem). En una media query el `rem` es siempre
   16px; en una consulta de contenedor sigue al tamaño de letra elegido, así que con letra "Muy

@@ -1,50 +1,206 @@
 'use client'
 
 import Link from 'next/link'
-import { Fragment, useEffect, useId, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState, type Ref } from 'react'
+import { Burbuja, devolverFoco, useRetoque, type MotivoCierre } from '@/components/ui/burbuja'
 import { Icono } from '@/components/ui/iconos'
 import type { TipoSemana } from '@/lib/comidas/semana'
-import { diaCambiadoPorOtro, diaCerrado, etiquetaTarjeta, lineasTarjeta, type DiaDeSemana } from '@/lib/comidas/vista'
+import { tituloComida } from '@/lib/comidas/semana'
+import { ETIQUETA_TIEMPO } from '@/lib/comidas/tipos'
+import {
+  diaCerrado,
+  etiquetaComidaTarjeta,
+  semanaCambiadaPorOtro,
+  textoCorto,
+  type ComidaDeSemana,
+  type DiaDeSemana,
+} from '@/lib/comidas/vista'
 import type { Voz } from '@/lib/comidas/voz'
 import type { FechaISO } from '@/lib/fechas'
 import { ContextoBorradores, useBorradoresDelGrupo } from './borradores-del-grupo'
-import { ComidaDelDia } from './comida-del-dia'
+import { ContenidoComida } from './contenido-comida'
 import { varsEstado } from './insignia-estado'
-import { revelar, revelarAlEntrar } from './revelar'
+import { revelarAlEntrar } from './revelar'
+import { useComidaDelDia } from './usar-comida-del-dia'
+
+/** Icono + texto corto + hora: el valor de una comida en su tarjeta (nunca solo el icono). */
+function ValorCorto({ comida }: { comida: ComidaDeSemana['valor'] }) {
+  const corto = textoCorto(comida)
+  return (
+    <span className="comida-tarjeta-valor">
+      <Icono nombre={corto.estado ?? 'sinDefinir'} />
+      <span className="comida-tarjeta-texto">{corto.texto}</span>
+      {corto.hora && <span className="tarjeta-hora">{corto.hora}</span>}
+    </span>
+  )
+}
+
+/** "Director" con el lápiz: la cambió él (la leyenda arriba de las tarjetas lo explica entero). */
+function MarcaDirector() {
+  return (
+    <span className="celda-director">
+      <Icono nombre="editado" />
+      Director
+    </span>
+  )
+}
 
 /**
- * La tarjetita de un día: nombre, fecha, Hoy/Ausente/Cerrado y sus tres comidas con icono + texto
- * corto + color (nunca solo icono). Elevada = se toca; un día cerrado es plano (solo se lee).
+ * Una comida en la tarjeta de su día. Abierta: un botón elevado con su color, su icono y su texto;
+ * tocarlo abre la burbuja con las opciones junto a él. Cerrada: plana, solo se lee.
  */
-function TarjetaDia({
+function ComidaDeTarjeta({
   dia,
+  datos,
   abierta,
-  controla,
-  alTocar,
+  idBurbuja,
+  diaAMedioCerrar,
+  alAbrir,
+  alCerrar,
+  usuarioId,
+  voz,
+  persona,
 }: {
   dia: DiaDeSemana
+  datos: ComidaDeSemana
   abierta: boolean
-  controla: string
-  alTocar: () => void
+  idBurbuja: string
+  /** Hoy, con alguna comida ya cerrada y otras no: cada cerrada lo dice escrito. */
+  diaAMedioCerrar: boolean
+  alAbrir: () => void
+  alCerrar: () => void
+  usuarioId?: string
+  voz: Voz
+  persona?: string
+}) {
+  const comida = useComidaDelDia({ fecha: dia.fecha, datos, usuarioId, voz })
+  const boton = useRef<HTMLButtonElement>(null)
+  const retoque = useRetoque()
+  const nombre = ETIQUETA_TIEMPO[datos.comida]
+  const delDirector = comida.valor?.cambiadaPorOtro === true
+
+  // Cerró con su burbuja abierta (pasó la hora mientras se miraba): la burbuja se va con el botón.
+  useEffect(() => {
+    if (abierta && !comida.editable) alCerrar()
+  }, [abierta, comida.editable, alCerrar])
+
+  if (!comida.editable) {
+    return (
+      <div className="comida-tarjeta cerrada" data-fecha={dia.fecha} data-comida={datos.comida}>
+        <span className="comida-tarjeta-nombre">{nombre}</span>
+        <span
+          className={`tarjeta-valor${comida.valor ? '' : ' vacia'}`}
+          style={comida.valor ? varsEstado(comida.valor.estado) : undefined}
+        >
+          <ValorCorto comida={comida.valor} />
+        </span>
+        {delDirector && <MarcaDirector />}
+        {diaAMedioCerrar && (
+          <span className="etiqueta-cerrado">
+            <Icono nombre="candado" />
+            Cerrada
+          </span>
+        )}
+      </div>
+    )
+  }
+
+  /** "Listo", volver a tocar la comida, un toque fuera: guarda lo escrito (o avisa y no cierra); Escape descarta. */
+  function cerrar(motivo: MotivoCierre): boolean {
+    if (!comida.soltar(motivo)) return false
+    alCerrar()
+    devolverFoco(motivo, boton.current)
+    return true
+  }
+
+  return (
+    <>
+      <button
+        ref={boton}
+        type="button"
+        className={`comida-tarjeta${comida.valor ? '' : ' vacia'}`}
+        style={comida.valor ? varsEstado(comida.valor.estado) : undefined}
+        data-fecha={dia.fecha}
+        data-comida={datos.comida}
+        data-abre-burbuja=""
+        aria-haspopup="dialog"
+        aria-expanded={abierta}
+        aria-controls={abierta ? idBurbuja : undefined}
+        aria-label={etiquetaComidaTarjeta(dia, datos.comida, comida.valor)}
+        aria-busy={comida.pendiente || undefined}
+        onClick={() => {
+          if (!abierta) {
+            retoque.abrir()
+            alAbrir()
+          } else if (!retoque.recienAbierta()) {
+            // El segundo toque de un doble toque no la cierra enseguida.
+            cerrar('listo')
+          }
+        }}
+      >
+        <span className="comida-tarjeta-nombre">{nombre}</span>
+        <ValorCorto comida={comida.valor} />
+        {delDirector && <MarcaDirector />}
+      </button>
+      {abierta && (
+        <Burbuja id={idBurbuja} ancla={boton} tituloId={`${idBurbuja}-titulo`} alCerrar={cerrar}>
+          <ContenidoComida
+            tituloId={`${idBurbuja}-titulo`}
+            titulo={tituloComida(datos.comida, dia.nombre, dia.fechaCorta)}
+            dia={dia.nombre}
+            datos={datos}
+            comida={comida}
+            voz={voz}
+            persona={persona}
+            alListo={() => cerrar('listo')}
+          />
+        </Burbuja>
+      )}
+    </>
+  )
+}
+
+/**
+ * La tarjetita de un día: nombre, fecha, Hoy/Ausente/Cerrado y sus tres comidas. La tarjeta ya no se
+ * toca entera: es una bandeja (hundida) y lo que se toca son sus comidas (elevadas), cada una con su
+ * color, su icono y su texto. Un día cerrado es plano: solo se lee.
+ */
+function TarjetaDia({
+  ref,
+  dia,
+  abierta,
+  idBurbuja,
+  alAbrir,
+  alCerrar,
+  usuarioId,
+  voz,
+  persona,
+}: {
+  ref?: Ref<HTMLElement>
+  dia: DiaDeSemana
+  /** La comida de este día con la burbuja abierta. */
+  abierta: ComidaDeSemana['comida'] | null
+  idBurbuja: string
+  alAbrir: (comida: ComidaDeSemana['comida']) => void
+  alCerrar: () => void
+  usuarioId?: string
+  voz: Voz
+  persona?: string
 }) {
   const cerrado = diaCerrado(dia)
-  // Si el Director cambió alguna comida del día, la persona lo ve sin abrir la tarjeta.
-  const delDirector = diaCambiadoPorOtro(dia)
+  const aMedioCerrar = !cerrado && dia.comidas.some((c) => !c.abierta)
   return (
-    <button
-      type="button"
+    <section
+      ref={ref}
       className={`tarjeta-dia${dia.esHoy ? ' today' : ''}${cerrado ? ' pasada' : ''}`}
-      aria-label={etiquetaTarjeta(dia)}
-      aria-expanded={abierta}
-      aria-controls={abierta ? controla : undefined}
-      onClick={alTocar}
+      aria-label={`${dia.nombre} ${dia.fechaCorta}`}
     >
-      <span className="tarjeta-cabeza">
-        <span className="tarjeta-nombre">{dia.nombre}</span>
+      <div className="tarjeta-cabeza">
+        <h2 className="tarjeta-nombre">{dia.nombre}</h2>
         <span className="tarjeta-fecha">{dia.fechaCorta}</span>
-      </span>
-      {(dia.esHoy || dia.ausente || cerrado || delDirector) && (
-        <span className="tarjeta-marcas">
+      </div>
+      {(dia.esHoy || dia.ausente || cerrado) && (
+        <div className="tarjeta-marcas">
           {dia.esHoy && <span className="etiqueta-hoy">Hoy</span>}
           {dia.ausente && (
             <span className="etiqueta-ausente">
@@ -58,46 +214,41 @@ function TarjetaDia({
               Cerrado
             </span>
           )}
-          {delDirector && (
-            <span className="etiqueta-director">
-              <Icono nombre="editado" />
-              Cambió el Director
-            </span>
-          )}
-        </span>
+        </div>
       )}
-      <span className="tarjeta-comidas">
-        {lineasTarjeta(dia).map((linea) => (
-          <span key={linea.comida} className="tarjeta-comida">
-            <span className="tarjeta-comida-nombre">{linea.etiqueta}</span>
-            <span
-              className={`tarjeta-valor${linea.estado ? '' : ' vacia'}`}
-              style={linea.estado ? varsEstado(linea.estado) : undefined}
-            >
-              {/* El icono nunca queda solo en una línea: va pegado a su texto. */}
-              <span className="tarjeta-valor-principal">
-                <Icono nombre={linea.estado ?? 'sinDefinir'} />
-                <span className="tarjeta-valor-texto">{linea.texto}</span>
-              </span>
-              {linea.hora && <span className="tarjeta-hora">{linea.hora}</span>}
-            </span>
-          </span>
+      <ul className="tarjeta-comidas">
+        {dia.comidas.map((datos) => (
+          <li key={datos.comida}>
+            <ComidaDeTarjeta
+              dia={dia}
+              datos={datos}
+              abierta={abierta === datos.comida}
+              idBurbuja={idBurbuja}
+              diaAMedioCerrar={aMedioCerrar}
+              alAbrir={() => alAbrir(datos.comida)}
+              alCerrar={alCerrar}
+              usuarioId={usuarioId}
+              voz={voz}
+              persona={persona}
+            />
+          </li>
         ))}
-      </span>
-    </button>
+      </ul>
+    </section>
   )
 }
 
 /**
- * La semana de una persona en siete tarjetitas (DESIGN.md §8). Tocar una abre sus tres comidas
- * debajo de su fila, con los mismos controles de siempre; una abierta a la vez. `diaInicial` es el
- * día que se abre solo (hoy en la semana en curso). En La casa, el Director ve la de otra persona:
- * `usuarioId` va a cada acción y los textos pasan a tercera persona (`voz` 'ajena').
+ * La semana de una persona en siete tarjetitas (DESIGN.md §8). Cada comida de cada tarjeta es un
+ * botón: tocarlo abre, en una burbuja junto a él, las mismas opciones que en el Plan; una burbuja a
+ * la vez. `diaAlEntrar`: la tarjeta que se trae a la vista al entrar (hoy en la semana en curso). En
+ * La casa, el Director ve la de otra persona: `usuarioId` va a cada acción y los textos pasan a
+ * tercera persona (`voz` 'ajena').
  */
 export function SemanaPersona({
   dias,
   tipo,
-  diaInicial,
+  diaAlEntrar,
   hrefSiguienteSemana,
   usuarioId,
   voz = 'propia',
@@ -105,7 +256,7 @@ export function SemanaPersona({
 }: {
   dias: DiaDeSemana[]
   tipo: TipoSemana
-  diaInicial: FechaISO | null
+  diaAlEntrar: FechaISO | null
   /** Solo en la semana en curso: "mañana" nunca se esconde detrás de la paginación. */
   hrefSiguienteSemana: string | null
   usuarioId?: string
@@ -113,33 +264,25 @@ export function SemanaPersona({
   /** Nombre de la persona (La casa). */
   persona?: string
 }) {
-  const idPanel = useId()
+  const idBurbuja = `${useId()}-burbuja`
   const borradores = useBorradoresDelGrupo()
-  const [abierta, setAbierta] = useState<FechaISO | null>(diaInicial)
-  const tarjetaAbierta = useRef<HTMLElement>(null)
-  const panel = useRef<HTMLDivElement>(null)
-  // El día que se abre solo al entrar se acomoda una vez (revelarAlEntrar); después, solo por toques.
-  const porToque = useRef(false)
+  const [abierta, setAbierta] = useState<{ fecha: FechaISO; comida: ComidaDeSemana['comida'] } | null>(null)
+  const tarjetaAlEntrar = useRef<HTMLElement>(null)
 
   useEffect(() => {
-    if (abierta && porToque.current) revelar(panel.current, tarjetaAbierta.current)
-  }, [abierta])
-
-  useEffect(() => {
-    if (!diaInicial) return
+    if (!diaAlEntrar) return
     // En el cuadro siguiente: al navegar, Next.js lleva la página arriba después de montarla.
-    const cuadro = requestAnimationFrame(() => revelarAlEntrar(panel.current, tarjetaAbierta.current))
+    const cuadro = requestAnimationFrame(() => revelarAlEntrar(tarjetaAlEntrar.current))
     return () => cancelAnimationFrame(cuadro)
     // Solo al montar: `key={lunes}` en la página vuelve a montar al cambiar de semana.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  function tocar(fecha: FechaISO) {
-    // Cerrar el día abierto (o pasar a otro) guarda lo que quedó escrito en sus comidas; si una nota
-    // no sirve, el día sigue abierto con el error a la vista.
+  function abrir(fecha: FechaISO, comida: ComidaDeSemana['comida']) {
+    // Pasar de una comida a otra guarda lo que quedó escrito en la abierta; si la nota no sirve, la
+    // burbuja sigue abierta con el error a la vista.
     if (abierta && !borradores.confirmarTodos()) return
-    porToque.current = true
-    setAbierta((antes) => (antes === fecha ? null : fecha))
+    setAbierta({ fecha, comida })
   }
 
   const ultimoDia = dias.at(-1)?.esHoy ?? false
@@ -149,53 +292,36 @@ export function SemanaPersona({
       {tipo === 'pasada' && (
         <div className="locked-banner">Semana pasada: solo consulta. Podés cambiar la semana actual y la siguiente.</div>
       )}
-      <p className="hint semana-ayuda">
-        {tipo === 'pasada' ? 'Tocá un día para ver sus comidas.' : 'Tocá un día para ver o cambiar sus comidas.'}
-      </p>
+      {tipo !== 'pasada' && <p className="hint semana-ayuda">Tocá una comida para cambiarla.</p>}
+      {semanaCambiadaPorOtro(dias) && (
+        <p className="leyenda-director">
+          <span className="celda-director">
+            <Icono nombre="editado" />
+            Director
+          </span>
+          {voz === 'propia' ? '= la cambió el Director, no vos.' : '= la cambió un Director.'}
+        </p>
+      )}
 
       <div className="semana-marco">
-        <div className="tarjetas-semana week-list">
-          {dias.map((dia) => {
-            const esta = abierta === dia.fecha
-            const etiqueta = `${dia.nombre} ${dia.fechaCorta}`
-            return (
-              <Fragment key={dia.fecha}>
-                <section ref={esta ? tarjetaAbierta : undefined} aria-label={etiqueta}>
-                  <TarjetaDia dia={dia} abierta={esta} controla={idPanel} alTocar={() => tocar(dia.fecha)} />
-                </section>
-                {/* Justo después de su tarjeta y a todo el ancho: grid-auto-flow dense sube las
-                    tarjetas siguientes a la fila de arriba, así el panel queda debajo de esa fila. */}
-                {esta && (
-                  <div
-                    id={idPanel}
-                    ref={panel}
-                    className={`panel-dia${diaCerrado(dia) ? ' pasada' : ''}`}
-                    role="region"
-                    aria-labelledby={`${idPanel}-titulo`}
-                  >
-                    <h2 id={`${idPanel}-titulo`} className="panel-dia-titulo">
-                      Comidas del {etiqueta.toLowerCase()}
-                    </h2>
-                    <ContextoBorradores value={borradores.registrar}>
-                      {dia.comidas.map((comida) => (
-                        <ComidaDelDia
-                          key={comida.comida}
-                          fecha={dia.fecha}
-                          dia={dia.nombre}
-                          etiquetaDia={etiqueta}
-                          datos={comida}
-                          usuarioId={usuarioId}
-                          voz={voz}
-                          persona={persona}
-                        />
-                      ))}
-                    </ContextoBorradores>
-                  </div>
-                )}
-              </Fragment>
-            )
-          })}
-        </div>
+        <ContextoBorradores value={borradores.registrar}>
+          <div className="tarjetas-semana week-list">
+            {dias.map((dia) => (
+              <TarjetaDia
+                key={dia.fecha}
+                ref={dia.fecha === diaAlEntrar ? tarjetaAlEntrar : undefined}
+                dia={dia}
+                abierta={abierta?.fecha === dia.fecha ? abierta.comida : null}
+                idBurbuja={idBurbuja}
+                alAbrir={(comida) => abrir(dia.fecha, comida)}
+                alCerrar={() => setAbierta(null)}
+                usuarioId={usuarioId}
+                voz={voz}
+                persona={persona}
+              />
+            ))}
+          </div>
+        </ContextoBorradores>
       </div>
 
       {hrefSiguienteSemana && (

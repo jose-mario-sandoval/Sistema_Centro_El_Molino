@@ -3,13 +3,18 @@ import {
   ajustarCantidad,
   descripcionComidas,
   diasParaExtra,
+  etiquetaAgregarExtra,
   etiquetaCeldaCasa,
   etiquetaGrupo,
+  extrasDeComida,
+  extraSinGuardar,
   notasPorComida,
   pestanasComidas,
   pestanasPersona,
+  textoCantidadExtra,
   textoExtra,
-  tituloComidaCasa,
+  tituloComidaDePersona,
+  tituloExtras,
 } from '@/lib/comidas/casa'
 import { resumenComida } from '@/lib/comidas/resumen'
 
@@ -59,13 +64,14 @@ describe('pestanasPersona: las vistas de una persona en La casa', () => {
   })
 })
 
-describe('tituloComidaCasa', () => {
-  it.each([
-    ['almuerzo', 'Almuerzo del miércoles 23/9'],
-    ['cena', 'Cena del miércoles 23/9'],
-    ['desayuno', 'Desayuno del miércoles 23/9'],
-  ] as const)('%s → %s', (comida, esperado) => {
-    expect(tituloComidaCasa(comida, 'Miércoles', '23/9')).toBe(esperado)
+describe('tituloComidaDePersona: el título de la burbuja de una persona en "quiénes comen"', () => {
+  it('de otra persona: su nombre, la comida y el día', () => {
+    expect(tituloComidaDePersona('almuerzo', 'Miércoles', '23/9', 'Juan Pérez')).toBe('Almuerzo de Juan Pérez, miércoles 23/9')
+  })
+
+  it('el Director mirándose a sí mismo: "Tu …"', () => {
+    expect(tituloComidaDePersona('almuerzo', 'Miércoles', '23/9', null)).toBe('Tu almuerzo del miércoles 23/9')
+    expect(tituloComidaDePersona('cena', 'Viernes', '25/9', null)).toBe('Tu cena del viernes 25/9')
   })
 })
 
@@ -91,6 +97,12 @@ describe('etiquetaCeldaCasa: nombre accesible del botón de una celda', () => {
   it('si ya cerró, lo dice (se toca igual, para ver quiénes comieron)', () => {
     expect(etiquetaCeldaCasa('almuerzo', 'Lunes', '21/9', resumen, 2, true)).toBe(
       'Almuerzo del lunes 21/9: 2 comen. 1 temprano (07:30), 1 sí, 1 sin definir. +2 extra. Cerrada. Ver quiénes',
+    )
+  })
+
+  it('con las notas de los extras que se ven en la celda', () => {
+    expect(etiquetaCeldaCasa('cena', 'Viernes', '25/9', resumen, 3, false, ['3 extra: Sin sal'])).toBe(
+      'Cena del viernes 25/9: 2 comen. 1 temprano (07:30), 1 sí, 1 sin definir. +3 extra. 3 extra: Sin sal. Ver quiénes',
     )
   })
 
@@ -131,6 +143,45 @@ describe('textoExtra', () => {
     expect(textoExtra({ id: 'x', fecha: '2026-09-23', comida: 'desayuno', cantidad: 1, nota: 'x' })).toBe(
       'Miércoles 23/9 · Desayuno · 1 persona',
     )
+  })
+})
+
+describe('textoCantidadExtra', () => {
+  it('"1 persona" · "3 personas"', () => {
+    expect(textoCantidadExtra(1)).toBe('1 persona')
+    expect(textoCantidadExtra(3)).toBe('3 personas')
+  })
+})
+
+describe('el "+ Extra" de cada comida en La casa', () => {
+  it('etiquetaAgregarExtra: el nombre accesible del botón dice a qué comida agrega', () => {
+    expect(etiquetaAgregarExtra('almuerzo', 'Miércoles', '30/9')).toBe('Agregar extra al almuerzo del miércoles 30/9')
+    expect(etiquetaAgregarExtra('desayuno', 'Lunes', '28/9')).toBe('Agregar extra al desayuno del lunes 28/9')
+    expect(etiquetaAgregarExtra('cena', 'Viernes', '2/10')).toBe('Agregar extra a la cena del viernes 2/10')
+  })
+
+  it('tituloExtras: el título de su burbuja', () => {
+    expect(tituloExtras('almuerzo', 'Miércoles', '30/9')).toBe('Extras para el almuerzo del miércoles 30/9')
+    expect(tituloExtras('cena', 'Viernes', '2/10')).toBe('Extras para la cena del viernes 2/10')
+  })
+
+  it('extrasDeComida: solo los de ese día y esa comida', () => {
+    const extras = [
+      { id: 'a', fecha: '2026-09-30', comida: 'almuerzo' as const, cantidad: 2, nota: null },
+      { id: 'b', fecha: '2026-09-30', comida: 'cena' as const, cantidad: 1, nota: 'Sin sal' },
+      { id: 'c', fecha: '2026-10-01', comida: 'almuerzo' as const, cantidad: 4, nota: null },
+      { id: 'd', fecha: '2026-09-30', comida: 'almuerzo' as const, cantidad: 1, nota: 'Llega tarde' },
+    ]
+    expect(extrasDeComida(extras, '2026-09-30', 'almuerzo').map((e) => e.id)).toEqual(['a', 'd'])
+    expect(extrasDeComida(extras, '2026-10-02', 'almuerzo')).toEqual([])
+  })
+
+  it('extraSinGuardar: hay algo escrito que no se agregó (nunca se pierde en silencio)', () => {
+    expect(extraSinGuardar({ cantidad: '1', nota: '' })).toBe(false)
+    expect(extraSinGuardar({ cantidad: '1', nota: '   ' })).toBe(false)
+    expect(extraSinGuardar({ cantidad: '3', nota: '' })).toBe(true)
+    expect(extraSinGuardar({ cantidad: '1', nota: 'Sin sal' })).toBe(true)
+    expect(extraSinGuardar({ cantidad: '', nota: '' })).toBe(true)
   })
 })
 

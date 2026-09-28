@@ -2,11 +2,10 @@ import { estaAusente, type RangoAusencia } from '@/lib/ausencias/tipos'
 import { diaSemana, fechaISOEn, type FechaISO } from '@/lib/fechas'
 import { comidaSinCerrar, estaAbierta, VALOR_POR_AUSENCIA, valorEfectivo } from './reglas'
 import { resumenComida, type ClaveResumen, type ResumenComida } from './resumen'
-import { diasDeSemana, fechaCorta, nombreDia, textoCierre } from './semana'
+import { diasDeSemana, fechaCorta, nombreDia, textoCierre, tituloComida } from './semana'
 import { CAMBIADA_POR_EL_DIRECTOR } from './voz'
 import {
   ETIQUETA_CORTA_ESTADO,
-  ETIQUETA_TIEMPO,
   INFO_ESTADO,
   TIEMPOS_COMIDA,
   type EstadoComida,
@@ -206,44 +205,41 @@ export function textoValor(valor: ValorComida | null): string {
   return nota === 'hora' ? `${etiqueta} ${valor.nota}` : `${etiqueta}, ${valor.nota}`
 }
 
-export type LineaTarjeta = TextoCorto & { comida: TiempoComida; etiqueta: string }
-
-/** Las tres líneas de la tarjeta de un día: 'Desayuno' + icono + 'Temprano 07:30'. */
-export function lineasTarjeta(dia: DiaDeSemana): LineaTarjeta[] {
-  return dia.comidas.map(({ comida, valor }) => ({ comida, etiqueta: ETIQUETA_TIEMPO[comida], ...textoCorto(valor) }))
-}
-
 /** Un día está cerrado cuando ya no se puede cambiar ninguna de sus comidas (pasado, o hoy tras la cena). */
 export function diaCerrado(dia: DiaDeSemana): boolean {
   return dia.comidas.every((comida) => !comida.abierta)
 }
 
-/** Nombre accesible de la tarjeta: 'Miércoles 23/9, hoy. Desayuno: Sí comer. Almuerzo: …'. */
-export function etiquetaTarjeta(dia: DiaDeSemana): string {
-  const marcas = [
-    dia.esHoy && 'hoy',
-    dia.ausente && 'ausente',
-    diaCerrado(dia) && 'cerrado',
-    diaCambiadoPorOtro(dia) && 'cambió el Director',
-  ].filter(Boolean)
-  const cabeza = [`${dia.nombre} ${dia.fechaCorta}`, ...marcas].join(', ')
-  const comidas = dia.comidas.map(({ comida, valor }) => {
-    const quien = valor?.cambiadaPorOtro ? `, ${CAMBIADA_POR_EL_DIRECTOR}` : ''
-    return `${ETIQUETA_TIEMPO[comida]}: ${textoValor(valor)}${quien}.`
-  })
-  return `${cabeza}. ${comidas.join(' ')}`
+/**
+ * Nombre accesible del botón de una comida en la tarjeta de su día: todo lo que se ve escrito, quién
+ * la cambió y qué hace tocarlo. 'Almuerzo del miércoles 23/9: Comer temprano 07:30. Cambiar'.
+ * `valor` es el que muestra el botón (puede adelantarse al guardado mientras se guarda).
+ */
+export function etiquetaComidaTarjeta(
+  dia: Pick<DiaDeSemana, 'nombre' | 'fechaCorta'>,
+  comida: TiempoComida,
+  valor: ValorEfectivo,
+): string {
+  const quien = valor?.cambiadaPorOtro ? `, ${CAMBIADA_POR_EL_DIRECTOR}` : ''
+  return `${tituloComida(comida, dia.nombre, dia.fechaCorta)}: ${textoValor(valor)}${quien}. Cambiar`
 }
 
-/** Algún valor del día lo cambió otra persona (el Director): la tarjeta lo dice a la vista. */
+/** Algún valor del día lo cambió otra persona (el Director). */
 export function diaCambiadoPorOtro(dia: DiaDeSemana): boolean {
   return dia.comidas.some((comida) => comida.valor?.cambiadaPorOtro === true)
 }
 
+/** Alguna comida de la semana la cambió el Director: arriba de las tarjetas va la leyenda del lápiz. */
+export function semanaCambiadaPorOtro(dias: readonly DiaDeSemana[]): boolean {
+  return dias.some(diaCambiadoPorOtro)
+}
+
 /**
- * Qué día de la semana en curso se abre solo: hoy, o si hoy ya cerró entero, el primero que todavía
- * tenga algo por cambiar (DESIGN.md §8: lo primero en pantalla es algo que se puede cambiar).
+ * Qué tarjeta de la semana en curso se trae a la vista al entrar: hoy, o si hoy ya cerró entero, el
+ * primer día que todavía tenga algo por cambiar (DESIGN.md §8: lo primero en pantalla es algo que se
+ * puede cambiar).
  */
-export function diaParaAbrir(dias: readonly DiaDeSemana[]): FechaISO | null {
+export function diaParaMostrar(dias: readonly DiaDeSemana[]): FechaISO | null {
   const hoy = dias.findIndex((dia) => dia.esHoy)
   if (hoy < 0) return null
   return dias.slice(hoy).find((dia) => !diaCerrado(dia))?.fecha ?? null
