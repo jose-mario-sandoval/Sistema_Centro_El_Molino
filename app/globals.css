@@ -253,6 +253,7 @@ a{color:var(--acento);}
 
 .nav{display:flex;flex-direction:column;gap:.6rem;}
 .nav-item{
+  position:relative;
   display:flex;align-items:center;gap:.75rem;
   min-height:var(--toque);padding:0 1rem;
   border-radius:var(--r-md);border:2px solid var(--borde-elevado);
@@ -263,6 +264,16 @@ a{color:var(--acento);}
 .nav-item:hover{box-shadow:var(--relieve);}
 .nav-item.active{box-shadow:var(--hundido);color:var(--acento);}
 [data-contraste="alto"] .nav-item.active{border-color:var(--acento);background:var(--acento-suave);}
+
+/* Globito con una cantidad (pendientes de aprobación): número visible y texto para el lector de
+   pantalla al lado (components/app/pendientes.tsx). Peligro sobre pergamino: ≥4.5:1 en los cuatro modos. */
+.insignia-conteo{
+  display:inline-grid;place-items:center;min-width:1.75em;height:1.75em;padding:0 .45em;
+  border-radius:var(--r-full);background:var(--peligro);color:var(--fondo);
+  box-shadow:0 0 0 2px var(--fondo);
+  font-size:var(--t-xs);font-weight:700;line-height:1;font-variant-numeric:tabular-nums;
+}
+.nav .insignia-conteo{margin-left:auto;}
 
 .sidebar-foot{margin-top:auto;display:flex;flex-direction:column;gap:.75rem;}
 .who-box{
@@ -306,6 +317,7 @@ a{color:var(--acento);}
   transition:box-shadow var(--dur) var(--curva);
 }
 .tab-btn.active{box-shadow:var(--hundido);color:var(--acento);}
+.tab-btn .insignia-conteo{margin-left:.5rem;}
 [data-contraste="alto"] .tab-btn.active{border-color:var(--acento);background:var(--acento-suave);}
 
 /* Superficie elevada. Lo que va adentro es plano o hundido, nunca elevado otra vez. */
@@ -641,6 +653,98 @@ a{color:var(--acento);}
 /* Cambio respecto del plan: celda teñida (sin franja lateral). */
 .admin-week-table td.excepcion{background:var(--dorado-suave);}
 .admin-week-table td.sin-definir .status-note{color:var(--peligro);font-weight:600;}
+/* Semana y Plan de Administración: un día por fila y una columna por comida, de igual ancho. */
+.admin-week-table{table-layout:fixed;}
+.admin-week-table thead th:first-child{width:19%;}
+
+/* Desglose de una comida (celda-resumen.tsx): cuántos comen y, debajo, cómo. Cada línea lleva
+   icono + texto + color: el color nunca va solo. */
+.conteo-celda{display:flex;flex-wrap:wrap;align-items:baseline;gap:0 .35rem;}
+.conteo-celda .conteo-numero{font-size:var(--t-xl);}
+.conteo-etiqueta{font-size:var(--t-sm);font-weight:600;color:var(--tinta-suave);}
+.conteo-celda ~ .partes{margin-top:.6rem;gap:.4rem;}
+.conteo-celda ~ .partes .parte{padding:.3rem .6rem;line-height:1.3;}
+/* Los extras no están en el número: se leen aparte, con el mismo peso que una línea del desglose. */
+.conteo-extra{margin-top:.5rem;font-weight:700;color:var(--tinta);}
+.notas-extra{display:flex;flex-direction:column;gap:.2rem;margin-top:.25rem;font-size:var(--t-sm);color:var(--tinta-suave);}
+.notas-extra > *{display:block;}
+
+/* Contraste alto sin relieve: cada fila (un día) lleva su borde, como toda superficie hundida.
+   Apilada, el borde lo lleva la ficha entera (abajo se quitan los de las celdas). */
+[data-contraste="alto"] .admin-week-table td,
+[data-contraste="alto"] .admin-week-table .namecell{border-block:2px solid var(--borde-hundido);}
+[data-contraste="alto"] .admin-week-table .namecell{border-left:2px solid var(--borde-hundido);}
+[data-contraste="alto"] .admin-week-table td:last-child{border-right:2px solid var(--borde-hundido);}
+
+/* Tarjeta angosta: la tabla se apila como fichas (un día por ficha, una comida por renglón) con
+   sus etiquetas escritas. Sin scroll lateral (DESIGN.md §8). Se mide la tarjeta y no la pantalla:
+   en una consulta de contenedor el rem sigue al tamaño de letra elegido, así que con letra "Muy
+   grande" la tabla se apila antes de que el desglose deje de caber en sus columnas. El umbral es
+   el menor que no desborda con ninguna letra entre 320 y 1700px (así una tablet vertical ve la
+   tabla y no fichas). Contenedor con nombre: si la tabla va dentro de otro contenedor (PR 5), la
+   consulta no se equivoca de caja. */
+.admin-table-scroll{container:tabla-admin / inline-size;}
+@container tabla-admin (width <= 34rem){
+  .admin-week-table,.admin-week-table tbody,.admin-week-table tr{display:block;width:100%;}
+  .admin-week-table thead{display:none;}
+  .admin-week-table tr{
+    margin-bottom:.9rem;padding:.75rem var(--marco);border-radius:var(--r-md);
+    border:2px solid var(--borde-hundido);box-shadow:var(--hundido-suave);
+  }
+  .admin-week-table th.namecell,.admin-week-table td,.admin-week-table td:last-child{
+    display:block;width:100%;padding:.35rem 0;background:none;box-shadow:none;border-radius:0;
+  }
+  [data-contraste="alto"] .admin-week-table .namecell,
+  [data-contraste="alto"] .admin-week-table td,
+  [data-contraste="alto"] .admin-week-table td:last-child{border:0;}
+  .admin-week-table th.namecell{font-size:var(--t-base);padding-bottom:.5rem;}
+  /* Cada comida: etiqueta a la izquierda, cuántos comen a la derecha y el desglose debajo, a todo
+     el ancho y en renglones. Una línea separa las comidas del día. */
+  .admin-week-table td[data-et]{display:flex;align-items:center;flex-wrap:wrap;gap:.3rem .6rem;}
+  .admin-week-table td[data-et]::before{
+    content:attr(data-et);flex:1 1 auto;font-size:var(--t-xs);font-weight:700;color:var(--tinta-suave);
+    text-transform:uppercase;letter-spacing:.04em;
+  }
+  .admin-week-table td[data-et] + td[data-et]{border-top:2px solid var(--separador);margin-top:.35rem;padding-top:.7rem;}
+  .admin-week-table td[data-et] .partes{flex-basis:100%;flex-direction:row;flex-wrap:wrap;margin-top:.15rem;}
+  .admin-week-table td[data-et] .status-note,
+  .admin-week-table td[data-et] .notas-extra{flex-basis:100%;text-align:right;margin:0;}
+  .admin-week-table td.excepcion{background:var(--dorado-suave);padding:.35rem .6rem;border-radius:var(--r-sm);}
+  .admin-week-table td .plan-linea{white-space:normal;}
+}
+/* Navegadores sin consultas de contenedor (iOS 15 y anteriores): mismo apilado, por ancho de
+   pantalla. Mantener igual al bloque de arriba. */
+@supports not (container-type:inline-size){
+  @media (max-width:40rem){
+    .admin-week-table,.admin-week-table tbody,.admin-week-table tr{display:block;width:100%;}
+    .admin-week-table thead{display:none;}
+    .admin-week-table tr{
+      margin-bottom:.9rem;padding:.75rem var(--marco);border-radius:var(--r-md);
+      border:2px solid var(--borde-hundido);box-shadow:var(--hundido-suave);
+    }
+    .admin-week-table th.namecell,.admin-week-table td,.admin-week-table td:last-child{
+      display:block;width:100%;padding:.35rem 0;background:none;box-shadow:none;border-radius:0;
+    }
+    [data-contraste="alto"] .admin-week-table .namecell,
+    [data-contraste="alto"] .admin-week-table td,
+    [data-contraste="alto"] .admin-week-table td:last-child{border:0;}
+    .admin-week-table th.namecell{font-size:var(--t-base);padding-bottom:.5rem;}
+    /* Cada comida: etiqueta a la izquierda, cuántos comen a la derecha y el desglose debajo, a todo
+       el ancho y en renglones. Una línea separa las comidas del día. */
+    .admin-week-table td[data-et]{display:flex;align-items:center;flex-wrap:wrap;gap:.3rem .6rem;}
+    .admin-week-table td[data-et]::before{
+      content:attr(data-et);flex:1 1 auto;font-size:var(--t-xs);font-weight:700;color:var(--tinta-suave);
+      text-transform:uppercase;letter-spacing:.04em;
+    }
+    .admin-week-table td[data-et] + td[data-et]{border-top:2px solid var(--separador);margin-top:.35rem;padding-top:.7rem;}
+    .admin-week-table td[data-et] .partes{flex-basis:100%;flex-direction:row;flex-wrap:wrap;margin-top:.15rem;}
+    .admin-week-table td[data-et] .status-note,
+    .admin-week-table td[data-et] .notas-extra{flex-basis:100%;text-align:right;margin:0;}
+    .admin-week-table td.excepcion{background:var(--dorado-suave);padding:.35rem .6rem;border-radius:var(--r-sm);}
+    .admin-week-table td .plan-linea{white-space:normal;}
+  }
+}
+
 .plan-linea{display:flex;align-items:center;gap:.35rem;margin-bottom:.35rem;white-space:nowrap;}
 .plan-linea .plan-letra{font-weight:700;color:var(--tinta-suave);}
 .plan-linea .status-badge{font-size:var(--t-xs);padding:.1rem .5rem;}
@@ -692,6 +796,28 @@ a{color:var(--acento);}
   background:var(--fondo);color:var(--tinta);
   border:2px solid var(--borde-hundido);border-radius:var(--r-sm);box-shadow:var(--hundido);
 }
+
+/* Fijados: arriba del feed, con título (icono + texto). Cada fijada lleva además su insignia. */
+.titulo-feed{display:flex;align-items:center;gap:.5rem;font-size:var(--t-lg);margin-bottom:1rem;}
+.seccion-fijados{margin-bottom:2.25rem;}
+.seccion-fijados .titulo-feed{color:var(--dorado);}
+.msg:focus-visible{outline-offset:4px;}
+.insignia-fijado{
+  display:inline-flex;align-items:center;gap:.4rem;justify-self:start;max-width:100%;margin-bottom:.4rem;
+  padding:.2rem .75rem;border-radius:var(--r-md);
+  border:2px solid var(--borde-hundido);box-shadow:var(--hundido-suave);
+  color:var(--dorado);font-size:var(--t-xs);font-weight:700;line-height:1.35;
+}
+.insignia-fijado .icono{width:1.15em;height:1.15em;}
+[data-contraste="alto"] .insignia-fijado{border-color:var(--dorado);}
+/* Por cuánto tiempo fijarla: bandeja hundida en la tarjeta, con opciones en pastilla (sin modal). */
+.panel-fijar{
+  margin-top:1rem;padding:1rem min(1rem, 3vw);border-radius:var(--r-md);
+  border:2px solid var(--borde-hundido);box-shadow:var(--hundido);
+}
+.panel-fijar .grupo-campo{margin-bottom:.5rem;}
+.panel-fijar .field{margin:.75rem 0 0;max-width:20rem;}
+.panel-fijar .acciones-formulario{margin-top:1rem;}
 
 /* Cola de moderación del Director: una tarjeta por mensaje pendiente, más viejo primero. */
 .lista-pendientes{display:flex;flex-direction:column;gap:1.25rem;}
@@ -998,6 +1124,8 @@ a{color:var(--acento);}
   .barra-inferior .nav-item .icono{width:1.6em;height:1.6em;}
   .barra-inferior .nav-item.active{box-shadow:var(--hundido);}
   [data-contraste="alto"] .barra-inferior .nav-item.active{border-color:var(--acento);}
+  /* El globito va sobre la esquina del icono: no ensancha la etiqueta ni empuja a las demás. */
+  .barra-inferior .insignia-conteo{position:absolute;top:.2rem;left:calc(50% + .3rem);font-size:min(var(--t-xs), 3.6vw);}
 
   .toast{bottom:calc(6rem + env(safe-area-inset-bottom, 0px));}
   /* Un panel recién abierto no cuenta como visible si lo tapa la barra inferior. */
@@ -1012,30 +1140,22 @@ a{color:var(--acento);}
   .barra-inferior{display:none;}
 }
 
-/* Teléfono: las tablas se apilan como fichas con sus etiquetas escritas. Sin scroll lateral. */
+/* Teléfono: las tablas se apilan como fichas con sus etiquetas escritas. Sin scroll lateral.
+   (.admin-week-table se apila con su propia regla, por ancho de la tarjeta: sección 6.) */
 @media (max-width:40rem){
-  .admin-week-table,.admin-week-table tbody,.admin-week-table tr,
   .user-table,.user-table tbody,.user-table tr{display:block;width:100%;}
-  .admin-week-table thead,.user-table thead{display:none;}
-  .admin-week-table tr,.user-table tr{
+  .user-table thead{display:none;}
+  .user-table tr{
     margin-bottom:.9rem;padding:.75rem var(--marco);border-radius:var(--r-md);
     border:2px solid var(--borde-hundido);box-shadow:var(--hundido-suave);
   }
-  .admin-week-table th.namecell,.admin-week-table td,.user-table td{
+  .user-table td{
     display:block;width:100%;padding:.35rem 0;background:none;box-shadow:none;border-radius:0;
   }
-  .admin-week-table th.namecell{font-size:var(--t-base);padding-bottom:.5rem;}
-  /* Cada comida en una sola línea: etiqueta a la izquierda, respuesta a la derecha. */
-  .admin-week-table td[data-et]{display:flex;align-items:center;flex-wrap:wrap;gap:.3rem .6rem;}
-  .admin-week-table td[data-et]::before,.user-table td[data-et]::before{
-    content:attr(data-et);font-size:var(--t-xs);font-weight:700;color:var(--tinta-suave);
+  .user-table td[data-et]::before{
+    content:attr(data-et);display:block;font-size:var(--t-xs);font-weight:700;color:var(--tinta-suave);
     text-transform:uppercase;letter-spacing:.04em;
   }
-  .admin-week-table td[data-et]::before{flex:1 1 auto;}
-  .admin-week-table td.excepcion{background:var(--dorado-suave);padding:.35rem .6rem;border-radius:var(--r-sm);}
-  .admin-week-table td[data-et] .status-note{flex-basis:100%;text-align:right;margin:0;}
-  .admin-week-table td .plan-linea{white-space:normal;}
-  .user-table td[data-et]::before{display:block;}
   .acciones-cuenta{justify-content:flex-start;}
 
   /* Mensajes: mensaje, hilo y respuesta anidados reservaban cada uno una columna para el avatar

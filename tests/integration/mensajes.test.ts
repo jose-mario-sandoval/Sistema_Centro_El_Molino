@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { afterEach, beforeAll, describe, expect, it } from 'vitest'
-import { consultarPaginaFeed } from '@/lib/mensajes/consulta-feed'
+import { consultarPaginaFeed, consultarPublicacion } from '@/lib/mensajes/consulta-feed'
 import { TAMANO_PAGINA } from '@/lib/mensajes/feed'
 import type { Database } from '@/lib/supabase/database.types'
 import {
@@ -402,7 +402,7 @@ describe('consulta del feed', () => {
     }
   })
 
-  it('pagina de a TAMANO_PAGINA con cursor, sin repetir ni saltear, aunque solo difieran los microsegundos', async () => {
+  it('pagina de a TAMANO_PAGINA con cursor, sin repetir ni saltear, aunque solo difieran los microsegundos (y con una fijada vieja)', async () => {
     // Todas en el mismo milisegundo (.123), distintas solo en los microsegundos: el cursor y el orden tienen
     // que compararlos, porque Date no los ve.
     const creadoEn = (i: number) => `2026-01-01T12:00:00.123${String(456 + i).padStart(3, '0')}+00:00`
@@ -424,15 +424,23 @@ describe('consulta del feed', () => {
     const nuevas = new Set<string>(filas.map((f) => f.id))
     // De la más nueva (.123507) a la más antigua (.123456).
     const esperadas = filas.map((f) => f.id).reverse()
+    // La más antigua, fijada: viene arriba con la primera página aunque no entre en ella, y no mueve el cursor.
+    const vieja = filas[0].id
+    const fijar = await (await clienteComo('director')).rpc('fijar_mensaje', { p_id: vieja, p_hasta: null })
+    expect(fijar.error).toBeNull()
 
     const primera = await paginaComo('administracion')
     expect(primera.publicaciones).toHaveLength(TAMANO_PAGINA)
     expect(primera.hayMas).toBe(true)
+    expect(primera.fijadas.map((p) => p.id)).toEqual([vieja])
+    expect(primera.publicaciones.map((p) => p.id)).not.toContain(vieja)
 
-    const cursor = primera.publicaciones.at(-1)!.creadoEn
     // La más antigua de la primera página es la número 50 desde la más nueva, no una cualquiera del milisegundo.
-    expect(cursor).toMatch(/^2026-01-01T12:00:00\.123458/)
-    const segunda = await paginaComo('administracion', cursor)
+    expect(primera.cursor).toBe(primera.publicaciones.at(-1)!.creadoEn)
+    expect(primera.cursor).toMatch(/^2026-01-01T12:00:00\.123458/)
+    const segunda = await paginaComo('administracion', primera.cursor)
+    // Las fijadas vienen solo con la primera página.
+    expect(segunda.fijadas).toEqual([])
 
     const vistas = [...primera.publicaciones, ...segunda.publicaciones].map((p) => p.id)
     expect(new Set(vistas).size).toBe(vistas.length)
@@ -475,6 +483,28 @@ describe('aprobación de mensajes', () => {
     const director = await clienteComo('director')
     const { data: delDirector } = await director.from('mensajes').insert({ autor_id: ids.director, texto: 'Aviso' }).select('estado').single()
     expect(delDirector!.estado).toBe('aprobado')
+  })
+
+  it('con sesión, la fecha la pone la base: nadie queda primero en el feed con una fecha futura', async () => {
+    const antes = Date.now()
+    for (const clave of ['residente', 'administracion'] as const) {
+      const cliente = await clienteComo(clave)
+      const { data, error } = await cliente
+        .from('mensajes')
+        .insert({ autor_id: ids[clave], texto: 'Del futuro', creado_en: '2099-01-01T00:00:00Z' })
+        .select('creado_en')
+        .single()
+      expect(error).toBeNull()
+      expect(Date.parse(data!.creado_en)).toBeLessThan(antes + 5 * 60_000)
+      expect(Date.parse(data!.creado_en)).toBeGreaterThan(antes - 5 * 60_000)
+    }
+    // Con la llave secreta (siembras y pruebas) se respeta la fecha que venga.
+    const { data: sembrado } = await admin
+      .from('mensajes')
+      .insert({ autor_id: ids.residente, texto: 'Sembrado viejo', creado_en: '2020-01-01T00:00:00Z' })
+      .select('creado_en')
+      .single()
+    expect(Date.parse(sembrado!.creado_en)).toBe(Date.parse('2020-01-01T00:00:00Z'))
   })
 
   it('el cliente no puede autoaprobarse mandando estado en el insert', async () => {
@@ -569,5 +599,228 @@ describe('aprobación de mensajes', () => {
     const otroResidente = await clienteComo('residente2')
     const { data } = await otroResidente.from('reacciones').select('mensaje_id').eq('mensaje_id', mensaje.id)
     expect(data).toEqual([])
+  })
+})
+
+describe('Administración publica directo', () => {
+  it('su publicación y su respuesta quedan aprobadas y todos las ven', async () => {
+    const administracion = await clienteComo('administracion')
+    const { data: publicacion, error } = await administracion
+      .from('mensajes')
+      .insert({ autor_id: ids.administracion, texto: 'Mañana se fumiga la cocina' })
+      .select('id, estado')
+      .single()
+    expect(error).toBeNull()
+    expect(publicacion!.estado).toBe('aprobado')
+
+    const { data: respuesta } = await administracion
+      .from('mensajes')
+      .insert({ autor_id: ids.administracion, padre_id: publicacion!.id, texto: 'A las 8' })
+      .select('estado')
+      .single()
+    expect(respuesta!.estado).toBe('aprobado')
+
+    const otroResidente = await clienteComo('residente2')
+    const { data } = await otroResidente.from('mensajes').select('id').eq('id', publicacion!.id)
+    expect(data).toEqual([{ id: publicacion!.id }])
+  })
+
+  it('no aprueba ni toca el pendiente de otra persona', async () => {
+    const id = await publicar('residente', 'Pendiente ajeno')
+    const administracion = await clienteComo('administracion')
+    const { data } = await administracion.from('mensajes').update({ estado: 'aprobado' }).eq('id', id).select('id')
+    expect(data).toEqual([])
+    const { data: fila } = await admin.from('mensajes').select('estado').eq('id', id).single()
+    expect(fila!.estado).toBe('pendiente')
+  })
+
+  it('el autor que reenvía un rechazo sin cambiar el texto vuelve a pendiente', async () => {
+    const id = await publicar('residente', 'Sin cambios')
+    const director = await clienteComo('director')
+    await director.from('mensajes').update({ estado: 'rechazado', motivo_rechazo: 'Revisalo' }).eq('id', id)
+    const residente = await clienteComo('residente')
+    const { error } = await residente.from('mensajes').update({ texto: 'Sin cambios' }).eq('id', id)
+    expect(error).toBeNull()
+    const { data } = await admin.from('mensajes').select('estado, motivo_rechazo').eq('id', id).single()
+    expect(data).toEqual({ estado: 'pendiente', motivo_rechazo: null })
+  })
+})
+
+describe('fijar publicaciones', () => {
+  const enUnDia = () => new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+
+  /** Publicación aprobada de `clave` (la de un Residente la aprueba el Director). */
+  async function aprobada(clave: ClaveUsuario = 'director', texto = 'Para fijar'): Promise<string> {
+    const id = await publicar(clave, texto)
+    if (clave !== 'director' && clave !== 'administracion') {
+      await (await clienteComo('director')).from('mensajes').update({ estado: 'aprobado' }).eq('id', id)
+    }
+    return id
+  }
+
+  async function fijado(id: string) {
+    const { data, error } = await admin
+      .from('mensajes')
+      .select('estado, fijado_en, fijado_hasta, fijado_por')
+      .eq('id', id)
+      .single()
+    if (error) throw error
+    return data
+  }
+
+  it('el Director fija con fin y sigue aprobada; Administración la vuelve a fijar sin fin', async () => {
+    const id = await aprobada('residente')
+    const hasta = enUnDia()
+    const director = await clienteComo('director')
+    const { data: fijadoEn, error } = await director.rpc('fijar_mensaje', { p_id: id, p_hasta: hasta })
+    expect(error).toBeNull()
+    let fila = await fijado(id)
+    expect(fila.estado).toBe('aprobado')
+    expect(fila.fijado_por).toBe(ids.director)
+    expect(Date.parse(fila.fijado_en)).toBe(Date.parse(fijadoEn))
+    expect(Date.parse(fila.fijado_hasta)).toBe(Date.parse(hasta))
+
+    const administracion = await clienteComo('administracion')
+    expect((await administracion.rpc('fijar_mensaje', { p_id: id, p_hasta: null })).error).toBeNull()
+    fila = await fijado(id)
+    expect(fila).toMatchObject({ estado: 'aprobado', fijado_hasta: null, fijado_por: ids.administracion })
+  })
+
+  it('solo Director y Administración, con la cuenta activa', async () => {
+    const id = await aprobada()
+    const residente = await clienteComo('residente')
+    expect((await residente.rpc('fijar_mensaje', { p_id: id, p_hasta: null })).error?.code).toBe('42501')
+    expect((await residente.rpc('desfijar_mensaje', { p_id: id })).error?.code).toBe('42501')
+
+    await admin.from('perfiles').update({ activo: false }).eq('id', ids.director2)
+    const inactivo = await clienteComo('director2')
+    expect((await inactivo.rpc('fijar_mensaje', { p_id: id, p_hasta: null })).error?.code).toBe('42501')
+    expect((await fijado(id)).fijado_en).toBeNull()
+  })
+
+  it('no fija un pendiente, una respuesta ni con un fin que ya pasó', async () => {
+    const director = await clienteComo('director')
+    const pendiente = await publicar('residente', 'Todavía pendiente')
+    expect((await director.rpc('fijar_mensaje', { p_id: pendiente, p_hasta: null })).error?.code).toBe('P0002')
+
+    const publicacion = await aprobada()
+    const respuesta = await publicar('director', 'Respuesta', publicacion)
+    expect((await director.rpc('fijar_mensaje', { p_id: respuesta, p_hasta: null })).error?.code).toBe('P0002')
+
+    const pasado = new Date(Date.now() - 60_000).toISOString()
+    expect((await director.rpc('fijar_mensaje', { p_id: publicacion, p_hasta: pasado })).error?.code).toBe('22023')
+  })
+
+  it('nadie escribe fijado_* directo: ni con un update (grant de columna) ni al publicar', async () => {
+    const id = await aprobada()
+    const director = await clienteComo('director')
+    const { error } = await director.from('mensajes').update({ fijado_en: new Date().toISOString() }).eq('id', id)
+    expect(error?.code).toBe('42501')
+
+    const { data } = await director
+      .from('mensajes')
+      .insert({ autor_id: ids.director, texto: 'Nace fijada', fijado_en: new Date().toISOString(), fijado_por: ids.director })
+      .select('fijado_en, fijado_por')
+      .single()
+    expect(data).toEqual({ fijado_en: null, fijado_por: null })
+  })
+
+  it('Administración con la cuenta inactiva no quita de fijados', async () => {
+    const id = await aprobada()
+    await (await clienteComo('director')).rpc('fijar_mensaje', { p_id: id, p_hasta: null })
+    await admin.from('perfiles').update({ activo: false }).eq('id', ids.administracion)
+    const inactiva = await clienteComo('administracion')
+    expect((await inactiva.rpc('desfijar_mensaje', { p_id: id })).error?.code).toBe('42501')
+    expect((await fijado(id)).fijado_en).not.toBeNull()
+  })
+
+  it('quitar de fijados un pendiente o rechazado ajeno responde igual que si no existiera (no los delata)', async () => {
+    const administracion = await clienteComo('administracion')
+    const pendiente = await publicar('residente', 'Pendiente oculto')
+    const rechazado = await publicar('residente', 'Rechazado oculto')
+    await (await clienteComo('director')).from('mensajes').update({ estado: 'rechazado' }).eq('id', rechazado)
+    for (const id of [pendiente, rechazado, randomUUID()]) {
+      expect((await administracion.rpc('desfijar_mensaje', { p_id: id })).error?.code).toBe('P0002')
+    }
+    expect((await fijado(pendiente)).estado).toBe('pendiente')
+    expect((await fijado(rechazado)).estado).toBe('rechazado')
+  })
+
+  it('rechazar una fijada la desfija', async () => {
+    const id = await aprobada('residente')
+    const director = await clienteComo('director')
+    await director.rpc('fijar_mensaje', { p_id: id, p_hasta: null })
+    await director.from('mensajes').update({ estado: 'rechazado', motivo_rechazo: 'Ya no corre' }).eq('id', id)
+    expect(await fijado(id)).toEqual({ estado: 'rechazado', fijado_en: null, fijado_hasta: null, fijado_por: null })
+  })
+
+  it('cualquiera de los dos la quita, aunque la haya fijado el otro; quitarla dos veces no es error', async () => {
+    const id = await aprobada()
+    const director = await clienteComo('director')
+    await director.rpc('fijar_mensaje', { p_id: id, p_hasta: enUnDia() })
+    const administracion = await clienteComo('administracion')
+    expect((await administracion.rpc('desfijar_mensaje', { p_id: id })).error).toBeNull()
+    expect(await fijado(id)).toEqual({ estado: 'aprobado', fijado_en: null, fijado_hasta: null, fijado_por: null })
+    expect((await director.rpc('desfijar_mensaje', { p_id: id })).error).toBeNull()
+  })
+
+  it('la consulta del feed trae las fijadas vigentes, la última fijada primero, con respuestas y reacciones', async () => {
+    const director = await clienteComo('director')
+    const primera = await aprobada('director', 'Fijada primero')
+    const segunda = await aprobada('residente', 'Fijada después')
+    const vencida = await aprobada('director', 'Fijada vencida')
+    const quitada = await aprobada('director', 'Fijada y quitada')
+    await director.rpc('fijar_mensaje', { p_id: primera, p_hasta: null })
+    await director.rpc('fijar_mensaje', { p_id: quitada, p_hasta: null })
+    await director.rpc('desfijar_mensaje', { p_id: quitada })
+    await (await clienteComo('administracion')).rpc('fijar_mensaje', { p_id: segunda, p_hasta: enUnDia() })
+    // Vencida: con la llave secreta, porque la función no acepta un fin pasado (el check exige fin > inicio).
+    const { error } = await admin
+      .from('mensajes')
+      .update({ fijado_en: '2026-01-01T00:00:00Z', fijado_hasta: '2026-01-02T00:00:00Z', fijado_por: ids.director })
+      .eq('id', vencida)
+    expect(error).toBeNull()
+    const respuesta = await publicar('residente', 'Respuesta a la fijada', primera)
+    await director.from('mensajes').update({ estado: 'aprobado' }).eq('id', respuesta)
+    await (await clienteComo('residente2')).from('reacciones').insert({ mensaje_id: primera, usuario_id: ids.residente2 })
+
+    const cliente = (await clienteComo('residente2')) as unknown as SupabaseClient<Database>
+    const { fijadas, publicaciones } = await consultarPaginaFeed(cliente, null)
+    expect(fijadas.map((p) => p.id)).toEqual([segunda, primera])
+    const completa = fijadas.find((p) => p.id === primera)!
+    expect(completa.respuestas.map((r) => r.id)).toEqual([respuesta])
+    expect(completa.reacciones).toEqual([ids.residente2])
+    expect(fijadas.find((p) => p.id === segunda)).toMatchObject({ fijadoPor: ids.administracion })
+    // En la página por fecha están todas: separar las vigentes es cosa del navegador (lib/mensajes/fijados.ts).
+    expect(publicaciones.map((p) => p.id)).toEqual(expect.arrayContaining([primera, segunda, vencida, quitada]))
+  })
+})
+
+describe('una sola publicación (la que llega por tiempo real sin estar cargada)', () => {
+  async function publicacionComo(clave: ClaveUsuario, id: string) {
+    const cliente = (await clienteComo(clave)) as unknown as SupabaseClient<Database>
+    return consultarPublicacion(cliente, id)
+  }
+
+  it('viene completa, con sus respuestas y reacciones, y con los datos de fijado', async () => {
+    const id = await publicar('director', 'Vieja que alguien fija')
+    const respuesta = await publicar('administracion', 'Respuesta de la cocina', id)
+    await (await clienteComo('residente')).from('reacciones').insert({ mensaje_id: id, usuario_id: ids.residente })
+    await (await clienteComo('administracion')).rpc('fijar_mensaje', { p_id: id, p_hasta: null })
+
+    const p = await publicacionComo('residente2', id)
+    expect(p).toMatchObject({ id, autorId: ids.director, fijadoPor: ids.administracion, reacciones: [ids.residente] })
+    expect(p!.respuestas.map((r) => r.id)).toEqual([respuesta])
+  })
+
+  it('null si no la puede ver (pendiente ajeno), si es una respuesta o si no existe', async () => {
+    const pendiente = await publicar('residente', 'Pendiente')
+    expect(await publicacionComo('residente2', pendiente)).toBeNull()
+    expect(await publicacionComo('residente', pendiente)).not.toBeNull()
+
+    const publicacion = await publicar('director', 'Con respuesta')
+    const respuesta = await publicar('director', 'Respuesta', publicacion)
+    expect(await publicacionComo('residente', respuesta)).toBeNull()
+    expect(await publicacionComo('residente', randomUUID())).toBeNull()
   })
 })

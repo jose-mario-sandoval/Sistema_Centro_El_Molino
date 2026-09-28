@@ -442,6 +442,13 @@ Decisiones tomadas al portar:
   `.celda-plan` y `.cuadro-panel`. Cada comida de la Semana sigue siendo `[data-fecha][data-comida]`
   con su `.estado-actual`, pero ahora hay que abrir antes la tarjeta de su día. Solo cambiaron los specs donde cambió la interacción (abrir las opciones
   de una comida antes de elegir) y el título de la sección.
+- **La tabla de Administración se apila por el ancho de su tarjeta, no de la pantalla** (contenedor
+  `tabla-admin` sobre `.admin-table-scroll`, umbral 34rem). En una media query el `rem` es siempre
+  16px; en una consulta de contenedor sigue al tamaño de letra elegido, así que con letra "Muy
+  grande" la tabla se apila antes de que el desglose de cada comida deje de caber en su columna.
+  34rem es el menor umbral sin desbordes con las fuentes reales entre 320 y 1700px (la rejilla deja
+  de desbordar en ~31.8rem): así una tablet vertical con letra normal ve la tabla y no fichas. Los
+  navegadores sin consultas de contenedor (iOS 15) apilan por pantalla, a 40rem.
 - **"Configuraciones" pasó a llamarse "Ajustes"** en pantalla: "Configuraciones" no cabe en la
   barra inferior, y "Ajustes" es el nombre que la gente ya conoce del teléfono. La ruta sigue
   siendo `/configuraciones`.

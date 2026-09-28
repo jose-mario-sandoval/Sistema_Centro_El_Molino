@@ -4,7 +4,9 @@ import { useState, useTransition } from 'react'
 import { useAviso } from '@/components/ui/avisos'
 import { llamarAccion } from '@/lib/acciones/llamar'
 import type { MensajeFila } from '@/lib/mensajes/feed'
+import { fechaHoraLocal } from '@/lib/mensajes/tiempo'
 import type { PerfilResumen } from '@/lib/perfiles/consultas'
+import { ETIQUETA_ROL } from '@/lib/perfiles/roles'
 import { moderarMensaje } from '../acciones'
 
 function FilaPendiente({ mensaje, autor }: { mensaje: MensajeFila; autor: PerfilResumen | undefined }) {
@@ -30,10 +32,19 @@ function FilaPendiente({ mensaje, autor }: { mensaje: MensajeFila; autor: Perfil
 
   return (
     <div className="card pendiente-item">
+      {/* Solo el Director ve esta cola, y él sí conoce los nombres (listarPerfiles se los da). */}
       <div className="msg-meta">
-        {autor?.siglas ?? '…'} · {mensaje.padre_id ? 'Respuesta' : 'Publicación'}
+        <div className="avatar" aria-hidden="true">
+          {autor?.siglas ?? '…'}
+        </div>
+        <span className="name">{autor?.nombre ?? 'Autor desconocido'}</span>
+        {autor && <span className="role-pill">{ETIQUETA_ROL[autor.rol]}</span>}
+        <time className="time" dateTime={mensaje.creado_en}>
+          {fechaHoraLocal(mensaje.creado_en)}
+        </time>
       </div>
-      <textarea value={texto} onChange={(e) => setTexto(e.target.value)} rows={3} />
+      <div className="hint">{mensaje.padre_id ? 'Respuesta a una publicación' : 'Publicación'}</div>
+      <textarea aria-label="Texto del mensaje" value={texto} onChange={(e) => setTexto(e.target.value)} rows={3} />
       <div className="field">
         <label htmlFor={`motivo-${mensaje.id}`}>Motivo del rechazo (opcional)</label>
         <input id={`motivo-${mensaje.id}`} value={motivo} onChange={(e) => setMotivo(e.target.value)} />

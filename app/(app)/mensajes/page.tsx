@@ -1,9 +1,11 @@
 import Link from 'next/link'
+import { InsigniaPendientes } from '@/components/app/pendientes'
 import { exigirPerfil, type Perfil } from '@/lib/auth/sesion'
 import { listarMensajesPendientes, listarPublicaciones, listarRegistroModeracion } from '@/lib/mensajes/consultas'
 import { listarPerfiles } from '@/lib/perfiles/consultas'
 import { ColaModeracion } from './_componentes/cola-moderacion'
 import { FeedMensajes } from './_componentes/feed-mensajes'
+import { RefrescarColaAlCambiar } from './_componentes/refrescar-cola'
 import { TablaRegistro } from './_componentes/tabla-registro'
 
 /** Fuera de los componentes: la marca `generadoEn` no es una lectura pura de render. */
@@ -31,7 +33,12 @@ async function SeccionRegistro() {
 
 async function SeccionPendientes() {
   const [mensajes, perfiles] = await Promise.all([listarMensajesPendientes(), listarPerfiles()])
-  return <ColaModeracion mensajes={mensajes} perfiles={perfiles} />
+  return (
+    <>
+      <RefrescarColaAlCambiar />
+      <ColaModeracion mensajes={mensajes} perfiles={perfiles} />
+    </>
+  )
 }
 
 export default async function PaginaMensajes({
@@ -68,6 +75,7 @@ export default async function PaginaMensajes({
             aria-current={verPendientes ? 'page' : undefined}
           >
             Pendientes
+            <InsigniaPendientes />
           </Link>
           <Link
             href="/mensajes?vista=registro"

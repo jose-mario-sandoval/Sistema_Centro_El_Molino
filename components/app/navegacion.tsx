@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { InsigniaPendientes } from '@/components/app/pendientes'
 import { Icono, type NombreIcono } from '@/components/ui/iconos'
 
 // "Ajustes" y no "Configuraciones": cabe en la barra inferior y es el nombre que la gente ya
@@ -26,6 +27,8 @@ function Enlaces() {
       >
         <Icono nombre={s.icono} />
         <span>{s.etiqueta}</span>
+        {/* Solo el Director tiene conteo (ProveedorPendientes); para los demás no pinta nada. */}
+        {s.ruta === '/mensajes' && <InsigniaPendientes />}
       </Link>
     )
   })

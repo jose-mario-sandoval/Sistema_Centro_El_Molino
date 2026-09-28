@@ -2,6 +2,7 @@ import 'server-only'
 import { diaSemana, horaHHMM, sumarDias, type FechaISO } from '@/lib/fechas'
 import { listarPerfiles } from '@/lib/perfiles/consultas'
 import { ROLES_CON_COMIDAS } from '@/lib/perfiles/roles'
+import { exigirFilasCompletas } from '@/lib/supabase/filas-completas'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { diasDeSemana } from './semana'
 import { TIEMPOS_COMIDA, type HorasLimite, type TiempoComida } from './tipos'
@@ -90,10 +91,7 @@ export async function obtenerPlanesDeTodos(): Promise<PersonaConPlan[]> {
     .select('usuario_id, dia_semana, comida, estado, nota', { count: 'exact' })
     .in('usuario_id', ids)
   if (filas.error) throw filas.error
-  // PostgREST corta en max_rows (config.toml): si faltan filas, fallar en vez de mostrar planes incompletos.
-  if (filas.count !== null && filas.count > filas.data.length) {
-    throw new Error(`Planes semanales truncados: llegaron ${filas.data.length} de ${filas.count} filas.`)
-  }
+  exigirFilasCompletas(filas, 'Planes semanales')
 
   return personas.map((persona) => ({
     id: persona.id,
@@ -143,7 +141,7 @@ export async function obtenerSemanaParaAdministracion(lunes: FechaISO): Promise<
     supabase.from('plan_semanal').select('usuario_id, dia_semana, comida, estado, nota', { count: 'exact' }).in('usuario_id', ids),
     supabase
       .from('selecciones_comida')
-      .select('usuario_id, fecha, comida, estado, nota, origen')
+      .select('usuario_id, fecha, comida, estado, nota, origen', { count: 'exact' })
       .in('usuario_id', ids)
       .gte('fecha', lunes)
       .lte('fecha', domingo),
@@ -154,10 +152,10 @@ export async function obtenerSemanaParaAdministracion(lunes: FechaISO): Promise<
   if (selecciones.error) throw selecciones.error
   if (cerradas.error) throw cerradas.error
   for (const resultado of ausentesPorDia) if (resultado.error) throw resultado.error
-  // Mismo resguardo que obtenerPlanesDeTodos: si PostgREST corta en max_rows, fallar en vez de agregar de menos.
-  if (planes.count !== null && planes.count > planes.data.length) {
-    throw new Error(`Planes semanales truncados: llegaron ${planes.data.length} de ${planes.count} filas.`)
-  }
+  // Si PostgREST corta en max_rows, fallar en vez de agregar de menos. Las selecciones de una semana
+  // son hasta personas × 21 filas: con ~48 personas ya pasarían de 1000.
+  exigirFilasCompletas(planes, 'Planes semanales')
+  exigirFilasCompletas(selecciones, 'Selecciones de la semana')
 
   const diasAdministracion = dias.map((fecha, indice) =>
     armarDiaAdministracion({

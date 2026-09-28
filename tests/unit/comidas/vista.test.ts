@@ -214,7 +214,7 @@ describe('armarDiaAdministracion: ausencias', () => {
     const datos = dia(['a'])
     expect(datos.filas[0].valores.almuerzo).toEqual({ estado: 'no', nota: null, origen: 'ausencia' })
     expect(datos.filas[1].valores.almuerzo).toEqual({ estado: 'si', nota: null, origen: 'plan' })
-    expect(datos.resumen.almuerzo.partes.map((parte) => parte.texto)).toEqual(['1 sí', '1 no'])
+    expect(datos.resumen.almuerzo.partes.map((parte) => parte.texto)).toEqual(['1 sí', '1 no come'])
   })
 
   it('sin plan, la ausencia igual cancela la comida (en vez de "sin definir")', () => {
@@ -276,7 +276,7 @@ describe('resumenPlanSemanal', () => {
     const semana = resumenPlanSemanal(personas)
     expect(semana[3].almuerzo.partes).toEqual([
       { clave: 'si', cantidad: 1, texto: '1 sí' },
-      { clave: 'no', cantidad: 1, texto: '1 no' },
+      { clave: 'no', cantidad: 1, texto: '1 no come' },
     ])
     expect(JSON.stringify(semana)).not.toMatch(/"A"|"B"/)
   })

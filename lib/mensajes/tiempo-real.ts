@@ -26,10 +26,24 @@ export type EventoLeido = {
   cambio: CambioFeed
   /** Autor de un mensaje nuevo: si su perfil no está cargado, hay que pedirlo. */
   autorId?: string
+  /**
+   * UPDATE de una publicación (aprobada, fijada, quitada de fijados…). Si no está cargada, `cambio` no la
+   * agrega —le faltarían reacciones y respuestas— y el feed tiene que traerla completa.
+   */
+  publicacionActualizada?: string
 }
 
 function esTexto(valor: unknown): valor is string {
   return typeof valor === 'string' && valor !== ''
+}
+
+/**
+ * Columna opcional (texto o null). Ausente = null: una base sin la migración de fijados (desplegar el código
+ * antes que la migración) no trae esas columnas, y sus eventos se siguen leyendo. Otro tipo: fila inválida.
+ */
+function textoONulo(valor: unknown): string | null | undefined {
+  if (valor === undefined || valor === null) return null
+  return esTexto(valor) ? valor : undefined
 }
 
 function filaMensaje(datos: Record<string, unknown>): MensajeFila | null {
@@ -38,7 +52,11 @@ function filaMensaje(datos: Record<string, unknown>): MensajeFila | null {
   if (padre_id !== null && !esTexto(padre_id)) return null
   if (estado !== 'pendiente' && estado !== 'aprobado' && estado !== 'rechazado') return null
   if (motivo_rechazo !== null && typeof motivo_rechazo !== 'string') return null
-  return { id, autor_id, padre_id, texto, creado_en, estado, motivo_rechazo }
+  const fijado_en = textoONulo(datos.fijado_en)
+  const fijado_hasta = textoONulo(datos.fijado_hasta)
+  const fijado_por = textoONulo(datos.fijado_por)
+  if (fijado_en === undefined || fijado_hasta === undefined || fijado_por === undefined) return null
+  return { id, autor_id, padre_id, texto, creado_en, estado, motivo_rechazo, fijado_en, fijado_hasta, fijado_por }
 }
 
 /**
@@ -57,7 +75,11 @@ export function leerEvento(evento: EventoTiempoReal): EventoLeido | null {
     if (evento.eventType === 'UPDATE') {
       const fila = filaMensaje(evento.new)
       if (!fila) return null
-      return { cambio: (feed) => aplicarActualizacionMensaje(feed, fila), autorId: fila.autor_id }
+      return {
+        cambio: (feed) => aplicarActualizacionMensaje(feed, fila),
+        autorId: fila.autor_id,
+        ...(fila.padre_id === null && { publicacionActualizada: fila.id }),
+      }
     }
     if (evento.eventType === 'DELETE') {
       // Los DELETE traen solo la clave primaria (spec §7).
