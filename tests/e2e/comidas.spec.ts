@@ -9,7 +9,12 @@ import {
   type ClaveUsuario,
 } from '../soporte/usuarios-prueba'
 import { marcarAusencia } from './soporte/ausencias'
-import { esperarAltoMinimo, esperarDentroDeLaPantalla, esperarSinScrollLateral } from '../soporte/medidas-e2e'
+import {
+  esperarAltoMinimo,
+  esperarDentroDeLaPantalla,
+  esperarFocoALaVista,
+  esperarSinScrollLateral,
+} from '../soporte/medidas-e2e'
 
 let ids: Record<ClaveUsuario, string>
 
@@ -571,28 +576,40 @@ for (const viewport of [
       await page.getByRole('button', { name: /^Miércoles, almuerzo:/ }).click()
       const burbujaPlan = page.getByRole('dialog', { name: 'Almuerzo de los miércoles' })
       await esperarDentroDeLaPantalla(page, burbujaPlan)
+      await esperarFocoALaVista(burbujaPlan)
       await esperarSinScrollLateral(page)
       await esperarAltoMinimo(page.locator('.cuadro-plan button'))
       await esperarAltoMinimo(burbujaPlan.getByRole('button'))
-      // La del domingo, al final: arriba de la celda si abajo no entra, y siempre dentro.
+      // La del domingo, al final: arriba de la celda si abajo no entra, y siempre dentro; lo que tiene el
+      // foco, a la vista (ni bajo la barra inferior ni bajo la cabecera fija de las comidas).
       await page.keyboard.press('Escape')
       await page.getByRole('button', { name: /^Domingo, cena:/ }).click()
-      await esperarDentroDeLaPantalla(page, page.getByRole('dialog', { name: 'Cena de los domingos' }))
+      const burbujaDomingo = page.getByRole('dialog', { name: 'Cena de los domingos' })
+      await esperarDentroDeLaPantalla(page, burbujaDomingo)
+      await esperarFocoALaVista(burbujaDomingo)
       await esperarSinScrollLateral(page)
 
       await page.goto(`/comidas/semana?semana=${lunesSiguiente}`)
       await esperarAltoMinimo(page.locator('.tarjetas-semana button'))
       const burbuja = await abrirComida(page, miercolesSiguiente, 'almuerzo')
+      await esperarFocoALaVista(burbuja)
       await burbuja.getByRole('button', { name: 'Comer temprano', exact: true }).click()
       await esperarDentroDeLaPantalla(page, burbuja)
+      // El campo de la hora toma el foco: tiene que verse, no quedar bajo la barra inferior.
+      await esperarFocoALaVista(burbuja)
       await esperarSinScrollLateral(page)
       await esperarAltoMinimo(burbuja.getByRole('button'))
 
       // Con la letra más grande, tampoco se sale.
+      await page.keyboard.press('Escape')
       await page.evaluate(() => document.documentElement.setAttribute('data-texto', 'enorme'))
-      await esperarDentroDeLaPantalla(page, burbuja)
+      const grande = await abrirComida(page, miercolesSiguiente, 'almuerzo')
+      await esperarFocoALaVista(grande)
+      await grande.getByRole('button', { name: 'Comer temprano', exact: true }).click()
+      await esperarDentroDeLaPantalla(page, grande)
+      await esperarFocoALaVista(grande)
       await esperarSinScrollLateral(page)
-      await esperarAltoMinimo(burbuja.getByRole('button'))
+      await esperarAltoMinimo(grande.getByRole('button'))
     })
   })
 }

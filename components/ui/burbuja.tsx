@@ -2,7 +2,7 @@
 
 import { useLayoutEffect, useRef, type ReactNode, type RefObject } from 'react'
 import { createPortal } from 'react-dom'
-import { calcularPosicion, cuantoDesplazar, esToque, siguienteDespues, type Lado } from '@/lib/burbuja'
+import { calcularPosicion, cuantoDesplazar, esRetoqueRapido, esToque, siguienteDespues, type Lado } from '@/lib/burbuja'
 
 /**
  * Por qué se cierra: 'listo' (su botón, o volver a tocar lo que la abrió), 'escape' (el único que
@@ -30,6 +30,27 @@ function reservaAbajo(): number {
   const alto = barra?.getBoundingClientRect()
   if (!alto || alto.height === 0) return 0
   return Math.max(0, window.innerHeight - alto.top)
+}
+
+/** Lo que tapa el comienzo de la pantalla sobre el botón: su scroll-margin-top (la cabecera fija del plan). */
+function margenArriba(boton: HTMLElement): number {
+  return parseFloat(getComputedStyle(boton).scrollMarginTop) || 0
+}
+
+/**
+ * Para los botones que abren y cierran su burbuja: el segundo toque de un doble toque (o un toque que
+ * rebota) no la cierra enseguida. `abrir()` al abrirla; `recienAbierta()` al volver a tocarlo.
+ */
+export function useRetoque() {
+  const abiertaEn = useRef<number | null>(null)
+  return {
+    abrir() {
+      abiertaEn.current = performance.now()
+    },
+    recienAbierta() {
+      return esRetoqueRapido(abiertaEn.current, performance.now())
+    },
+  }
 }
 
 /**
@@ -134,17 +155,17 @@ export function Burbuja({
       reservaAbajo: reservaAbajo(),
       lado: lado.current,
     })
-    // Arriba del botón, la burbuja crece hacia arriba (aparece el campo de la hora): la página sube lo
-    // mismo, así lo que se estaba tocando no se corre bajo el dedo y lo nuevo aparece debajo.
     const anclaTop = boton.getBoundingClientRect().top + window.scrollY
     const antes = anterior.current
-    if (
-      antes &&
-      lado.current === 'arriba' &&
-      posicion.lado === 'arriba' &&
-      antes.alto !== elemento.offsetHeight &&
-      Math.abs(antes.anclaTop - anclaTop) < 1
-    ) {
+    const seMovio = antes !== null && Math.abs(antes.anclaTop - anclaTop) >= 1
+    if (antes && seMovio) {
+      // El botón cambió de lugar en la página (La casa: la persona pasó al grupo de lo que eligió y su
+      // nombre se pintó más abajo). La página se mueve lo mismo: el nombre y su burbuja quedan donde
+      // estaban en la pantalla y es la lista la que se corre.
+      window.scrollBy({ top: anclaTop - antes.anclaTop, behavior: 'auto' })
+    } else if (antes && lado.current === 'arriba' && posicion.lado === 'arriba' && antes.alto !== elemento.offsetHeight) {
+      // Arriba del botón, la burbuja crece hacia arriba (aparece el campo de la hora): la página sube lo
+      // mismo, así lo que se estaba tocando no se corre bajo el dedo y lo nuevo aparece debajo.
       window.scrollBy({ top: posicion.top - antes.top, behavior: 'auto' })
     }
     // Pasó de arriba a abajo estando abierta (creció y arriba ya no entra en la página): lo que se
@@ -169,6 +190,7 @@ export function Burbuja({
       ancla: boton.getBoundingClientRect(),
       vista: { alto: window.innerHeight },
       reservaAbajo: reservaAbajo(),
+      margenArriba: margenArriba(boton),
     })
     const quieto = !suave || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
     if (bajar > 0) window.scrollBy({ top: bajar, behavior: quieto ? 'auto' : 'smooth' })
@@ -203,6 +225,11 @@ export function Burbuja({
   // escuchar antes de que la nueva tome el foco (si no, ese foco "fuera" de la vieja cerraría la nueva).
   useLayoutEffect(() => {
     cerrada.current = false
+    // Mientras está abierta, quien mantiene el botón en su lugar al cambiar la página es `colocar`: el
+    // anclaje de desplazamiento propio de Chrome (Safari no lo tiene) lo haría dos veces.
+    const raiz = document.documentElement
+    const anclajeAntes = raiz.style.overflowAnchor
+    raiz.style.overflowAnchor = 'none'
     let inicio: { x: number; y: number; id: number } | null = null
     let bloquearClic = 0
     // Se está tocando otro botón que abre burbuja: su foco no cuenta como "fuera" (su clic la cambia).
@@ -319,6 +346,7 @@ export function Burbuja({
     window.addEventListener('scroll', alDesplazar, { capture: true, passive: true })
     return () => {
       cerrada.current = true
+      raiz.style.overflowAnchor = anclajeAntes
       cancelAnimationFrame(cuadro)
       observador.current?.disconnect()
       observador.current = null

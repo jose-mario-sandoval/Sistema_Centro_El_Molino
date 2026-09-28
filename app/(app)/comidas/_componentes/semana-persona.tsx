@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useEffect, useId, useRef, useState, type Ref } from 'react'
-import { Burbuja, devolverFoco, type MotivoCierre } from '@/components/ui/burbuja'
+import { Burbuja, devolverFoco, useRetoque, type MotivoCierre } from '@/components/ui/burbuja'
 import { Icono } from '@/components/ui/iconos'
 import type { TipoSemana } from '@/lib/comidas/semana'
 import { tituloComida } from '@/lib/comidas/semana'
@@ -75,6 +75,7 @@ function ComidaDeTarjeta({
 }) {
   const comida = useComidaDelDia({ fecha: dia.fecha, datos, usuarioId, voz })
   const boton = useRef<HTMLButtonElement>(null)
+  const retoque = useRetoque()
   const nombre = ETIQUETA_TIEMPO[datos.comida]
   const delDirector = comida.valor?.cambiadaPorOtro === true
 
@@ -127,7 +128,15 @@ function ComidaDeTarjeta({
         aria-controls={abierta ? idBurbuja : undefined}
         aria-label={etiquetaComidaTarjeta(dia, datos.comida, comida.valor)}
         aria-busy={comida.pendiente || undefined}
-        onClick={() => (abierta ? cerrar('listo') : alAbrir())}
+        onClick={() => {
+          if (!abierta) {
+            retoque.abrir()
+            alAbrir()
+          } else if (!retoque.recienAbierta()) {
+            // El segundo toque de un doble toque no la cierra enseguida.
+            cerrar('listo')
+          }
+        }}
       >
         <span className="comida-tarjeta-nombre">{nombre}</span>
         <ValorCorto comida={comida.valor} />

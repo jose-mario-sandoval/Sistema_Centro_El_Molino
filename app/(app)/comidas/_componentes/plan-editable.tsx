@@ -1,7 +1,7 @@
 'use client'
 
 import { useId, useRef, useState, type Ref } from 'react'
-import { Burbuja, devolverFoco, type MotivoCierre } from '@/components/ui/burbuja'
+import { Burbuja, devolverFoco, useRetoque, type MotivoCierre } from '@/components/ui/burbuja'
 import { Icono } from '@/components/ui/iconos'
 import { claveCelda, diaPlural, etiquetaCelda, queComidaPlan, tituloComidaPlan } from '@/lib/comidas/plan'
 import { NOMBRES_DIA } from '@/lib/comidas/semana'
@@ -107,6 +107,7 @@ export function PlanEditable({
   const idBurbuja = `${idBase}-burbuja`
   const [abierta, setAbierta] = useState<Celda | null>(null)
   const botonAbierto = useRef<HTMLButtonElement>(null)
+  const retoque = useRetoque()
 
   const claveAbierta = abierta ? claveCelda(abierta.dia, abierta.comida) : null
   const valorAbierto = abierta ? editor.valor(abierta.dia, abierta.comida) : null
@@ -125,10 +126,12 @@ export function PlanEditable({
    */
   function tocar(celda: Celda) {
     if (claveAbierta === claveCelda(celda.dia, celda.comida)) {
-      cerrar('listo')
+      // El segundo toque de un doble toque no la cierra enseguida.
+      if (!retoque.recienAbierta()) cerrar('listo')
       return
     }
     if (!nota.confirmar({ alCerrar: true })) return
+    retoque.abrir()
     setAbierta(celda)
   }
 

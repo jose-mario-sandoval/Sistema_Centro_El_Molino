@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { Fragment, useEffect, useId, useMemo, useRef, useState, type RefObject } from 'react'
-import { Burbuja, devolverFoco, type MotivoCierre } from '@/components/ui/burbuja'
+import { Burbuja, devolverFoco, useRetoque, type MotivoCierre } from '@/components/ui/burbuja'
 import { Icono } from '@/components/ui/iconos'
 import {
   etiquetaAgregarExtra,
@@ -75,6 +75,8 @@ export function TablaCasa({
   const celdaAbierta = useRef<HTMLButtonElement>(null)
   const anclaPersona = useRef<HTMLButtonElement>(null)
   const anclaExtra = useRef<HTMLButtonElement>(null)
+  // El segundo toque de un doble toque no cierra enseguida lo que se acaba de abrir.
+  const retoque = useRetoque()
   // La última persona cuya burbuja se abrió en esta celda: si su nombre cambia de grupo, el foco vuelve a él.
   const [ultimaPersona, setUltimaPersona] = useState<string | null>(null)
 
@@ -116,14 +118,18 @@ export function TablaCasa({
   }
 
   function tocarCelda(celda: Celda) {
+    const misma = esLaMisma(abierta, celda)
+    if (misma && retoque.recienAbierta()) return
     if (!puedeCambiar()) return
     setPersonaAbierta(null)
     setUltimaPersona(null)
     setExtraAbierto(null)
-    setAbierta((antes) => (esLaMisma(antes, celda) ? null : celda))
+    if (!misma) retoque.abrir()
+    setAbierta(misma ? null : celda)
   }
 
   function tocarPersona(id: string) {
+    if (personaAbierta === id && retoque.recienAbierta()) return
     if (!puedeCambiar()) return
     setExtraAbierto(null)
     setUltimaPersona(id)
@@ -132,17 +138,21 @@ export function TablaCasa({
       anclaPersona.current?.focus({ preventScroll: true })
       return
     }
+    retoque.abrir()
     setPersonaAbierta(id)
   }
 
   function tocarExtra(celda: Celda) {
+    const misma = esLaMisma(extraAbierto, celda)
+    if (misma && retoque.recienAbierta()) return
     if (!puedeCambiar()) return
     setPersonaAbierta(null)
-    if (esLaMisma(extraAbierto, celda)) {
+    if (misma) {
       setExtraAbierto(null)
       anclaExtra.current?.focus({ preventScroll: true })
       return
     }
+    retoque.abrir()
     setExtraAbierto(celda)
   }
 

@@ -1,6 +1,11 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
 import { fechaISOEn, lunesDe, sumarDias } from '../../lib/fechas'
-import { esperarAltoMinimo, esperarDentroDeLaPantalla, esperarSinScrollLateral } from '../soporte/medidas-e2e'
+import {
+  esperarAltoMinimo,
+  esperarDentroDeLaPantalla,
+  esperarFocoALaVista,
+  esperarSinScrollLateral,
+} from '../soporte/medidas-e2e'
 import {
   asegurarUsuariosPrueba,
   clienteAdminPrueba,
@@ -72,11 +77,6 @@ function celdaCasa(page: Page, fecha: string, comida: 'desayuno' | 'almuerzo' | 
   return page.locator(`.tabla-casa td[data-fecha="${fecha}"][data-comida="${comida}"] .celda-casa`)
 }
 
-/** Toca la celda en su esquina de arriba a la izquierda: la de la derecha es del "+ Extra". */
-async function tocarCelda(celda: Locator) {
-  await celda.click({ position: { x: 12, y: 12 } })
-}
-
 /** El panel de quiénes comen, debajo de la fila de su día. */
 function panelCasa(page: Page): Locator {
   return page.locator('.panel-casa')
@@ -125,7 +125,7 @@ test('el Director cambia la comida de un residente desde La casa y el residente 
 
   const celda = celdaCasa(page, miercolesSiguiente, 'almuerzo')
   await expect(celda).toHaveAccessibleName(new RegExp(`^Almuerzo del miércoles ${fechaCorta(miercolesSiguiente)}: `))
-  await tocarCelda(celda)
+  await celda.click()
   await expect(celda).toHaveAttribute('aria-expanded', 'true')
 
   const panel = panelCasa(page)
@@ -148,9 +148,12 @@ test('el Director cambia la comida de un residente desde La casa y el residente 
   await expect(burbuja.getByRole('button', { name: 'Sí comer', exact: true })).toBeFocused()
   await burbuja.getByRole('button', { name: 'No comer', exact: true }).click()
 
-  // Pasa al grupo de lo que eligió (la burbuja sigue abierta), y la base guarda quién lo cambió.
+  // Pasa al grupo de lo que eligió; la burbuja sigue abierta junto a su nombre y a la vista (es la lista
+  // la que se corre, no la burbuja), y la base guarda quién lo cambió.
   await expect(panel.getByRole('group', { name: /^No comer \(1\)$/ }).getByRole('button', { name: 'Residente Prueba' })).toBeVisible()
   await expect(burbuja.getByText('la cambió el Director', { exact: true })).toBeVisible()
+  await expect(burbuja.getByRole('button', { name: 'No comer', exact: true })).toBeInViewport()
+  await esperarFocoALaVista(burbuja)
   await expect
     .poll(async () => {
       const { data } = await clienteAdminPrueba()
@@ -250,7 +253,7 @@ test('una comida que ya cerró se ve en La casa, pero no se cambia', async ({ pa
 
   const celda = celdaCasa(page, lunesPasado, 'almuerzo')
   await expect(celda).toHaveAccessibleName(/\. Cerrada\. Ver quiénes$/)
-  await tocarCelda(celda)
+  await celda.click()
   const panel = panelCasa(page)
   await expect(panel.getByText('Cerrada: ya no se puede cambiar. Tocá un nombre para ver su comida.')).toBeVisible()
   const nombre = panel.getByRole('button', { name: 'Residente Prueba' })
@@ -428,12 +431,13 @@ for (const viewport of [
       expect(anchos.filter((ancho) => ancho < 55.5)).toEqual([])
 
       // El lunes: el más lejos de lo que se abre si el panel fuera al final de la tabla.
-      await tocarCelda(celdaCasa(page, lunesSiguiente, 'almuerzo'))
+      await celdaCasa(page, lunesSiguiente, 'almuerzo').click()
       await expect(panelCasa(page).getByRole('heading', { level: 2 })).toBeInViewport()
       await expect(panelCasa(page).getByRole('heading', { level: 2 })).toBeFocused()
       await panelCasa(page).getByRole('button', { name: 'Residente Prueba' }).click()
       const burbuja = page.getByRole('dialog', { name: /^Almuerzo de Residente Prueba, lunes / })
       await esperarDentroDeLaPantalla(page, burbuja)
+      await esperarFocoALaVista(burbuja)
       await esperarSinScrollLateral(page)
       await esperarAltoMinimo(burbuja.getByRole('button'))
       await page.keyboard.press('Escape')

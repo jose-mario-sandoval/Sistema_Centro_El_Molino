@@ -217,11 +217,12 @@ cumplen WCAG 2.2 AA (24px) pero no este contrato. La tercera es de separación, 
 3. **El "+ Extra" de cada comida en La casa** va en la esquina de arriba a la derecha del botón de su
    celda (lo pidió el usuario: "en la esquina de cada comida"), así que los dos objetivos se tocan sin
    los 8px de separación. Mitigaciones:
-   - **Tamaño completo:** la pastilla se ve chica, pero lo que se toca es el rincón entero, 56×56 como
-     mínimo; y es un botón hermano del de la celda, nunca uno dentro de otro.
-   - **El rincón es suyo:** el botón de la celda deja libre ese espacio en su primera línea (relleno a
-     la derecha de *"N comen"*), así ningún texto de la celda queda debajo de la pastilla ni se toca
-     la celda creyendo tocar el extra.
+   - **Tamaño completo, sin comerse la celda:** lo que se toca es la pastilla con 4px a cada lado y
+     56px de alto (nunca menos de 56×56); al lado y debajo de esa franja, la celda sigue siendo la
+     celda. Es un botón hermano del de la celda, nunca uno dentro de otro.
+   - **Su franja es suya:** la primera línea de la celda (*"N comen"*) deja libre ese ancho, así
+     ningún texto de la celda queda debajo del *"+ Extra"*; en una celda angosta, *"comen"* baja a la
+     línea siguiente, junto al número y no debajo de la pastilla.
    - **Distinto a la vista y al oído:** relleno de acento como un botón principal (el desglose de la
      celda es pergamino), icono **+** con *"Extra"* escrito, y nombre accesible completo: *"Agregar
      extra al almuerzo del miércoles 30/9"*.
@@ -373,13 +374,20 @@ principal para que un lector de pantalla anuncie dónde quedó la persona.
   sombras). No es una tarjeta dentro de otra (va en un portal sobre la página, no dentro de nada) ni
   un modal: no oscurece, no bloquea, y la página sigue ahí.
   - **Dónde va:** debajo del botón; arriba si abajo no entra y arriba sí; si no entra en ningún lado,
-    debajo, y la página baja hasta dejar el botón arriba (la barra inferior del teléfono no cuenta
-    como lugar libre). Siempre dentro de la pantalla con 16px de margen; en el teléfono ocupa todo
-    el ancho menos ese margen. Una vez abierta no salta de lado al crecer (aparece el campo de la
-    hora) ni cuando el teclado achica la pantalla.
+    debajo, y la página baja hasta dejar el botón arriba, debajo de lo que esté fijo ahí (la cabecera
+    de comidas del plan: su `scroll-margin-top`); la barra inferior del teléfono no cuenta como lugar
+    libre. Siempre dentro de la pantalla con 16px de margen; en el teléfono ocupa todo el ancho menos
+    ese margen. Una vez abierta no salta de lado al crecer (aparece el campo de la hora) ni cuando el
+    teclado achica la pantalla; si está arriba del botón y crece, la página sube lo mismo, así lo que
+    se estaba tocando no se corre bajo el dedo.
+  - **Lo que se tocó no se mueve en la pantalla.** Si el botón cambia de lugar en la página mientras
+    la burbuja está abierta (en La casa, la persona pasa al grupo de lo que eligió y su nombre se pinta
+    más abajo), la página se mueve lo mismo: el nombre y su burbuja quedan donde estaban y es la
+    lista la que se corre.
   - **Cómo se va:** "Listo" o volver a tocar el botón; un toque fuera (desplazar la página no es un
     toque); Escape (descarta); Tab desde su último control. Tocar otra comida cierra esta con las
-    reglas de "Listo" y abre aquella: una burbuja a la vez.
+    reglas de "Listo" y abre aquella: una burbuja a la vez. Un doble toque (o un dedo que rebota) no
+    la abre y la cierra: volver a tocar el mismo botón en los 400ms después de abrirla no hace nada.
   - **Teclado y lector:** el botón lleva `aria-expanded`, `aria-controls` y `aria-haspopup="dialog"`;
     la burbuja es un `role="dialog"` (no modal) nombrado por su título. Aunque está al final de la
     página, el orden de tabulación es el de un *disclosure*: Tab desde el botón entra, Mayús+Tab
@@ -447,7 +455,9 @@ principal para que un lector de pantalla anuncie dónde quedó la persona.
   cocina puede no verlo a tiempo."* Un extra de una comida cerrada ya no ofrece *"Quitar"*: muestra
   el candado y *"Cerrada"*. Días pasados: sin *"+"*. Lo escrito sin agregar no se pierde en silencio,
   pero tampoco se agrega solo (un toque accidental haría cocinar de más): *"Cerrar"*, un toque fuera
-  o pasar a otra comida no cierran y preguntan *"¿Agregar o descartar?"*; Escape descarta.
+  o pasar a otra comida no cierran y preguntan *"¿Agregar o descartar?"*; Escape descarta. La
+  pregunta y sus dos respuestas aparecen **debajo** de *"Agregar"* y *"Cerrar"*, que no se mueven: un
+  doble toque en *"Cerrar"* cae dos veces en *"Cerrar"* (sigue preguntando), nunca en *"Descartar"*.
 
 ---
 

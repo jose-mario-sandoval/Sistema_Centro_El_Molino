@@ -830,18 +830,20 @@ button.comida-tarjeta[aria-busy="true"]{cursor:progress;}
 .celda-casa .partes{display:flex;}
 .celda-casa .parte,.celda-casa .conteo-extra{display:flex;}
 .celda-casa .notas-extra{display:flex;}
-.celda-casa.con-extra .conteo-celda{padding-right:var(--hueco-extra);}
-.tabla-casa{--hueco-extra:6.25rem;}
-/* "+ Extra": la pastilla se ve chica, pero lo que se toca mide al menos 56×56 (el rincón entero). Relleno
-   de acento como un botón principal, para que no se confunda con el desglose de la celda. */
+/* "+ Extra": lo que se toca es la pastilla con 4px a cada lado y 56px de alto (nunca menos de 56×56),
+   no el rincón entero: al lado, la celda sigue siendo la celda. La primera línea de la celda ("N comen")
+   deja libre ese ancho (--pastilla-extra + los 8px, menos el relleno y el borde de la celda, más un
+   respiro). Relleno de acento como un botón principal, para que no se confunda con el desglose. */
+.tabla-casa{--pastilla-extra:4.8rem;}
+.celda-casa.con-extra .conteo-celda{padding-right:calc(var(--pastilla-extra) + 8px - .7rem - 2px + .35rem);}
 .extra-mas{
   position:absolute;top:0;right:0;z-index:1;
-  display:flex;align-items:flex-start;justify-content:flex-end;
-  min-width:var(--toque);min-height:var(--toque);padding:.4rem;
+  display:flex;align-items:flex-start;justify-content:center;
+  min-width:var(--toque);min-height:var(--toque);padding:.4rem 4px;
   border:0;border-radius:var(--r-sm);background:none;color:inherit;
 }
 .extra-mas-pastilla{
-  display:inline-flex;align-items:center;gap:.2rem;
+  display:inline-flex;align-items:center;justify-content:center;gap:.2rem;min-width:var(--pastilla-extra);
   padding:.3rem .65rem .3rem .5rem;border-radius:var(--r-full);border:2px solid var(--borde-elevado);
   background:var(--acento);color:var(--acento-tinta);box-shadow:var(--relieve-bajo);
   font-size:var(--t-xs);font-weight:700;line-height:1.1;white-space:nowrap;
@@ -935,7 +937,10 @@ button.comida-tarjeta[aria-busy="true"]{cursor:progress;}
   border-radius:var(--r-md);border:2px dashed var(--dorado);color:var(--tinta);font-weight:600;font-size:var(--t-sm);
 }
 .aviso-extra .icono{color:var(--dorado);flex:0 0 auto;}
-.pregunta-extra{margin:.25rem 0 0;}
+/* La pregunta, debajo de los botones de siempre (que no se mueven), con sus dos respuestas al lado. */
+.pregunta-extra{margin-top:1rem;padding-top:1rem;border-top:2px solid var(--separador);}
+.pregunta-extra > .aviso-extra{margin:0;}
+.pregunta-extra > .burbuja-pie{margin-top:.75rem;}
 .cantidad-extra{display:flex;align-items:center;gap:.6rem;}
 /* El número cede antes que los botones: a 320px con letra enorme, − y + siguen midiendo 56px. */
 .cantidad-extra input{width:5.5rem;flex:0 1 auto;min-width:0;padding-inline:.5rem;text-align:center;font-weight:700;font-variant-numeric:tabular-nums;}

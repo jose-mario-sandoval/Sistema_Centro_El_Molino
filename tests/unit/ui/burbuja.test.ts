@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { calcularPosicion, cuantoDesplazar, esToque, siguienteDespues } from '@/lib/burbuja'
+import { calcularPosicion, cuantoDesplazar, esRetoqueRapido, esToque, siguienteDespues } from '@/lib/burbuja'
 
 /*
  * La burbuja de una comida: dónde va (debajo del botón que se tocó, arriba si abajo no entra,
@@ -116,6 +116,29 @@ describe('cuantoDesplazar: lo que se abrió tiene que verse', () => {
 
   it('si es más alta que la pantalla, el botón queda arriba y la burbuja empieza debajo', () => {
     expect(cuantoDesplazar({ burbuja: rect(500, 16, 1200, 343), ancla: rect(430, 16, 56, 100), vista: VISTA })).toBe(430 - 16)
+  })
+
+  it('el botón no queda debajo de una cabecera fija: respeta su margen de arriba (scroll-margin-top)', () => {
+    // La cabecera de comidas del plan queda fija arriba: la celda lleva scroll-margin-top 4rem (72px).
+    expect(
+      cuantoDesplazar({ burbuja: rect(500, 16, 1200, 343), ancla: rect(430, 16, 56, 100), vista: VISTA, margenArriba: 72 }),
+    ).toBe(430 - 72)
+    // Nunca menos que el margen de siempre.
+    expect(
+      cuantoDesplazar({ burbuja: rect(500, 16, 1200, 343), ancla: rect(430, 16, 56, 100), vista: VISTA, margenArriba: 4 }),
+    ).toBe(430 - 16)
+  })
+})
+
+describe('esRetoqueRapido: un doble toque no abre y cierra enseguida', () => {
+  it('volver a tocar el mismo botón al instante de abrir no cuenta', () => {
+    expect(esRetoqueRapido(1000, 1250)).toBe(true)
+  })
+  it('pasado el momento, sí cierra', () => {
+    expect(esRetoqueRapido(1000, 1450)).toBe(false)
+  })
+  it('sin burbuja abierta, nunca', () => {
+    expect(esRetoqueRapido(null, 1000)).toBe(false)
   })
 })
 

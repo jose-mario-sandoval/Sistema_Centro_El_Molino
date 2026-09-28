@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useId, useRef, useState, useTransition, type RefObject } from 'react'
+import { useEffect, useId, useLayoutEffect, useRef, useState, useTransition, type RefObject } from 'react'
 import { useAviso } from '@/components/ui/avisos'
 import { Burbuja, devolverFoco, type MotivoCierre } from '@/components/ui/burbuja'
 import { Icono } from '@/components/ui/iconos'
@@ -147,7 +147,8 @@ export function BurbujaExtra({
   const idLista = useId()
   const titulo = useRef<HTMLHeadingElement>(null)
   const tituloLista = useRef<HTMLHeadingElement>(null)
-  const botonAgregar = useRef<HTMLButtonElement>(null)
+  const pregunta = useRef<HTMLDivElement>(null)
+  const botonSiAgregar = useRef<HTMLButtonElement>(null)
   const [cantidad, setCantidad] = useState('1')
   const [nota, setNota] = useState('')
   const [errores, setErrores] = useState<Record<string, string>>({})
@@ -163,15 +164,28 @@ export function BurbujaExtra({
     }
   }, [])
 
+  // Al preguntar, el foco va a su "Agregar" (la pregunta se anuncia con role="alert" y la respuesta
+  // está al lado). La pregunta va debajo de los botones de siempre, que no se mueven: el segundo toque
+  // de un doble toque en "Cerrar" cae otra vez en "Cerrar", nunca en "Descartar". Pasado ese momento,
+  // si la pregunta quedó fuera de la pantalla, se la trae a la vista.
+  useLayoutEffect(() => {
+    if (!preguntando) return
+    botonSiAgregar.current?.focus({ preventScroll: true })
+    const espera = setTimeout(() => {
+      const caja = pregunta.current?.getBoundingClientRect()
+      if (caja && (caja.bottom > window.innerHeight || caja.top < 0)) pregunta.current?.scrollIntoView({ block: 'nearest' })
+    }, 450)
+    return () => clearTimeout(espera)
+  }, [preguntando])
+
   /**
-   * true si se puede cerrar. Si hay algo sin agregar, pregunta y no deja; el foco va a "Agregar" (la
-   * pregunta se anuncia con role="alert" y la respuesta está a mano), también si ya estaba preguntando.
-   * Mientras se agrega, se puede cerrar: lo escrito ya va en camino.
+   * true si se puede cerrar. Si hay algo sin agregar, pregunta y no deja; si ya estaba preguntando, el
+   * foco vuelve a su "Agregar". Mientras se agrega, se puede cerrar: lo escrito ya va en camino.
    */
   function puedeCerrar(): boolean {
     if (!sinAgregar || pendiente) return true
     setPreguntando(true)
-    botonAgregar.current?.focus({ preventScroll: true })
+    botonSiAgregar.current?.focus({ preventScroll: true })
     return false
   }
 
@@ -333,28 +347,35 @@ export function BurbujaExtra({
         </div>
 
         {errores.general && <p className="campo-error">{errores.general}</p>}
-        {preguntando && (
-          <p className="aviso-extra pregunta-extra" role="alert">
-            <Icono nombre="sinDefinir" />
-            <span>Todavía no agregaste este extra. ¿Agregar o descartar?</span>
-          </p>
-        )}
 
+        {/* Siempre los mismos dos, en el mismo lugar: "Cerrar" con algo sin agregar no cierra, pregunta. */}
         <div className="burbuja-pie">
-          <button ref={botonAgregar} type="submit" className="btn" aria-disabled={pendiente || undefined}>
+          <button type="submit" className="btn" aria-disabled={pendiente || undefined}>
             <Icono nombre="mas" />
             {pendiente ? 'Agregando…' : 'Agregar'}
           </button>
-          {preguntando ? (
-            <button type="button" className="btn danger" onClick={() => cerrar('escape')}>
-              Descartar
-            </button>
-          ) : (
-            <button type="button" className="btn ghost" onClick={() => cerrar('listo')}>
-              Cerrar
-            </button>
-          )}
+          <button type="button" className="btn ghost" onClick={() => cerrar('listo')}>
+            Cerrar
+          </button>
         </div>
+
+        {preguntando && (
+          <div ref={pregunta} className="pregunta-extra">
+            <p className="aviso-extra" role="alert">
+              <Icono nombre="sinDefinir" />
+              <span>Todavía no agregaste este extra. ¿Agregar o descartar?</span>
+            </p>
+            <div className="burbuja-pie">
+              <button ref={botonSiAgregar} type="submit" className="btn" aria-disabled={pendiente || undefined}>
+                <Icono nombre="mas" />
+                Agregar
+              </button>
+              <button type="button" className="btn danger" onClick={() => cerrar('escape')}>
+                Descartar
+              </button>
+            </div>
+          </div>
+        )}
       </form>
 
       {extras.length > 0 && (

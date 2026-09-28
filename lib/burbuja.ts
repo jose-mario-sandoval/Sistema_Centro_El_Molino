@@ -78,11 +78,27 @@ export function calcularPosicion(p: {
  * el botón que la abrió se vaya por arriba: si la burbuja es más alta que la pantalla, el botón queda
  * arriba y la burbuja empieza debajo de él.
  */
-export function cuantoDesplazar(p: { burbuja: Rect; ancla: Rect; vista: { alto: number }; reservaAbajo?: number }): number {
+export function cuantoDesplazar(p: {
+  burbuja: Rect
+  ancla: Rect
+  vista: { alto: number }
+  reservaAbajo?: number
+  /** Lo que tapa el comienzo de la pantalla sobre el botón (su scroll-margin-top: la cabecera fija del plan). */
+  margenArriba?: number
+}): number {
   const limite = p.vista.alto - (p.reservaAbajo ?? 0) - MARGEN_BURBUJA
   const falta = p.burbuja.bottom - limite
   if (falta <= 0) return 0
-  return Math.max(0, Math.min(falta, p.ancla.top - MARGEN_BURBUJA))
+  const arriba = Math.max(MARGEN_BURBUJA, p.margenArriba ?? 0)
+  return Math.max(0, Math.min(falta, p.ancla.top - arriba))
+}
+
+/** Tiempo tras abrir en que volver a tocar el mismo botón no la cierra: un doble toque no la abre y cierra. */
+export const RETOQUE_MS = 400
+
+/** Se volvió a tocar el botón de la burbuja recién abierta (el segundo toque de un doble toque). */
+export function esRetoqueRapido(abiertaEn: number | null, ahora: number, ventana = RETOQUE_MS): boolean {
+  return abiertaEn !== null && ahora - abiertaEn < ventana
 }
 
 /** Un toque apenas mueve el dedo; arrastrarlo para desplazar la página no cierra la burbuja. */
