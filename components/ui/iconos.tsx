@@ -70,6 +70,13 @@ const TRAZOS = {
       <path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M3 13h18" />
     </>
   ),
+  // Chinche: una publicación fijada arriba del feed.
+  fijar: (
+    <>
+      <path d="M8 3h8M9.5 3v6L6 14h12l-3.5-5V3" />
+      <path d="M12 14v7" />
+    </>
+  ),
   izquierda: <path d="M15 5l-7 7 7 7" />,
   derecha: <path d="M9 5l7 7-7 7" />,
   abajo: <path d="M5 9l7 7 7-7" />,

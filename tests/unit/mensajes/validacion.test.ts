@@ -3,7 +3,10 @@ import { describe, expect, it } from 'vitest'
 import { camposConError } from '@/lib/validacion/auth'
 import {
   esquemaBorrado,
+  esquemaCargarPublicacion,
+  esquemaDesfijar,
   esquemaEdicionPropia,
+  esquemaFijar,
   esquemaModeracion,
   esquemaPaginaMensajes,
   esquemaPublicacion,
@@ -111,5 +114,44 @@ describe('esquemaEdicionPropia', () => {
 
   it('rechaza texto vacío', () => {
     expect(esquemaEdicionPropia.safeParse({ id: ID, texto: '   ' }).success).toBe(false)
+  })
+})
+
+describe('esquemaFijar', () => {
+  const ID = '3f1c2a9e-8b7d-4c6e-9a5b-1d2e3f4a5b6c'
+
+  it('acepta cada duración sin fecha', () => {
+    for (const duracion of ['siempre', '1d', '3d', '7d'] as const) {
+      expect(esquemaFijar.parse({ id: ID, duracion })).toEqual({ id: ID, duracion })
+    }
+  })
+
+  it('"hasta el día" exige la fecha, junto al campo', () => {
+    expect(esquemaFijar.parse({ id: ID, duracion: 'fecha', fecha: '2026-10-01' })).toEqual({
+      id: ID,
+      duracion: 'fecha',
+      fecha: '2026-10-01',
+    })
+    const sinFecha = esquemaFijar.safeParse({ id: ID, duracion: 'fecha' })
+    expect(camposConError(sinFecha.error!)).toEqual({ fecha: 'Elegí hasta qué día.' })
+    const mala = esquemaFijar.safeParse({ id: ID, duracion: 'fecha', fecha: '1/10/2026' })
+    expect(camposConError(mala.error!)).toEqual({ fecha: 'Elegí hasta qué día.' })
+  })
+
+  it('rechaza una duración desconocida o un id inválido', () => {
+    expect(camposConError(esquemaFijar.safeParse({ id: ID, duracion: '2d' }).error!)).toEqual({
+      duracion: 'Elegí por cuánto tiempo.',
+    })
+    expect(esquemaFijar.safeParse({ id: 'x', duracion: 'siempre' }).success).toBe(false)
+  })
+})
+
+describe('esquemaDesfijar y esquemaCargarPublicacion', () => {
+  it('solo el id', () => {
+    const id = randomUUID()
+    for (const esquema of [esquemaDesfijar, esquemaCargarPublicacion]) {
+      expect(esquema.parse({ id })).toEqual({ id })
+      expect(esquema.safeParse({ id: 42 }).success).toBe(false)
+    }
   })
 })
