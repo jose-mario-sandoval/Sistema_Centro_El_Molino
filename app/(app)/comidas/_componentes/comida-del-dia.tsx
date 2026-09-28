@@ -1,9 +1,8 @@
 'use client'
 
-import { useId, useOptimistic, useState, useTransition } from 'react'
+import { useOptimistic, useTransition } from 'react'
 import { useAviso } from '@/components/ui/avisos'
 import { fallo, type Resultado } from '@/lib/acciones/resultado'
-import { LARGO_MAXIMO_NOTA, mensajeNota, normalizarNota, notaValida } from '@/lib/comidas/notas'
 import { VALOR_POR_AUSENCIA } from '@/lib/comidas/reglas'
 import {
   ETIQUETA_TIEMPO,
@@ -16,8 +15,11 @@ import {
 import { valorTrasGuardar, type ComidaDeSemana } from '@/lib/comidas/vista'
 import type { FechaISO } from '@/lib/fechas'
 import { guardarSeleccion, volverAPlan } from '../acciones'
+import { useAvisarAlGrupo } from './borradores-del-grupo'
+import { EditorNota } from './editor-nota'
 import { textoNota } from './insignia-estado'
 import { SelectorComida } from './selector-comida'
+import { propsEditorNota, useBorradorNota } from './usar-borrador-nota'
 
 const VERBO: Record<TiempoComida, string> = { desayuno: 'desayunar', almuerzo: 'almorzar', cena: 'cenar' }
 
@@ -40,14 +42,17 @@ export function ComidaDelDia({
   datos: ComidaDeSemana
 }) {
   const aviso = useAviso()
-  const idNota = useId()
   const [valor, aplicarValor] = useOptimistic(datos.valor)
-  const [borrador, setBorrador] = useState<{ estado: EstadoComida; nota: string } | null>(null)
   const [pendiente, iniciar] = useTransition()
+  const nota = useBorradorNota(valor, guardar)
 
   const nombre = ETIQUETA_TIEMPO[datos.comida]
   const editable = datos.abierta
-  const estadoMarcado = (editable ? borrador?.estado : undefined) ?? valor?.estado ?? null
+  const borrador = editable ? nota.borrador : null
+  const estadoMarcado = borrador?.estado ?? valor?.estado ?? null
+
+  // Cerrar el día (o pasar a otro) con una nota a medio escribir la guarda, o avisa y no cierra.
+  useAvisarAlGrupo(() => !editable || nota.confirmar({ alCerrar: true }))
 
   function ejecutar(optimista: ValorEfectivo, accion: () => Promise<Resultado<null>>) {
     iniciar(async () => {
@@ -63,7 +68,6 @@ export function ComidaDelDia({
       // (la ventana cerró mientras la página estaba abierta), y su respuesta ya trae la vista real
       // (spec §6.4). Al terminar la transición, el valor optimista se reemplaza por ese estado.
       if (!resultado.ok) aviso(resultado.error)
-      setBorrador(null)
     })
   }
 
@@ -77,23 +81,12 @@ export function ComidaDelDia({
     // Mientras se guarda, los chips siguen enfocables (aria-disabled) pero ignoran los clics.
     if (pendiente) return
     if (INFO_ESTADO[estado].nota) {
-      setBorrador({ estado, nota: valor?.estado === estado ? (valor.nota ?? '') : '' })
+      nota.elegir(estado)
       return
     }
-    setBorrador(null)
+    nota.descartar()
     if (valor?.estado === estado) return
     guardar({ estado, nota: null })
-  }
-
-  function confirmarNota(evento: React.FormEvent<HTMLFormElement>) {
-    evento.preventDefault()
-    if (!borrador) return
-    const nota = normalizarNota(borrador.estado, borrador.nota)
-    if (!notaValida(borrador.estado, nota)) {
-      aviso(mensajeNota(borrador.estado))
-      return
-    }
-    guardar({ estado: borrador.estado, nota })
   }
 
   function volver() {
@@ -102,9 +95,6 @@ export function ComidaDelDia({
       volverAPlan({ fecha, comida: datos.comida }),
     )
   }
-
-  const tipoNota = borrador ? INFO_ESTADO[borrador.estado].nota : null
-  const escribiendoNota = editable && borrador !== null
 
   return (
     <div
@@ -120,40 +110,27 @@ export function ComidaDelDia({
         marcado={estadoMarcado}
         pregunta={`¿Vas a ${VERBO[datos.comida]} el ${dia.toLowerCase()}?`}
         origen={valor ? { texto: textoOrigen(valor), cambiada: valor.origen === 'persona' } : null}
-        nota={!escribiendoNota && valor?.nota ? textoNota(valor.estado, valor.nota) : null}
+        nota={!borrador && valor?.nota ? textoNota(valor.estado, valor.nota) : null}
         cierre={editable ? conMayuscula(datos.cierre) : null}
         cerrada={editable ? null : 'Cerrada: ya no se puede cambiar.'}
         pendiente={pendiente}
-        editorAbierto={escribiendoNota}
+        editorAbierto={borrador !== null}
         alElegir={elegir}
-        alCerrar={() => setBorrador(null)}
+        // "Listo" o volver a tocar el estado guardan lo escrito (o avisan y no cierran); Escape descarta.
+        alCerrar={(motivo) => {
+          if (motivo === 'escape') {
+            nota.descartar()
+            return true
+          }
+          return nota.confirmar({ alCerrar: true })
+        }}
         editorNota={
-          escribiendoNota && (
-            <form className="note-field editor-nota" onSubmit={confirmarNota}>
-              <label htmlFor={idNota}>{tipoNota === 'hora' ? 'Hora' : 'Qué podés comer'}</label>
-              <input
-                id={idNota}
-                type={tipoNota === 'hora' ? 'time' : 'text'}
-                maxLength={tipoNota === 'texto' ? LARGO_MAXIMO_NOTA : undefined}
-                value={borrador.nota}
-                onChange={(e) => setBorrador({ ...borrador, nota: e.target.value })}
-                required
-                // La persona acaba de elegir un estado que pide nota: el teclado es lo esperado.
-                autoFocus
-              />
-              <div className="acciones-formulario">
-                <button type="submit" className="btn" disabled={pendiente}>
-                  Guardar
-                </button>
-                <button type="button" className="btn ghost" disabled={pendiente} onClick={() => setBorrador(null)}>
-                  Cancelar
-                </button>
-              </div>
-            </form>
+          borrador && (
+            <EditorNota key={borrador.estado} estado={borrador.estado} {...propsEditorNota(nota)} pendiente={pendiente} />
           )
         }
         acciones={
-          !escribiendoNota &&
+          !borrador &&
           valor?.origen === 'persona' && (
             <button type="button" className="btn ghost" disabled={pendiente} onClick={volver}>
               {datos.ausente ? 'Volver a mi ausencia' : 'Volver a mi plan'}

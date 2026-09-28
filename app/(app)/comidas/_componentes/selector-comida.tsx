@@ -1,17 +1,57 @@
 'use client'
 
-import { useId, useRef, useState } from 'react'
+import { useId, useRef, useState, type Ref } from 'react'
 import { Icono } from '@/components/ui/iconos'
-import { ESTADOS_COMIDA, INFO_ESTADO, type EstadoComida } from '@/lib/comidas/tipos'
+import { INFO_ESTADO, type EstadoComida } from '@/lib/comidas/tipos'
 import { varsEstado } from './insignia-estado'
+import { PanelOpciones, type MotivoCierre } from './panel-opciones'
+
+/** El estado actual como botón grande (elevado = se toca). "Sin definir" es un hueco con la pregunta escrita. */
+function BotonEstado({
+  ref,
+  estado,
+  pregunta,
+  editable,
+  abierto,
+  controla,
+  alTocar,
+}: {
+  ref: Ref<HTMLButtonElement>
+  estado: EstadoComida | null
+  pregunta: string
+  editable: boolean
+  abierto: boolean
+  controla?: string
+  alTocar: () => void
+}) {
+  return (
+    <button
+      ref={ref}
+      type="button"
+      className={`estado-actual${estado ? '' : ' sin-definir'}`}
+      style={estado ? varsEstado(estado) : undefined}
+      disabled={!editable}
+      aria-expanded={editable ? abierto : undefined}
+      aria-controls={controla}
+      onClick={alTocar}
+    >
+      <Icono nombre={estado ?? 'sinDefinir'} />
+      <span className="estado-actual-texto">{estado ? INFO_ESTADO[estado].etiqueta : pregunta}</span>
+      {editable && (
+        <>
+          {/* El nombre accesible dice qué hace el botón, no solo qué muestra. */}
+          <span className="sr-only">, cambiar</span>
+          <Icono nombre="abajo" className="flecha" />
+        </>
+      )}
+    </button>
+  )
+}
 
 /**
- * La única interacción de comidas (DESIGN.md §8): Plan semanal y Semana responden la misma
- * pregunta, así que usan este mismo componente. Solo pinta; guardar es de quien lo usa.
- *
- * Arriba, el estado actual como botón grande (elevado = se toca). Al tocarlo se abren las seis
- * opciones; la elegida queda hundida, con su color, su icono y el texto en negrita.
- * "Sin definir" no es texto gris: es un hueco con la pregunta escrita.
+ * Una comida de la Semana: el estado actual como botón y, al tocarlo, las seis opciones debajo
+ * (`PanelOpciones`, la misma pieza que usa la cuadrícula del Plan: DESIGN.md §8). Solo pinta;
+ * guardar es de quien lo usa.
  */
 export function SelectorComida({
   nombre,
@@ -49,8 +89,11 @@ export function SelectorComida({
   /** Hay una nota a medio escribir: las opciones quedan abiertas hasta guardarla o cancelarla. */
   editorAbierto: boolean
   alElegir: (estado: EstadoComida) => void
-  /** Al tocar "Listo": quien lo usa descarta lo que quedó a medio escribir. */
-  alCerrar?: () => void
+  /**
+   * Al cerrar ("Listo", volver a tocar el estado, Escape): quien lo usa guarda o descarta lo que quedó
+   * a medio escribir. Devolver false deja el panel abierto (la nota no sirve y el error está a la vista).
+   */
+  alCerrar?: (motivo: MotivoCierre) => boolean | void
   editorNota?: React.ReactNode
   acciones?: React.ReactNode
 }) {
@@ -60,8 +103,8 @@ export function SelectorComida({
   const editable = !cerrada
   const visible = editable && (abierto || editorAbierto)
 
-  function cerrar() {
-    alCerrar?.()
+  function cerrar(motivo: MotivoCierre) {
+    if (alCerrar?.(motivo) === false) return
     setAbierto(false)
     boton.current?.focus()
   }
@@ -73,26 +116,15 @@ export function SelectorComida({
         {origen && <span className={`origen${origen.cambiada ? ' cambiada' : ''}`}>{origen.texto}</span>}
       </div>
 
-      <button
+      <BotonEstado
         ref={boton}
-        type="button"
-        className={`estado-actual${estado ? '' : ' sin-definir'}`}
-        style={estado ? varsEstado(estado) : undefined}
-        disabled={!editable}
-        aria-expanded={editable ? visible : undefined}
-        aria-controls={visible ? idPanel : undefined}
-        onClick={() => (visible ? cerrar() : setAbierto(true))}
-      >
-        <Icono nombre={estado ?? 'sinDefinir'} />
-        <span className="estado-actual-texto">{estado ? INFO_ESTADO[estado].etiqueta : pregunta}</span>
-        {editable && (
-          <>
-            {/* El nombre accesible dice qué hace el botón, no solo qué muestra. */}
-            <span className="sr-only">, cambiar</span>
-            <Icono nombre="abajo" className="flecha" />
-          </>
-        )}
-      </button>
+        estado={estado}
+        pregunta={pregunta}
+        editable={editable}
+        abierto={visible}
+        controla={visible ? idPanel : undefined}
+        alTocar={() => (visible ? cerrar('listo') : setAbierto(true))}
+      />
 
       {estado && nota && (
         <div className="nota-comida">
@@ -110,44 +142,16 @@ export function SelectorComida({
       )}
 
       {visible && (
-        <div
+        <PanelOpciones
           id={idPanel}
-          className="opciones"
-          onKeyDown={(e) => {
-            if (e.key === 'Escape') {
-              e.stopPropagation()
-              cerrar()
-            }
-          }}
-        >
-          <div className="status-row" role="group" aria-label={`Elegí qué hacés con ${nombre.toLowerCase()}`}>
-            {ESTADOS_COMIDA.map((opcion) => {
-              const elegida = marcado === opcion
-              return (
-                <button
-                  key={opcion}
-                  type="button"
-                  className={`status-chip${elegida ? ' selected' : ''}`}
-                  style={varsEstado(opcion)}
-                  aria-pressed={elegida}
-                  // Guardando: aria-disabled y no disabled, para no perder el foco del teclado.
-                  aria-disabled={pendiente || undefined}
-                  onClick={() => alElegir(opcion)}
-                >
-                  <Icono nombre={opcion} />
-                  <span>{INFO_ESTADO[opcion].etiqueta}</span>
-                </button>
-              )
-            })}
-          </div>
-          {editorNota}
-          <div className="opciones-pie">
-            {acciones}
-            <button type="button" className="btn ghost" onClick={cerrar}>
-              Listo
-            </button>
-          </div>
-        </div>
+          nombre={nombre}
+          marcado={marcado}
+          pendiente={pendiente}
+          alElegir={alElegir}
+          alCerrar={cerrar}
+          editorNota={editorNota}
+          acciones={acciones}
+        />
       )}
     </>
   )
