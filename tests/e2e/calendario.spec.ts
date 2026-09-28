@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test'
-import { fechaISOEn } from '../../lib/fechas'
+import { fechaISOEn, sumarDias } from '../../lib/fechas'
+import { rangoLegible } from '../../lib/fechas/rango'
 import {
   asegurarUsuariosPrueba,
   clienteAdminPrueba,
@@ -7,6 +8,7 @@ import {
   USUARIOS_PRUEBA,
   type ClaveUsuario,
 } from '../soporte/usuarios-prueba'
+import { irAlMesDe, panelAusencias } from './soporte/ausencias'
 
 async function iniciarSesion(page: Page, clave: ClaveUsuario) {
   await page.goto('/login')
@@ -18,9 +20,20 @@ async function iniciarSesion(page: Page, clave: ClaveUsuario) {
 
 test.afterEach(async () => {
   const ids = await asegurarUsuariosPrueba()
-  const { error } = await clienteAdminPrueba().from('eventos').delete().in('creado_por', Object.values(ids))
-  if (error) throw error
+  const admin = clienteAdminPrueba()
+  const resultados = await Promise.all([
+    admin.from('eventos').delete().in('creado_por', Object.values(ids)),
+    admin.from('ausencias').delete().in('usuario_id', Object.values(ids)),
+  ])
+  for (const { error } of resultados) if (error) throw error
 })
+
+/** Último día del mes de `fecha`: nunca es anterior a ella, y el día siguiente ya es de otro mes. */
+function ultimoDiaDelMes(fecha: string): string {
+  let dia = fecha
+  while (sumarDias(dia, 1).slice(0, 7) === fecha.slice(0, 7)) dia = sumarDias(dia, 1)
+  return dia
+}
 
 test('el Director crea, edita y elimina un evento', async ({ page }) => {
   const hoy = fechaISOEn(new Date())
@@ -340,4 +353,122 @@ test('el Director crea una serie semanal, edita una ocurrencia puntual y cancela
   // gte de eliminarSerieDesdeHoy las borra todas, no queda ninguna.
   const { data: quedan } = await clienteAdminPrueba().from('eventos').select('id').eq('serie_id', serieId!)
   expect(quedan).toEqual([])
+})
+
+test('un Residente marca en el mini calendario una ausencia que cruza de mes, la ve marcada y la quita', async ({ page }) => {
+  const ids = await asegurarUsuariosPrueba()
+  const hoy = fechaISOEn(new Date())
+  const desde = ultimoDiaDelMes(hoy)
+  const hasta = sumarDias(desde, 2)
+  const rango = rangoLegible(desde, hasta)
+
+  await iniciarSesion(page, 'residente')
+  await page.goto('/calendario')
+  const panel = panelAusencias(page)
+
+  // El calendario va primero; las ausencias, debajo.
+  const arribaCalendario = (await page.locator('.cal-head').boundingBox())!.y
+  const arribaAusencias = (await panel.boundingBox())!.y
+  expect(arribaCalendario).toBeLessThan(arribaAusencias)
+  await expect(panel.getByText('No tenés ausencias marcadas.')).toBeVisible()
+
+  const abrir = panel.getByRole('button', { name: 'Marcar una ausencia' })
+  await abrir.click()
+  await expect(abrir).toHaveAttribute('aria-expanded', 'true')
+  const mini = panel.locator('.mini-calendario')
+  const guardar = panel.getByRole('button', { name: 'Guardar ausencia' })
+  await expect(guardar).toBeDisabled()
+
+  // Primer toque: el último día de este mes; segundo: dos días después, ya en el mes siguiente.
+  await mini.locator(`.mini-dia[data-fecha="${desde}"]`).click()
+  await irAlMesDe(mini, hasta)
+  await mini.locator(`.mini-dia[data-fecha="${hasta}"]`).click()
+  await expect(mini.locator(`td:has(> .mini-dia[data-fecha="${hasta}"])`)).toHaveAttribute('aria-selected', 'true')
+  await expect(panel.getByText(`Del ${rango} (3 días).`)).toBeVisible()
+
+  await guardar.click()
+  await expect(page.getByText('Ausencia marcada.')).toBeVisible()
+  await expect(abrir).toHaveAttribute('aria-expanded', 'false')
+  const quitar = panel.getByRole('button', { name: `Quitar la ausencia del ${rango}` })
+  await expect(quitar).toBeVisible()
+  const { data: guardadas } = await clienteAdminPrueba().from('ausencias').select('desde, hasta').eq('usuario_id', ids.residente)
+  expect(guardadas).toEqual([{ desde, hasta }])
+
+  // Marcada en los dos calendarios: el grande y el mini (con texto para el lector de pantalla).
+  await expect(page.locator(`.cal-day[data-fecha="${desde}"]`)).toHaveClass(/\bausente\b/)
+  await abrir.click()
+  const diaMarcado = mini.locator(`.mini-dia[data-fecha="${desde}"]`)
+  await expect(diaMarcado).toHaveClass(/\bmarcado\b/)
+  await expect(diaMarcado).toHaveAccessibleName(/, ya marcado como ausente$/)
+  // Tocar un día ya marcado no lo desmarca ni lo duplica: no hay nada que guardar, y se quita con «Quitar».
+  await diaMarcado.click()
+  await expect(panel.getByText('Ese día ya lo tenés marcado. Para quitarlo, usá «Quitar» arriba.')).toBeVisible()
+  await expect(guardar).toBeDisabled()
+  await panel.getByRole('button', { name: 'Cancelar', exact: true }).click()
+  await expect(abrir).toBeFocused()
+
+  // Quitar, con su confirmación de siempre.
+  await quitar.click()
+  await panel.getByRole('button', { name: 'Sí, quitar' }).click()
+  await expect(page.getByText('Ausencia quitada.')).toBeVisible()
+  await expect(panel.getByText('No tenés ausencias marcadas.')).toBeVisible()
+  const { data: quedan } = await clienteAdminPrueba().from('ausencias').select('id').eq('usuario_id', ids.residente)
+  expect(quedan).toEqual([])
+})
+
+test('en el mini calendario los días pasados no se tocan y el teclado no sale de hoy', async ({ page }) => {
+  const ids = await asegurarUsuariosPrueba()
+  const hoy = fechaISOEn(new Date())
+  const ayer = sumarDias(hoy, -1)
+  const manana = sumarDias(hoy, 1)
+
+  await iniciarSesion(page, 'director')
+  await page.goto('/calendario')
+  const panel = panelAusencias(page)
+  await panel.getByRole('button', { name: 'Marcar una ausencia' }).click()
+  const mini = panel.locator('.mini-calendario')
+
+  // No se puede ir antes del mes de hoy, y lo que ya pasó está deshabilitado.
+  await expect(mini.getByRole('button', { name: 'Ir al mes anterior' })).toHaveAttribute('aria-disabled', 'true')
+  if (ayer.slice(0, 7) === hoy.slice(0, 7)) await expect(mini.locator(`.mini-dia[data-fecha="${ayer}"]`)).toBeDisabled()
+  else await expect(mini.locator(`.mini-dia[data-fecha="${ayer}"]`)).toHaveCount(0)
+  const celdaHoy = mini.locator(`.mini-dia[data-fecha="${hoy}"]`)
+  await expect(celdaHoy).toBeEnabled()
+  await expect(celdaHoy).toHaveAttribute('aria-current', 'date')
+  // Un solo punto de tabulación en todo el mes: hoy.
+  await expect(mini.locator('.mini-dia[tabindex="0"]')).toHaveCount(1)
+  await expect(celdaHoy).toHaveAttribute('tabindex', '0')
+
+  // Flechas: a la izquierda no pasa de hoy; a la derecha, mañana (aunque sea de otro mes). Enter elige.
+  await celdaHoy.focus()
+  await page.keyboard.press('ArrowLeft')
+  await expect(celdaHoy).toBeFocused()
+  await page.keyboard.press('ArrowRight')
+  const celdaManana = mini.locator(`.mini-dia[data-fecha="${manana}"]`)
+  await expect(celdaManana).toBeFocused()
+  await page.keyboard.press('Enter')
+  await expect(mini.locator(`td:has(> .mini-dia[data-fecha="${manana}"])`)).toHaveAttribute('aria-selected', 'true')
+  await expect(panel.getByText(`El ${rangoLegible(manana, manana)}: un solo día.`)).toBeVisible()
+  await expect(panel.getByRole('button', { name: 'Guardar ausencia' })).toBeEnabled()
+
+  // Nada se guarda sin "Guardar ausencia".
+  await panel.getByRole('button', { name: 'Cancelar', exact: true }).click()
+  await expect(mini).toHaveCount(0)
+  const { data } = await clienteAdminPrueba().from('ausencias').select('id').eq('usuario_id', ids.director)
+  expect(data).toEqual([])
+})
+
+test('Administración no tiene ausencias en el calendario: ni tarjeta, ni mini calendario, ni días marcados', async ({ page }) => {
+  const ids = await asegurarUsuariosPrueba()
+  const hoy = fechaISOEn(new Date())
+  const { error } = await clienteAdminPrueba().from('ausencias').insert({ usuario_id: ids.residente, desde: hoy, hasta: hoy })
+  expect(error).toBeNull()
+
+  await iniciarSesion(page, 'administracion')
+  await page.goto('/calendario')
+  await expect(page.locator('.cal-head')).toBeVisible()
+  await expect(page.getByText('Mis ausencias')).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Marcar una ausencia' })).toHaveCount(0)
+  await expect(page.locator('.mini-calendario')).toHaveCount(0)
+  await expect(page.locator('.cal-day.ausente')).toHaveCount(0)
 })
