@@ -64,6 +64,13 @@ async function abrirComida(page: Page, fecha: string, comida: Comida): Promise<L
  * burbuja nunca llega ahí: siempre deja 16px de margen).
  */
 async function tocarFuera(page: Page) {
+  // x=4 cae en el margen de la página (teléfono) o en el relleno del lateral (escritorio): nunca en
+  // un control ni en la burbuja. Se comprueba antes de tocar, para que la prueba no mienta.
+  const destino = await page.evaluate(() => {
+    const elemento = document.elementFromPoint(4, 300)
+    return elemento?.closest('button, a, input, select, textarea, .burbuja') ? elemento.outerHTML.slice(0, 80) : null
+  })
+  expect(destino, 'el punto de "tocar fuera" tiene que ser inerte').toBeNull()
   await page.mouse.click(4, 300)
 }
 

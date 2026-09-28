@@ -75,8 +75,8 @@ export function TablaCasa({
   const celdaAbierta = useRef<HTMLButtonElement>(null)
   const anclaPersona = useRef<HTMLButtonElement>(null)
   const anclaExtra = useRef<HTMLButtonElement>(null)
-  // La última persona cuya burbuja se abrió: si su nombre cambia de grupo, el foco vuelve a él.
-  const ultimaPersona = useRef<string | null>(null)
+  // La última persona cuya burbuja se abrió en esta celda: si su nombre cambia de grupo, el foco vuelve a él.
+  const [ultimaPersona, setUltimaPersona] = useState<string | null>(null)
 
   const notas = useMemo(() => notasPorComida(extrasManuales), [extrasManuales])
   const conExtra = new Set(diasExtra)
@@ -85,6 +85,7 @@ export function TablaCasa({
   const comida = dia?.comidas.find((c) => c.comida === abierta?.comida)
   const grupos = comida ? agruparPorEstado(comida.personas) : []
   const persona = comida?.personas.find((p) => p.id === personaAbierta)
+  const grupoDeLaUltima = grupos.find((g) => g.personas.some((p) => p.id === ultimaPersona))?.clave ?? null
 
   const diaExtra = extraAbierto ? dias.find((d) => d.fecha === extraAbierto.fecha) : undefined
   const comidaExtra = diaExtra?.comidas.find((c) => c.comida === extraAbierto?.comida)
@@ -101,14 +102,13 @@ export function TablaCasa({
   }, [abierta?.fecha, abierta?.comida])
 
   // Al guardar, la persona pasa al grupo de lo que eligió y su nombre se vuelve a pintar en otro
-  // lugar: si el foco se perdió con ese cambio, vuelve a su nombre (nunca queda en la nada).
+  // lugar: si el foco estaba en su nombre y se perdió con ese cambio, vuelve a él (nunca a la nada).
   useEffect(() => {
-    const id = ultimaPersona.current
-    if (!id || !abierta) return
+    if (!ultimaPersona || !grupoDeLaUltima) return
     const activo = document.activeElement
     if (activo && activo !== document.body) return
-    document.getElementById(`${idBase}-persona-${id}`)?.focus({ preventScroll: true })
-  })
+    document.getElementById(`${idBase}-persona-${ultimaPersona}`)?.focus({ preventScroll: true })
+  }, [grupoDeLaUltima, ultimaPersona, idBase])
 
   /** Pasar a otra celda, persona o burbuja guarda lo escrito (o pregunta); si no se puede, no cambia. */
   function puedeCambiar(): boolean {
@@ -118,6 +118,7 @@ export function TablaCasa({
   function tocarCelda(celda: Celda) {
     if (!puedeCambiar()) return
     setPersonaAbierta(null)
+    setUltimaPersona(null)
     setExtraAbierto(null)
     setAbierta((antes) => (esLaMisma(antes, celda) ? null : celda))
   }
@@ -125,7 +126,7 @@ export function TablaCasa({
   function tocarPersona(id: string) {
     if (!puedeCambiar()) return
     setExtraAbierto(null)
-    ultimaPersona.current = id
+    setUltimaPersona(id)
     if (personaAbierta === id) {
       setPersonaAbierta(null)
       anclaPersona.current?.focus({ preventScroll: true })
@@ -149,6 +150,7 @@ export function TablaCasa({
     if (!puedeCambiar()) return
     const celda = celdaAbierta.current
     setPersonaAbierta(null)
+    setUltimaPersona(null)
     setAbierta(null)
     celda?.focus()
   }
@@ -343,7 +345,7 @@ function BurbujaPersona({
   }
 
   return (
-    <Burbuja id={id} ancla={ancla} tituloId={tituloId} className="burbuja-persona" alCerrar={cerrar}>
+    <Burbuja id={id} ancla={ancla} tituloId={tituloId} alCerrar={cerrar}>
       <ContenidoComida
         tituloId={tituloId}
         titulo={tituloComidaDePersona(persona.datos.comida, dia.nombre, dia.fechaCorta, propia ? null : persona.nombre)}

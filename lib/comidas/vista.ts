@@ -6,7 +6,6 @@ import { diasDeSemana, fechaCorta, nombreDia, textoCierre, tituloComida } from '
 import { CAMBIADA_POR_EL_DIRECTOR } from './voz'
 import {
   ETIQUETA_CORTA_ESTADO,
-  ETIQUETA_TIEMPO,
   INFO_ESTADO,
   TIEMPOS_COMIDA,
   type EstadoComida,
@@ -204,13 +203,6 @@ export function textoValor(valor: ValorComida | null): string {
   const { etiqueta, nota } = INFO_ESTADO[valor.estado]
   if (!valor.nota) return etiqueta
   return nota === 'hora' ? `${etiqueta} ${valor.nota}` : `${etiqueta}, ${valor.nota}`
-}
-
-export type LineaTarjeta = TextoCorto & { comida: TiempoComida; etiqueta: string }
-
-/** Las tres líneas de la tarjeta de un día: 'Desayuno' + icono + 'Temprano 07:30'. */
-export function lineasTarjeta(dia: DiaDeSemana): LineaTarjeta[] {
-  return dia.comidas.map(({ comida, valor }) => ({ comida, etiqueta: ETIQUETA_TIEMPO[comida], ...textoCorto(valor) }))
 }
 
 /** Un día está cerrado cuando ya no se puede cambiar ninguna de sus comidas (pasado, o hoy tras la cena). */

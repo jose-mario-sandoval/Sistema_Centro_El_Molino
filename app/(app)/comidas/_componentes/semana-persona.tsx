@@ -78,6 +78,11 @@ function ComidaDeTarjeta({
   const nombre = ETIQUETA_TIEMPO[datos.comida]
   const delDirector = comida.valor?.cambiadaPorOtro === true
 
+  // Cerró con su burbuja abierta (pasó la hora mientras se miraba): la burbuja se va con el botón.
+  useEffect(() => {
+    if (abierta && !comida.editable) alCerrar()
+  }, [abierta, comida.editable, alCerrar])
+
   if (!comida.editable) {
     return (
       <div className="comida-tarjeta cerrada" data-fecha={dia.fecha} data-comida={datos.comida}>

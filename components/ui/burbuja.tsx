@@ -66,7 +66,6 @@ export function Burbuja({
   id,
   ancla,
   tituloId,
-  className,
   enfocarDialogo = false,
   alCerrar,
   children,
@@ -76,7 +75,6 @@ export function Burbuja({
   ancla: RefObject<HTMLElement | null>
   /** Id del título (nombre accesible del diálogo). */
   tituloId: string
-  className?: string
   /** Al abrir, el foco va a la burbuja y no a un control: así el teléfono no abre el teclado solo. */
   enfocarDialogo?: boolean
   /** Pedido de cierre por Escape, un toque o el foco fuera, o Tab; true si se cerró. */
@@ -90,6 +88,8 @@ export function Burbuja({
   const pedirCierre = useRef(alCerrar)
   const observador = useRef<ResizeObserver | null>(null)
   const observada = useRef<HTMLElement | null>(null)
+  // Dónde quedó y cuánto medía la última vez (para que al crecer hacia arriba no se mueva lo que se ve).
+  const anterior = useRef<{ top: number; alto: number; anclaTop: number } | null>(null)
   // El foco estaba dentro de la burbuja (lo que se tocó o se tabuló por última vez).
   const focoDentro = useRef(false)
 
@@ -98,12 +98,15 @@ export function Burbuja({
   })
 
   // El foco nunca queda en la nada (DESIGN.md §7): si el control que lo tenía desapareció al volver a
-  // pintar (el campo de la hora después de "Guardar", "Volver a mi plan", un botón que se deshabilita),
-  // vuelve a la opción marcada o a la burbuja, sin mover la página.
+  // pintar (el campo de la hora después de "Guardar", "Volver a mi plan") o se deshabilitó (el navegador
+  // lo suelta en el cuadro siguiente: "Dejar sin definir"), va a la opción marcada o a la burbuja, sin
+  // mover la página.
   useLayoutEffect(() => {
     const elemento = burbuja.current
     const activo = document.activeElement
-    if (!elemento || !focoDentro.current || (activo && activo !== document.body)) return
+    if (!elemento || !focoDentro.current) return
+    const perdido = !activo || activo === document.body || (elemento.contains(activo) && activo.matches(':disabled'))
+    if (!perdido) return
     ;(elemento.querySelector<HTMLElement>('[aria-pressed="true"]') ?? elemento).focus({ preventScroll: true })
   })
 
@@ -131,11 +134,51 @@ export function Burbuja({
       reservaAbajo: reservaAbajo(),
       lado: lado.current,
     })
+    // Arriba del botón, la burbuja crece hacia arriba (aparece el campo de la hora): la página sube lo
+    // mismo, así lo que se estaba tocando no se corre bajo el dedo y lo nuevo aparece debajo.
+    const anclaTop = boton.getBoundingClientRect().top + window.scrollY
+    const antes = anterior.current
+    if (
+      antes &&
+      lado.current === 'arriba' &&
+      posicion.lado === 'arriba' &&
+      antes.alto !== elemento.offsetHeight &&
+      Math.abs(antes.anclaTop - anclaTop) < 1
+    ) {
+      window.scrollBy({ top: posicion.top - antes.top, behavior: 'auto' })
+    }
+    // Pasó de arriba a abajo estando abierta (creció y arriba ya no entra en la página): lo que se
+    // estaba haciendo (el campo de la hora) no puede quedar debajo del borde de la pantalla.
+    const cambioDeLado = antes !== null && lado.current !== null && lado.current !== posicion.lado
+    anterior.current = { top: posicion.top, alto: elemento.offsetHeight, anclaTop }
     lado.current = posicion.lado
     elemento.style.top = `${posicion.top}px`
     elemento.style.left = `${posicion.left}px`
     elemento.style.setProperty('--flecha', `${posicion.flecha}px`)
     elemento.dataset.lado = posicion.lado
+    if (cambioDeLado) mostrar()
+  }
+
+  /** Baja la página lo justo para que la burbuja (y el control con el foco) se vea, sin perder el botón. */
+  function mostrar(suave = false) {
+    const elemento = burbuja.current
+    const boton = ancla.current
+    if (!elemento || !boton) return
+    const bajar = cuantoDesplazar({
+      burbuja: elemento.getBoundingClientRect(),
+      ancla: boton.getBoundingClientRect(),
+      vista: { alto: window.innerHeight },
+      reservaAbajo: reservaAbajo(),
+    })
+    const quieto = !suave || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+    if (bajar > 0) window.scrollBy({ top: bajar, behavior: quieto ? 'auto' : 'smooth' })
+    // Al abrir, el foco está en una opción de arriba: con bajar lo justo alcanza.
+    if (suave) return
+    const activo = document.activeElement
+    if (activo instanceof HTMLElement && activo !== elemento && elemento.contains(activo)) {
+      const r = activo.getBoundingClientRect()
+      if (r.bottom > window.innerHeight - reservaAbajo() || r.top < 0) activo.scrollIntoView({ block: 'nearest' })
+    }
   }
 
   // En cada pintada: el contenido o el botón pudieron moverse.
@@ -151,16 +194,7 @@ export function Burbuja({
       : (elemento.querySelector<HTMLElement>('[aria-pressed="true"]') ?? enfocables(elemento)[0] ?? elemento)
     destino.focus({ preventScroll: true })
     focoDentro.current = true
-    const bajar = cuantoDesplazar({
-      burbuja: elemento.getBoundingClientRect(),
-      ancla: boton.getBoundingClientRect(),
-      vista: { alto: window.innerHeight },
-      reservaAbajo: reservaAbajo(),
-    })
-    if (bajar > 0) {
-      const quieto = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
-      window.scrollBy({ top: bajar, behavior: quieto ? 'auto' : 'smooth' })
-    }
+    mostrar(true)
     // Solo al abrir; quien la usa le pone una `key` por comida.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -171,6 +205,8 @@ export function Burbuja({
     cerrada.current = false
     let inicio: { x: number; y: number; id: number } | null = null
     let bloquearClic = 0
+    // Se está tocando otro botón que abre burbuja: su foco no cuenta como "fuera" (su clic la cambia).
+    let tocandoOtra = false
     let cuadro = 0
 
     const intentar = (motivo: MotivoCierre): boolean => {
@@ -186,6 +222,10 @@ export function Burbuja({
     // Un toque fuera: bajar y subir el dedo casi en el mismo lugar. Desplazar la página no cuenta.
     function alBajar(e: PointerEvent) {
       inicio = null
+      // Un toque nuevo: el bloqueo del anterior ya no corre (en iOS, tocar algo que no es un botón no
+      // dispara "click", y el bloqueo se comería el toque siguiente).
+      bloquearClic = 0
+      tocandoOtra = abreOtra(e.target) && !esPropio(e.target)
       if (!e.isPrimary || (e.pointerType === 'mouse' && e.button !== 0)) return
       if (esPropio(e.target) || abreOtra(e.target)) return
       inicio = { x: e.clientX, y: e.clientY, id: e.pointerId }
@@ -195,13 +235,15 @@ export function Burbuja({
       inicio = null
       if (!desde || desde.id !== e.pointerId || !esToque(desde, { x: e.clientX, y: e.clientY })) return
       // No se pudo cerrar (la nota no sirve y el error está a la vista): ese toque no hace nada más.
-      if (!intentar('fuera')) bloquearClic = e.timeStamp
+      if (!intentar('fuera')) bloquearClic = performance.now()
     }
     function alCancelar() {
       inicio = null
+      tocandoOtra = false
     }
     function alClic(e: MouseEvent) {
-      if (bloquearClic && e.timeStamp - bloquearClic < 1000) {
+      tocandoOtra = false
+      if (bloquearClic && performance.now() - bloquearClic < 1000 && !esPropio(e.target)) {
         e.preventDefault()
         e.stopPropagation()
       }
@@ -209,7 +251,10 @@ export function Burbuja({
     }
     function alEnfocar(e: FocusEvent) {
       focoDentro.current = e.target instanceof Node && Boolean(burbuja.current?.contains(e.target))
-      if (esPropio(e.target) || abreOtra(e.target)) return
+      if (esPropio(e.target)) return
+      // Tocar otro botón que abre burbuja lo enfoca antes de su clic: el clic se encarga. Llegar a él con
+      // el teclado (Tab, Mayús+Tab) sí es irse de esta burbuja.
+      if (tocandoOtra && abreOtra(e.target)) return
       intentar('fuera')
     }
     function alTeclear(e: KeyboardEvent) {
@@ -242,7 +287,6 @@ export function Burbuja({
         boton?.focus()
         return
       }
-      // Sin Array.prototype.at: no existe en iOS 15.0–15.3.
       if (controles.length > 0 && e.target !== controles[controles.length - 1]) return
       e.preventDefault()
       if (!intentar('tab')) return
@@ -252,6 +296,10 @@ export function Burbuja({
     function reubicar() {
       cancelAnimationFrame(cuadro)
       cuadro = requestAnimationFrame(colocar)
+    }
+    // La página no hace falta (la burbuja se mueve con ella); sí algo desplazable que contenga al botón.
+    function alDesplazar(e: Event) {
+      if (e.target !== document && e.target !== document.documentElement) reubicar()
     }
 
     observador.current = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(reubicar)
@@ -268,8 +316,7 @@ export function Burbuja({
     document.addEventListener('focusin', alEnfocar)
     window.addEventListener('keydown', alTeclear, true)
     window.addEventListener('resize', reubicar)
-    // En la página no hace falta (la burbuja se mueve con ella), pero sí si se desplaza algo que la contiene.
-    window.addEventListener('scroll', reubicar, { capture: true, passive: true })
+    window.addEventListener('scroll', alDesplazar, { capture: true, passive: true })
     return () => {
       cerrada.current = true
       cancelAnimationFrame(cuadro)
@@ -283,7 +330,7 @@ export function Burbuja({
       document.removeEventListener('focusin', alEnfocar)
       window.removeEventListener('keydown', alTeclear, true)
       window.removeEventListener('resize', reubicar)
-      window.removeEventListener('scroll', reubicar, { capture: true })
+      window.removeEventListener('scroll', alDesplazar, { capture: true })
     }
     // Una sola vez: `colocar` e `intentar` leen todo por refs.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -297,10 +344,12 @@ export function Burbuja({
       role="dialog"
       aria-labelledby={tituloId}
       tabIndex={-1}
-      className={className ? `burbuja ${className}` : 'burbuja'}
+      className="burbuja"
     >
       <span className="burbuja-flecha" aria-hidden="true" />
-      {children}
+      {/* El contenedor de las consultas va adentro: en la burbuja misma, su contención haría que el
+          espacio de abajo (::after) no alargue la página. */}
+      <div className="burbuja-contenido">{children}</div>
     </div>,
     document.body,
   )

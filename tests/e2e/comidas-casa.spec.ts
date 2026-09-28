@@ -72,6 +72,11 @@ function celdaCasa(page: Page, fecha: string, comida: 'desayuno' | 'almuerzo' | 
   return page.locator(`.tabla-casa td[data-fecha="${fecha}"][data-comida="${comida}"] .celda-casa`)
 }
 
+/** Toca la celda en su esquina de arriba a la izquierda: la de la derecha es del "+ Extra". */
+async function tocarCelda(celda: Locator) {
+  await celda.click({ position: { x: 12, y: 12 } })
+}
+
 /** El panel de quiénes comen, debajo de la fila de su día. */
 function panelCasa(page: Page): Locator {
   return page.locator('.panel-casa')
@@ -88,6 +93,13 @@ function botonExtra(page: Page, comida: 'desayuno' | 'almuerzo' | 'cena', fecha:
 
 /** Un toque fuera de la burbuja, en un lugar que no hace nada (la burbuja siempre deja 16px de margen). */
 async function tocarFuera(page: Page) {
+  // x=4 cae en el margen de la página (teléfono) o en el relleno del lateral (escritorio): nunca en
+  // un control ni en la burbuja. Se comprueba antes de tocar, para que la prueba no mienta.
+  const destino = await page.evaluate(() => {
+    const elemento = document.elementFromPoint(4, 300)
+    return elemento?.closest('button, a, input, select, textarea, .burbuja') ? elemento.outerHTML.slice(0, 80) : null
+  })
+  expect(destino, 'el punto de "tocar fuera" tiene que ser inerte').toBeNull()
   await page.mouse.click(4, 300)
 }
 
@@ -113,7 +125,7 @@ test('el Director cambia la comida de un residente desde La casa y el residente 
 
   const celda = celdaCasa(page, miercolesSiguiente, 'almuerzo')
   await expect(celda).toHaveAccessibleName(new RegExp(`^Almuerzo del miércoles ${fechaCorta(miercolesSiguiente)}: `))
-  await celda.click()
+  await tocarCelda(celda)
   await expect(celda).toHaveAttribute('aria-expanded', 'true')
 
   const panel = panelCasa(page)
@@ -238,7 +250,7 @@ test('una comida que ya cerró se ve en La casa, pero no se cambia', async ({ pa
 
   const celda = celdaCasa(page, lunesPasado, 'almuerzo')
   await expect(celda).toHaveAccessibleName(/\. Cerrada\. Ver quiénes$/)
-  await celda.click()
+  await tocarCelda(celda)
   const panel = panelCasa(page)
   await expect(panel.getByText('Cerrada: ya no se puede cambiar. Tocá un nombre para ver su comida.')).toBeVisible()
   const nombre = panel.getByRole('button', { name: 'Residente Prueba' })
@@ -416,7 +428,7 @@ for (const viewport of [
       expect(anchos.filter((ancho) => ancho < 55.5)).toEqual([])
 
       // El lunes: el más lejos de lo que se abre si el panel fuera al final de la tabla.
-      await celdaCasa(page, lunesSiguiente, 'almuerzo').click()
+      await tocarCelda(celdaCasa(page, lunesSiguiente, 'almuerzo'))
       await expect(panelCasa(page).getByRole('heading', { level: 2 })).toBeInViewport()
       await expect(panelCasa(page).getByRole('heading', { level: 2 })).toBeFocused()
       await panelCasa(page).getByRole('button', { name: 'Residente Prueba' }).click()

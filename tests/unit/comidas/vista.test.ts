@@ -8,7 +8,6 @@ import {
   diaCerrado,
   diaParaMostrar,
   etiquetaComidaTarjeta,
-  lineasTarjeta,
   planDesdeFilas,
   resumenPlanSemanal,
   textoCorto,
@@ -318,14 +317,6 @@ describe('tarjetas de la semana', () => {
     ...base,
     selecciones: [{ fecha: '2026-09-16', comida: 'cena', estado: 'tarde', nota: '20:00', origen: 'persona' }],
     ausencias: [{ desde: '2026-09-18', hasta: '2026-09-18' }],
-  })
-
-  it('lineasTarjeta: las tres comidas en orden, con su texto corto y hora', () => {
-    expect(lineasTarjeta(dias[2])).toEqual([
-      { comida: 'desayuno', etiqueta: 'Desayuno', estado: null, texto: 'Falta', hora: null },
-      { comida: 'almuerzo', etiqueta: 'Almuerzo', estado: 'si', texto: 'Sí', hora: null },
-      { comida: 'cena', etiqueta: 'Cena', estado: 'tarde', texto: 'Tarde', hora: '20:00' },
-    ])
   })
 
   it('diaCerrado: solo cuando las tres comidas cerraron', () => {

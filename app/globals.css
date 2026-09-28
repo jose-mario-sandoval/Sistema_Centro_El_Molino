@@ -587,7 +587,7 @@ button.comida-tarjeta[aria-busy="true"]{cursor:progress;}
    abajo no entra, dentro de la pantalla con 16px de margen; en el teléfono ocupa todo el ancho menos
    ese margen. Borde de acento, como todo lo abierto; en contraste alto, más grueso y sin sombras. */
 .burbuja{
-  position:absolute;top:0;left:0;z-index:25;container:burbuja / inline-size;
+  position:absolute;top:0;left:0;z-index:25;
   width:min(28rem, calc(100% - 32px));
   padding:1rem min(1.1rem, 4vw) 1.1rem;
   border-radius:var(--r-lg);border:2px solid var(--acento);
@@ -614,6 +614,7 @@ button.comida-tarjeta[aria-busy="true"]{cursor:progress;}
 .burbuja[data-lado="arriba"] .burbuja-flecha{bottom:-11px;border-left-color:transparent;border-top-color:transparent;border-bottom-right-radius:4px;}
 [data-contraste="alto"] .burbuja[data-lado="abajo"] .burbuja-flecha{top:-12px;}
 [data-contraste="alto"] .burbuja[data-lado="arriba"] .burbuja-flecha{bottom:-12px;}
+.burbuja-contenido{container:burbuja / inline-size;}
 .burbuja-cabeza{display:flex;flex-wrap:wrap;align-items:center;gap:.35rem .6rem;}
 .burbuja-titulo{flex:1 1 100%;font-size:var(--t-lg);line-height:1.2;overflow-wrap:anywhere;outline-offset:4px;}
 .burbuja-cierre{font-size:var(--t-sm);color:var(--tinta-tenue);}
@@ -1420,6 +1421,8 @@ button.comida-tarjeta[aria-busy="true"]{cursor:progress;}
   .tarjeta-dia,.panel-casa{scroll-margin-bottom:calc(5.5rem + env(safe-area-inset-bottom, 0px));}
   /* La página se alarga debajo de una burbuja más alta que la pantalla: su final no queda bajo la barra. */
   .burbuja::after{height:calc(6rem + env(safe-area-inset-bottom, 0px));}
+  /* Un campo que toma el foco (la hora en la burbuja) no queda tapado por la barra inferior. */
+  html{scroll-padding-bottom:calc(5.5rem + env(safe-area-inset-bottom, 0px));}
 
   /* Calendario: lista por defecto; la cuadrícula a un toque. */
   .cal-alternar{display:block;}

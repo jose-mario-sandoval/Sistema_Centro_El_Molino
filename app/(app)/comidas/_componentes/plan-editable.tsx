@@ -221,7 +221,6 @@ export function PlanEditable({
           id={idBurbuja}
           ancla={botonAbierto}
           tituloId={`${idBurbuja}-titulo`}
-          className="burbuja-plan"
           alCerrar={cerrar}
         >
           <div className="burbuja-cabeza">

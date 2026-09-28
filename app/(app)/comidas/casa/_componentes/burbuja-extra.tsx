@@ -66,11 +66,27 @@ function FilaExtra({ extra, cerrada, alQuitar }: { extra: ExtraManual; cerrada: 
         </span>
       ) : confirmando ? (
         <span className="ausencia-acciones">
-          <button type="button" className="btn danger small" onClick={quitar} disabled={pendiente}>
+          {/* Quitando: aria-disabled y no disabled, para que el foco no se pierda a media acción. */}
+          <button
+            type="button"
+            className="btn danger small"
+            aria-disabled={pendiente || undefined}
+            onClick={() => {
+              if (!pendiente) quitar()
+            }}
+          >
             {pendiente ? 'Quitando…' : 'Sí, quitar'}
           </button>
           {/* Al pedir confirmación el foco va a la opción segura. */}
-          <button type="button" className="btn ghost small" onClick={dejarDeConfirmar} disabled={pendiente} autoFocus>
+          <button
+            type="button"
+            className="btn ghost small"
+            aria-disabled={pendiente || undefined}
+            onClick={() => {
+              if (!pendiente) dejarDeConfirmar()
+            }}
+            autoFocus
+          >
             Cancelar
           </button>
         </span>
@@ -138,16 +154,24 @@ export function BurbujaExtra({
   const [preguntando, setPreguntando] = useState(false)
   const [pendiente, iniciar] = useTransition()
   const sinAgregar = extraSinGuardar({ cantidad, nota })
-
-  // Al preguntar, el foco va a "Agregar": la pregunta se anuncia (role="alert") y la respuesta está a mano.
+  // La respuesta de "Agregar" puede llegar con la burbuja ya cerrada (o con otra abierta).
+  const abierta = useRef(true)
   useEffect(() => {
-    if (preguntando) botonAgregar.current?.focus({ preventScroll: true })
-  }, [preguntando])
+    abierta.current = true
+    return () => {
+      abierta.current = false
+    }
+  }, [])
 
-  /** true si se puede cerrar; si hay algo sin agregar, pregunta y no deja. */
+  /**
+   * true si se puede cerrar. Si hay algo sin agregar, pregunta y no deja; el foco va a "Agregar" (la
+   * pregunta se anuncia con role="alert" y la respuesta está a mano), también si ya estaba preguntando.
+   * Mientras se agrega, se puede cerrar: lo escrito ya va en camino.
+   */
   function puedeCerrar(): boolean {
-    if (!sinAgregar) return true
+    if (!sinAgregar || pendiente) return true
     setPreguntando(true)
+    botonAgregar.current?.focus({ preventScroll: true })
     return false
   }
 
@@ -175,6 +199,7 @@ export function BurbujaExtra({
 
   function agregar() {
     if (pendiente) return
+    setPreguntando(false)
     iniciar(async () => {
       let resultado: Resultado<null>
       try {
@@ -184,13 +209,17 @@ export function BurbujaExtra({
       }
       if (resultado.ok) {
         aviso('Extra agregado. La cocina ya lo ve.')
+        if (!abierta.current) return
         // La celda ya muestra "+N extra": la burbuja se cierra y el foco vuelve a su "+ Extra".
         const boton = ancla.current
         alCerrar()
         boton?.focus({ preventScroll: true })
         return
       }
-      setPreguntando(false)
+      if (!abierta.current) {
+        aviso(resultado.error)
+        return
+      }
       if (resultado.campos) {
         const { cantidad: enCantidad, nota: enNota, ...otros } = resultado.campos
         setErrores({
@@ -205,7 +234,7 @@ export function BurbujaExtra({
   }
 
   return (
-    <Burbuja id={id} ancla={ancla} tituloId={idTitulo} className="burbuja-extra" enfocarDialogo alCerrar={cerrar}>
+    <Burbuja id={id} ancla={ancla} tituloId={idTitulo} enfocarDialogo alCerrar={cerrar}>
       <div className="burbuja-cabeza">
         <h2 id={idTitulo} ref={titulo} tabIndex={-1} className="burbuja-titulo">
           {tituloExtras(comida, nombreDia, fechaCorta)}

@@ -384,6 +384,9 @@ principal para que un lector de pantalla anuncie dónde quedó la persona.
     la burbuja es un `role="dialog"` (no modal) nombrado por su título. Aunque está al final de la
     página, el orden de tabulación es el de un *disclosure*: Tab desde el botón entra, Mayús+Tab
     desde su primer control vuelve al botón y Tab desde el último sale al control que sigue al botón.
+    Se acepta a propósito que el gesto de "siguiente" de VoiceOver/TalkBack la encuentre al final de
+    la página: al abrirla el foco ya está adentro (en la opción marcada) y al cerrarla vuelve al botón,
+    así que el lector la anuncia en el momento en que se abre.
   - **Sin API Popover ni anclas de CSS:** los iPhone con iOS 15 no los tienen. La posición la calcula
     JavaScript (`lib/burbuja.ts`, con pruebas) y la burbuja va en `position:absolute` sobre la
     página, no `fixed`: se mueve con lo que se desplaza, el teclado del teléfono no la deja flotando
@@ -526,7 +529,7 @@ El diseño ya está en la app Next.js. Dónde vive cada pieza:
 | La burbuja (junto a lo que se tocó: portal, posición, foco, cierre) | `components/ui/burbuja.tsx`; dónde va y cuánto desplazar, puro y con pruebas, en `lib/burbuja.ts` |
 | La interacción única de comidas | `app/(app)/comidas/_componentes/panel-opciones.tsx` (seis opciones) y `editor-nota.tsx` (hora o nota); `contenido-comida.tsx` las compone dentro de la burbuja de una comida de un día (Semana y La casa), con el guardado optimista de `usar-comida-del-dia.ts` |
 | Plan semanal: la cuadrícula editable | `plan-editable.tsx`; guardado por celda en `usar-plan-editable.ts`; claves, títulos y nombres accesibles en `lib/comidas/plan.ts` |
-| Semana: tarjetas por día | `semana-persona.tsx`; textos cortos, día cerrado, nombre de cada comida y qué tarjeta se trae a la vista al entrar en `lib/comidas/vista.ts` (`lineasTarjeta`, `diaCerrado`, `etiquetaComidaTarjeta`, `diaParaMostrar`) |
+| Semana: tarjetas por día | `semana-persona.tsx`; textos cortos, día cerrado, nombre de cada comida y qué tarjeta se trae a la vista al entrar en `lib/comidas/vista.ts` (`textoCorto`, `diaCerrado`, `etiquetaComidaTarjeta`, `diaParaMostrar`) |
 | Traer a la vista lo que se abrió debajo (la tarjeta de hoy al entrar, quiénes comen) | `app/(app)/comidas/_componentes/revelar.ts` (la burbuja se revela sola) |
 | Mini calendario para marcar un rango de días (ausencias) | `components/ui/mini-calendario.tsx`; su lógica pura (toques, teclado, límites, resumen) en `lib/calendario/seleccion-rango.ts` |
 | Nombres de mes y de día, sin `Intl` (iguales en servidor y navegador) | `lib/fechas/etiquetas.ts` |
