@@ -378,36 +378,27 @@ a{color:var(--acento);}
    nunca siete: con el ancho máximo del contenido, siete tarjetas obligarían a bajar la letra del piso.
    Los cortes van en rem de container query, que siguen al tamaño de letra elegido: con letra grande
    hay menos columnas, nunca letra más chica. Ningún texto de la tarjeta baja de --t-xs.
-   El panel del día abierto va justo después de su tarjeta y a todo el ancho; dense sube las tarjetas
-   siguientes a la fila de arriba, así el panel queda debajo de la fila que se tocó. */
+   La tarjeta ya no se toca entera: es una bandeja (hundida) y lo que se toca son sus tres comidas,
+   botones elevados con su color, como las celdas del Plan. Tocar una abre su burbuja. */
 .semana-ayuda{margin-bottom:.9rem;}
 .semana-marco{container-type:inline-size;}
-.tarjetas-semana{display:grid;grid-template-columns:minmax(0,1fr);grid-auto-flow:row dense;gap:.75rem;}
+.tarjetas-semana{display:grid;grid-template-columns:minmax(0,1fr);gap:.75rem;}
 @container (min-width:15rem){ .tarjetas-semana{grid-template-columns:repeat(2,minmax(0,1fr));} }
 @container (min-width:34rem){ .tarjetas-semana{grid-template-columns:repeat(4,minmax(0,1fr));} }
-/* Cada tarjeta es su propio contenedor: el valor sube a --t-sm cuando la tarjeta tiene lugar. */
-.tarjetas-semana > section{display:flex;min-width:0;scroll-margin-top:1rem;container-type:inline-size;}
 
+/* Cada tarjeta es su propio contenedor: el valor sube a --t-sm cuando la tarjeta tiene lugar. */
 .tarjeta-dia{
-  /* Un borde más grueso (abierta, hoy en contraste alto) le quita al relleno, no al texto: el
-     ancho para el contenido no cambia y nada se parte al abrir la tarjeta. */
-  --borde-tarjeta:2px;
   display:flex;flex-direction:column;align-items:stretch;gap:.55rem;
-  width:100%;min-width:0;min-height:var(--toque);
-  padding:.75rem calc(min(.75rem, 3vw) + 2px - var(--borde-tarjeta));
-  border-radius:var(--r-md);border:var(--borde-tarjeta) solid var(--borde-elevado);
-  background:var(--fondo);color:var(--tinta);box-shadow:var(--relieve);
-  text-align:left;line-height:1.2;
-  transition:box-shadow var(--dur) var(--curva),background-color var(--dur) var(--curva);
+  min-width:0;padding:.7rem min(.6rem, 2.6vw) .75rem;
+  border-radius:var(--r-md);border:2px solid var(--borde-hundido);
+  background:var(--fondo);color:var(--tinta);box-shadow:var(--hundido-suave);
+  line-height:1.2;scroll-margin-top:1rem;scroll-margin-bottom:1rem;container-type:inline-size;
 }
-.tarjeta-dia:hover{box-shadow:var(--relieve-alto);}
-.tarjeta-dia.today{box-shadow:var(--relieve-alto);}
-[data-contraste="alto"] .tarjeta-dia.today{--borde-tarjeta:3px;border-color:var(--acento);}
+/* Hoy: borde de acento (con "Hoy" escrito). En contraste alto, más grueso. */
+.tarjeta-dia.today{border-color:var(--acento);}
+[data-contraste="alto"] .tarjeta-dia.today{border-width:3px;}
 /* Cerrada: plana, porque ya solo se lee; el candado y "Cerrado" lo dicen escrito. */
 .tarjeta-dia.pasada{box-shadow:none;border-color:var(--separador);}
-/* Abierta: hundida y con borde de acento. Sin sombras (contraste alto), el borde grueso alcanza. */
-.tarjeta-dia[aria-expanded="true"]{--borde-tarjeta:3px;box-shadow:var(--hundido);border-color:var(--acento);}
-[data-contraste="alto"] .tarjeta-dia[aria-expanded="true"]{--borde-tarjeta:5px;}
 .tarjeta-cabeza{display:flex;flex-wrap:wrap;align-items:baseline;gap:0 .4rem;}
 .tarjeta-nombre{font-family:var(--fuente-display);font-size:var(--t-base);font-weight:600;}
 .tarjeta-fecha{font-size:var(--t-sm);color:var(--tinta-tenue);}
@@ -416,46 +407,55 @@ a{color:var(--acento);}
 .etiqueta-cerrado{display:inline-flex;align-items:center;gap:.3rem;color:var(--tinta-suave);font-weight:700;}
 .tarjeta-marcas > .etiqueta-cerrado{padding-inline:0;}
 .etiqueta-cerrado .icono{width:1.1em;height:1.1em;}
-.tarjeta-comidas{display:flex;flex-direction:column;gap:.45rem;}
-.tarjeta-comida{display:flex;flex-direction:column;align-items:flex-start;gap:.15rem;min-width:0;}
-.tarjeta-comida-nombre{font-size:var(--t-xs);font-weight:600;color:var(--tinta-suave);}
-/* Dentro de la tarjeta elevada, el valor es plano: color + icono + texto, nunca solo icono. */
+.tarjeta-comidas{display:flex;flex-direction:column;gap:.5rem;}
+
+/* Una comida de la tarjeta: el nombre y, al lado o debajo según entre, icono + texto corto + hora.
+   Botón elevado con el color de su estado (como .celda-plan); sin definir, el hueco punteado. */
+.comida-tarjeta{
+  display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:.1rem .5rem;
+  width:100%;min-width:0;min-height:var(--toque);padding:.4rem .55rem;
+  border-radius:var(--r-sm);border:2px solid var(--borde-elevado);
+  background:var(--cbg,var(--fondo));color:var(--c,var(--tinta));box-shadow:var(--relieve-bajo);
+  font-size:var(--t-xs);font-weight:700;line-height:1.2;text-align:left;
+  transition:box-shadow var(--dur) var(--curva),background-color var(--dur) var(--curva);
+}
+button.comida-tarjeta:hover{box-shadow:var(--relieve);}
+button.comida-tarjeta:active{box-shadow:var(--hundido);}
+[data-contraste="alto"] button.comida-tarjeta{border-color:var(--c,var(--tinta));}
+.comida-tarjeta.vacia{background:var(--fondo);color:var(--peligro);border:2px dashed var(--peligro);box-shadow:var(--hundido-suave);}
+/* Con su burbuja abierta: hundida y con borde grueso de su color (sin sombras, el borde solo alcanza). */
+button.comida-tarjeta[aria-expanded="true"]{box-shadow:var(--hundido);border:3px solid var(--c,var(--peligro));padding:calc(.4rem - 1px) calc(.55rem - 1px);}
+[data-contraste="alto"] button.comida-tarjeta[aria-expanded="true"]{border-width:5px;padding:calc(.4rem - 3px) calc(.55rem - 3px);}
+button.comida-tarjeta[aria-busy="true"]{cursor:progress;}
+.comida-tarjeta-nombre{font-weight:600;color:var(--tinta);}
+/* El icono va pegado a su texto; si no entran juntos, antes se parte la palabra que el par. */
+.comida-tarjeta-valor{display:inline-flex;flex-wrap:wrap;align-items:center;gap:0 .3rem;min-width:0;}
+.comida-tarjeta-texto{overflow-wrap:anywhere;}
+.comida-tarjeta .icono{width:1.15em;height:1.15em;}
+.comida-tarjeta > .celda-director,.comida-tarjeta > .etiqueta-cerrado{flex-basis:100%;}
+@container (min-width:9rem){ .comida-tarjeta-valor{font-size:var(--t-sm);} }
+/* Cerrada: plana y sin botón; el valor, en su pastilla de color (solo se lee). */
+.comida-tarjeta.cerrada{min-height:0;padding:.15rem 0;background:none;border-color:transparent;box-shadow:none;color:var(--tinta);}
+.comida-tarjeta.cerrada > .etiqueta-cerrado{font-size:var(--t-xs);}
+/* El valor plano (comidas cerradas): color + icono + texto, nunca solo icono. */
 .tarjeta-valor{
   display:inline-flex;flex-wrap:wrap;align-items:center;gap:0 .35rem;max-width:100%;
   padding:.1rem .35rem;border-radius:var(--r-sm);
   background:var(--cbg);color:var(--c);border:2px solid transparent;
   font-size:var(--t-xs);font-weight:700;
 }
+.tarjeta-valor .comida-tarjeta-valor{font-size:inherit;}
 @container (min-width:9rem){ .tarjeta-valor{font-size:var(--t-sm);} }
-/* El icono va pegado a su texto; si no entran juntos, antes se parte la palabra que el par. */
-.tarjeta-valor-principal{display:inline-flex;align-items:center;gap:.25rem;min-width:0;}
-.tarjeta-valor-texto{overflow-wrap:anywhere;}
-.tarjeta-valor .icono{width:1.1em;height:1.1em;}
 [data-contraste="alto"] .tarjeta-valor{border-color:var(--c);}
 .tarjeta-valor.vacia{background:var(--fondo);color:var(--peligro);border:2px dashed var(--peligro);}
 .tarjeta-hora{font-variant-numeric:tabular-nums;font-weight:600;}
 
-/* Las tres comidas del día abierto, a todo el ancho debajo de su fila. Es una superficie hermana de
-   las tarjetas (no está dentro de ninguna), así que puede ser elevada como lo era el día entero. */
-.panel-dia{
-  grid-column:1 / -1;
-  background:var(--fondo);border:2px solid var(--borde-elevado);border-radius:var(--r-lg);
-  box-shadow:var(--relieve);padding:1.1rem var(--marco) .5rem;scroll-margin-bottom:1rem;
-}
-[data-contraste="alto"] .panel-dia{border-color:var(--acento);border-width:3px;}
-/* Día cerrado: su panel solo se lee, así que es plano como su tarjeta. */
-.panel-dia.pasada{box-shadow:none;border:2px solid var(--separador);}
-.panel-dia-titulo{font-size:var(--t-lg);margin-bottom:.25rem;}
 .etiqueta-hoy{
   display:inline-block;padding:.1rem .65rem;border-radius:var(--r-full);
   background:var(--acento-suave);color:var(--acento);border:2px solid var(--acento);
   font-size:var(--t-xs);font-weight:700;
 }
 
-.comida-fila{padding:.9rem 0;}
-.comida-fila + .comida-fila{border-top:2px solid var(--separador);}
-.comida-fila-top{display:flex;align-items:center;flex-wrap:wrap;gap:.6rem;margin-bottom:.6rem;}
-.comida-nombre{font-weight:700;}
 .origen{
   display:inline-block;padding:.15rem .7rem;border-radius:var(--r-full);
   border:2px solid var(--borde-hundido);box-shadow:var(--hundido-suave);
@@ -463,27 +463,6 @@ a{color:var(--acento);}
 }
 .origen.cambiada{color:var(--dorado);}
 [data-contraste="alto"] .origen.cambiada{border-color:var(--dorado);}
-
-/* El estado actual: botón grande, elevado, con su color. Al tocarlo se abren las opciones. */
-.estado-actual{
-  display:flex;align-items:center;gap:.6rem;width:100%;
-  min-height:var(--toque);padding:.5rem 1.1rem;
-  border-radius:var(--r-full);border:2px solid var(--borde-elevado);
-  background:var(--cbg,var(--fondo));color:var(--c,var(--tinta));box-shadow:var(--relieve);
-  font-weight:700;text-align:left;
-  transition:box-shadow var(--dur) var(--curva),background-color var(--dur) var(--curva);
-}
-[data-contraste="alto"] .estado-actual{border-color:var(--c,var(--tinta));}
-.estado-actual:active{box-shadow:var(--hundido);}
-.estado-actual-texto{flex:1;min-width:0;}
-.estado-actual .flecha{opacity:.8;transition:transform var(--dur) var(--curva);}
-.estado-actual[aria-expanded="true"] .flecha{transform:rotate(180deg);}
-/* "Sin definir" es un hueco: hundido, vacío, con borde punteado y la pregunta escrita. */
-.estado-actual.sin-definir{
-  background:var(--fondo);color:var(--peligro);
-  box-shadow:var(--hundido);border:2px dashed var(--peligro);
-}
-.estado-actual:disabled{cursor:not-allowed;opacity:.65;box-shadow:var(--hundido-suave);}
 
 .nota-comida,.motivo-cierre{
   display:flex;align-items:center;gap:.5rem;margin-top:.6rem;
@@ -549,8 +528,9 @@ a{color:var(--acento);}
 .cuadro-fila{display:grid;grid-template-columns:minmax(0,1fr);gap:.5rem;scroll-margin-top:1rem;}
 .cuadro-dia{font-family:var(--fuente-display);font-size:var(--t-base);font-weight:600;line-height:1.2;}
 .celda-plan{
+  --ry:.5rem;--rx:.9rem;
   display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:.25rem .75rem;
-  width:100%;min-width:0;min-height:var(--toque);padding:.5rem .9rem;
+  width:100%;min-width:0;min-height:var(--toque);padding:var(--ry) var(--rx);
   border-radius:var(--r-sm);border:2px solid var(--borde-elevado);
   background:var(--cbg);color:var(--c);box-shadow:var(--relieve-bajo);
   font-size:var(--t-sm);font-weight:700;line-height:1.2;text-align:left;
@@ -566,12 +546,14 @@ a{color:var(--acento);}
 [data-contraste="alto"] .celda-plan{border-color:var(--c);}
 /* Sin definir: el mismo hueco que en la Semana (hundido, borde punteado, "Falta" escrito). */
 .celda-plan.vacia{background:var(--fondo);color:var(--peligro);border:2px dashed var(--peligro);box-shadow:var(--hundido-suave);}
-/* Abierta: hundida y con borde grueso de su color; sin sombras, el borde solo alcanza. */
-.celda-plan[aria-expanded="true"]{box-shadow:var(--hundido);border:3px solid var(--c,var(--peligro));}
-[data-contraste="alto"] .celda-plan[aria-expanded="true"]{border-width:5px;}
+/* Con su burbuja abierta: hundida y con borde grueso de su color; sin sombras, el borde solo alcanza.
+   El borde de más sale del relleno, no del texto: "Temprano" no se parte al abrirla. */
+.celda-plan[aria-expanded="true"]{
+  box-shadow:var(--hundido);border:3px solid var(--c,var(--peligro));
+  padding:calc(var(--ry) - 1px) max(0px, calc(var(--rx) - 1px));
+}
+[data-contraste="alto"] .celda-plan[aria-expanded="true"]{border-width:5px;padding:calc(var(--ry) - 3px) max(0px, calc(var(--rx) - 3px));}
 .celda-plan[aria-busy="true"]{cursor:progress;}
-.cuadro-panel{scroll-margin-bottom:1rem;}
-.cuadro-panel .opciones{margin-top:0;}
 .opciones-titulo{font-weight:700;margin-bottom:.9rem;}
 @container (min-width:16rem){
   /* La cabecera de comidas acompaña mientras se recorre la semana: en el teléfono no entra en una pantalla. */
@@ -584,7 +566,8 @@ a{color:var(--acento);}
   /* La comida ya la dice la cabecera (y el nombre accesible de la celda). */
   .celda-comida{display:none;}
   .celda-plan{
-    flex-direction:column;flex-wrap:nowrap;justify-content:center;gap:.15rem;padding:.5rem .25rem;
+    --rx:.25rem;
+    flex-direction:column;flex-wrap:nowrap;justify-content:center;gap:.15rem;
     text-align:center;font-size:max(var(--t-xs), min(var(--t-sm), 4.8vw));scroll-margin-top:4rem;
   }
   .celda-valor{flex-direction:column;flex-wrap:nowrap;}
@@ -595,6 +578,67 @@ a{color:var(--acento);}
   .cuadro-esquina{display:block;}
   .cuadro-dia{grid-column:auto;align-self:center;}
 }
+
+/* ---------- 5b. La burbuja de una comida --------------------------------
+   Tocar una comida (Semana, Plan, un nombre en La casa, "+ Extra") abre sus opciones en una burbuja
+   junto a ella: una capa pasajera, elevada, con una flecha que señala lo que se tocó. No es una
+   tarjeta dentro de otra (no está dentro de nada: va en un portal sobre la página) ni un modal (no
+   oscurece ni bloquea). La posición la calcula components/ui/burbuja.tsx: debajo del botón, arriba si
+   abajo no entra, dentro de la pantalla con 16px de margen; en el teléfono ocupa todo el ancho menos
+   ese margen. Borde de acento, como todo lo abierto; en contraste alto, más grueso y sin sombras. */
+.burbuja{
+  position:absolute;top:0;left:0;z-index:25;container:burbuja / inline-size;
+  width:min(28rem, calc(100% - 32px));
+  padding:1rem min(1.1rem, 4vw) 1.1rem;
+  border-radius:var(--r-lg);border:2px solid var(--acento);
+  background:var(--fondo);color:var(--tinta);
+  box-shadow:var(--relieve-alto),0 18px 36px -14px rgba(42,37,30,.45);
+  font-size:var(--t-base);line-height:1.45;text-align:left;
+}
+:root[data-theme="dark"] .burbuja{box-shadow:var(--relieve-alto),0 18px 36px -12px rgba(0,0,0,.7);}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]) .burbuja{box-shadow:var(--relieve-alto),0 18px 36px -12px rgba(0,0,0,.7);}
+}
+[data-contraste="alto"] .burbuja{border-width:3px;box-shadow:none;}
+.burbuja:focus-visible{outline-offset:4px;}
+/* Debajo de la burbuja la página sigue un poco: si es más alta que la pantalla, se llega a su final. */
+.burbuja::after{content:"";position:absolute;top:100%;left:0;width:1px;height:1rem;}
+/* La flecha: un cuadrado girado con el mismo fondo y el mismo borde, del lado del botón. */
+.burbuja-flecha{
+  position:absolute;left:calc(var(--flecha, 50%) - 10px);z-index:1;
+  width:20px;height:20px;background:var(--fondo);
+  border:inherit;border-width:2px;transform:rotate(45deg);
+}
+[data-contraste="alto"] .burbuja-flecha{border-width:3px;}
+.burbuja[data-lado="abajo"] .burbuja-flecha{top:-11px;border-right-color:transparent;border-bottom-color:transparent;border-top-left-radius:4px;}
+.burbuja[data-lado="arriba"] .burbuja-flecha{bottom:-11px;border-left-color:transparent;border-top-color:transparent;border-bottom-right-radius:4px;}
+[data-contraste="alto"] .burbuja[data-lado="abajo"] .burbuja-flecha{top:-12px;}
+[data-contraste="alto"] .burbuja[data-lado="arriba"] .burbuja-flecha{bottom:-12px;}
+.burbuja-cabeza{display:flex;flex-wrap:wrap;align-items:center;gap:.35rem .6rem;}
+.burbuja-titulo{flex:1 1 100%;font-size:var(--t-lg);line-height:1.2;overflow-wrap:anywhere;outline-offset:4px;}
+.burbuja-cierre{font-size:var(--t-sm);color:var(--tinta-tenue);}
+.burbuja .opciones{margin-top:.75rem;padding:.8rem min(.8rem, 2.6vw);}
+/* Las seis opciones según el ancho de la burbuja (en rem de contenedor, que sigue a la letra
+   elegida; el ancho que cuenta es el de adentro, sin el relleno). Con lugar, 3×2 con el icono arriba,
+   como siempre. En el teléfono, 2×3; y si cada opción tiene ancho para el icono al lado de su texto,
+   más bajitas (56px): así la burbuja entra en la pantalla más veces sin achicar nada. Ninguna
+   palabra se parte: con menos ancho, el icono vuelve arriba. */
+@container burbuja (width < 22rem){
+  .opciones .status-row{grid-template-columns:repeat(2,minmax(0,1fr));}
+}
+@container burbuja (16.5rem <= width < 22rem){
+  .opciones .status-chip{flex-direction:row;justify-content:flex-start;gap:.4rem;min-height:var(--toque);padding:.45rem .5rem;text-align:left;}
+  .opciones .status-chip .icono{width:1.3em;height:1.3em;}
+}
+/* Sin consultas de contenedor (iOS 15): 2×3 en el teléfono, con el icono arriba. */
+@supports not (container-type:inline-size){
+  @media (max-width:40rem){ .opciones .status-row{grid-template-columns:repeat(2,minmax(0,1fr));} }
+}
+.burbuja-valor{display:flex;flex-wrap:wrap;align-items:center;gap:.4rem;margin-top:.8rem;}
+.burbuja-pie{display:flex;flex-wrap:wrap;gap:.75rem;margin-top:1rem;}
+.burbuja-pie .btn{flex:1 1 8rem;}
+.burbuja-subtitulo{font-family:var(--fuente-ui);font-size:var(--t-sm);font-weight:700;margin-bottom:.6rem;outline-offset:4px;}
+.burbuja .enlace-persona{margin-top:.35rem;}
 
 /* ---------- 6. Comidas: Administración ----------------------------------- */
 
@@ -761,8 +805,11 @@ a{color:var(--acento);}
 .tabla-casa-ayuda{margin:-.4rem 0 .5rem;}
 
 /* La misma tabla que Administración (contenedor tabla-admin, apilado incluido), pero cada celda es un
-   botón elevado dentro de su hueco: se toca para ver quiénes comen. Abierta: hundida con borde de acento. */
+   botón elevado dentro de su hueco: se toca para ver quiénes comen. Abierta: hundida con borde de acento.
+   En su esquina de arriba a la derecha, "+ Extra" (otro botón, hermano del de la celda y no dentro de
+   él): el de la celda deja libre ese rincón en su primera línea, así "N comen" nunca queda debajo. */
 .tabla-casa td{padding:.35rem;}
+.celda-casa-marco{position:relative;min-width:0;}
 .tabla-casa .namecell .etiqueta-hoy{margin-left:.4rem;vertical-align:middle;}
 .celda-casa{
   display:block;width:100%;min-height:var(--toque);padding:.6rem .7rem;
@@ -781,15 +828,44 @@ a{color:var(--acento);}
 /* Dentro de un botón el desglose va en <span>: se ordena igual que la lista de Administración. */
 .celda-casa .partes{display:flex;}
 .celda-casa .parte,.celda-casa .conteo-extra{display:flex;}
+.celda-casa .notas-extra{display:flex;}
+.celda-casa.con-extra .conteo-celda{padding-right:var(--hueco-extra);}
+.tabla-casa{--hueco-extra:6.25rem;}
+/* "+ Extra": la pastilla se ve chica, pero lo que se toca mide al menos 56×56 (el rincón entero). Relleno
+   de acento como un botón principal, para que no se confunda con el desglose de la celda. */
+.extra-mas{
+  position:absolute;top:0;right:0;z-index:1;
+  display:flex;align-items:flex-start;justify-content:flex-end;
+  min-width:var(--toque);min-height:var(--toque);padding:.4rem;
+  border:0;border-radius:var(--r-sm);background:none;color:inherit;
+}
+.extra-mas-pastilla{
+  display:inline-flex;align-items:center;gap:.2rem;
+  padding:.3rem .65rem .3rem .5rem;border-radius:var(--r-full);border:2px solid var(--borde-elevado);
+  background:var(--acento);color:var(--acento-tinta);box-shadow:var(--relieve-bajo);
+  font-size:var(--t-xs);font-weight:700;line-height:1.1;white-space:nowrap;
+  transition:box-shadow var(--dur) var(--curva),background-color var(--dur) var(--curva);
+}
+.extra-mas-pastilla .icono{width:1.15em;height:1.15em;}
+.extra-mas:hover .extra-mas-pastilla{box-shadow:var(--relieve);}
+.extra-mas:active .extra-mas-pastilla{box-shadow:var(--hundido);}
+/* Con su burbuja abierta: hundida y teñida, como toda opción elegida. */
+.extra-mas[aria-expanded="true"] .extra-mas-pastilla{box-shadow:var(--hundido);background:var(--acento-suave);color:var(--acento);border-color:var(--acento);}
+/* El foco se ve en la pastilla, que es lo que se ve del botón (como en .opcion-pastilla): un anillo
+   alrededor del rincón entero no diría nada. */
+.extra-mas:focus-visible{outline:none;}
+.extra-mas:focus-visible .extra-mas-pastilla{outline:3px solid var(--acento);outline-offset:3px;}
 @container tabla-admin (width <= 34rem){
   .tabla-casa td[data-et]{padding:.35rem 0;}
-  .tabla-casa td[data-et] .celda-casa{flex-basis:100%;}
+  .tabla-casa td[data-et] .celda-casa-marco{flex-basis:100%;}
   .tabla-casa td[data-et] .celda-casa .partes{flex-direction:row;flex-wrap:wrap;}
+  .tabla-casa td[data-et] .celda-casa .notas-extra{text-align:left;}
 }
 @supports not (container-type:inline-size){
   @media (max-width:40rem){
-    .tabla-casa td[data-et] .celda-casa{flex-basis:100%;}
+    .tabla-casa td[data-et] .celda-casa-marco{flex-basis:100%;}
     .tabla-casa td[data-et] .celda-casa .partes{flex-direction:row;flex-wrap:wrap;}
+    .tabla-casa td[data-et] .celda-casa .notas-extra{text-align:left;}
   }
 }
 
@@ -804,7 +880,7 @@ a{color:var(--acento);}
   padding:1.1rem var(--marco);scroll-margin-top:1rem;scroll-margin-bottom:1rem;
   background:var(--fondo);border:2px solid var(--borde-hundido);border-radius:var(--r-md);box-shadow:var(--hundido);
 }
-.panel-casa > h2{outline-offset:4px;}
+.panel-casa-titulo{font-size:var(--t-lg);margin-bottom:.25rem;outline-offset:4px;}
 [data-contraste="alto"] .panel-casa{border-color:var(--acento);border-width:3px;}
 .panel-casa.pasada{box-shadow:var(--hundido-suave);border-color:var(--separador);}
 .tabla-casa tr{scroll-margin-top:1rem;}
@@ -832,38 +908,38 @@ a{color:var(--acento);}
 .persona-casa[aria-expanded="true"]{box-shadow:var(--hundido);border-color:var(--acento);color:var(--acento);}
 .persona-casa[aria-expanded="true"] .flecha{transform:rotate(180deg);}
 [data-contraste="alto"] .persona-casa[aria-expanded="true"]{border-width:3px;background:var(--acento-suave);}
-/* La comida de la persona abierta, un poco adentro: se lee como parte de su nombre. */
-.persona-comida{padding:0 0 .5rem min(1rem, 3vw);}
-.persona-comida .comida-fila{padding-bottom:.5rem;}
 .enlace-persona{
   display:inline-flex;align-items:center;gap:.4rem;min-height:var(--toque);padding:.4rem 0;
   color:var(--acento);font-weight:700;
 }
 
-/* Extras para la cocina: una línea por extra (como las ausencias) y el formulario plegado. */
-.extras-casa{margin-top:1.5rem;}
-.extras-casa > .section-title{margin-bottom:.35rem;}
-.extras-casa > .hint{margin-bottom:1rem;max-width:65ch;}
+/* Los extras de una comida, en su burbuja: el formulario y, debajo, una línea por extra ya agregado
+   (como las ausencias). */
 .fila-extra{
   display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem;
   padding:.35rem .35rem .35rem .9rem;border-radius:var(--r-md);
   border:2px solid var(--borde-hundido);box-shadow:var(--hundido-suave);
 }
-.extra-texto{flex:1 1 10rem;display:flex;flex-direction:column;gap:.15rem;min-width:0;line-height:1.3;}
+.extra-texto{flex:1 1 7rem;display:flex;flex-direction:column;gap:.15rem;min-width:0;line-height:1.3;}
 .extra-cuanto{font-weight:700;}
 .extra-nota{font-size:var(--t-sm);color:var(--tinta-suave);overflow-wrap:anywhere;}
 .fila-extra > .btn,.fila-extra > .ausencia-acciones,.fila-extra > .etiqueta-cerrado{margin-left:auto;}
 .fila-extra > .etiqueta-cerrado{padding:.4rem .6rem;font-size:var(--t-sm);}
-.formulario-extra{margin-top:1.25rem;border-top:2px solid var(--separador);padding-top:1.25rem;}
-.formulario-extra .field{max-width:30rem;}
-/* Aviso antes de guardar un extra de una comida que ya cerró: candado + texto, nunca solo color. */
+.formulario-extra{margin-top:1rem;}
+.formulario-extra .field{margin-bottom:.9rem;}
+/* Aviso antes de agregar un extra a una comida que ya cerró, y la pregunta al cerrar con algo sin
+   agregar: icono + texto, nunca solo color. */
 .aviso-extra{
-  display:flex;align-items:center;gap:.5rem;margin:0 0 1.1rem;padding:.75rem var(--marco);
-  border-radius:var(--r-md);border:2px dashed var(--dorado);color:var(--tinta);font-weight:600;
+  display:flex;align-items:center;gap:.5rem;margin:0 0 1rem;padding:.75rem var(--marco);
+  border-radius:var(--r-md);border:2px dashed var(--dorado);color:var(--tinta);font-weight:600;font-size:var(--t-sm);
 }
 .aviso-extra .icono{color:var(--dorado);flex:0 0 auto;}
+.pregunta-extra{margin:.25rem 0 0;}
 .cantidad-extra{display:flex;align-items:center;gap:.6rem;}
-.cantidad-extra input{width:6rem;flex:0 0 auto;text-align:center;font-weight:700;font-variant-numeric:tabular-nums;}
+/* El número cede antes que los botones: a 320px con letra enorme, − y + siguen midiendo 56px. */
+.cantidad-extra input{width:5.5rem;flex:0 1 auto;min-width:0;padding-inline:.5rem;text-align:center;font-weight:700;font-variant-numeric:tabular-nums;}
+.extras-de-comida{margin-top:1.25rem;padding-top:1rem;border-top:2px solid var(--separador);}
+.extras-de-comida .lista-ausencias{margin-bottom:0;}
 
 /* La página de una persona: de quién es, bien a la vista ("Comidas de Juan"), y sus tres vistas en un
    control segmentado distinto de las pestañas de arriba (que son las del propio Director): una
@@ -891,14 +967,10 @@ a{color:var(--acento);}
 [data-contraste="alto"] .sub-tab.active{border-width:3px;}
 @container (min-width:30rem){ .sub-tabs{grid-template-columns:repeat(3,minmax(0,1fr));} }
 
-/* "la cambió el Director" / "La marcó el Director": la misma marca de origen que la Semana. */
-.opciones-titulo .origen{margin-left:.5rem;vertical-align:middle;}
+/* "La marcó el Director": la misma marca de origen que las comidas. */
 .ausencia-quien{display:table;margin-top:.25rem;}
-/* A la vista sin abrir nada: lápiz + texto (nunca solo el lápiz). En la tarjeta del día, en dorado como
-   la marca "cambiada"; dentro de la celda del plan, en tinta, que sobre el fondo de color se lee mejor. */
-.etiqueta-director{display:inline-flex;align-items:center;gap:.3rem;color:var(--dorado);font-weight:700;}
-.tarjeta-marcas > .etiqueta-director{padding-inline:0;}
-.etiqueta-director .icono{width:1.1em;height:1.1em;}
+/* A la vista sin abrir nada: lápiz + "Director" (nunca solo el lápiz), en la comida de la tarjeta del
+   día y en la celda del plan, en tinta, que sobre el fondo de color se lee mejor; la leyenda lo explica. */
 .celda-director{display:inline-flex;align-items:center;gap:.2rem;font-size:var(--t-xs);font-weight:700;color:var(--tinta);}
 .celda-plan .celda-director .icono,.leyenda-director .icono{width:1.05em;height:1.05em;}
 .leyenda-director{display:flex;flex-wrap:wrap;align-items:center;gap:.25rem .5rem;margin-bottom:.9rem;font-size:var(--t-sm);color:var(--tinta-suave);}
@@ -1343,8 +1415,11 @@ a{color:var(--acento);}
   .barra-inferior .insignia-conteo{position:absolute;top:.2rem;left:calc(50% + .3rem);font-size:min(var(--t-xs), 3.6vw);}
 
   .toast{bottom:calc(6rem + env(safe-area-inset-bottom, 0px));}
-  /* Un panel recién abierto no cuenta como visible si lo tapa la barra inferior. */
-  .cuadro-panel,.panel-dia{scroll-margin-bottom:calc(5.5rem + env(safe-area-inset-bottom, 0px));}
+  /* Lo que se trae a la vista (la tarjeta de hoy, el panel de quiénes comen) no cuenta como visible
+     si lo tapa la barra inferior. */
+  .tarjeta-dia,.panel-casa{scroll-margin-bottom:calc(5.5rem + env(safe-area-inset-bottom, 0px));}
+  /* La página se alarga debajo de una burbuja más alta que la pantalla: su final no queda bajo la barra. */
+  .burbuja::after{height:calc(6rem + env(safe-area-inset-bottom, 0px));}
 
   /* Calendario: lista por defecto; la cuadrícula a un toque. */
   .cal-alternar{display:block;}
@@ -1382,9 +1457,6 @@ a{color:var(--acento);}
   .msg-meta{margin-bottom:0;}
   .msg-text{margin-top:.6rem;}
   .msg-action{max-width:100%;}
-
-  /* Teléfono estrecho: las opciones pasan a 2 columnas antes que encogerse. */
-  .opciones .status-row{grid-template-columns:repeat(2,minmax(0,1fr));}
 
   /* El mini calendario casi a sangre dentro de la tarjeta: cada píxel de ancho va a los días. */
   .mini-calendario{max-width:none;margin-inline:calc(var(--marco) * -0.75);}

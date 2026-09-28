@@ -7,7 +7,7 @@ import { exigirRol } from '@/lib/auth/sesion'
 import { pestanasPersona, type VistaPersona } from '@/lib/comidas/casa'
 import { obtenerPlanDe, obtenerSemanaDe } from '@/lib/comidas/consultas'
 import { semanaPedida, tipoSemana } from '@/lib/comidas/semana'
-import { diaParaAbrir } from '@/lib/comidas/vista'
+import { diaParaMostrar } from '@/lib/comidas/vista'
 import type { Voz } from '@/lib/comidas/voz'
 import { fechaISOEn, sumarDias } from '@/lib/fechas'
 import { listarPerfiles } from '@/lib/perfiles/consultas'
@@ -118,12 +118,12 @@ async function VistaSemana({
   return (
     <>
       <NavegacionSemana lunes={lunes} hoy={hoy} ruta={ruta} />
-      {/* key: al cambiar de semana, la tarjeta abierta vuelve a empezar desde el día que corresponde. */}
+      {/* key: al cambiar de semana, la burbuja abierta se cierra y la página empieza en el día que corresponde. */}
       <SemanaPersona
         key={lunes}
         dias={dias}
         tipo={tipo}
-        diaInicial={tipo === 'actual' ? diaParaAbrir(dias) : null}
+        diaAlEntrar={tipo === 'actual' ? diaParaMostrar(dias) : null}
         hrefSiguienteSemana={tipo === 'actual' ? `${ruta}?semana=${sumarDias(lunes, 7)}` : null}
         usuarioId={usuarioId}
         voz={voz}

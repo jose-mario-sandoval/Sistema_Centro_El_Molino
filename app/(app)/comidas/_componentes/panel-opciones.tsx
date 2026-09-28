@@ -4,56 +4,43 @@ import { Icono } from '@/components/ui/iconos'
 import { ESTADOS_COMIDA, INFO_ESTADO, type EstadoComida } from '@/lib/comidas/tipos'
 import { varsEstado } from './insignia-estado'
 
-/** "Listo" guarda lo escrito (o avisa si no sirve); Escape descarta. */
-export type MotivoCierre = 'listo' | 'escape'
-
 /**
  * Las seis opciones de una comida, dentro de una bandeja hundida (DESIGN.md §8): la misma pieza en
- * Plan semanal, Semana y La casa. Solo pinta; guardar es de quien la usa.
+ * la burbuja del Plan semanal, de la Semana y de La casa. Solo pinta; guardar es de quien la usa.
  *
- * La elegida queda hundida, con su color, su icono y el texto en negrita. "Listo" y Escape llaman a
- * `alCerrar` con el motivo: quien abrió el panel decide (con "Listo" guarda lo escrito o, si no
- * sirve, deja el panel abierto; Escape descarta), cierra y le devuelve el foco a su botón.
+ * La elegida queda hundida, con su color, su icono y el texto en negrita. "Listo" llama a `alListo`:
+ * quien abrió la burbuja guarda lo escrito o, si no sirve, la deja abierta. Escape lo atiende la
+ * burbuja (descarta).
  */
 export function PanelOpciones({
-  id,
   nombre,
   etiquetaGrupo,
   titulo,
   marcado,
   pendiente,
   alElegir,
-  alCerrar,
+  alListo,
   editorNota,
   acciones,
 }: {
-  id: string
   /** 'Almuerzo' / 'el almuerzo de los martes': completa "Elegí qué hacés con …". */
   nombre: string
   /** Nombre del grupo de opciones, si no sirve "Elegí qué hacés con …" (p. ej. en tercera persona). */
   etiquetaGrupo?: string
-  /** Texto arriba de las opciones, si el botón que las abrió no lo dice ya. */
+  /** La pregunta arriba de las opciones ("¿Vas a almorzar el miércoles?"). */
   titulo?: React.ReactNode
   /** Opción hundida (null = ninguna). */
   marcado: EstadoComida | null
   /** Guardando: las opciones siguen enfocables pero no responden. */
   pendiente: boolean
   alElegir: (estado: EstadoComida) => void
-  alCerrar: (motivo: MotivoCierre) => void
+  alListo: () => void
+  /** Debajo de las opciones: el campo de la hora o la nota, o la nota ya guardada. */
   editorNota?: React.ReactNode
   acciones?: React.ReactNode
 }) {
   return (
-    <div
-      id={id}
-      className="opciones"
-      onKeyDown={(e) => {
-        if (e.key === 'Escape') {
-          e.stopPropagation()
-          alCerrar('escape')
-        }
-      }}
-    >
+    <div className="opciones">
       {titulo && <p className="opciones-titulo">{titulo}</p>}
       <div
         className="status-row"
@@ -82,7 +69,7 @@ export function PanelOpciones({
       {editorNota}
       <div className="opciones-pie">
         {acciones}
-        <button type="button" className="btn ghost" onClick={() => alCerrar('listo')}>
+        <button type="button" className="btn ghost" onClick={alListo}>
           Listo
         </button>
       </div>

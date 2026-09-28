@@ -8,7 +8,7 @@ import type { BorradorNota } from './usar-borrador-nota'
 /**
  * El campo de hora (temprano, tarde) o de nota (enfermo) de una comida: el mismo, con el mismo
  * comportamiento, en Plan, Semana y La casa (DESIGN.md §8). Aparece al elegir un estado que lo pide y
- * toma el foco. "Guardar" (o cerrar el panel) guarda lo escrito si sirve; si no, el motivo va debajo
+ * toma el foco. "Guardar" (o cerrar la burbuja) guarda lo escrito si sirve; si no, el motivo va debajo
  * del campo. "Cancelar" lo descarta. La lógica está en `useBorradorNota` (ver `propsEditorNota`);
  * esto solo pinta. Quien lo usa le pone `key={estado}`: al pasar de un estado a otro vuelve a empezar
  * (y a tomar el foco).

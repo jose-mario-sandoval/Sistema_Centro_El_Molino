@@ -7,7 +7,6 @@ import { semanaPedida } from '@/lib/comidas/semana'
 import { fechaISOEn } from '@/lib/fechas'
 import { NavegacionSemana } from '../_componentes/navegacion-semana'
 import { RefrescarAlVolver } from '../_componentes/refrescar-al-volver'
-import { ExtrasCasa } from './_componentes/extras-casa'
 import { TablaCasa } from './_componentes/tabla-casa'
 
 const esUuid = (valor: unknown): valor is string => z.uuid().safeParse(valor).success
@@ -36,10 +35,6 @@ export default async function PaginaLaCasa({
     obtenerNotasExtras(lunes),
   ])
   const personas = dias[0]?.comidas[0]?.personas.map(({ id, nombre }) => ({ id, nombre })) ?? []
-  // Un extra se quita solo mientras su comida no cerró (hora límite o job de cierre).
-  const cerradas = dias.flatMap((dia) =>
-    dia.comidas.filter((comida) => !comida.sinCerrar).map((comida) => `${dia.fecha}|${comida.comida}`),
-  )
 
   return (
     <>
@@ -70,10 +65,17 @@ export default async function PaginaLaCasa({
         <p className="hint">Su semana, su plan de comida y sus ausencias, para verlos o cambiarlos.</p>
       </form>
 
-      {/* key: al cambiar de semana, la celda abierta se cierra. */}
-      <TablaCasa key={lunes} lunes={lunes} dias={dias} extras={extras} yo={perfil.id} />
-
-      <ExtrasCasa key={`extras-${lunes}`} extras={extrasManuales} dias={diasParaExtra(lunes, hoy)} cerradas={cerradas} />
+      {/* key: al cambiar de semana, la celda y la burbuja abiertas se cierran. Cada comida desde hoy
+          lleva su "+ Extra" (los extras se agregan y se quitan desde ahí). */}
+      <TablaCasa
+        key={lunes}
+        lunes={lunes}
+        dias={dias}
+        extras={extras}
+        extrasManuales={extrasManuales}
+        diasExtra={diasParaExtra(lunes, hoy)}
+        yo={perfil.id}
+      />
     </>
   )
 }

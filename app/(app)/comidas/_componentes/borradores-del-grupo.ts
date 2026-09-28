@@ -6,9 +6,9 @@ type Confirmar = () => boolean
 export const ContextoBorradores = createContext<(confirmar: Confirmar) => () => void>(() => () => {})
 
 /**
- * Para quien cierra varias comidas a la vez (el panel de un día de la Semana): antes de cerrar o de
- * pasar a otro día, cada comida guarda lo que quedó escrito o, si no sirve, avisa y el panel sigue
- * abierto. Nada escrito se pierde en silencio (DESIGN.md §8).
+ * Para quien tiene varias comidas y una sola burbuja abierta (la Semana, La casa): antes de pasar a
+ * otra comida, la abierta guarda lo que quedó escrito o, si no sirve, avisa y la burbuja sigue
+ * abierta. Nada escrito se pierde en silencio (DESIGN.md §8).
  */
 export function useBorradoresDelGrupo() {
   const confirmadores = useRef(new Set<Confirmar>())
@@ -18,7 +18,7 @@ export function useBorradoresDelGrupo() {
       confirmadores.current.delete(confirmar)
     }
   }, [])
-  // En orden (desayuno, almuerzo, cena); se detiene en la primera que no puede cerrarse, que queda con el foco.
+  // Se detiene en la primera que no puede cerrarse (la de la burbuja abierta), que queda con el foco.
   const confirmarTodos = useCallback(() => {
     for (const confirmar of confirmadores.current) if (!confirmar()) return false
     return true
