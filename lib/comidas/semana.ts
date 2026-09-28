@@ -32,6 +32,11 @@ export function etiquetaDia(fecha: FechaISO): string {
   return `${nombreDia(fecha)} ${fechaCorta(fecha)}`
 }
 
+/** 'Almuerzo del miércoles 23/9' (`nombreDia`: 'Miércoles'): el título de la burbuja de una comida. */
+export function tituloComida(comida: TiempoComida, nombreDia: string, fechaCorta: string): string {
+  return `${ETIQUETA_TIEMPO[comida]} del ${nombreDia.toLowerCase()} ${fechaCorta}`
+}
+
 /** '14 al 20 de septiembre' · '28 de septiembre al 4 de octubre' */
 export function rangoSemana(lunes: FechaISO): string {
   return rangoLegible(lunes, sumarDias(lunes, 6))

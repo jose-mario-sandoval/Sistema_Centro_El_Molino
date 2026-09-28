@@ -51,6 +51,23 @@ export function hayQueGuardar(pedido: ValorComida | null, nuevo: ValorComida | n
 
 const ARTICULO: Record<TiempoComida, string> = { desayuno: 'el', almuerzo: 'el', cena: 'la' }
 const PREFIJO_FALLO = 'No se pudo guardar.'
+/** 'los martes', 'los sábados': el plan habla de todas las semanas. */
+const DIA_PLURAL = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábados', 'domingos'] as const
+
+/** 'martes', 'sábados' (1 = lunes). */
+export function diaPlural(dia: number): string {
+  return DIA_PLURAL[dia - 1]
+}
+
+/** 'Almuerzo de los martes': el título de la burbuja de una celda. */
+export function tituloComidaPlan(dia: number, comida: TiempoComida): string {
+  return `${ETIQUETA_TIEMPO[comida]} de los ${diaPlural(dia)}`
+}
+
+/** 'el almuerzo de los martes': completa "Elegí qué hacés con …". */
+export function queComidaPlan(dia: number, comida: TiempoComida): string {
+  return `${ARTICULO[comida]} ${ETIQUETA_TIEMPO[comida].toLowerCase()} de los ${diaPlural(dia)}`
+}
 
 /** Aviso cuando una celda vuelve atrás: 'No se pudo guardar el almuerzo del martes. Intentá de nuevo.' */
 export function mensajeFalloCelda(dia: number, comida: TiempoComida, error: string): string {

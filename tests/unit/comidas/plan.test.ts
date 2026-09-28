@@ -1,5 +1,15 @@
 import { describe, expect, it } from 'vitest'
-import { cambiadasPorOtro, celdasDesdePlan, claveCelda, conCelda, etiquetaCelda, hayQueGuardar, mensajeFalloCelda } from '@/lib/comidas/plan'
+import {
+  cambiadasPorOtro,
+  celdasDesdePlan,
+  claveCelda,
+  conCelda,
+  etiquetaCelda,
+  hayQueGuardar,
+  mensajeFalloCelda,
+  queComidaPlan,
+  tituloComidaPlan,
+} from '@/lib/comidas/plan'
 import { ESTADOS_COMIDA, ETIQUETA_CORTA_ESTADO, INFO_ESTADO, TIEMPOS_COMIDA } from '@/lib/comidas/tipos'
 
 describe('claveCelda', () => {
@@ -116,5 +126,18 @@ describe('ETIQUETA_CORTA_ESTADO', () => {
     for (const estado of ESTADOS_COMIDA) {
       expect(INFO_ESTADO[estado].etiqueta.toLowerCase()).toContain(ETIQUETA_CORTA_ESTADO[estado].toLowerCase())
     }
+  })
+})
+
+describe('la burbuja de una celda del plan', () => {
+  it('tituloComidaPlan: "Almuerzo de los martes"', () => {
+    expect(tituloComidaPlan(2, 'almuerzo')).toBe('Almuerzo de los martes')
+    expect(tituloComidaPlan(6, 'cena')).toBe('Cena de los sábados')
+    expect(tituloComidaPlan(7, 'desayuno')).toBe('Desayuno de los domingos')
+  })
+
+  it('queComidaPlan: completa "Elegí qué hacés con …"', () => {
+    expect(queComidaPlan(2, 'almuerzo')).toBe('el almuerzo de los martes')
+    expect(queComidaPlan(7, 'cena')).toBe('la cena de los domingos')
   })
 })
