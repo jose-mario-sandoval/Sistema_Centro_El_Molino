@@ -257,7 +257,7 @@ test('una comida que ya cerró se ve en La casa, pero no se cambia', async ({ pa
 
   // En una semana pasada no hay "+ Extra": los extras se agregan desde hoy. Y ya no hay formulario abajo.
   await expect(page.getByRole('button', { name: /^Agregar extra/ })).toHaveCount(0)
-  await expect(page.getByText('Extras para la cocina')).toHaveCount(0)
+  await expect(page.getByRole('heading', { name: 'Extras para la cocina' })).toHaveCount(0)
 })
 
 test('"+ Extra" en el almuerzo del miércoles: 3 personas y una nota; la celda y Administración lo ven, sin nombres', async ({

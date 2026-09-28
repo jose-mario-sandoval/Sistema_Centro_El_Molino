@@ -97,16 +97,8 @@ export function ContenidoComida({
             acciones={
               !borrador &&
               valor?.origen === 'persona' && (
-                <button
-                  type="button"
-                  className="btn ghost"
-                  disabled={pendiente}
-                  onClick={(e) => {
-                    // El botón desaparece al volver: el foco queda en la burbuja, nunca en la nada.
-                    e.currentTarget.closest<HTMLElement>('.burbuja')?.focus({ preventScroll: true })
-                    comida.volver()
-                  }}
-                >
+                // Desaparece al volver: la burbuja lleva el foco a la opción marcada (nunca a la nada).
+                <button type="button" className="btn ghost" disabled={pendiente} onClick={comida.volver}>
                   {textoVolver(datos.ausente, voz)}
                 </button>
               )

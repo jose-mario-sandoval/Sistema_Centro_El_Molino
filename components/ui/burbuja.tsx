@@ -90,9 +90,21 @@ export function Burbuja({
   const pedirCierre = useRef(alCerrar)
   const observador = useRef<ResizeObserver | null>(null)
   const observada = useRef<HTMLElement | null>(null)
+  // El foco estaba dentro de la burbuja (lo que se tocó o se tabuló por última vez).
+  const focoDentro = useRef(false)
 
   useLayoutEffect(() => {
     pedirCierre.current = alCerrar
+  })
+
+  // El foco nunca queda en la nada (DESIGN.md §7): si el control que lo tenía desapareció al volver a
+  // pintar (el campo de la hora después de "Guardar", "Volver a mi plan", un botón que se deshabilita),
+  // vuelve a la opción marcada o a la burbuja, sin mover la página.
+  useLayoutEffect(() => {
+    const elemento = burbuja.current
+    const activo = document.activeElement
+    if (!elemento || !focoDentro.current || (activo && activo !== document.body)) return
+    ;(elemento.querySelector<HTMLElement>('[aria-pressed="true"]') ?? elemento).focus({ preventScroll: true })
   })
 
   function colocar() {
@@ -138,6 +150,7 @@ export function Burbuja({
       ? elemento
       : (elemento.querySelector<HTMLElement>('[aria-pressed="true"]') ?? enfocables(elemento)[0] ?? elemento)
     destino.focus({ preventScroll: true })
+    focoDentro.current = true
     const bajar = cuantoDesplazar({
       burbuja: elemento.getBoundingClientRect(),
       ancla: boton.getBoundingClientRect(),
@@ -195,6 +208,7 @@ export function Burbuja({
       bloquearClic = 0
     }
     function alEnfocar(e: FocusEvent) {
+      focoDentro.current = e.target instanceof Node && Boolean(burbuja.current?.contains(e.target))
       if (esPropio(e.target) || abreOtra(e.target)) return
       intentar('fuera')
     }
@@ -204,7 +218,9 @@ export function Burbuja({
       if (!elemento || !(e.target instanceof Node)) return
       const enBurbuja = elemento.contains(e.target)
       const enBoton = e.target === boton
-      if (!enBurbuja && !enBoton) return
+      // Escape también cierra si el foco quedó en la nada: la burbuja abierta es lo único que hay para cerrar.
+      const enNada = e.target === document.body && e.key === 'Escape'
+      if (!enBurbuja && !enBoton && !enNada) return
 
       if (e.key === 'Escape') {
         e.preventDefault()
@@ -226,7 +242,8 @@ export function Burbuja({
         boton?.focus()
         return
       }
-      if (controles.length > 0 && e.target !== controles.at(-1)) return
+      // Sin Array.prototype.at: no existe en iOS 15.0–15.3.
+      if (controles.length > 0 && e.target !== controles[controles.length - 1]) return
       e.preventDefault()
       if (!intentar('tab')) return
       const siguiente = boton ? siguienteDespues(enfocables(document), boton, (x) => x.closest('.burbuja') !== null) : null
