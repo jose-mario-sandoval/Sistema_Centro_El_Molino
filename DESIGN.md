@@ -192,9 +192,28 @@ Longitud de línea máxima **65ch** en texto corrido.
 mínima de 8px entre objetivos contiguos. Es un gate verificable, y se verifica. Incluye a los
 botones "chicos": una variante compacta puede tener menos texto o menos relleno, nunca menos alto.
 
-**Excepción única, documentada:** la cuadrícula mensual del calendario en teléfonos. Siete columnas
-en 320px dejan días de ~36px de ancho. Cumple WCAG 2.2 AA (24px) pero no este contrato, y por eso en
-el teléfono el calendario abre en **lista** y la cuadrícula queda detrás de *"Ver mes"*.
+**Dos excepciones, documentadas.** Las dos son siete columnas de días en un teléfono: cumplen WCAG
+2.2 AA (24px) pero no este contrato.
+
+1. **La cuadrícula mensual del calendario.** Siete columnas en 320px dejan días de ~36px de ancho;
+   por eso en el teléfono el calendario abre en **lista** y la cuadrícula queda detrás de *"Ver mes"*.
+2. **El mini calendario de ausencias** (`components/ui/mini-calendario.tsx`). Marcar una ausencia es
+   tocar el primer y el último día en un mes, y eso no tiene lista equivalente: cada día mide ~43px
+   de ancho a 375px (~39px en un teléfono con más margen, ~36px a 320px). Mitigaciones:
+   - **Alto completo:** 56px siempre; el ancho es lo único que cede. El calendario va casi a sangre
+     dentro de la tarjeta y con 3px entre días, para darle a cada día todo el ancho posible.
+   - **La letra no cede:** ningún texto baja de `--t-xs`, a ningún ancho ni tamaño de letra. Si
+     "Mié" no cabe a ese tamaño en la columna (320px con letra grande, o letra enorme por debajo de
+     ~414px), la cabecera pasa a la inicial ("L M M J V S D") con una consulta de contenedor en `rem`,
+     que sigue a la letra elegida; el lector de pantalla oye siempre el nombre entero.
+   - **Resumen escrito antes de guardar:** *"Del 14 al 16 de octubre (3 días)."* debajo del
+     calendario, en una región `aria-live`. Un toque errado se ve antes de que cuente, y se corrige
+     tocando de nuevo; nada se guarda hasta *"Guardar ausencia"*. Tocar un día ya marcado no lo
+     desmarca: si todo lo elegido ya estaba marcado no hay nada que guardar y el aviso manda a
+     *"Quitar"*; si solo una parte, el resumen lo dice (sirve para alargar una ausencia).
+   - **Ruta completa por teclado y lector de pantalla:** una sola parada de tabulación y flechas,
+     Inicio/Fin y RePág/AvPág (patrón APG de selector de fecha); cada día se anuncia con su fecha
+     completa, "hoy" y "ya marcado como ausente", y la selección con `aria-selected` en su celda.
 
 ### Tres reglas de ancho que salieron de verificar, no de planificar
 
@@ -385,6 +404,8 @@ El diseño ya está en la app Next.js. Dónde vive cada pieza:
 | Iconos (uno por estado de comida) | `components/ui/iconos.tsx` |
 | Lateral, barra superior y barra inferior | `components/app/estructura.tsx`, `components/app/navegacion.tsx` |
 | La interacción única de comidas | `app/(app)/comidas/_componentes/selector-comida.tsx`, usado por `comida-del-dia.tsx` (Semana) y `plan-editable.tsx` (Plan semanal) |
+| Mini calendario para marcar un rango de días (ausencias) | `components/ui/mini-calendario.tsx`; su lógica pura (toques, teclado, límites, resumen) en `lib/calendario/seleccion-rango.ts` |
+| Nombres de mes y de día, sin `Intl` (iguales en servidor y navegador) | `lib/fechas/etiquetas.ts` |
 
 Decisiones tomadas al portar:
 
@@ -392,7 +413,9 @@ Decisiones tomadas al portar:
   `.feed-mensajes`, `.cal-day`, `.cal-event`, `.toast`, `.locked-banner`, `.week-list`,
   `.status-chip`), y también la tabla de Administración: en el teléfono se apila con CSS, sin
   cambiar su estructura. Solo cambiaron los specs donde cambió la interacción (abrir las opciones
-  de una comida antes de elegir) y el título de la sección.
+  de una comida antes de elegir) y el título de la sección. El mini calendario de ausencias usa
+  **anclas propias** (`.mini-calendario .mini-dia[data-fecha]`) y nunca `.cal-day`: los E2E del
+  calendario grande buscan `.cal-day[data-fecha=…]` como único.
 - **La tabla de Administración se apila por el ancho de su tarjeta, no de la pantalla** (contenedor
   `tabla-admin` sobre `.admin-table-scroll`, umbral 34rem). En una media query el `rem` es siempre
   16px; en una consulta de contenedor sigue al tamaño de letra elegido, así que con letra "Muy

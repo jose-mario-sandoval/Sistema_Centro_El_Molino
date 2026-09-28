@@ -47,7 +47,7 @@ describe('etiquetas', () => {
   })
 
   it('rango de la semana que cruza de año', () => {
-    expect(rangoSemana('2026-12-28')).toBe('28 de diciembre al 3 de enero')
+    expect(rangoSemana('2026-12-28')).toBe('28 de diciembre de 2026 al 3 de enero de 2027')
   })
 
   it('diasDeSemana devuelve los 7 días desde el lunes', () => {

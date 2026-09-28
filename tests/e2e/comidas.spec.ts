@@ -8,6 +8,7 @@ import {
   USUARIOS_PRUEBA,
   type ClaveUsuario,
 } from '../soporte/usuarios-prueba'
+import { marcarAusencia } from './soporte/ausencias'
 
 let ids: Record<ClaveUsuario, string>
 
@@ -216,10 +217,9 @@ test('una persona marca su ausencia: sus comidas se cancelan solas, puede reacti
   await planAlmuerzoMiercoles()
   await iniciarSesion(page, 'residente')
 
-  // Marca su ausencia desde el calendario. Con elegir el primer día alcanza para un solo día.
+  // Marca su ausencia desde el mini calendario de /calendario: para un solo día, un toque alcanza.
   await page.goto('/calendario')
-  await page.getByLabel('Primer día que no voy a estar').fill(miercolesSiguiente)
-  await page.getByRole('button', { name: 'Marcar ausencia' }).click()
+  await marcarAusencia(page, miercolesSiguiente)
   await expect(page.getByText('Ausencia marcada.')).toBeVisible()
   await expect(page.getByRole('button', { name: /^Quitar la ausencia del / })).toBeVisible()
 

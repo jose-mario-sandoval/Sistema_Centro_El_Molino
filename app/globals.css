@@ -829,18 +829,79 @@ a{color:var(--acento);}
   border:2px dashed var(--dorado);color:var(--dorado);font-size:var(--t-xs);font-weight:700;
 }
 .etiqueta-ausente .icono{width:1.1em;height:1.1em;}
-.panel-ausencias{margin-bottom:1.25rem;}
+/* Tarjeta compacta debajo del calendario: una línea por ausencia y el mini calendario plegado. */
+.panel-ausencias{margin-top:1.5rem;}
+.panel-ausencias > .section-title{margin-bottom:.35rem;}
 .panel-ausencias > .hint{margin-bottom:1rem;max-width:65ch;}
-.lista-ausencias{display:flex;flex-direction:column;gap:.6rem;margin-bottom:1.25rem;}
+.ausencias-vacio{margin-bottom:1rem;color:var(--tinta-suave);font-size:var(--t-sm);}
+.lista-ausencias{display:flex;flex-direction:column;gap:.5rem;margin-bottom:1rem;}
 .fila-ausencia{
-  display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.6rem;
-  padding:.75rem;border-radius:var(--r-sm);border:2px solid var(--borde-hundido);box-shadow:var(--hundido-suave);
+  display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem;
+  padding:.35rem .35rem .35rem .9rem;border-radius:var(--r-md);
+  border:2px solid var(--borde-hundido);box-shadow:var(--hundido-suave);
 }
-.ausencia-rango{display:inline-flex;align-items:center;gap:.5rem;font-weight:700;}
+/* El rango se parte en dos líneas antes que mandar "Quitar" abajo: así cada ausencia sigue siendo una fila. */
+.ausencia-rango{flex:1 1 6rem;display:inline-flex;align-items:center;gap:.5rem;font-weight:700;line-height:1.3;}
 .ausencia-acciones{display:flex;flex-wrap:wrap;gap:.5rem;}
 /* Siempre a la derecha, aunque baje de línea: así todas las filas se leen igual. */
 .fila-ausencia > .btn,.fila-ausencia > .ausencia-acciones{margin-left:auto;}
-.formulario-ausencia{border-top:2px solid var(--separador);padding-top:1.25rem;}
+.boton-marcar-ausencia .flecha{opacity:.8;transition:transform var(--dur) var(--curva);}
+.boton-marcar-ausencia[aria-expanded="true"]{box-shadow:var(--hundido);color:var(--acento);}
+.boton-marcar-ausencia[aria-expanded="true"] .flecha{transform:rotate(180deg);}
+[data-contraste="alto"] .boton-marcar-ausencia[aria-expanded="true"]{border-color:var(--acento);background:var(--acento-suave);}
+.formulario-ausencia{margin-top:1.25rem;border-top:2px solid var(--separador);padding-top:1.25rem;}
+.formulario-ausencia > .hint{margin-bottom:1rem;max-width:65ch;}
+.resumen-ausencia{margin-top:1rem;}
+.resumen-ausencia-texto{font-weight:600;max-width:65ch;}
+.resumen-ausencia .campo-error{margin-top:.4rem;}
+
+/* Mini calendario para marcar ausencias. Excepción táctil documentada (DESIGN.md §4): en un
+   teléfono de 375px cada día mide ~43px de ancho (≈36 en 320), pero siempre 56px de alto. Clases
+   propias: nunca .cal-day, que los E2E del calendario grande buscan como único. */
+/* Contenedor con nombre: la cabecera cambia a iniciales según el ancho del calendario, no de la pantalla. */
+.mini-calendario{max-width:30rem;container:mini-calendario / inline-size;}
+.mini-cabeza{display:flex;align-items:center;gap:.5rem;margin-bottom:.5rem;}
+.mini-mes{flex:1;min-width:0;text-align:center;font-family:var(--fuente-display);font-size:var(--t-base);font-weight:600;}
+.mini-tabla{width:100%;table-layout:fixed;border-collapse:separate;border-spacing:3px;}
+/* Ningún texto del mini calendario baja de --t-xs, el piso absoluto (DESIGN.md §4): si "Mié" no
+   cabe a ese tamaño en la columna, se ve la inicial. El umbral va en rem, así que también sigue a la
+   letra que eligió la persona (grande/enorme cambian a iniciales antes). */
+.mini-tabla th{
+  padding:.2rem 0 .3rem;text-align:center;
+  font-size:var(--t-xs);font-weight:700;color:var(--tinta-suave);white-space:nowrap;
+}
+.mini-tabla .dia-inicial{display:none;}
+@container mini-calendario (max-width:15.3rem){
+  .mini-tabla .dia-corto{display:none;}
+  .mini-tabla .dia-inicial{display:inline;}
+}
+.mini-tabla td{padding:0;}
+.mini-dia{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.1rem;
+  width:100%;min-height:var(--toque);padding:0;
+  border-radius:var(--r-sm);border:2px solid var(--borde-elevado);
+  background:var(--fondo);color:var(--tinta);box-shadow:var(--relieve-bajo);
+  font-size:max(var(--t-xs), min(var(--t-base), 5.4vw));font-weight:700;line-height:1;
+  transition:box-shadow var(--dur) var(--curva),background-color var(--dur) var(--curva);
+}
+.mini-dia:active{box-shadow:var(--hundido);}
+/* Por encima de los vecinos: con 3px entre días, el anillo pisa el borde del de al lado. */
+.mini-dia:focus-visible{position:relative;z-index:1;outline-offset:2px;}
+/* El anillo de hoy nunca más ancho que el día (a 320px con letra enorme, 1.7em no entra). */
+.mini-num{display:inline-grid;place-items:center;min-width:min(1.7em, 100%);height:1.7em;}
+/* Hoy: anillo alrededor del número (con color, forma y "hoy" en el nombre accesible). */
+.mini-dia[aria-current="date"] .mini-num{border:2px solid currentColor;border-radius:var(--r-full);}
+.mini-icono{width:.8em;height:.8em;color:var(--dorado);}
+/* Ya ausente: el lenguaje de .cal-day.ausente (punteado dorado + valija). */
+.mini-dia.marcado{border:2px dashed var(--dorado);}
+/* Elegido: hundido, con color y borde; el primer y el último día, rellenos. */
+.mini-dia.elegido{box-shadow:var(--hundido);background:var(--acento-suave);color:var(--acento);border-color:var(--acento);}
+.mini-dia.extremo{background:var(--acento);color:var(--acento-tinta);box-shadow:var(--hundido-suave);}
+.mini-dia.elegido .mini-icono{color:currentColor;}
+[data-contraste="alto"] .mini-dia.elegido{border-width:3px;}
+/* Pasado o fuera de rango: plano (solo se lee) y atenuado. */
+.mini-dia:disabled{box-shadow:none;border-color:transparent;color:var(--tinta-tenue);opacity:.5;cursor:not-allowed;}
+.mini-dia.marcado:disabled{border-color:var(--dorado);}
 .aviso-ausente{
   display:flex;align-items:center;gap:.6rem;padding:.75rem 1rem;margin-bottom:1rem;border-radius:var(--r-md);
   border:2px dashed var(--dorado);box-shadow:var(--hundido-suave);
@@ -1073,6 +1134,9 @@ a{color:var(--acento);}
 
   /* Teléfono estrecho: las opciones pasan a 2 columnas antes que encogerse. */
   .opciones .status-row{grid-template-columns:repeat(2,minmax(0,1fr));}
+
+  /* El mini calendario casi a sangre dentro de la tarjeta: cada píxel de ancho va a los días. */
+  .mini-calendario{max-width:none;margin-inline:calc(var(--marco) * -0.75);}
 
   /* La cuadrícula del mes marca los eventos con un punto: "Re…" no le sirve a nadie. */
   .cal-grid{gap:.3rem;}
