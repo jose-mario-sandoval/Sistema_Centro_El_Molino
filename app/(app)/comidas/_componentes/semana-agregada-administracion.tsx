@@ -1,9 +1,13 @@
-import { totalQueComen } from '@/lib/comidas/resumen'
-import { fechaCorta, nombreDia } from '@/lib/comidas/semana'
+import { etiquetaDia } from '@/lib/comidas/semana'
 import { ETIQUETA_TIEMPO, TIEMPOS_COMIDA, type TiempoComida } from '@/lib/comidas/tipos'
 import type { DiaAgregado } from '@/lib/comidas/vista'
+import { CeldaResumen } from './celda-resumen'
 
-/** La hoja desde la que se cocina: cuánto preparar cada día, nunca para quién. */
+/**
+ * La hoja desde la que se cocina: cuánto preparar cada día y cómo (temprano, tarde, en bolsa…),
+ * nunca para quién. Un día por fila: siete columnas angostas no admiten el desglose, y en el
+ * teléfono cada fila pasa a ser la ficha de un día.
+ */
 export function SemanaAgregadaAdministracion({
   dias,
   extras,
@@ -17,27 +21,26 @@ export function SemanaAgregadaAdministracion({
       <table className="admin-week-table">
         <thead>
           <tr>
-            <th scope="col">Comida</th>
-            {dias.map((dia) => (
-              <th key={dia.fecha} scope="col">
-                {nombreDia(dia.fecha).slice(0, 3)} {fechaCorta(dia.fecha)}
+            <th scope="col">Día</th>
+            {TIEMPOS_COMIDA.map((comida) => (
+              <th key={comida} scope="col">
+                {ETIQUETA_TIEMPO[comida]}
               </th>
             ))}
           </tr>
         </thead>
         <tbody>
-          {TIEMPOS_COMIDA.map((comida) => (
-            <tr key={comida}>
-              <th scope="row">{ETIQUETA_TIEMPO[comida]}</th>
-              {dias.map((dia) => {
-                const extra = extras[dia.fecha]?.[comida]
-                return (
-                  <td key={dia.fecha} data-et={`${ETIQUETA_TIEMPO[comida]} ${fechaCorta(dia.fecha)}`}>
-                    <div className="conteo-numero">{totalQueComen(dia.resumen[comida])}</div>
-                    {extra ? <div className="status-note">+{extra} extra</div> : null}
-                  </td>
-                )
-              })}
+          {dias.map((dia) => (
+            <tr key={dia.fecha}>
+              <th scope="row" className="namecell">
+                {etiquetaDia(dia.fecha)}
+              </th>
+              {TIEMPOS_COMIDA.map((comida) => (
+                // data-et: en el teléfono la tabla se apila y cada celda muestra su comida.
+                <td key={comida} data-fecha={dia.fecha} data-comida={comida} data-et={ETIQUETA_TIEMPO[comida]}>
+                  <CeldaResumen resumen={dia.resumen[comida]} extra={extras[dia.fecha]?.[comida]} />
+                </td>
+              ))}
             </tr>
           ))}
         </tbody>

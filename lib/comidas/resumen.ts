@@ -4,14 +4,21 @@ export type ClaveResumen = EstadoComida | 'sin_definir'
 export type ParteResumen = { clave: ClaveResumen; cantidad: number; texto: string }
 export type ResumenComida = { total: number; partes: ParteResumen[] }
 
-const ETIQUETA_CORTA: Record<EstadoComida, string> = {
-  si: 'sí',
-  no: 'no',
-  temprano: 'temprano',
-  tarde: 'tarde',
-  bolsa: 'en bolsa',
-  enfermo: 'enfermo',
+const ETIQUETA_CORTA: Record<EstadoComida, (cantidad: number) => string> = {
+  si: () => 'sí',
+  // "1 no" suelto no se entiende: se dice qué es lo que no hacen.
+  no: (cantidad) => (cantidad === 1 ? 'no come' : 'no comen'),
+  temprano: () => 'temprano',
+  tarde: () => 'tarde',
+  bolsa: () => 'en bolsa',
+  enfermo: () => 'enfermo',
 }
+
+/**
+ * Orden de la cocina: primero lo que cambia la preparación, después cuántos comen normal y quién falta.
+ * Tiene que nombrar todos los estados (hay una prueba): el que falte no se ve en el desglose.
+ */
+export const ORDEN_COCINA: readonly ClaveResumen[] = ['temprano', 'tarde', 'bolsa', 'enfermo', 'si', 'no', 'sin_definir']
 
 /** ['13:30', '14:00', '13:30'] → ['13:30 ×2', '14:00'] */
 function horasAgrupadas(notas: (string | null)[]): string[] {
@@ -31,7 +38,7 @@ export function resumenComida(valores: ValorEfectivo[]): ResumenComida {
   for (const estado of ESTADOS_COMIDA) {
     const delEstado = valores.filter((valor): valor is SeleccionGuardada => valor !== null && valor.estado === estado)
     if (delEstado.length === 0) continue
-    let texto = `${delEstado.length} ${ETIQUETA_CORTA[estado]}`
+    let texto = `${delEstado.length} ${ETIQUETA_CORTA[estado](delEstado.length)}`
     if (INFO_ESTADO[estado].nota === 'hora') {
       const horas = horasAgrupadas(delEstado.map((valor) => valor.nota))
       if (horas.length > 0) texto += ` (${horas.join(', ')})`
@@ -55,4 +62,9 @@ export function totalQueComen(resumen: ResumenComida): number {
   const no = resumen.partes.find((p) => p.clave === 'no')?.cantidad ?? 0
   const sinDefinir = resumen.partes.find((p) => p.clave === 'sin_definir')?.cantidad ?? 0
   return resumen.total - no - sinDefinir
+}
+
+/** Las partes de un resumen en el orden en que las lee la cocina (solo las que tienen personas). */
+export function partesParaCocina(resumen: ResumenComida): ParteResumen[] {
+  return ORDEN_COCINA.flatMap((clave) => resumen.partes.filter((parte) => parte.clave === clave && parte.cantidad > 0))
 }
