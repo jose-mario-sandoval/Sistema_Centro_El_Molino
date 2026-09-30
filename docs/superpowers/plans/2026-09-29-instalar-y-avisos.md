@@ -22,8 +22,9 @@ zod 4, Vitest, Playwright.
 (privacidad de Administración, aprobación de mensajes).
 
 **Rama:** `claude/instalar-y-avisos` desde `master`. Migración:
-`supabase/migrations/20260929120000_preferencias_avisos.sql` (hay que aplicarla a producción antes
-o junto con el merge).
+`supabase/migrations/20260929120000_preferencias_avisos.sql` (hay que aplicarla a producción
+**antes** del merge: sin ella Ajustes no guarda las preferencias; los avisos de siempre siguen
+saliendo gracias a la lectura de respaldo de `leerPerfiles()`).
 
 ---
 
@@ -177,6 +178,13 @@ generada con `ImageResponse` (sin tocar `components/app/monograma.tsx`, que camb
   los de comidas, la semana de esa fecha; los de ausencias y eventos, el calendario de ese mes.
 - `enviarConAutor` ya no llama a `enviarAUsuarios` con una lista vacía (mismo resultado, un envío
   menos que registrar).
+- Después de la revisión de código: `leerPerfiles()` tolera la migración pendiente (42703); el
+  extra de último momento lleva `renotify` (un reemplazo silencioso podía pasar desapercibido en la
+  cocina) y su total suma también los confirmados por el enlace público, como la Semana; al aprobar
+  un mensaje, el aviso a todos excluye al Director que lo aprobó; «corrigió su mensaje» solo si
+  edita el autor; el foco no salta a la franja si la instalación empezó en otro lado.
+- Se mantuvo la etiqueta por persona y tipo en los cambios del Director (pedido explícito: que el
+  último reemplace a los anteriores), aunque así solo queda a la vista el último cambio de una ráfaga.
 - Verificado en el banco visual (esbuild + Playwright, fuera del repo) a 320/375/768 × claro,
   oscuro, contraste alto y letra enorme: sin scroll lateral, sin desbordes, botones ≥56px y letra
   nunca bajo `--t-xs`; los flujos del e2e (evento sintético, "Ahora no" + recarga, pasos de iOS)
