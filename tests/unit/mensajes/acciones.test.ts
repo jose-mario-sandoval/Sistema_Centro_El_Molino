@@ -175,10 +175,17 @@ describe('publicar y responder: el aviso público solo si se publica directo', (
 describe('editarMensajePropio: corregir un rechazado lo vuelve a poner por aprobar', () => {
   it('avisa a los Directores que hay una corrección', async () => {
     como('residente')
-    clienteFalso({ actualizacion: { data: [{ id: ID }], error: null } })
+    clienteFalso({ actualizacion: { data: [{ id: ID, autor_id: 'id-residente' }], error: null } })
     expect(await editarMensajePropio(null, formulario({ id: ID, texto: 'Corregido' }))).toEqual({ ok: true, data: null })
     await correrAfter()
     expect(avisarMensajePendiente).toHaveBeenCalledWith(ID, { correccion: true })
+  })
+
+  it('si quien lo cambia no es el autor (un Director, por RLS), no es una corrección: no avisa', async () => {
+    como('director')
+    clienteFalso({ actualizacion: { data: [{ id: ID, autor_id: 'id-residente' }], error: null } })
+    expect(await editarMensajePropio(null, formulario({ id: ID, texto: 'Otro' }))).toEqual({ ok: true, data: null })
+    expect(after).not.toHaveBeenCalled()
   })
 
   it('si ya no se podía editar, no avisa', async () => {
@@ -200,7 +207,8 @@ describe('moderarMensaje', () => {
       ['estado', 'pendiente'],
     ])
     await correrAfter()
-    expect(avisarNuevaPublicacion).toHaveBeenCalledWith(ID)
+    // El aviso a todos no le llega al Director que acaba de aprobarlo.
+    expect(avisarNuevaPublicacion).toHaveBeenCalledWith(ID, { excluir: 'id-director' })
     expect(avisarNuevaRespuesta).not.toHaveBeenCalled()
     expect(avisarModeracion).toHaveBeenCalledWith(ID, 'id-director', 'aprobado')
   })
@@ -210,7 +218,7 @@ describe('moderarMensaje', () => {
     clienteFalso({ actualizacion: { data: [{ id: ID, padre_id: PADRE }], error: null } })
     await moderarMensaje({ id: ID, estado: 'aprobado' })
     await correrAfter()
-    expect(avisarNuevaRespuesta).toHaveBeenCalledWith(ID)
+    expect(avisarNuevaRespuesta).toHaveBeenCalledWith(ID, { excluir: 'id-director' })
     expect(avisarNuevaPublicacion).not.toHaveBeenCalled()
   })
 

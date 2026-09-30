@@ -253,11 +253,16 @@ export async function moderarMensaje(entrada: unknown): Promise<Resultado<null>>
 
   revalidatePath('/mensajes')
   const { id, padre_id } = moderado
+  // El aviso a todos, menos al Director que acaba de aprobarlo.
+  const moderadorId = sesion.perfil.id
   if (cambios.estado === 'aprobado') {
-    after(() => (padre_id === null ? avisarNuevaPublicacion(id) : avisarNuevaRespuesta(id)))
+    after(() =>
+      padre_id === null
+        ? avisarNuevaPublicacion(id, { excluir: moderadorId })
+        : avisarNuevaRespuesta(id, { excluir: moderadorId }),
+    )
   }
   // Al autor, aprobado o no (con el motivo): así sabe que ya lo leen todos, o que tiene que corregirlo.
-  const moderadorId = sesion.perfil.id
   const estado = cambios.estado
   after(() => avisarModeracion(id, moderadorId, estado))
   return exito(null)
@@ -272,7 +277,11 @@ export async function editarMensajePropio(_previo: Resultado<null> | null, formD
   if (!entrada.success) return fallo('Revisá el mensaje.', camposConError(entrada.error))
 
   const supabase = await crearClienteServidor()
-  const { data, error } = await supabase.from('mensajes').update({ texto: entrada.data.texto }).eq('id', entrada.data.id).select('id')
+  const { data, error } = await supabase
+    .from('mensajes')
+    .update({ texto: entrada.data.texto })
+    .eq('id', entrada.data.id)
+    .select('id, autor_id')
   if (error) {
     console.error('editarMensajePropio', error)
     return fallo('No se pudo guardar. Intentá de nuevo.')
@@ -281,8 +290,9 @@ export async function editarMensajePropio(_previo: Resultado<null> | null, formD
 
   revalidatePath('/mensajes')
   // Corregido tras un rechazo vuelve a pendiente (trigger): los Directores tienen algo nuevo por aprobar.
+  // Solo si lo corrigió su autor: RLS también deja editar al Director, y eso no es una corrección.
   const id = entrada.data.id
-  after(() => avisarMensajePendiente(id, { correccion: true }))
+  if (data[0].autor_id === sesion.perfil.id) after(() => avisarMensajePendiente(id, { correccion: true }))
   return exito(null)
 }
 

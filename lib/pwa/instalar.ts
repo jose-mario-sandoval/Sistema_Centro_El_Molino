@@ -46,6 +46,11 @@ export function nombreAparato(userAgent: string | null): 'teléfono' | 'tablet' 
   return 'teléfono'
 }
 
+/** 'este teléfono' · 'esta tablet' (la tablet: femenino). */
+export function enEsteAparato(aparato: 'teléfono' | 'tablet'): string {
+  return aparato === 'tablet' ? 'esta tablet' : 'este teléfono'
+}
+
 /**
  * - `nativa`: el navegador ofrece instalar (`beforeinstallprompt`): el botón llama a `prompt()`.
  * - `ios`: iPhone o iPad, que solo instalan desde Compartir → "Agregar a pantalla de inicio".

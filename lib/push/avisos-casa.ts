@@ -101,16 +101,28 @@ export async function avisarExtraCocina(p: {
     if (ids.length === 0) return
 
     const admin = crearClienteAdmin()
-    const [horas, extras] = await Promise.all([
+    // El total, como la Semana de Administración (extras_de_la_semana): los manuales y los
+    // confirmados por el enlace público de una cena extra (solo la cantidad, nunca quién).
+    const [horas, extras, confirmados] = await Promise.all([
       admin.from('horas_limite').select('comida, dia_relativo, hora'),
       admin.from('extras_manuales').select('cantidad').eq('fecha', p.fecha).eq('tiempo_comida', p.comida),
+      admin
+        .from('enlaces_confirmacion')
+        .select('confirmaciones_extra(cantidad_personas), eventos!inner(fecha)')
+        .eq('tiempo_comida', p.comida)
+        .eq('eventos.fecha', p.fecha),
     ])
     if (horas.error) throw horas.error
     if (extras.error) throw extras.error
+    if (confirmados.error) throw confirmados.error
+    const manuales = extras.data.reduce((suma, extra) => suma + extra.cantidad, 0)
+    const delEnlace = confirmados.data
+      .flatMap((enlace) => enlace.confirmaciones_extra)
+      .reduce((suma, confirmacion) => suma + confirmacion.cantidad_personas, 0)
 
     const carga = cargaExtraCocina({
       ...p,
-      total: extras.data.reduce((suma, extra) => suma + extra.cantidad, 0),
+      total: manuales + delEnlace,
       ultimoMomento: esUltimoMomento({ fecha: p.fecha, comida: p.comida, ahora, horas: horasLimiteDesdeFilas(horas.data) }),
       hoy,
     })

@@ -50,6 +50,9 @@ self.addEventListener('push', (event) => {
       // cuadrado blanco. /iconos/insignia es el escudo en blanco sobre transparente.
       badge: '/iconos/insignia',
       tag: datos.etiqueta || undefined,
+      // Un aviso que reemplaza a otro con la misma etiqueta no suena, salvo que se pida (y renotify
+      // sin etiqueta es un error).
+      renotify: Boolean(datos.renotificar && datos.etiqueta),
       data: { url: datos.url || '/' },
     }),
   )

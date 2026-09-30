@@ -117,10 +117,14 @@ describe('(d) extras para la cocina', () => {
     })
   })
 
-  it('de último momento lo dice; hoy y mañana se nombran así', () => {
+  it('de último momento lo dice y vuelve a sonar aunque reemplace el aviso anterior; hoy y mañana se nombran así', () => {
     expect(
       cargaExtraCocina({ fecha: HOY, comida: 'cena', cantidad: 1, nota: null, accion: 'agregado', total: 1, ultimoMomento: true, hoy: HOY }),
-    ).toMatchObject({ titulo: 'Extra de último momento', cuerpo: 'Cena de hoy: 1 persona más. Total de extras: 1 persona.' })
+    ).toMatchObject({
+      titulo: 'Extra de último momento',
+      cuerpo: 'Cena de hoy: 1 persona más. Total de extras: 1 persona.',
+      renotificar: true,
+    })
     expect(
       cargaExtraCocina({ fecha: '2026-09-30', comida: 'desayuno', cantidad: 2, nota: null, accion: 'agregado', total: 2, ultimoMomento: true, hoy: HOY }).cuerpo,
     ).toBe('Desayuno de mañana: 2 personas más. Total de extras: 2 personas.')

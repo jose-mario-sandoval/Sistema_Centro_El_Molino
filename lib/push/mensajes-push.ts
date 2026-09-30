@@ -7,6 +7,11 @@ export type CargaPush = {
   cuerpo: string
   url: string
   etiqueta: string
+  /**
+   * Que vuelva a sonar aunque reemplace a un aviso con la misma etiqueta (por defecto el reemplazo
+   * es silencioso). Solo para lo que no puede pasar desapercibido: un extra de último momento.
+   */
+  renotificar?: boolean
 }
 
 export const LARGO_MAXIMO_CUERPO = 120

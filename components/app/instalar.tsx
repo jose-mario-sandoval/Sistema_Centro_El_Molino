@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useId, useState, useSyncExternalStore } from 'react'
+import { useEffect, useId, useRef, useState, useSyncExternalStore } from 'react'
 import { Icono } from '@/components/ui/iconos'
 import {
   instaladaSegunNavegador,
@@ -90,13 +90,23 @@ export function useInstalar() {
   return { aparato: datos, variante, fase, pasosAbiertos, instalar }
 }
 
-/** Chrome en Android sabe si la app ya está instalada (aunque se haya instalado desde el menú). */
+/**
+ * Chrome en Android sabe si la app ya está instalada (aunque se haya instalado desde el menú). Si
+ * lo está, se anota en el dispositivo: la próxima carga el script de <head> ya no pinta la franja
+ * (sin eso aparecería y se iría en cada carga).
+ */
 export function useInstaladaSegunNavegador(): boolean {
   const [instalada, setInstalada] = useState(false)
   useEffect(() => {
     let cancelado = false
     instaladaSegunNavegador().then((si) => {
-      if (si && !cancelado) setInstalada(true)
+      if (!si || cancelado) return
+      try {
+        window.localStorage.setItem(CLAVE_INSTALADA, '1')
+      } catch {
+        // Sin almacenamiento: esta vez se oculta igual.
+      }
+      setInstalada(true)
     })
     return () => {
       cancelado = true
@@ -191,6 +201,14 @@ export function TarjetaInstalar() {
   const { aparato: datos, variante, fase, pasosAbiertos, instalar } = useInstalar()
   const segunNavegador = useInstaladaSegunNavegador()
   const idPasos = useId()
+  const [tocada, setTocada] = useState(false)
+  const refEstado = useRef<HTMLParagraphElement>(null)
+
+  // Instalada desde acá: el botón tocado desaparece y el foco pasa al texto que lo reemplaza.
+  useEffect(() => {
+    if (tocada && fase === 'lista') refEstado.current?.focus({ preventScroll: true })
+  }, [tocada, fase])
+
   if (!datos?.movil) return null
 
   const instaladaAca = datos.standalone || datos.instaladaAntes || segunNavegador || fase === 'lista'
@@ -198,7 +216,7 @@ export function TarjetaInstalar() {
     <div className="card tarjeta-instalar">
       <div className="section-title">Instalar la app</div>
       {instaladaAca ? (
-        <p className="estado-instalada" aria-live="polite">
+        <p ref={refEstado} tabIndex={-1} className="estado-instalada" aria-live="polite">
           <Icono nombre="si" />
           <span>
             {datos.standalone
@@ -212,7 +230,10 @@ export function TarjetaInstalar() {
           <button
             type="button"
             className="btn"
-            onClick={instalar}
+            onClick={() => {
+              setTocada(true)
+              instalar()
+            }}
             aria-disabled={fase === 'instalando'}
             aria-busy={fase === 'instalando'}
             aria-expanded={variante === 'nativa' ? undefined : pasosAbiertos}

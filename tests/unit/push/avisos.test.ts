@@ -66,6 +66,13 @@ describe('avisarNuevaPublicacion', () => {
     expect(destinatarios.sort()).toEqual(['adm', 'r1', 'r2'])
   })
 
+  it('al aprobarla, no le avisa al Director que la aprobó', async () => {
+    con([{ id: 'p', autor_id: 'r1', padre_id: null, texto: 'Aviso', estado: 'aprobado' }])
+    await avisarNuevaPublicacion('p', { excluir: 'dir' })
+    const destinatarios = vi.mocked(enviarAUsuarios).mock.calls.flatMap(([ids]) => ids)
+    expect(destinatarios.sort()).toEqual(['adm', 'r2'])
+  })
+
   it('no avisa (ni con el texto) una publicación pendiente o rechazada', async () => {
     for (const estado of ['pendiente', 'rechazado']) {
       con([{ id: 'p', autor_id: 'r1', padre_id: null, texto: 'Secreto', estado }])
@@ -84,6 +91,12 @@ describe('avisarNuevaRespuesta', () => {
     await avisarNuevaRespuesta('r')
     const destinatarios = vi.mocked(enviarAUsuarios).mock.calls.flatMap(([ids]) => ids)
     expect(destinatarios).toEqual(['dir'])
+  })
+
+  it('al aprobarla, tampoco al Director que la aprobó', async () => {
+    con([publicacion('aprobado'), respuesta('aprobado')])
+    await avisarNuevaRespuesta('r', { excluir: 'dir' })
+    expect(enviarAUsuarios).not.toHaveBeenCalled()
   })
 
   it('no avisa una respuesta pendiente', async () => {

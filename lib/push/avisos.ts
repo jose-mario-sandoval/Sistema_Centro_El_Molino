@@ -30,13 +30,25 @@ import {
 
 export type PerfilConNombre = PerfilAviso & { nombre: string; siglas: string; rol: Rol }
 
-/** Todos los perfiles con sus preferencias (también lo usa lib/push/avisos-casa.ts). */
+/**
+ * Todos los perfiles con sus preferencias (también lo usa lib/push/avisos-casa.ts).
+ *
+ * Si la base todavía no tiene avisar_cambios/avisar_cocina (42703: el código llegó antes que la
+ * migración 20260929120000), se leen las de siempre y las nuevas valen true: así los avisos de
+ * mensajes y los recordatorios nunca dejan de salir por una migración pendiente.
+ */
 export async function leerPerfiles(): Promise<PerfilConNombre[]> {
-  const { data, error } = await crearClienteAdmin()
+  const admin = crearClienteAdmin()
+  const { data, error } = await admin
     .from('perfiles')
     .select('id, nombre, siglas, rol, activo, avisar_mensajes, avisar_hora_limite, avisar_cambios, avisar_cocina')
-  if (error) throw error
-  return data
+  if (!error) return data
+  if (error.code !== '42703') throw error
+
+  console.error('[push] perfiles sin avisar_cambios/avisar_cocina: falta aplicar 20260929120000_preferencias_avisos.sql')
+  const anteriores = await admin.from('perfiles').select('id, nombre, siglas, rol, activo, avisar_mensajes, avisar_hora_limite')
+  if (anteriores.error) throw anteriores.error
+  return anteriores.data.map((perfil) => ({ ...perfil, avisar_cambios: true, avisar_cocina: true }))
 }
 
 /**
@@ -69,7 +81,7 @@ async function enviarConAutor(
  * todos menos al autor. Un pendiente nunca se avisa: el aviso lleva el texto y le llegaría a quien todavía
  * no puede verlo. Quien llama ya lo decide así; esto es la segunda barrera.
  */
-export async function avisarNuevaPublicacion(mensajeId: string): Promise<void> {
+export async function avisarNuevaPublicacion(mensajeId: string, opciones: { excluir?: string } = {}): Promise<void> {
   try {
     const { data: mensaje, error } = await crearClienteAdmin()
       .from('mensajes')
@@ -80,7 +92,8 @@ export async function avisarNuevaPublicacion(mensajeId: string): Promise<void> {
     if (!mensaje || mensaje.padre_id !== null || mensaje.estado !== 'aprobado') return
 
     const perfiles = await leerPerfiles()
-    const ids = destinatariosPublicacion({ autorId: mensaje.autor_id, perfiles })
+    // `excluir`: el Director que acaba de aprobarlo (nunca se avisa a quien hizo el cambio).
+    const ids = destinatariosPublicacion({ autorId: mensaje.autor_id, perfiles }).filter((id) => id !== opciones.excluir)
     const resumen = await enviarConAutor(ids, perfiles, mensaje.autor_id, (autor) =>
       cargaNuevaPublicacion({ id: mensaje.id, autor, texto: mensaje.texto }),
     )
@@ -94,7 +107,7 @@ export async function avisarNuevaPublicacion(mensajeId: string): Promise<void> {
  * Cuando una respuesta queda aprobada: avisa al autor de la publicación y a quienes ya respondieron. Igual
  * que avisarNuevaPublicacion, nada que esté pendiente; tampoco si la publicación todavía no está aprobada.
  */
-export async function avisarNuevaRespuesta(respuestaId: string): Promise<void> {
+export async function avisarNuevaRespuesta(respuestaId: string, opciones: { excluir?: string } = {}): Promise<void> {
   try {
     const admin = crearClienteAdmin()
     const { data: respuesta, error } = await admin
@@ -119,7 +132,7 @@ export async function avisarNuevaRespuesta(respuestaId: string): Promise<void> {
       autoresRespuestas: hilo.data.map((m) => m.autor_id),
       quienRespondeId: respuesta.autor_id,
       perfiles,
-    })
+    }).filter((id) => id !== opciones.excluir)
     const resumen = await enviarConAutor(ids, perfiles, respuesta.autor_id, (autor) =>
       cargaNuevaRespuesta({ id: respuesta.id, autor, texto: respuesta.texto }),
     )

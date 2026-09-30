@@ -4,7 +4,7 @@ import { useEffect, useId, useRef, useState } from 'react'
 import { PasosInstalar, textoBotonInstalar, useInstaladaSegunNavegador, useInstalar } from '@/components/app/instalar'
 import { useAviso } from '@/components/ui/avisos'
 import { Icono } from '@/components/ui/iconos'
-import { CLAVE_AVISOS_DESCARTADOS, CLAVE_INSTALAR_DESCARTADA } from '@/lib/pwa/instalar'
+import { CLAVE_AVISOS_DESCARTADOS, CLAVE_INSTALAR_DESCARTADA, enEsteAparato } from '@/lib/pwa/instalar'
 import { activarEsteDispositivo } from '@/lib/push/cliente'
 
 /*
@@ -49,6 +49,7 @@ export function InvitacionInstalar({ enEste }: { enEste: Aparato }) {
   const { aparato, variante, fase, pasosAbiertos, instalar } = useInstalar()
   const yaInstalada = useInstaladaSegunNavegador()
   const [cerrada, setCerrada] = useState(false)
+  const [tocada, setTocada] = useState(false)
   const idTitulo = useId()
   const idPasos = useId()
   const refEntendido = useRef<HTMLButtonElement>(null)
@@ -58,10 +59,11 @@ export function InvitacionInstalar({ enEste }: { enEste: Aparato }) {
     if (yaInstalada && fase !== 'lista') quitarAtributo('data-instalar')
   }, [yaInstalada, fase])
 
-  // Recién instalada: el foco va a "Entendido" (el botón "Instalar" ya no está).
+  // Instalada desde esta franja: el foco va a "Entendido" (el botón "Instalar" ya no está). Si se
+  // instaló desde otro lado (Ajustes, el menú del navegador), el foco no salta hasta acá arriba.
   useEffect(() => {
-    if (fase === 'lista') refEntendido.current?.focus()
-  }, [fase])
+    if (tocada && fase === 'lista') refEntendido.current?.focus({ preventScroll: true })
+  }, [tocada, fase])
 
   if (cerrada || (yaInstalada && fase !== 'lista')) return null
 
@@ -120,7 +122,10 @@ export function InvitacionInstalar({ enEste }: { enEste: Aparato }) {
         <button
           type="button"
           className="btn"
-          onClick={instalar}
+          onClick={() => {
+            setTocada(true)
+            instalar()
+          }}
           aria-disabled={fase === 'instalando'}
           aria-busy={fase === 'instalando'}
           aria-expanded={variante === 'nativa' ? undefined : abiertos}
@@ -194,7 +199,9 @@ export function OfrecerAvisos({ enEste, texto }: { enEste: Aparato; texto: strin
         </span>
         <div role="status">
           <p id={idTitulo} className="invitacion-titulo">
-            {listo ? `Listo: los avisos quedaron activados en este ${enEste}` : `Activá los avisos en este ${enEste}`}
+            {listo
+              ? `Listo: los avisos quedaron activados en ${enEsteAparato(enEste)}`
+              : `Activá los avisos en ${enEsteAparato(enEste)}`}
           </p>
           <p className="invitacion-texto">{listo ? 'Los cambiás cuando quieras en Ajustes.' : texto}</p>
         </div>

@@ -32,7 +32,8 @@ function usarTablas(tablas: Record<string, Fila[]>) {
       const filas = () => (tablas[tabla] ?? []).filter((f) => filtros.every((cumple) => cumple(f)))
       const q = {
         select: () => q,
-        eq: (c: string, v: unknown) => (filtros.push((f) => f[c] === v), q),
+        // 'eventos.fecha' filtra por la fila embebida, como PostgREST con !inner.
+        eq: (c: string, v: unknown) => (filtros.push((f) => c.split('.').reduce<unknown>((x, k) => (x as Fila)?.[k], f) === v), q),
         lte: (c: string, v: string) => (filtros.push((f) => String(f[c]) <= v), q),
         gte: (c: string, v: string) => (filtros.push((f) => String(f[c]) >= v), q),
         maybeSingle: () => Promise.resolve({ data: filas()[0] ?? null, error: null }),
@@ -132,14 +133,20 @@ describe('avisarCambioDelDirector', () => {
 })
 
 describe('avisarExtraCocina', () => {
-  it('a Administración (con el aviso activado), con el total de extras de esa comida', async () => {
+  it('a Administración (con el aviso activado), con el total de extras de esa comida, como lo ve en su Semana', async () => {
     usarTablas({
       perfiles: PERFILES,
       horas_limite: HORAS,
       extras_manuales: [
-        { fecha: '2026-10-01', tiempo_comida: 'almuerzo', cantidad: 3 },
         { fecha: '2026-10-01', tiempo_comida: 'almuerzo', cantidad: 2 },
+        { fecha: '2026-10-01', tiempo_comida: 'almuerzo', cantidad: 1 },
         { fecha: '2026-10-01', tiempo_comida: 'cena', cantidad: 4 },
+      ],
+      // Los confirmados por el enlace público también suman (extras_de_la_semana), sin nombres.
+      enlaces_confirmacion: [
+        { tiempo_comida: 'almuerzo', eventos: { fecha: '2026-10-01' }, confirmaciones_extra: [{ cantidad_personas: 2 }] },
+        { tiempo_comida: 'cena', eventos: { fecha: '2026-10-01' }, confirmaciones_extra: [{ cantidad_personas: 5 }] },
+        { tiempo_comida: 'almuerzo', eventos: { fecha: '2026-10-02' }, confirmaciones_extra: [{ cantidad_personas: 7 }] },
       ],
     })
     await avisarExtraCocina({ actorId: 'dir', fecha: '2026-10-01', comida: 'almuerzo', cantidad: 3, nota: 'sin sal', accion: 'agregado' })
@@ -159,7 +166,7 @@ describe('avisarExtraCocina', () => {
   it('después de la hora límite (o el mismo día) es de último momento', async () => {
     usarTablas({ perfiles: PERFILES, horas_limite: HORAS, extras_manuales: [{ fecha: '2026-09-29', tiempo_comida: 'almuerzo', cantidad: 1 }] })
     await avisarExtraCocina({ actorId: 'dir', fecha: '2026-09-29', comida: 'almuerzo', cantidad: 1, nota: null, accion: 'agregado' })
-    expect(envios()[0].carga.titulo).toBe('Extra de último momento')
+    expect(envios()[0].carga).toMatchObject({ titulo: 'Extra de último momento', renotificar: true })
   })
 
   it('un día que ya pasó no se avisa', async () => {
@@ -231,5 +238,35 @@ describe('avisarSerieCocina', () => {
       pedidos: [{ fecha: '2026-10-06', hora: null, requiere_cocina: [], requiere_otro_texto: null }],
     })
     expect(enviarAUsuarios).not.toHaveBeenCalled()
+  })
+})
+
+describe('leerPerfiles sin la migración de preferencias (20260929120000)', () => {
+  it('los avisos de siempre siguen saliendo: las preferencias nuevas valen true', async () => {
+    const { leerPerfiles } = await import('@/lib/push/avisos')
+    const sinColumnas = PERFILES.map((p) => {
+      const copia = { ...p }
+      delete copia.avisar_cambios
+      delete copia.avisar_cocina
+      return copia
+    })
+    let intentos = 0
+    const cliente = {
+      from: () => ({
+        select: (columnas: string) => {
+          intentos++
+          return Promise.resolve(
+            columnas.includes('avisar_cambios')
+              ? { data: null, error: { code: '42703', message: 'column perfiles.avisar_cambios does not exist' } }
+              : { data: sinColumnas, error: null },
+          )
+        },
+      }),
+    }
+    vi.mocked(crearClienteAdmin).mockReturnValue(cliente as unknown as ReturnType<typeof crearClienteAdmin>)
+    const perfiles = await leerPerfiles()
+    expect(intentos).toBe(2)
+    expect(perfiles.every((p) => p.avisar_cambios && p.avisar_cocina)).toBe(true)
+    expect(perfiles.find((p) => p.id === 'r1')).toMatchObject({ nombre: 'Juan Pérez', avisar_mensajes: true })
   })
 })

@@ -117,7 +117,7 @@ export function cargaExtraCocina(p: {
   cantidad: number
   nota: string | null
   accion: 'agregado' | 'quitado'
-  /** Personas extra (manuales) que quedaron para esa comida después del cambio. */
+  /** Personas extra que quedaron para esa comida (manuales y del enlace público), como en la Semana. */
   total: number
   ultimoMomento: boolean
   hoy: FechaISO
@@ -138,6 +138,8 @@ export function cargaExtraCocina(p: {
     cuerpo: recortar(`${queComida(p.fecha, p.comida, p.hoy)}: ${cambio}${nota}. ${total}`),
     url: `/comidas/semana?semana=${lunesDe(p.fecha)}`,
     etiqueta: `cocina-extras-${p.fecha}-${p.comida}`,
+    // El reemplazo del aviso anterior de esa comida es silencioso: el de último momento tiene que sonar.
+    ...(p.ultimoMomento ? { renotificar: true } : {}),
   }
 }
 

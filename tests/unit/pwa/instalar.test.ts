@@ -6,6 +6,7 @@ import {
   debeOfrecerAvisos,
   debeOfrecerInstalar,
   esTelefonoOTablet,
+  enEsteAparato,
   navegadorIOS,
   nombreAparato,
   pasosIOS,
@@ -86,6 +87,13 @@ describe('nombreAparato (el texto lo pinta el servidor: solo el User-Agent)', ()
     expect(nombreAparato(UA.android)).toBe('teléfono')
     expect(nombreAparato(UA.firefoxAndroid)).toBe('teléfono')
     expect(nombreAparato(null)).toBe('teléfono')
+  })
+})
+
+describe('enEsteAparato', () => {
+  it('concuerda en género: este teléfono, esta tablet', () => {
+    expect(enEsteAparato('teléfono')).toBe('este teléfono')
+    expect(enEsteAparato('tablet')).toBe('esta tablet')
   })
 })
 
