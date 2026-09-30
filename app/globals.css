@@ -30,6 +30,15 @@
   --st-bolsa:#4B6988;     --st-bolsa-bg:#DEE6ED;
   --st-enfermo:#8B4B63;   --st-enfermo-bg:#EEDCE2;
 
+  /* Tipos de evento (DESIGN.md §2.4): el color va en el texto, el borde y la marca con la sigla; el
+     tinte, de fondo. Colores de cada arcángel, separados también por luminosidad (con daltonismo el
+     rojo y el verde se parecen: el verde es el más oscuro y el gris el más claro). Estos NOMBRES son
+     contrato: varsTipo() (lib/calendario/tipos.ts) los arma por interpolación. */
+  --ev-san-rafael:#123D20;   --ev-san-rafael-bg:#CFE3D2;
+  --ev-san-gabriel:#2F52A8;  --ev-san-gabriel-bg:#DEE2F3;
+  --ev-san-miguel:#B51D3A;   --ev-san-miguel-bg:#FAE4E3;
+  --ev-otro:#6B6458;         --ev-otro-bg:#E9E5DE;
+
   --acento-suave:var(--st-si-bg);
   --peligro-suave:var(--st-no-bg);
   --dorado-suave:var(--st-temprano-bg);
@@ -85,6 +94,10 @@
     --st-tarde:#B4906A;     --st-tarde-bg:#2E2619;
     --st-bolsa:#8FB2D6;     --st-bolsa-bg:#1F2C38;
     --st-enfermo:#CC93A9;   --st-enfermo-bg:#33212A;
+    --ev-san-rafael:#BFF2CA;   --ev-san-rafael-bg:#293E2E;
+    --ev-san-gabriel:#98B0EA;  --ev-san-gabriel-bg:#2E3243;
+    --ev-san-miguel:#E9707A;   --ev-san-miguel-bg:#3D2627;
+    --ev-otro:#BFB8AC;         --ev-otro-bg:#33302B;
   }
 }
 :root[data-theme="dark"]{
@@ -98,6 +111,10 @@
   --st-tarde:#B4906A;     --st-tarde-bg:#2E2619;
   --st-bolsa:#8FB2D6;     --st-bolsa-bg:#1F2C38;
   --st-enfermo:#CC93A9;   --st-enfermo-bg:#33212A;
+  --ev-san-rafael:#BFF2CA;   --ev-san-rafael-bg:#293E2E;
+  --ev-san-gabriel:#98B0EA;  --ev-san-gabriel-bg:#2E3243;
+  --ev-san-miguel:#E9707A;   --ev-san-miguel-bg:#3D2627;
+  --ev-otro:#BFB8AC;         --ev-otro-bg:#33302B;
 }
 
 /* Contraste alto: el relieve se apaga y todo pasa a bordes sólidos. Un sistema que no puede
@@ -107,6 +124,7 @@
   --acento:#3A5540; --dorado:#664924; --peligro:#86352B;
   --st-si:#36503C; --st-no:#7C3228; --st-temprano:#614522;
   --st-tarde:#5A442E; --st-bolsa:#364C63; --st-enfermo:#69384A;
+  --ev-san-rafael:#0E3319; --ev-san-gabriel:#1E3F8A; --ev-san-miguel:#960033; --ev-otro:#4B463D;
   --luz:transparent; --sombra:transparent;
   --borde-elevado:var(--tinta);
   --borde-hundido:var(--tinta-suave);
@@ -118,6 +136,7 @@
     --acento:#94B49B; --dorado:#CEA66C; --peligro:#DE9C90;
     --st-si:#AAC3AF; --st-no:#E2A89E; --st-temprano:#D5B180;
     --st-tarde:#C8AE92; --st-bolsa:#9ABADA; --st-enfermo:#D4A4B6;
+    --ev-san-rafael:#C4F4CE; --ev-san-gabriel:#B4C6F6; --ev-san-miguel:#FFA3B4; --ev-otro:#D7D1C6;
   }
 }
 :root[data-contraste="alto"][data-theme="dark"]{
@@ -125,6 +144,7 @@
   --acento:#94B49B; --dorado:#CEA66C; --peligro:#DE9C90;
   --st-si:#AAC3AF; --st-no:#E2A89E; --st-temprano:#D5B180;
   --st-tarde:#C8AE92; --st-bolsa:#9ABADA; --st-enfermo:#D4A4B6;
+  --ev-san-rafael:#C4F4CE; --ev-san-gabriel:#B4C6F6; --ev-san-miguel:#FFA3B4; --ev-otro:#D7D1C6;
 }
 
 html{font-size:112.5%;}                       /* 18px */

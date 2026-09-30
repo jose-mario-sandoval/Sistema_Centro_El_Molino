@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react'
 import type { FechaISO } from '@/lib/fechas'
 import type { Enum } from '@/lib/supabase/tipos'
 
@@ -11,6 +12,35 @@ export const ETIQUETA_TIPO: Record<TipoEvento, string> = {
   san_gabriel: 'San Gabriel',
   san_miguel: 'San Miguel',
   otro: 'Otro',
+}
+
+/**
+ * La sigla que acompaña siempre al color del tipo (DESIGN.md §2.4): el color nunca va solo, y con
+ * daltonismo el rojo de San Miguel y el verde de San Rafael se parecen; "SM" y "SR", no.
+ */
+export const MARCA_TIPO: Record<TipoEvento, string> = {
+  san_rafael: 'SR',
+  san_gabriel: 'SG',
+  san_miguel: 'SM',
+  otro: 'Otro',
+}
+
+/**
+ * Colores del tipo como variables --ev / --ev-bg, que globals.css usa para el tinte, el texto, el
+ * borde y la marca. Los tokens --ev-<tipo> y --ev-<tipo>-bg se nombran por interpolación: no
+ * renombrarlos. Solo para quien conoce el tipo: Administración nunca lo recibe.
+ */
+export function varsTipo(tipo: TipoEvento): CSSProperties {
+  const token = `--ev-${tipo.replace('_', '-')}`
+  return { '--ev': `var(${token})`, '--ev-bg': `var(${token}-bg)` } as CSSProperties
+}
+
+/**
+ * ¿Le pide algo a la cocina? La misma regla que `eventos_para_cocina()`: algo de la lista fija o un
+ * pedido libre (la base nunca guarda un texto en blanco).
+ */
+export function tienePedido(evento: Pick<Evento, 'requiere_cocina' | 'requiere_otro_texto'>): boolean {
+  return evento.requiere_cocina.length > 0 || evento.requiere_otro_texto !== null
 }
 
 /** Lo que un evento puede pedirle a la cocina. */

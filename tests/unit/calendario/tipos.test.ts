@@ -1,9 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import {
   alternarRequerimiento,
+  ETIQUETA_TIPO,
   eventoParaAdministracion,
+  MARCA_TIPO,
+  tienePedido,
+  TIPOS_EVENTO,
   textoPedido,
   textoRequerimientos,
+  varsTipo,
   type EventoParaCocina,
 } from '@/lib/calendario/tipos'
 
@@ -95,5 +100,49 @@ describe('alternarRequerimiento', () => {
     const original = ['merienda'] as const
     alternarRequerimiento(original, 'comida')
     expect(original).toEqual(['merienda'])
+  })
+})
+
+describe('MARCA_TIPO', () => {
+  it('la sigla que acompaña siempre al color de cada tipo', () => {
+    expect(MARCA_TIPO).toEqual({ san_rafael: 'SR', san_gabriel: 'SG', san_miguel: 'SM', otro: 'Otro' })
+  })
+
+  it('una por tipo y todas distintas: sin color, la sigla sola distingue los cuatro', () => {
+    const marcas = TIPOS_EVENTO.map((t) => MARCA_TIPO[t])
+    expect(new Set(marcas).size).toBe(TIPOS_EVENTO.length)
+  })
+
+  it('cada sigla sale del nombre del tipo', () => {
+    for (const t of TIPOS_EVENTO.filter((t) => t !== 'otro')) {
+      const iniciales = ETIQUETA_TIPO[t]
+        .split(' ')
+        .map((palabra) => palabra[0])
+        .join('')
+      expect(MARCA_TIPO[t]).toBe(iniciales)
+    }
+  })
+})
+
+describe('varsTipo', () => {
+  it('apunta a los tokens --ev-<tipo> y --ev-<tipo>-bg de globals.css (con guion, no guion bajo)', () => {
+    expect(varsTipo('san_miguel')).toEqual({ '--ev': 'var(--ev-san-miguel)', '--ev-bg': 'var(--ev-san-miguel-bg)' })
+    expect(varsTipo('otro')).toEqual({ '--ev': 'var(--ev-otro)', '--ev-bg': 'var(--ev-otro-bg)' })
+  })
+})
+
+describe('tienePedido', () => {
+  const sinPedido = { requiere_cocina: [], requiere_otro_texto: null }
+
+  it('pide algo de la lista fija', () => {
+    expect(tienePedido({ ...sinPedido, requiere_cocina: ['merienda'] })).toBe(true)
+  })
+
+  it('pide solo por texto libre (como eventos_para_cocina)', () => {
+    expect(tienePedido({ ...sinPedido, requiere_otro_texto: '20 sillas extra' })).toBe(true)
+  })
+
+  it('sin lista ni texto no pide nada (la base nunca guarda un texto en blanco: lo vuelve null)', () => {
+    expect(tienePedido(sinPedido)).toBe(false)
   })
 })
