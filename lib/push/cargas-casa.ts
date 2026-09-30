@@ -153,6 +153,19 @@ function tienePedido(e: PedidoCocina): boolean {
   return e.requiere_cocina.length > 0 || textoLibre(e.requiere_otro_texto) !== null
 }
 
+/**
+ * De un evento completo (con título, tipo, serie…), solo lo que la cocina puede saber. Las acciones
+ * pasan por acá antes de programar el aviso: así el título ni siquiera llega a la función que lo arma.
+ */
+export function paraCocina(e: PedidoCocina): PedidoCocina {
+  return { fecha: e.fecha, hora: e.hora, requiere_cocina: e.requiere_cocina, requiere_otro_texto: e.requiere_otro_texto }
+}
+
+/** Le importa a la cocina: pide algo y es de hoy en adelante. */
+export function importaALaCocina(e: PedidoCocina, hoy: FechaISO): boolean {
+  return tienePedido(e) && e.fecha >= hoy
+}
+
 function pedidoDe(e: PedidoCocina): string {
   const ordenados = REQUERIMIENTOS_COCINA.filter((r) => e.requiere_cocina.includes(r))
   return textoPedido(ordenados, textoLibre(e.requiere_otro_texto))
@@ -184,7 +197,7 @@ export type CambioPedido = 'nuevo' | 'cambiado' | 'cancelado'
  * evento con pedido y de hoy en adelante; un cambio de título o categoría no le cambia nada.
  */
 export function cambioPedidoCocina(antes: PedidoCocina | null, despues: PedidoCocina | null, hoy: FechaISO): CambioPedido | null {
-  const cuenta = (e: PedidoCocina | null): e is PedidoCocina => e !== null && tienePedido(e) && e.fecha >= hoy
+  const cuenta = (e: PedidoCocina | null): e is PedidoCocina => e !== null && importaALaCocina(e, hoy)
   const a = cuenta(antes)
   const d = cuenta(despues)
   if (!a && !d) return null

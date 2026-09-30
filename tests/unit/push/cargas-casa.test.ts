@@ -9,6 +9,8 @@ import {
   cargaPedidoCocina,
   cargaSeriePedidos,
   esUltimoMomento,
+  importaALaCocina,
+  paraCocina,
   type PedidoCocina,
 } from '@/lib/push/cargas-casa'
 import { LARGO_MAXIMO_CUERPO } from '@/lib/push/mensajes-push'
@@ -234,5 +236,29 @@ describe('(d) pedidos de eventos para la cocina', () => {
       expect(json).not.toMatch(/Cumpleaños|Juan|Pérez|San Rafael|san_rafael|Directora/)
       expect(Array.from(carga.cuerpo).length).toBeLessThanOrEqual(LARGO_MAXIMO_CUERPO)
     }
+  })
+})
+
+describe('paraCocina / importaALaCocina', () => {
+  it('de un evento completo deja solo lo que la cocina puede saber', () => {
+    const evento = {
+      id: 'e1',
+      titulo: 'Cumpleaños de Juan',
+      tipo: 'san_rafael',
+      fecha: '2026-10-01',
+      hora: '15:00:00',
+      requiere_cocina: ['merienda' as const],
+      requiere_otro_texto: null,
+      serie_id: 's1',
+      creado_por: 'x',
+    }
+    expect(paraCocina(evento)).toEqual({ fecha: '2026-10-01', hora: '15:00:00', requiere_cocina: ['merienda'], requiere_otro_texto: null })
+  })
+
+  it('importa si pide algo y es de hoy en adelante', () => {
+    const base: PedidoCocina = { fecha: HOY, hora: null, requiere_cocina: [], requiere_otro_texto: '  ' }
+    expect(importaALaCocina(base, HOY)).toBe(false)
+    expect(importaALaCocina({ ...base, requiere_otro_texto: 'Sillas' }, HOY)).toBe(true)
+    expect(importaALaCocina({ ...base, requiere_cocina: ['comida'], fecha: '2026-09-28' }, HOY)).toBe(false)
   })
 })
