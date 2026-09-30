@@ -149,7 +149,8 @@ function textoLibre(texto: string | null): string | null {
   return limpio === '' ? null : limpio
 }
 
-function tienePedido(e: PedidoCocina): boolean {
+/** El evento le pide algo a la cocina (una casilla o el pedido libre). */
+export function pideALaCocina(e: PedidoCocina): boolean {
   return e.requiere_cocina.length > 0 || textoLibre(e.requiere_otro_texto) !== null
 }
 
@@ -163,7 +164,7 @@ export function paraCocina(e: PedidoCocina): PedidoCocina {
 
 /** Le importa a la cocina: pide algo y es de hoy en adelante. */
 export function importaALaCocina(e: PedidoCocina, hoy: FechaISO): boolean {
-  return tienePedido(e) && e.fecha >= hoy
+  return pideALaCocina(e) && e.fecha >= hoy
 }
 
 function pedidoDe(e: PedidoCocina): string {

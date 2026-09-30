@@ -1,9 +1,11 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
+import { after } from 'next/server'
 import { exito, fallo, type Resultado } from '@/lib/acciones/resultado'
 import { perfilParaAccion } from '@/lib/auth/sesion'
 import { fechaISOEn } from '@/lib/fechas'
+import { avisarExtraCocina } from '@/lib/push/avisos-casa'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { camposConError } from '@/lib/validacion/auth'
 import { esquemaExtra, esquemaQuitarExtra } from '@/lib/validacion/comidas'
@@ -42,6 +44,9 @@ export async function agregarExtra(entrada: unknown): Promise<Resultado<null>> {
   }
 
   revalidatePath('/comidas', 'layout')
+  // Aviso a la cocina (plan 2026-09-29, aviso d): solo día, comida, cantidad y nota; nunca quién.
+  const actorId = permiso.perfil.id
+  after(() => avisarExtraCocina({ actorId, fecha, comida, cantidad, nota: nota ?? null, accion: 'agregado' }))
   return exito(null)
 }
 
@@ -57,7 +62,12 @@ export async function quitarExtra(entrada: unknown): Promise<Resultado<null>> {
   if (!datos.success) return fallo('Extra inválido.')
 
   const supabase = await crearClienteServidor()
-  const { data, error } = await supabase.from('extras_manuales').delete().eq('id', datos.data.id).select('id')
+  // Lo borrado vuelve con sus datos: el aviso a la cocina dice qué comida y cuántos menos.
+  const { data, error } = await supabase
+    .from('extras_manuales')
+    .delete()
+    .eq('id', datos.data.id)
+    .select('id, fecha, tiempo_comida, cantidad, nota')
   if (error) {
     console.error('La casa: no se pudo quitar el extra', error)
     return fallo('No se pudo quitar el extra. Intentá de nuevo.')
@@ -69,5 +79,17 @@ export async function quitarExtra(entrada: unknown): Promise<Resultado<null>> {
   }
 
   revalidatePath('/comidas', 'layout')
+  const actorId = permiso.perfil.id
+  const quitado = data[0]
+  after(() =>
+    avisarExtraCocina({
+      actorId,
+      fecha: quitado.fecha,
+      comida: quitado.tiempo_comida,
+      cantidad: quitado.cantidad,
+      nota: quitado.nota,
+      accion: 'quitado',
+    }),
+  )
   return exito(null)
 }

@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   cargarPublicacion,
   desfijarPublicacion,
+  editarMensajePropio,
   fijarPublicacion,
   moderarMensaje,
   publicarMensaje,
@@ -10,7 +11,7 @@ import {
 import { perfilParaAccion, type Perfil } from '@/lib/auth/sesion'
 import { obtenerPublicacion } from '@/lib/mensajes/consultas'
 import type { Rol } from '@/lib/perfiles/roles'
-import { avisarNuevaPublicacion, avisarNuevaRespuesta } from '@/lib/push/avisos'
+import { avisarMensajePendiente, avisarModeracion, avisarNuevaPublicacion, avisarNuevaRespuesta } from '@/lib/push/avisos'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 
 // Las acciones se prueban sin base: sesión, cliente de Supabase, avisos y caché de Next se reemplazan.
@@ -19,7 +20,12 @@ vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
 vi.mock('next/server', () => ({ after: vi.fn() }))
 vi.mock('@/lib/auth/sesion', () => ({ perfilParaAccion: vi.fn() }))
 vi.mock('@/lib/supabase/servidor', () => ({ crearClienteServidor: vi.fn() }))
-vi.mock('@/lib/push/avisos', () => ({ avisarNuevaPublicacion: vi.fn(), avisarNuevaRespuesta: vi.fn() }))
+vi.mock('@/lib/push/avisos', () => ({
+  avisarNuevaPublicacion: vi.fn(),
+  avisarNuevaRespuesta: vi.fn(),
+  avisarMensajePendiente: vi.fn(),
+  avisarModeracion: vi.fn(),
+}))
 vi.mock('@/lib/mensajes/consultas', () => ({ listarPublicaciones: vi.fn(), obtenerPublicacion: vi.fn() }))
 vi.mock('@/lib/perfiles/consultas', () => ({ listarPerfiles: vi.fn() }))
 
@@ -56,7 +62,8 @@ function clienteFalso({
   insercion = { error: null },
   actualizacion = { data: [], error: null },
   rpc = { data: null, error: null },
-}: { insercion?: Respuesta; actualizacion?: Respuesta; rpc?: Respuesta } = {}) {
+  lectura = { data: null, error: null },
+}: { insercion?: Respuesta; actualizacion?: Respuesta; rpc?: Respuesta; lectura?: Respuesta } = {}) {
   const registro = {
     inserciones: [] as unknown[],
     actualizaciones: [] as unknown[],
@@ -78,6 +85,11 @@ function clienteFalso({
           },
           select: () => Promise.resolve(actualizacion),
         }
+        return q
+      },
+      // Lectura de esReintentoGuardado: select(...).eq(...).eq(...).is(...).maybeSingle()
+      select: () => {
+        const q = { eq: () => q, is: () => q, maybeSingle: () => Promise.resolve(lectura) }
         return q
       },
     }),
@@ -114,12 +126,14 @@ afterEach(() => {
   vi.useRealTimers()
 })
 
-describe('publicar y responder: el aviso push solo si se publica directo', () => {
-  it('un Residente publica y no se avisa (queda pendiente)', async () => {
+describe('publicar y responder: el aviso público solo si se publica directo', () => {
+  it('un Residente publica: no se avisa a todos (queda pendiente), solo a los Directores que lo aprueban', async () => {
     como('residente')
     clienteFalso()
     expect(await publicarMensaje(null, formulario({ id: ID, texto: 'Hola' }))).toEqual({ ok: true, data: { id: ID } })
-    expect(after).not.toHaveBeenCalled()
+    await correrAfter()
+    expect(avisarNuevaPublicacion).not.toHaveBeenCalled()
+    expect(avisarMensajePendiente).toHaveBeenCalledWith(ID)
   })
 
   it('Director y Administración publican y se avisa', async () => {
@@ -133,17 +147,45 @@ describe('publicar y responder: el aviso push solo si se publica directo', () =>
     }
   })
 
-  it('una respuesta de Residente no se avisa; la de Administración sí', async () => {
+  it('una respuesta de Residente solo se avisa a los Directores; la de Administración, a todos', async () => {
     como('residente')
     clienteFalso()
     await responderMensaje(null, formulario({ id: ID, padreId: PADRE, texto: 'Sí' }))
-    expect(after).not.toHaveBeenCalled()
+    await correrAfter()
+    expect(avisarNuevaRespuesta).not.toHaveBeenCalled()
+    expect(avisarMensajePendiente).toHaveBeenCalledWith(ID)
 
+    vi.clearAllMocks()
     como('administracion')
     clienteFalso()
     await responderMensaje(null, formulario({ id: ID, padreId: PADRE, texto: 'Sí' }))
     await correrAfter()
     expect(avisarNuevaRespuesta).toHaveBeenCalledWith(ID)
+    expect(avisarMensajePendiente).not.toHaveBeenCalled()
+  })
+
+  it('un reintento de un envío ya guardado (23505) no vuelve a avisar', async () => {
+    como('residente')
+    clienteFalso({ insercion: { error: { code: '23505' } }, lectura: { data: { id: ID }, error: null } })
+    expect(await publicarMensaje(null, formulario({ id: ID, texto: 'Hola' }))).toEqual({ ok: true, data: { id: ID } })
+    expect(after).not.toHaveBeenCalled()
+  })
+})
+
+describe('editarMensajePropio: corregir un rechazado lo vuelve a poner por aprobar', () => {
+  it('avisa a los Directores que hay una corrección', async () => {
+    como('residente')
+    clienteFalso({ actualizacion: { data: [{ id: ID }], error: null } })
+    expect(await editarMensajePropio(null, formulario({ id: ID, texto: 'Corregido' }))).toEqual({ ok: true, data: null })
+    await correrAfter()
+    expect(avisarMensajePendiente).toHaveBeenCalledWith(ID, { correccion: true })
+  })
+
+  it('si ya no se podía editar, no avisa', async () => {
+    como('residente')
+    clienteFalso({ actualizacion: { data: [], error: null } })
+    await editarMensajePropio(null, formulario({ id: ID, texto: 'Corregido' }))
+    expect(after).not.toHaveBeenCalled()
   })
 })
 
@@ -160,6 +202,7 @@ describe('moderarMensaje', () => {
     await correrAfter()
     expect(avisarNuevaPublicacion).toHaveBeenCalledWith(ID)
     expect(avisarNuevaRespuesta).not.toHaveBeenCalled()
+    expect(avisarModeracion).toHaveBeenCalledWith(ID, 'id-director', 'aprobado')
   })
 
   it('al aprobar una respuesta avisa la respuesta', async () => {
@@ -171,11 +214,14 @@ describe('moderarMensaje', () => {
     expect(avisarNuevaPublicacion).not.toHaveBeenCalled()
   })
 
-  it('rechazar no avisa a nadie', async () => {
+  it('rechazar no avisa a todos: solo al autor, con el motivo', async () => {
     como('director')
     clienteFalso({ actualizacion: { data: [{ id: ID, padre_id: null }], error: null } })
     await moderarMensaje({ id: ID, estado: 'rechazado', motivoRechazo: 'No' })
-    expect(after).not.toHaveBeenCalled()
+    await correrAfter()
+    expect(avisarNuevaPublicacion).not.toHaveBeenCalled()
+    expect(avisarNuevaRespuesta).not.toHaveBeenCalled()
+    expect(avisarModeracion).toHaveBeenCalledWith(ID, 'id-director', 'rechazado')
   })
 
   it('si ya no está pendiente (otro Director lo moderó), no hace nada ni avisa de nuevo', async () => {

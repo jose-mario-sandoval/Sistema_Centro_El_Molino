@@ -9,7 +9,7 @@ import { listarPublicaciones, obtenerPublicacion, type PaginaFeed } from '@/lib/
 import { publicaDirecto, type DatosFijado, type Publicacion } from '@/lib/mensajes/feed'
 import { fijadoHasta } from '@/lib/mensajes/fijados'
 import { listarPerfiles, type PerfilResumen } from '@/lib/perfiles/consultas'
-import { avisarNuevaPublicacion, avisarNuevaRespuesta } from '@/lib/push/avisos'
+import { avisarMensajePendiente, avisarModeracion, avisarNuevaPublicacion, avisarNuevaRespuesta } from '@/lib/push/avisos'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { camposConError } from '@/lib/validacion/auth'
 import {
@@ -71,8 +71,10 @@ export async function publicarMensaje(_previo: ResultadoId | null, formData: For
 
   revalidatePath('/mensajes')
   // Pista 06: aviso push solo aquí (mensaje recién insertado), nunca en el reintento 23505 de arriba. Y solo
-  // si ya quedó aprobado: el de un Residente se avisa cuando el Director lo aprueba (moderarMensaje).
+  // si ya quedó aprobado: el de un Residente se avisa a todos cuando el Director lo aprueba (moderarMensaje);
+  // mientras tanto, solo a los Directores, que son quienes lo aprueban.
   if (publicaDirecto(sesion.perfil.rol)) after(() => avisarNuevaPublicacion(id))
+  else after(() => avisarMensajePendiente(id))
   return exito({ id })
 }
 
@@ -106,6 +108,7 @@ export async function responderMensaje(_previo: ResultadoId | null, formData: Fo
   revalidatePath('/mensajes')
   // Pista 06: ver publicarMensaje.
   if (publicaDirecto(sesion.perfil.rol)) after(() => avisarNuevaRespuesta(id))
+  else after(() => avisarMensajePendiente(id))
   return exito({ id })
 }
 
@@ -249,10 +252,14 @@ export async function moderarMensaje(entrada: unknown): Promise<Resultado<null>>
   if (!moderado) return fallo('El mensaje ya no existe o ya fue moderado.')
 
   revalidatePath('/mensajes')
+  const { id, padre_id } = moderado
   if (cambios.estado === 'aprobado') {
-    const { id, padre_id } = moderado
     after(() => (padre_id === null ? avisarNuevaPublicacion(id) : avisarNuevaRespuesta(id)))
   }
+  // Al autor, aprobado o no (con el motivo): así sabe que ya lo leen todos, o que tiene que corregirlo.
+  const moderadorId = sesion.perfil.id
+  const estado = cambios.estado
+  after(() => avisarModeracion(id, moderadorId, estado))
   return exito(null)
 }
 
@@ -273,6 +280,9 @@ export async function editarMensajePropio(_previo: Resultado<null> | null, formD
   if (data.length === 0) return fallo('Ya no podés editar este mensaje.')
 
   revalidatePath('/mensajes')
+  // Corregido tras un rechazo vuelve a pendiente (trigger): los Directores tienen algo nuevo por aprobar.
+  const id = entrada.data.id
+  after(() => avisarMensajePendiente(id, { correccion: true }))
   return exito(null)
 }
 

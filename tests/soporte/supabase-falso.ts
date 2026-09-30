@@ -60,6 +60,18 @@ export function clienteSupabaseFalso(respuestas: { consultas?: Respuesta[]; rpc?
         op.filtros.push(...Object.entries(valores))
         return consulta
       },
+      /** Se registra como ['columna>=', valor]. */
+      gte(columna: string, valor: unknown) {
+        op.filtros.push([`${columna}>=`, valor])
+        return consulta
+      },
+      /** Una sola fila: la próxima respuesta tal cual (si se acaban: null y sin error). */
+      single() {
+        return Promise.resolve(pendientesConsulta.shift() ?? { data: null, error: null })
+      },
+      maybeSingle() {
+        return Promise.resolve(pendientesConsulta.shift() ?? { data: null, error: null })
+      },
       then<T>(resolver: (r: Respuesta) => T, rechazar?: (motivo: unknown) => T) {
         return Promise.resolve(pendientesConsulta.shift() ?? { data: [], error: null }).then(resolver, rechazar)
       },
