@@ -3,6 +3,7 @@ import { guardarPlan, guardarSeleccion, volverAPlan } from '@/app/(app)/comidas/
 import { agregarExtra, quitarExtra } from '@/app/(app)/comidas/casa/acciones'
 import { fallo } from '@/lib/acciones/resultado'
 import { perfilParaAccion, type Perfil } from '@/lib/auth/sesion'
+import { avisarCambioDelDirector, avisarExtraCocina } from '@/lib/push/avisos-casa'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { clienteSupabaseFalso, perfilDePrueba } from '@/tests/soporte/supabase-falso'
 
@@ -11,8 +12,16 @@ vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
 vi.mock('@/lib/auth/sesion', () => ({ perfilParaAccion: vi.fn() }))
 vi.mock('@/lib/supabase/servidor', () => ({ crearClienteServidor: vi.fn() }))
 vi.mock('@/lib/comidas/consultas', () => ({ obtenerHorasLimite: vi.fn() }))
+vi.mock('next/server', () => ({ after: vi.fn() }))
+vi.mock('@/lib/push/avisos-casa', () => ({ avisarCambioDelDirector: vi.fn(), avisarExtraCocina: vi.fn() }))
 
 const { revalidatePath } = await import('next/cache')
+const { after } = await import('next/server')
+
+/** Corre lo que la acción dejó programado con after() (el aviso push). */
+async function correrAfter() {
+  for (const [tarea] of vi.mocked(after).mock.calls) await (tarea as () => Promise<void>)()
+}
 
 const DIRECTOR = perfilDePrueba('0b8f7c4e-1a2b-4c3d-8e9f-0a1b2c3d4e5f', 'director')
 const RESIDENTE = perfilDePrueba('6f1c2a3b-4d5e-4f60-8a7b-9c0d1e2f3a4b', 'residente')
@@ -243,5 +252,100 @@ describe('quitarExtra', () => {
     sesionDe(DIRECTOR)
     expect(await quitarExtra({ id: 'x' })).toMatchObject({ ok: false, error: 'Extra inválido.' })
     expect(falso.operaciones).toEqual([])
+  })
+})
+
+describe('avisos push: lo que el Director cambia de otra persona, y los extras para la cocina', () => {
+  it('guardarSeleccion de otra persona avisa a esa persona qué quedó; la propia no avisa', async () => {
+    sesionDe(DIRECTOR)
+    usarCliente(clienteSupabaseFalso())
+    await guardarSeleccion({ ...SELECCION, estado: 'tarde', nota: ' 13:30 ', usuarioId: OTRA })
+    await correrAfter()
+    expect(avisarCambioDelDirector).toHaveBeenCalledWith({
+      tipo: 'comida',
+      personaId: OTRA,
+      actorId: DIRECTOR.id,
+      fecha: '2026-09-30',
+      comida: 'almuerzo',
+      eleccion: { estado: 'tarde', nota: '13:30' },
+    })
+
+    vi.clearAllMocks()
+    usarCliente(clienteSupabaseFalso())
+    await guardarSeleccion({ ...SELECCION, usuarioId: DIRECTOR.id })
+    await guardarSeleccion(SELECCION)
+    expect(after).not.toHaveBeenCalled()
+  })
+
+  it('si la base lo rechaza, no avisa', async () => {
+    sesionDe(DIRECTOR)
+    usarCliente(clienteSupabaseFalso({ rpc: [{ data: null, error: { code: '42501', message: 'no' } }] }))
+    await guardarSeleccion({ ...SELECCION, usuarioId: OTRA })
+    expect(after).not.toHaveBeenCalled()
+  })
+
+  it('volverAPlan de otra persona avisa para que vea cómo quedó', async () => {
+    sesionDe(DIRECTOR)
+    usarCliente(clienteSupabaseFalso())
+    await volverAPlan({ fecha: '2026-09-30', comida: 'cena', usuarioId: OTRA })
+    await correrAfter()
+    expect(avisarCambioDelDirector).toHaveBeenCalledWith({
+      tipo: 'comida',
+      personaId: OTRA,
+      actorId: DIRECTOR.id,
+      fecha: '2026-09-30',
+      comida: 'cena',
+      eleccion: 'volver',
+    })
+  })
+
+  it('guardarPlan de otra persona avisa la celda (o que quedó sin definir)', async () => {
+    sesionDe(DIRECTOR)
+    usarCliente(clienteSupabaseFalso())
+    await guardarPlan({ diaSemana: 2, comida: 'almuerzo', estado: 'bolsa', nota: null, usuarioId: OTRA })
+    usarCliente(clienteSupabaseFalso({ consultas: [{ data: [{ comida: 'cena' }], error: null }] }))
+    await guardarPlan({ diaSemana: 6, comida: 'cena', estado: null, nota: null, usuarioId: OTRA })
+    await correrAfter()
+    expect(vi.mocked(avisarCambioDelDirector).mock.calls.map(([c]) => c)).toEqual([
+      { tipo: 'plan', personaId: OTRA, actorId: DIRECTOR.id, diaSemana: 2, comida: 'almuerzo', valor: { estado: 'bolsa', nota: null } },
+      { tipo: 'plan', personaId: OTRA, actorId: DIRECTOR.id, diaSemana: 6, comida: 'cena', valor: null },
+    ])
+  })
+
+  it('el plan propio no avisa', async () => {
+    sesionDe(RESIDENTE)
+    usarCliente(clienteSupabaseFalso())
+    await guardarPlan({ diaSemana: 2, comida: 'almuerzo', estado: 'bolsa', nota: null })
+    expect(after).not.toHaveBeenCalled()
+  })
+
+  it('agregar y quitar un extra avisa a la cocina con fecha, comida, cantidad y nota', async () => {
+    const ID = '3f1c2a9e-8b7d-4c6e-9a5b-1d2e3f4a5b6c'
+    sesionDe(DIRECTOR)
+    usarCliente(clienteSupabaseFalso())
+    await agregarExtra({ fecha: '2099-01-15', comida: 'cena', cantidad: '3', nota: '  Sin sal ' })
+    const falso = usarCliente(
+      clienteSupabaseFalso({
+        consultas: [{ data: [{ id: ID, fecha: '2099-01-16', tiempo_comida: 'almuerzo', cantidad: 2, nota: null }], error: null }],
+      }),
+    )
+    await quitarExtra({ id: ID })
+    await correrAfter()
+    expect(falso.operaciones[0].columnas).toBe('id, fecha, tiempo_comida, cantidad, nota')
+    expect(vi.mocked(avisarExtraCocina).mock.calls.map(([c]) => c)).toEqual([
+      { actorId: DIRECTOR.id, fecha: '2099-01-15', comida: 'cena', cantidad: 3, nota: 'Sin sal', accion: 'agregado' },
+      { actorId: DIRECTOR.id, fecha: '2099-01-16', comida: 'almuerzo', cantidad: 2, nota: null, accion: 'quitado' },
+    ])
+  })
+
+  it('un extra que no se pudo agregar o quitar no avisa', async () => {
+    sesionDe(DIRECTOR)
+    const consola = vi.spyOn(console, 'error').mockImplementation(() => {})
+    usarCliente(clienteSupabaseFalso({ consultas: [{ data: null, error: { code: '08006', message: 'conexión' } }] }))
+    await agregarExtra({ fecha: '2099-01-15', comida: 'cena', cantidad: '3' })
+    usarCliente(clienteSupabaseFalso({ consultas: [{ data: [], error: null }] }))
+    await quitarExtra({ id: '3f1c2a9e-8b7d-4c6e-9a5b-1d2e3f4a5b6c' })
+    expect(after).not.toHaveBeenCalled()
+    consola.mockRestore()
   })
 })

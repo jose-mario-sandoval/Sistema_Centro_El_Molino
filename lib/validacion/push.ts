@@ -49,8 +49,16 @@ export const esquemaSuscripcionPush = z.object({
 /** Cuerpo de DELETE /api/push. */
 export const esquemaBajaPush = z.object({ endpoint })
 
-/** Entrada de actualizarPreferenciasAvisos. */
+/**
+ * Entrada de actualizarPreferenciasAvisos. Los avisos de cambios del Director y de la cocina son
+ * opcionales: una pestaña abierta con la versión anterior de la página no los manda, y guardar no
+ * debe fallar (ni borrarlos) por eso.
+ */
 export const esquemaPreferenciasAvisos = z.object({
   avisarHoraLimite: z.boolean(),
   avisarMensajes: z.boolean(),
+  avisarCambios: z.boolean().optional(),
+  avisarCocina: z.boolean().optional(),
 })
+
+export type PreferenciasAvisos = z.output<typeof esquemaPreferenciasAvisos>

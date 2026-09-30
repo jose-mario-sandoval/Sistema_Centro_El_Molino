@@ -1,10 +1,12 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
+import { after } from 'next/server'
 import { exito, fallo, type Resultado } from '@/lib/acciones/resultado'
 import { perfilParaAccion } from '@/lib/auth/sesion'
 import { usuarioObjetivo } from '@/lib/comidas/permisos'
 import { fechaISOEn } from '@/lib/fechas'
+import { avisarCambioDelDirector } from '@/lib/push/avisos-casa'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { camposConError } from '@/lib/validacion/auth'
 import { esquemaAusencia, esquemaQuitarAusencia } from '@/lib/validacion/ausencias'
@@ -41,6 +43,12 @@ export async function marcarAusencia(_previo: Resultado<null> | null, formData: 
 
   revalidatePath('/calendario')
   revalidatePath('/comidas', 'layout')
+  // La de otra persona (solo el Director): se le avisa, después de responder (plan 2026-09-29, aviso c).
+  const actorId = permiso.perfil.id
+  const personaId = objetivo.usuarioId
+  if (personaId !== actorId) {
+    after(() => avisarCambioDelDirector({ tipo: 'ausencia', personaId, actorId, desde, hasta, accion: 'marcada' }))
+  }
   return exito(null)
 }
 
@@ -62,7 +70,7 @@ export async function quitarAusencia(entrada: unknown): Promise<Resultado<null>>
     .delete()
     .eq('id', datos.data.id)
     .eq('usuario_id', objetivo.usuarioId)
-    .select('id')
+    .select('id, desde, hasta')
   if (error) return fallo('No se pudo quitar la ausencia. Intentá de nuevo.')
   // RLS no da error si no hay filas afectadas: 0 filas = ya no existe (o no era de esa persona).
   if (data.length === 0) {
@@ -72,5 +80,11 @@ export async function quitarAusencia(entrada: unknown): Promise<Resultado<null>>
 
   revalidatePath('/calendario')
   revalidatePath('/comidas', 'layout')
+  const actorId = permiso.perfil.id
+  const personaId = objetivo.usuarioId
+  if (personaId !== actorId) {
+    const { desde, hasta } = data[0]
+    after(() => avisarCambioDelDirector({ tipo: 'ausencia', personaId, actorId, desde, hasta, accion: 'quitada' }))
+  }
   return exito(null)
 }

@@ -1,6 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
+import { after } from 'next/server'
 import { exito, fallo, type Resultado } from '@/lib/acciones/resultado'
 import { perfilParaAccion } from '@/lib/auth/sesion'
 import { obtenerHorasLimite } from '@/lib/comidas/consultas'
@@ -9,6 +10,7 @@ import { usuarioObjetivo } from '@/lib/comidas/permisos'
 import { mensajeComidaCerrada } from '@/lib/comidas/semana'
 import type { EstadoComida, TiempoComida } from '@/lib/comidas/tipos'
 import type { FechaISO } from '@/lib/fechas'
+import { avisarCambioDelDirector, type CambioDelDirector } from '@/lib/push/avisos-casa'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { camposConError } from '@/lib/validacion/auth'
 import { esquemaPlan, esquemaSeleccion, esquemaVolverAPlan } from '@/lib/validacion/comidas'
@@ -21,6 +23,15 @@ import { esquemaPlan, esquemaSeleccion, esquemaVolverAPlan } from '@/lib/validac
  */
 
 const ERROR_GENERAL = 'No se pudo guardar. Intentá de nuevo.'
+
+/**
+ * Si el Director cambió algo de otra persona, se le avisa a esa persona (plan 2026-09-29, aviso c),
+ * después de responder: el aviso nunca demora ni rompe el guardado. Lo propio no se avisa.
+ */
+function avisarSiEsDeOtra(actorId: string, cambio: CambioDelDirector) {
+  if (cambio.personaId === actorId) return
+  after(() => avisarCambioDelDirector(cambio))
+}
 
 type ErrorBase = { code?: string; message?: string }
 
@@ -88,6 +99,14 @@ export async function guardarPlan(entrada: unknown): Promise<Resultado<null>> {
   }
 
   revalidatePath('/comidas', 'layout')
+  avisarSiEsDeOtra(permiso.perfil.id, {
+    tipo: 'plan',
+    personaId: objetivo.usuarioId,
+    actorId: permiso.perfil.id,
+    diaSemana,
+    comida,
+    valor: estado === null ? null : { estado, nota: nota ?? null },
+  })
   return exito(null)
 }
 
@@ -120,6 +139,14 @@ export async function guardarSeleccion(entrada: unknown): Promise<Resultado<null
   }
 
   revalidatePath('/comidas', 'layout')
+  avisarSiEsDeOtra(permiso.perfil.id, {
+    tipo: 'comida',
+    personaId: objetivo.usuarioId,
+    actorId: permiso.perfil.id,
+    fecha,
+    comida,
+    eleccion: { estado, nota: nota ?? null },
+  })
   return exito(null)
 }
 
@@ -145,5 +172,13 @@ export async function volverAPlan(entrada: unknown): Promise<Resultado<null>> {
   }
 
   revalidatePath('/comidas', 'layout')
+  avisarSiEsDeOtra(permiso.perfil.id, {
+    tipo: 'comida',
+    personaId: objetivo.usuarioId,
+    actorId: permiso.perfil.id,
+    fecha,
+    comida,
+    eleccion: 'volver',
+  })
   return exito(null)
 }

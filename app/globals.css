@@ -1528,7 +1528,6 @@ html[data-cal-oculta-n="3"] .zona-calendario:not([data-listo]) .aviso-filtros-zo
 }
 
 .estado-push{margin-bottom:1rem;}
-.pasos-ios{margin:.5rem 0 0 1.25rem;padding:0;list-style:decimal;line-height:1.6;}
 .opcion-aviso{display:flex;align-items:flex-start;gap:.9rem;min-height:var(--toque);padding:.9rem 0;}
 .opcion-aviso + .opcion-aviso{border-top:2px solid var(--separador);}
 .opcion-aviso input[type="checkbox"]{width:1.6rem;height:1.6rem;margin:.1rem 0 0;flex:0 0 auto;accent-color:var(--acento);}
@@ -1568,6 +1567,68 @@ html[data-cal-oculta-n="3"] .zona-calendario:not([data-listo]) .aviso-filtros-zo
 }
 .hacia-arriba .panel-apariencia{top:auto;bottom:calc(100% + .75rem);left:0;right:auto;}
 .panel-apariencia .opcion-apariencia{padding:.4rem .95rem;font-size:var(--t-sm);}
+
+/* ---------- 10b. Invitaciones: instalar la app y activar los avisos -------
+   Arriba del contenido, en teléfono o tablet (components/app/invitaciones.tsx). Ocultas salvo que
+   el script de <head> marque <html> (lib/pwa/instalar.ts): se ven desde el primer pintado y no
+   empujan el contenido después. Son una tarjeta elevada (se toca); los pasos, una bandeja hundida. */
+
+.invitacion{display:none;margin-bottom:1.5rem;container-type:inline-size;}
+html[data-instalar="ofrecer"] .invitacion-instalar,
+html[data-ofrecer-avisos="si"] .invitacion-avisos{display:block;}
+.invitacion-cabeza{display:flex;align-items:flex-start;gap:.9rem;}
+.invitacion-icono{
+  flex:0 0 auto;width:3rem;height:3rem;display:grid;place-items:center;
+  border-radius:var(--r-md);border:2px solid var(--borde-hundido);box-shadow:var(--hundido-suave);
+  background:var(--acento-suave);color:var(--acento);
+}
+.invitacion-icono .icono{width:1.6rem;height:1.6rem;}
+.invitacion-titulo{font-family:var(--fuente-display);font-size:var(--t-lg);font-weight:600;line-height:1.25;text-wrap:balance;}
+.invitacion-texto{margin-top:.3rem;color:var(--tinta-suave);font-size:var(--t-sm);max-width:65ch;}
+.invitacion-acciones{display:flex;flex-wrap:wrap;gap:.75rem;margin-top:1.1rem;}
+.invitacion-acciones .btn{flex:1 1 min(11rem,100%);}
+.invitacion-error{margin-top:.9rem;color:var(--peligro);font-weight:600;font-size:var(--t-sm);}
+/* Angosta (teléfono chico o letra grande): el icono va arriba y el título usa todo el ancho. La
+   consulta es de contenedor y en rem: sigue a la letra elegida (DESIGN.md §4, regla 4). */
+@container (max-width:15rem){
+  .invitacion-cabeza{flex-direction:column;gap:.6rem;}
+  .invitacion-icono{width:2.6rem;height:2.6rem;}
+}
+
+/* Los pasos: bandeja hundida dentro de la tarjeta, cada uno con su dibujo, su número y su texto. */
+.pasos-instalar{
+  margin-top:1rem;padding:1rem var(--marco);border-radius:var(--r-md);
+  border:2px solid var(--borde-hundido);box-shadow:var(--hundido-suave);
+  container-type:inline-size;
+}
+.lista-pasos{display:flex;flex-direction:column;gap:1.1rem;}
+.paso-instalar{display:grid;grid-template-columns:auto minmax(0,1fr);gap:.9rem;align-items:start;}
+.paso-dibujo{width:3.25rem;min-height:3.25rem;display:grid;place-items:center;color:var(--tinta);}
+.dibujo-telefono{display:block;width:auto;height:4rem;}
+.dibujo-barra{fill:var(--acento-suave);stroke:var(--acento);stroke-width:1.5;}
+.dibujo-telefono g{stroke:var(--acento);}
+.dibujo-icono{width:2.6rem;height:2.6rem;color:var(--acento);}
+.paso-titulo{display:flex;gap:.55rem;align-items:baseline;font-weight:700;}
+.paso-numero{
+  flex:0 0 auto;display:inline-grid;place-items:center;min-width:1.6em;height:1.6em;border-radius:var(--r-full);
+  background:var(--acento);color:var(--acento-tinta);font-size:var(--t-sm);font-weight:700;line-height:1;
+}
+.paso-icono-titulo{white-space:nowrap;color:var(--acento);}
+.paso-icono-titulo .icono{vertical-align:-.2em;}
+.paso-texto .hint{margin-top:.25rem;}
+.paso-requisito{margin-top:1.1rem;}
+.paso-generico{font-weight:600;}
+/* Sin ancho para el dibujo al costado: el dibujo va arriba del paso, nunca se achica la letra. */
+@container (max-width:13rem){
+  .paso-instalar{grid-template-columns:minmax(0,1fr);gap:.4rem;}
+  .paso-dibujo{justify-items:start;min-height:0;}
+}
+
+/* En Ajustes: la misma invitación, sin "Ahora no". */
+.tarjeta-instalar{margin-bottom:14px;}
+.tarjeta-instalar-texto{margin-bottom:.9rem;}
+.estado-instalada{display:flex;align-items:flex-start;gap:.6rem;font-weight:600;}
+.estado-instalada .icono{color:var(--st-si);margin-top:.15em;}
 
 /* ---------- 11. Login ---------------------------------------------------- */
 

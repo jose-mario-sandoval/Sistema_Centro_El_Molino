@@ -1,10 +1,13 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
+import { after } from 'next/server'
 import { exito, fallo, type Resultado } from '@/lib/acciones/resultado'
 import { perfilParaAccion } from '@/lib/auth/sesion'
 import { generarFechasSerie, type ParametrosSerie } from '@/lib/calendario/recurrencia'
 import { fechaISOEn, instanteEnZona } from '@/lib/fechas'
+import { avisarPedidoCocina, avisarSerieCocina } from '@/lib/push/avisos-casa'
+import { paraCocina, pideALaCocina, type PedidoCocina } from '@/lib/push/cargas-casa'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { camposConError } from '@/lib/validacion/auth'
 import {
@@ -31,6 +34,18 @@ function leerFormulario(formData: FormData) {
   }
 }
 
+/*
+ * Avisos a la cocina (plan 2026-09-29, aviso d): cuando un evento con pedido se crea, cambia de
+ * pedido, fecha u hora, o se borra. Se programan con after() (no demoran ni rompen la acción) y solo
+ * con paraCocina(): el título, la categoría y la serie nunca llegan al aviso.
+ */
+function avisarCocinaSiPide(actorId: string, eventoId: string, antes: PedidoCocina | null, despues: PedidoCocina | null) {
+  const a = antes && paraCocina(antes)
+  const d = despues && paraCocina(despues)
+  if (!(a && pideALaCocina(a)) && !(d && pideALaCocina(d))) return
+  after(() => avisarPedidoCocina({ actorId, eventoId, antes: a, despues: d }))
+}
+
 /** Solo el Director (spec §5.1). RLS lo vuelve a exigir en la base. */
 export async function crearEvento(
   _previo: Resultado<{ id: string }> | null,
@@ -51,6 +66,7 @@ export async function crearEvento(
   if (error) return fallo('No se pudo guardar el evento. Intentá de nuevo.')
 
   revalidatePath('/calendario')
+  avisarCocinaSiPide(permiso.perfil.id, data.id, null, entrada.data)
   return exito({ id: data.id })
 }
 
@@ -63,6 +79,14 @@ export async function editarEvento(_previo: Resultado<null> | null, formData: Fo
 
   const { id, ...cambios } = entrada.data
   const supabase = await crearClienteServidor()
+  // Cómo estaba, para decirle a la cocina qué cambió. Una lectura por clave primaria; si falla, la
+  // edición sigue igual y solo se pierde el aviso.
+  const anterior = await supabase
+    .from('eventos')
+    .select('fecha, hora, requiere_cocina, requiere_otro_texto')
+    .eq('id', id)
+    .maybeSingle()
+  if (anterior.error) console.error('editarEvento: no se pudo leer el evento antes de cambiarlo', anterior.error)
   const { data, error } = await supabase.from('eventos').update(cambios).eq('id', id).select('id')
   if (error) return fallo('No se pudo guardar el evento. Intentá de nuevo.')
   // RLS no da error si no hay filas afectadas (spec §6.4): 0 filas = el evento ya no existe.
@@ -72,6 +96,7 @@ export async function editarEvento(_previo: Resultado<null> | null, formData: Fo
   }
 
   revalidatePath('/calendario')
+  if (!anterior.error) avisarCocinaSiPide(permiso.perfil.id, id, anterior.data, cambios)
   return exito(null)
 }
 
@@ -83,7 +108,11 @@ export async function eliminarEvento(entrada: unknown): Promise<Resultado<null>>
   if (!datos.success) return fallo('Evento inválido.')
 
   const supabase = await crearClienteServidor()
-  const { data, error } = await supabase.from('eventos').delete().eq('id', datos.data.id).select('id')
+  const { data, error } = await supabase
+    .from('eventos')
+    .delete()
+    .eq('id', datos.data.id)
+    .select('id, fecha, hora, requiere_cocina, requiere_otro_texto')
   if (error) return fallo('No se pudo eliminar el evento. Intentá de nuevo.')
   if (data.length === 0) {
     revalidatePath('/calendario')
@@ -91,6 +120,7 @@ export async function eliminarEvento(entrada: unknown): Promise<Resultado<null>>
   }
 
   revalidatePath('/calendario')
+  avisarCocinaSiPide(permiso.perfil.id, datos.data.id, data[0], null)
   return exito(null)
 }
 
@@ -230,6 +260,12 @@ export async function crearSerieEventos(
   if (error) return fallo('No se pudo crear la serie. Intentá de nuevo.')
 
   revalidatePath('/calendario')
+  // Un solo aviso para toda la serie, no uno por ocurrencia.
+  const pedidos = fechas.map((fecha) => paraCocina({ ...datos, fecha }))
+  if (pedidos.some(pideALaCocina)) {
+    const actorId = permiso.perfil.id
+    after(() => avisarSerieCocina({ actorId, serieId: data, accion: 'creada', pedidos }))
+  }
   return exito({ id: data, cantidad: fechas.length })
 }
 
@@ -242,9 +278,20 @@ export async function eliminarSerieDesdeHoy(entrada: unknown): Promise<Resultado
 
   const hoy = fechaISOEn(new Date())
   const supabase = await crearClienteServidor()
-  const { data, error } = await supabase.from('eventos').delete().eq('serie_id', datos.data.serie_id).gte('fecha', hoy).select('id')
+  const { data, error } = await supabase
+    .from('eventos')
+    .delete()
+    .eq('serie_id', datos.data.serie_id)
+    .gte('fecha', hoy)
+    .select('id, fecha, hora, requiere_cocina, requiere_otro_texto')
   if (error) return fallo('No se pudo cancelar la serie. Intentá de nuevo.')
 
   revalidatePath('/calendario')
+  const pedidos = data.map(paraCocina)
+  if (pedidos.some(pideALaCocina)) {
+    const actorId = permiso.perfil.id
+    const serieId = datos.data.serie_id
+    after(() => avisarSerieCocina({ actorId, serieId, accion: 'cancelada', pedidos }))
+  }
   return exito({ cantidad: data.length })
 }

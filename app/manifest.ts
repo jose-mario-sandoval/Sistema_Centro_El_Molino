@@ -17,5 +17,9 @@ export default function manifest(): MetadataRoute.Manifest {
       { src: '/iconos/512', sizes: '512x512', type: 'image/png', purpose: 'any' },
       { src: '/iconos/maskable-512', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
     ],
+    // La app se nombra a sí misma: así getInstalledRelatedApps() (Chrome en Android) sabe si ya está
+    // instalada y la invitación a instalarla no aparece de más (components/app/invitaciones.tsx).
+    related_applications: [{ platform: 'webapp', url: '/manifest.webmanifest' }],
+    prefer_related_applications: false,
   }
 }
