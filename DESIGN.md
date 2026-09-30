@@ -466,7 +466,9 @@ principal para que un lector de pantalla anuncie dónde quedó la persona.
   tres pasos, cada uno con su dibujo (el teléfono con la barra donde está Compartir, abajo o arriba
   según el aparato; el cuadrado con el más; el ícono nuevo), su número y su texto; en los demás, la
   instrucción del menú. *"Ahora no"* la guarda una semana y la tarjeta *"Instalar la app"* de Ajustes
-  queda para después. Se ve desde el primer pintado (lo decide un script de `<head>`, como la
+  queda para después. Donde no hay forma de saber si ya se instaló (iPhone, iPad), con los pasos
+  abiertos aparece *"Ya la instalé"*: 60 días sin ofrecerla. Si la desinstalan, vuelve sola (el
+  navegador vuelve a ofrecer instalar). Se ve desde el primer pintado (lo decide un script de `<head>`, como la
   apariencia): nada salta cuando carga. Ya instalada, la misma franja ofrece *"Activá los avisos en
   este teléfono"* (también con *"Ahora no"*) y el permiso se pide recién al tocar. Si el ancho no
   alcanza (320px o letra grande) el icono sube sobre el título y el dibujo de cada paso sobre su

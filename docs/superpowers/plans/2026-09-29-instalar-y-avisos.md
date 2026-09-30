@@ -183,6 +183,13 @@ generada con `ImageResponse` (sin tocar `components/app/monograma.tsx`, que camb
   cocina) y su total suma también los confirmados por el enlace público, como la Semana; al aprobar
   un mensaje, el aviso a todos excluye al Director que lo aprobó; «corrigió su mensaje» solo si
   edita el autor; el foco no salta a la franja si la instalación empezó en otro lado.
+- Después de la segunda revisión: `beforeinstallprompt` (que Chrome solo manda si la app no está
+  instalada) borra la marca de instalada y vuelve a mostrar la franja en la misma carga, y Ajustes
+  deja de decir "Ya está instalada" si el navegador ofrece instalar; el evento (y su
+  `preventDefault`) solo se toma en teléfono o tablet; Linux con pantalla táctil (no Chromebook)
+  cuenta como tablet (Chrome en tablets Android pide el sitio de escritorio); "Ya la instalé" con
+  los pasos abiertos (iOS y navegadores sin forma de saberlo): 60 días, con su propia clave
+  (`molino-ya-la-instale`), que el mismo evento también borra.
 - Se mantuvo la etiqueta por persona y tipo en los cambios del Director (pedido explícito: que el
   último reemplace a los anteriores), aunque así solo queda a la vista el último cambio de una ráfaga.
 - Verificado en el banco visual (esbuild + Playwright, fuera del repo) a 320/375/768 × claro,
