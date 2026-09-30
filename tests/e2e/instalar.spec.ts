@@ -71,6 +71,10 @@ test.describe('invitación a instalar: teléfono Android', () => {
   })
 
   test('sin el evento del navegador, "Instalar" despliega las instrucciones del menú', async ({ page }) => {
+    // Por si el Chromium de la prueba llegara a ofrecer instalar de verdad: acá se prueba sin evento.
+    await page.addInitScript(() =>
+      window.addEventListener('beforeinstallprompt', (evento) => evento.stopImmediatePropagation(), true),
+    )
     await iniciarSesion(page, 'residente')
     const instalar = franjaDe(page).getByRole('button', { name: 'Instalar' })
     await expect(instalar).toHaveAttribute('aria-expanded', 'false')
