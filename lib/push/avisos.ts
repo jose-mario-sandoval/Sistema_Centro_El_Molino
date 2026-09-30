@@ -23,7 +23,7 @@ type PerfilConNombre = PerfilAviso & { nombre: string; siglas: string; rol: Rol 
 async function leerPerfiles(): Promise<PerfilConNombre[]> {
   const { data, error } = await crearClienteAdmin()
     .from('perfiles')
-    .select('id, nombre, siglas, rol, activo, avisar_mensajes, avisar_hora_limite')
+    .select('id, nombre, siglas, rol, activo, avisar_mensajes, avisar_hora_limite, avisar_cambios, avisar_cocina')
   if (error) throw error
   return data
 }
