@@ -95,19 +95,37 @@ tests/unit/calendario/colores-evento.test.ts    nuevo — contrastes leídos de 
 tests/e2e/calendario.spec.ts                    + filtros (Director, Residente, Administración, teléfono)
 ```
 
+## Ajustes que salieron de la verificación visual
+
+- **`.cal-event` hasta dos líneas** (line-clamp) en la cuadrícula: con la marca adelante, en una sola
+  línea no quedaba lugar ni para el comienzo del título. También mejora la vista de Administración.
+- **Inicial en la cuadrícula del teléfono** (`INICIAL_TIPO`: R, G, M) cuando la sigla no entra
+  (320px, letra grande): consulta de contenedor `cal-grid` en `rem` (≤15.4rem). La misma consulta
+  pasa la cabecera de días a la inicial ("L M M J V S D"), que antes se achicaba por debajo de
+  `--t-xs` con `min(var(--t-xs), 3.6vw)`. El relleno lateral del día en el teléfono baja a 2px para
+  ganar ancho.
+- **"N ocultos" en la cuadrícula:** ojo tachado + número; la palabra solo si la cuadrícula mide más de
+  40rem, y en el teléfono el ojo va arriba del número.
+- **Sin salto al recargar:** medido sin hidratar (JS de la app bloqueado) y ya hidratado: la tarjeta
+  queda en el mismo lugar (el aviso tiene su lugar reservado). Lo único que se mueve es la fila de un
+  día con eventos ocultos, que gana la línea "1 oculto" al hidratar.
+- **Daltonismo:** con protanopía, San Rafael y San Miguel se parecen en color (ΔE00 7); se distinguen
+  por la sigla. En contraste alto oscuro los colores quedan muy juntos en luminosidad (7:1 manda): ahí
+  la sigla y el borde son el canal principal.
+
 ## Tareas
 
-- [ ] 1. `tipos.ts`: `MARCA_TIPO`, `varsTipo`, `tienePedido` (pruebas primero).
-- [ ] 2. `filtros.ts`: modelo, lectura robusta (JSON roto, claves de más o de menos → por defecto),
+- [x] 1. `tipos.ts`: `MARCA_TIPO`, `varsTipo`, `tienePedido` (pruebas primero).
+- [x] 2. `filtros.ts`: modelo, lectura robusta (JSON roto, claves de más o de menos → por defecto),
       escritura, alternar, `eventoVisible`, `filtrarEventos`, `textoOcultos`, etiqueta accesible del
       día, script previo al pintado (pruebas primero, incluida la equivalencia script ↔ TypeScript).
-- [ ] 3. Tokens `--ev-*` en los cuatro modos + prueba de contraste que lee `globals.css`.
-- [ ] 4. Hook `usarFiltros` (almacén externo, memoria si `localStorage` falla, evento entre pestañas).
-- [ ] 5. UI: sección Filtros, aviso, colores en cuadrícula/lista/puntos/diálogo/formulario, ocultos
+- [x] 3. Tokens `--ev-*` en los cuatro modos + prueba de contraste que lee `globals.css`.
+- [x] 4. Hook `usarFiltros` (almacén externo, memoria si `localStorage` falla, evento entre pestañas).
+- [x] 5. UI: sección Filtros, aviso, colores en cuadrícula/lista/puntos/diálogo/formulario, ocultos
       por día, script en `<head>`, CSS previo a la hidratación.
-- [ ] 6. E2E: Director (chips, ocultar San Miguel, aviso, "Mostrar todo", recarga, solo cocina),
+- [x] 6. E2E: Director (chips, ocultar San Miguel, aviso, "Mostrar todo", recarga, solo cocina),
       Residente, Administración (sin filtros ni marcas ni categorías en el HTML), teléfono 375×812.
-- [ ] 7. Verificación visual: arnés con los componentes reales, 320/375/768/1280 × claro/oscuro/alto/
+- [x] 7. Verificación visual: arnés con los componentes reales, 320/375/768/1280 × claro/oscuro/alto/
       grande/enorme, lista y cuadrícula, diálogo y formulario; simulación de protanopía y
       deuteranopía.
-- [ ] 8. `DESIGN.md`; lint, typecheck, unit, build; PR y CI.
+- [x] 8. `DESIGN.md`; lint, typecheck, unit, build; PR y CI.

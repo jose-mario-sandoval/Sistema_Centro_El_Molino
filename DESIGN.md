@@ -116,6 +116,52 @@ está por cerrar.
 
 Trazo mínimo 2px. Los iconos son `currentColor`, nunca color fijo.
 
+### 2.4 Los tipos de evento: un color por arcángel, y siempre su sigla
+
+El calendario pinta cada tipo con su color tradicional, como Google Calendar: **San Miguel rojo, San
+Gabriel azul, San Rafael verde, Otro gris**. Tokens `--ev-<tipo>` (texto, borde y relleno de la
+marca) y `--ev-<tipo>-bg` (tinte), con los nombres del enum en guion (`--ev-san-miguel`). Como los
+seis estados, **los nombres son contrato**: `varsTipo()` (`lib/calendario/tipos.ts`) los arma por
+interpolación.
+
+| Tipo | Claro suave | Claro alto | Oscuro suave | Oscuro alto | Tinte claro | Tinte oscuro |
+|---|---|---|---|---|---|---|
+| `san_rafael` | `#123D20` | `#0E3319` | `#BFF2CA` | `#C4F4CE` | `#CFE3D2` | `#293E2E` |
+| `san_gabriel` | `#2F52A8` | `#1E3F8A` | `#98B0EA` | `#B4C6F6` | `#DEE2F3` | `#2E3243` |
+| `san_miguel` | `#B51D3A` | `#960033` | `#E9707A` | `#FFA3B4` | `#FAE4E3` | `#3D2627` |
+| `otro` | `#6B6458` | `#4B463D` | `#BFB8AC` | `#D7D1C6` | `#E9E5DE` | `#33302B` |
+
+Contraste del color sobre su tinte / sobre el pergamino (la marca es el mismo par: sigla en
+pergamino sobre el color), verificado por `tests/unit/calendario/colores-evento.test.ts`, que lee
+`globals.css`:
+
+```
+CLARO suave   SR 9.08/10.48  SG 5.63/6.21  SM 5.39/5.61  OT 4.66/5.01
+CLARO alto    SR 10.34/11.93 SG 7.63/8.42  SM 7.37/7.66  OT 7.46/8.01
+OSCURO suave  SR 9.20/12.69  SG 5.89/7.37  SM 4.69/5.34  OT 6.67/8.07
+OSCURO alto   SR 9.42/13.00  SG 7.47/9.34  SM 7.41/8.44  OT 8.65/10.46
+```
+
+Reglas que salieron de medir (ΔE00, simulación Machado 2009 de protanopía, deuteranopía y
+tritanopía):
+
+- **Rojo y verde se separan por luminosidad, no solo por tono.** Con deuteranopía (la más común) un
+  rojo y un verde de igual claridad son el mismo marrón. Por eso, en tema claro el verde de San Rafael
+  es el más oscuro y el gris de Otro el más claro; en oscuro, al revés (el verde, casi blanco). ΔE00
+  mínimo entre marcas en claro suave: 25 normal, 12 deuteranopía, 17 tritanopía. Con protanopía el
+  rojo se oscurece hasta parecerse al verde (7): ahí distingue la sigla, y por eso **la sigla nunca
+  falta**. En contraste alto los cuatro colores quedan en un rango estrecho de luminosidad (7:1 manda):
+  el canal principal es la sigla y el borde.
+- **San Miguel no es el rojo de estado.** `--peligro` y "No comer" son ladrillo (tono 35° en Lab);
+  San Miguel es carmesí (22°, más croma), ΔE00 10–12 con ellos, y siempre lleva "SM".
+- **La marca:** relleno del color con la sigla en pergamino (`MARCA_TIPO`: SR, SG, SM, Otro), por
+  CSS (`data-marca`), así no entra en el texto del evento ni en su nombre accesible, que ya dice el
+  tipo completo. Junto al nombre completo (chips, pastilla, formulario) "Otro" es el cuadrito gris sin
+  letras: la ausencia de letras también lo distingue. En la cuadrícula del teléfono, si la sigla no
+  entra en la columna, queda la inicial (`INICIAL_TIPO`: R, G, M; Otro, punto gris).
+- **Tinte + marca, nunca franja lateral** (§8). Administración no recibe el tipo: sus eventos se
+  pintan como siempre, sin color ni marca.
+
 ---
 
 ## 3. Relieve
@@ -197,6 +243,9 @@ cumplen WCAG 2.2 AA (24px) pero no este contrato. La tercera es de separación, 
 
 1. **La cuadrícula mensual del calendario.** Siete columnas en 320px dejan días de ~36px de ancho;
    por eso en el teléfono el calendario abre en **lista** y la cuadrícula queda detrás de *"Ver mes"*.
+   Ahí tampoco cede la letra: cada evento es su marca (§2.4) y, cuando la columna no alcanza (consulta
+   de contenedor en `rem` sobre `.cal-grid`), la cabecera pasa a la inicial del día y la marca a la
+   inicial del tipo, en lugar de achicarse por debajo de `--t-xs`.
 2. **El mini calendario de ausencias** (`components/ui/mini-calendario.tsx`). Marcar una ausencia es
    tocar el primer y el último día en un mes, y eso no tiene lista equivalente: cada día mide ~43px
    de ancho a 375px (~39px en un teléfono con más margen, ~36px a 320px). Mitigaciones:
@@ -459,6 +508,23 @@ principal para que un lector de pantalla anuncie dónde quedó la persona.
   pregunta y sus dos respuestas aparecen **debajo** de *"Agregar"* y *"Cerrar"*, que no se mueven: un
   doble toque en *"Cerrar"* cae dos veces en *"Cerrar"* (sigue preguntando), nunca en *"Descartar"*.
 
+- **Los filtros del calendario se ven, y lo oculto se dice.** Arriba de la tarjeta del mes (Director
+  y Residente; Administración no, porque delatarían la categoría): un chip por tipo con su color y su
+  marca, *"Mis ausencias"* y, en su línea, *"Solo eventos con pedido a cocina"* (un `switch` con
+  *"Sí"*/*"No"* escrito). Cada chip es un interruptor (`aria-pressed`): **mostrado = hundido + visto**,
+  como toda opción elegida; **oculto = elevado + ojo tachado + *"Oculto"* escrito** (se toca para
+  volver a verlo), y su marca queda hueca. En un contenedor angosto (consulta en `rem`) los chips van
+  detrás de un botón *"Filtros · 2 ocultos"* con `aria-expanded`. Si algo está oculto, siempre a la
+  vista arriba de la tarjeta: *"Estás ocultando: San Miguel y Mis ausencias."* con *"Mostrar todo"*
+  (una persona mayor puede ocultar algo sin querer y creer que los eventos desaparecieron). Un día con
+  todo oculto no queda vacío y normal: ojo tachado + *"2 ocultos"* en la cuadrícula, *"+1 evento
+  oculto por los filtros"* en la lista (los días con todo oculto no se listan, y al final dice cuántos
+  hay en el mes), y en el diálogo del día *"Hay 2 eventos ocultos por los filtros."* con
+  *"Mostrarlos"*, que los muestra ahí sin tocar los filtros. La elección se recuerda en el
+  dispositivo; al recargar, un script en `<head>` esconde lo guardado antes de pintar
+  (`html[data-cal-oculta]`, mientras `.zona-calendario` no tenga `data-listo`) y reserva el lugar del
+  aviso, así nada aparece un instante ni salta.
+
 ---
 
 ## 9. Estados que la interfaz debe saber decir
@@ -545,6 +611,8 @@ El diseño ya está en la app Next.js. Dónde vive cada pieza:
 | Mini calendario para marcar un rango de días (ausencias) | `components/ui/mini-calendario.tsx`; su lógica pura (toques, teclado, límites, resumen) en `lib/calendario/seleccion-rango.ts` |
 | Nombres de mes y de día, sin `Intl` (iguales en servidor y navegador) | `lib/fechas/etiquetas.ts` |
 | La casa del Director: tabla, quiénes comen y extras | `app/(app)/comidas/casa/` (`tabla-casa.tsx`, `burbuja-extra.tsx`, `[persona]/page.tsx`); textos y cálculos en `lib/comidas/casa.ts`; segunda y tercera persona en `lib/comidas/voz.ts` |
+| Colores y marcas de los tipos de evento | Tokens `--ev-*` en `app/globals.css`; `MARCA_TIPO`, `INICIAL_TIPO` y `varsTipo` en `lib/calendario/tipos.ts`; la marca, `app/(app)/calendario/_componentes/marca-tipo.tsx` |
+| Filtros del calendario | `filtros-calendario.tsx` (chips, interruptor y aviso) y `usar-filtros.ts` (el dispositivo); qué se ve, textos, nombre accesible del día, almacén y script previo al pintado, puros y con pruebas, en `lib/calendario/filtros.ts` |
 
 Decisiones tomadas al portar:
 
@@ -567,7 +635,14 @@ Decisiones tomadas al portar:
   (2)"*), `.sub-tabs`/`.sub-tab` (las vistas de una persona), `.celda-director`
   (lo que cambió el Director), `.persona-casa` (el nombre que abre su burbuja),
   `.celda-casa-marco` con `.extra-mas` (el *"+ Extra"* de cada comida, hermano del botón de la
-  celda) y `.fila-extra` (cada extra ya agregado, dentro de su burbuja).
+  celda) y `.fila-extra` (cada extra ya agregado, dentro de su burbuja). Con los filtros del
+  calendario, `.cal-event` sigue siendo el evento y su texto no cambia (la sigla es un `::before`); con
+  tipo lleva `data-tipo`, `data-marca` y `data-inicial` (Administración, nunca). Se suman la sección
+  nombrada *"Filtros"* (`.filtros-cal`, por su rol: `getByRole('region', { name: 'Filtros' })`), sus
+  chips `.chip-filtro[data-filtro]` (botones con `aria-pressed`, nombrados por el tipo: *"San
+  Miguel"*), el `switch` *"Solo eventos con pedido a cocina"*, el aviso `.aviso-filtros`, lo oculto de
+  un día (`.cal-ocultos` en la cuadrícula, `.aviso-ocultos-dia` en su diálogo) y `.zona-calendario`,
+  que envuelve filtros, aviso y tarjeta (`data-listo` una vez hidratada).
 - **La tabla de Administración se apila por el ancho de su tarjeta, no de la pantalla** (contenedor
   `tabla-admin` sobre `.admin-table-scroll`, umbral 34rem). En una media query el `rem` es siempre
   16px; en una consulta de contenedor sigue al tamaño de letra elegido, así que con letra "Muy
