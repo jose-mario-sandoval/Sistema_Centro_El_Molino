@@ -6,6 +6,7 @@ import { Icono } from '@/components/ui/iconos'
 import { Modal } from '@/components/ui/modal'
 import { fallo } from '@/lib/acciones/resultado'
 import type { DiaConEtiqueta } from '@/lib/calendario/cuadricula'
+import { eventoVisible, filtrarEventos, type Filtro } from '@/lib/calendario/filtros'
 import type { Evento } from '@/lib/calendario/tipos'
 import { horaHHMM } from '@/lib/fechas'
 import { eliminarEvento, eliminarSerieDesdeHoy } from '../acciones'
@@ -15,11 +16,14 @@ import { InsigniasEvento } from './insignias-evento'
 
 function FilaEvento({
   evento,
+  oculto,
   puedeEditar,
   alEditar,
   enfocarDialogo,
 }: {
   evento: Evento
+  /** Oculto por los filtros: se ve porque se pidió "Mostrarlos" en este día. */
+  oculto: boolean
   puedeEditar: boolean
   alEditar: () => void
   enfocarDialogo: () => void
@@ -80,7 +84,7 @@ function FilaEvento({
     <div className="cal-evento-fila">
       <div className="cal-evento-texto">
         {evento.hora && <b>{horaHHMM(evento.hora)}</b>} <span>{evento.titulo}</span>
-        <InsigniasEvento evento={evento} />
+        <InsigniasEvento evento={evento} oculto={oculto} />
       </div>
       {puedeEditar && (
         <div className="cal-evento-acciones">
@@ -154,13 +158,16 @@ function FilaEvento({
 export function ModalDia({
   dia,
   eventos,
+  ocultos = [],
   puedeEditar,
   paraCocina,
   ausente = false,
   alCerrar,
 }: {
   dia: DiaConEtiqueta
+  /** Todos los eventos del día; los filtros (`ocultos`) deciden cuáles se listan. */
   eventos: Evento[]
+  ocultos?: readonly Filtro[]
   puedeEditar: boolean
   /** Administración: la lista es lo que debe preparar la cocina, no los eventos de la casa. */
   paraCocina: boolean
@@ -169,7 +176,11 @@ export function ModalDia({
   alCerrar: () => void
 }) {
   const [editandoId, setEditandoId] = useState<string | null>(null)
-  const editando = puedeEditar && eventos.some((e) => e.id === editandoId)
+  // "Mostrarlos": los eventos ocultos por los filtros se ven en este día, sin cambiar los filtros.
+  const [verOcultos, setVerOcultos] = useState(false)
+  const filtrados = filtrarEventos(eventos, ocultos)
+  const aListar = verOcultos ? eventos : filtrados.visibles
+  const editando = puedeEditar && aListar.some((e) => e.id === editandoId)
   const lista = useRef<HTMLDivElement>(null)
 
   /**
@@ -193,19 +204,45 @@ export function ModalDia({
           <span>Marcaste que no vas a estar este día. Tus comidas están canceladas.</span>
         </div>
       )}
+      {filtrados.ocultos > 0 && !verOcultos && (
+        <div className="aviso-ocultos-dia">
+          <Icono nombre="oculto" />
+          <span>
+            {filtrados.ocultos === 1
+              ? 'Hay 1 evento oculto por los filtros.'
+              : `Hay ${filtrados.ocultos} eventos ocultos por los filtros.`}
+          </span>
+          <button
+            type="button"
+            className="btn ghost small"
+            onClick={() => {
+              // El botón desaparece: el foco vuelve al diálogo, no a <body>.
+              enfocarDialogo()
+              setVerOcultos(true)
+            }}
+          >
+            {filtrados.ocultos === 1 ? 'Mostrarlo' : 'Mostrarlos'}
+          </button>
+        </div>
+      )}
       <div ref={lista} className="cal-evento-lista">
-        {eventos.length === 0 ? (
+        {aListar.length === 0 ? (
           <div className="empty-state">
-            {paraCocina ? 'No hay nada para la cocina este día.' : 'No hay eventos este día.'}
+            {paraCocina
+              ? 'No hay nada para la cocina este día.'
+              : filtrados.ocultos > 0
+                ? 'No hay eventos a la vista este día.'
+                : 'No hay eventos este día.'}
           </div>
         ) : (
-          eventos.map((evento) =>
+          aListar.map((evento) =>
             editando && evento.id === editandoId ? (
               <FormularioEditarEvento key={evento.id} evento={evento} alTerminar={terminarEdicion} />
             ) : (
               <FilaEvento
                 key={evento.id}
                 evento={evento}
+                oculto={!eventoVisible(evento, ocultos)}
                 puedeEditar={puedeEditar}
                 alEditar={() => setEditandoId(evento.id)}
                 enfocarDialogo={enfocarDialogo}

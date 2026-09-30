@@ -4,6 +4,7 @@ import {
   alternarFiltro,
   atributoOcultos,
   CLAVE_FILTROS,
+  crearAlmacenOcultos,
   escribirOcultos,
   etiquetaDiaCalendario,
   eventoVisible,
@@ -250,5 +251,76 @@ describe('SCRIPT_FILTROS_CALENDARIO', () => {
 
   it('no nombra categorías ni ausencias: va en el HTML de todas las páginas, también en las de Administración', () => {
     expect(SCRIPT_FILTROS_CALENDARIO).not.toMatch(/ausen|rafael|gabriel|miguel|otro/i)
+  })
+})
+
+describe('crearAlmacenOcultos', () => {
+  function almacenFalso(inicial: Record<string, string> = {}) {
+    const datos = new Map(Object.entries(inicial))
+    return {
+      datos,
+      getItem: (clave: string) => datos.get(clave) ?? null,
+      setItem: (clave: string, valor: string) => void datos.set(clave, valor),
+    }
+  }
+  const bloqueado = {
+    getItem: (): string | null => {
+      throw new Error('SecurityError')
+    },
+    setItem: () => {
+      throw new Error('QuotaExceededError')
+    },
+  }
+
+  it('lee lo guardado en el dispositivo', () => {
+    const almacen = crearAlmacenOcultos(() => almacenFalso({ [CLAVE_FILTROS]: '{"ocultos":["otro"]}' }))
+    expect(leerOcultos(almacen.leer())).toEqual(['otro'])
+  })
+
+  it('sin nada guardado: todo a la vista', () => {
+    const almacen = crearAlmacenOcultos(() => almacenFalso())
+    expect(leerOcultos(almacen.leer())).toEqual([])
+  })
+
+  it('guarda, avisa a quien escucha y lo vuelve a leer', () => {
+    const falso = almacenFalso()
+    const almacen = crearAlmacenOcultos(() => falso)
+    let avisos = 0
+    const dejar = almacen.suscribir(() => avisos++)
+    almacen.guardar(escribirOcultos(['san_miguel']))
+    expect(falso.datos.get(CLAVE_FILTROS)).toBe('{"ocultos":["san_miguel"]}')
+    expect(leerOcultos(almacen.leer())).toEqual(['san_miguel'])
+    expect(avisos).toBe(1)
+    dejar()
+    almacen.guardar(escribirOcultos([]))
+    expect(avisos).toBe(1)
+  })
+
+  it('con el almacenamiento bloqueado no rompe: arranca mostrando todo y recuerda lo elegido en esta visita', () => {
+    const almacen = crearAlmacenOcultos(() => bloqueado)
+    expect(leerOcultos(almacen.leer())).toEqual([])
+    expect(() => almacen.guardar(escribirOcultos(['ausencias']))).not.toThrow()
+    expect(leerOcultos(almacen.leer())).toEqual(['ausencias'])
+  })
+
+  it('sin localStorage (el navegador no lo ofrece) tampoco rompe', () => {
+    const almacen = crearAlmacenOcultos(() => {
+      throw new ReferenceError('localStorage is not defined')
+    })
+    expect(almacen.leer()).toBe('')
+    expect(() => almacen.guardar('{"ocultos":["otro"]}')).not.toThrow()
+    expect(leerOcultos(almacen.leer())).toEqual(['otro'])
+  })
+
+  it('lo que cambió en otra pestaña manda sobre lo recordado en esta', () => {
+    const almacen = crearAlmacenOcultos(() => bloqueado)
+    almacen.guardar(escribirOcultos(['otro']))
+    let avisos = 0
+    almacen.suscribir(() => avisos++)
+    almacen.desdeOtraPestana('{"ocultos":["san_rafael"]}')
+    expect(leerOcultos(almacen.leer())).toEqual(['san_rafael'])
+    almacen.desdeOtraPestana(null)
+    expect(leerOcultos(almacen.leer())).toEqual([])
+    expect(avisos).toBe(2)
   })
 })

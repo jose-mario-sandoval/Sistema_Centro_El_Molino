@@ -3,6 +3,7 @@ import {
   alternarRequerimiento,
   ETIQUETA_TIPO,
   eventoParaAdministracion,
+  INICIAL_TIPO,
   MARCA_TIPO,
   tienePedido,
   TIPOS_EVENTO,
@@ -121,6 +122,17 @@ describe('MARCA_TIPO', () => {
         .join('')
       expect(MARCA_TIPO[t]).toBe(iniciales)
     }
+  })
+})
+
+describe('INICIAL_TIPO', () => {
+  it('lo que queda de la marca cuando la sigla no entra (cuadrícula en un teléfono angosto): la inicial del arcángel', () => {
+    expect(INICIAL_TIPO).toEqual({ san_rafael: 'R', san_gabriel: 'G', san_miguel: 'M', otro: '' })
+  })
+
+  it('las iniciales también se distinguen entre sí', () => {
+    const iniciales = TIPOS_EVENTO.map((t) => INICIAL_TIPO[t])
+    expect(new Set(iniciales).size).toBe(TIPOS_EVENTO.length)
   })
 })
 

@@ -70,6 +70,14 @@ const TRAZOS = {
       <path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M3 13h18" />
     </>
   ),
+  // Ojo tachado: algo que está oculto por los filtros del calendario (siempre junto a su texto).
+  oculto: (
+    <>
+      <path d="M2 12s3.5-7 10-7c1.6 0 3 .4 4.2 1M21.5 10.5C20.4 12.6 17 19 12 19c-1.7 0-3.2-.5-4.5-1.2" />
+      <path d="M9.9 14.1a3 3 0 0 1 4.2-4.2" />
+      <path d="M3 21L21 3" />
+    </>
+  ),
   // Chinche: una publicación fijada arriba del feed.
   fijar: (
     <>

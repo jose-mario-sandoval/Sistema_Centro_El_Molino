@@ -115,6 +115,49 @@ export function etiquetaDiaCalendario({
   return partes.join(', ')
 }
 
+type Almacenamiento = Pick<Storage, 'getItem' | 'setItem'>
+
+/**
+ * Lo elegido en este dispositivo, como texto (lo lee `leerOcultos`). Nunca rompe: si localStorage
+ * está bloqueado o lleno, el filtro funciona igual en esta visita porque lo último elegido queda en
+ * memoria. `almacenamiento` es una función para que ni siquiera tocar `localStorage` pueda lanzar.
+ */
+export function crearAlmacenOcultos(almacenamiento: () => Almacenamiento) {
+  let enMemoria: string | null = null
+  const oyentes = new Set<() => void>()
+  const avisar = () => oyentes.forEach((oyente) => oyente())
+  return {
+    leer(): string {
+      if (enMemoria !== null) return enMemoria
+      try {
+        return almacenamiento().getItem(CLAVE_FILTROS) ?? ''
+      } catch {
+        return ''
+      }
+    },
+    guardar(texto: string) {
+      enMemoria = texto
+      try {
+        almacenamiento().setItem(CLAVE_FILTROS, texto)
+      } catch {
+        // Bloqueado o lleno: queda en memoria para esta visita.
+      }
+      avisar()
+    },
+    /** Cambió en otra pestaña (evento `storage`): eso manda. null = lo borraron. */
+    desdeOtraPestana(texto: string | null) {
+      enMemoria = texto ?? ''
+      avisar()
+    },
+    suscribir(oyente: () => void): () => void {
+      oyentes.add(oyente)
+      return () => {
+        oyentes.delete(oyente)
+      }
+    },
+  }
+}
+
 /** Lo que va en html[data-cal-oculta] (ver SCRIPT_FILTROS_CALENDARIO), o null si no hay nada oculto. */
 export function atributoOcultos(ocultos: readonly Filtro[]): string | null {
   return ocultos.length ? ordenar(ocultos).join(' ') : null

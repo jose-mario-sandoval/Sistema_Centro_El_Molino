@@ -26,6 +26,17 @@ export const MARCA_TIPO: Record<TipoEvento, string> = {
 }
 
 /**
+ * Lo que queda de la marca donde la sigla no entra: en la cuadrícula del mes en un teléfono angosto o
+ * con letra grande (la letra nunca baja de --t-xs, DESIGN.md §4). "Otro" es un punto gris sin letra.
+ */
+export const INICIAL_TIPO: Record<TipoEvento, string> = {
+  san_rafael: 'R',
+  san_gabriel: 'G',
+  san_miguel: 'M',
+  otro: '',
+}
+
+/**
  * Colores del tipo como variables --ev / --ev-bg, que globals.css usa para el tinte, el texto, el
  * borde y la marca. Los tokens --ev-<tipo> y --ev-<tipo>-bg se nombran por interpolación: no
  * renombrarlos. Solo para quien conoce el tipo: Administración nunca lo recibe.
