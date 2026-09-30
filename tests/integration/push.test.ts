@@ -211,3 +211,37 @@ describe('historial de pg_cron', () => {
     })
   })
 })
+
+describe('preferencias de avisos: cambios del Director y cocina', () => {
+  it('avisar_cambios y avisar_cocina existen, no admiten nulo y valen true por defecto', async () => {
+    const { rows } = await conPostgres((c) =>
+      c.query<{ column_name: string; is_nullable: string; column_default: string }>(
+        `select column_name, is_nullable, column_default from information_schema.columns
+          where table_schema = 'public' and table_name = 'perfiles'
+            and column_name in ('avisar_cambios', 'avisar_cocina')
+          order by column_name`,
+      ),
+    )
+    expect(rows).toEqual([
+      { column_name: 'avisar_cambios', is_nullable: 'NO', column_default: 'true' },
+      { column_name: 'avisar_cocina', is_nullable: 'NO', column_default: 'true' },
+    ])
+  })
+
+  it('con sesión nadie las cambia directo, ni las propias ni las de otra persona (solo el servidor)', async () => {
+    const residente = await clienteComo('residente')
+    const propia = await residente.from('perfiles').update({ avisar_cambios: false }).eq('id', ids.residente).select('id')
+    expect(propia.error?.code).toBe('42501')
+
+    const administracion = await clienteComo('administracion')
+    const ajena = await administracion
+      .from('perfiles')
+      .update({ avisar_cocina: false, avisar_cambios: false })
+      .eq('id', ids.residente)
+      .select('id')
+    expect(ajena.error?.code).toBe('42501')
+
+    const { data } = await admin.from('perfiles').select('avisar_cambios, avisar_cocina').eq('id', ids.residente).single()
+    expect(data).toEqual({ avisar_cambios: true, avisar_cocina: true })
+  })
+})

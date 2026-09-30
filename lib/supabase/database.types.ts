@@ -344,6 +344,8 @@ export type Database = {
           apariencia_contraste: string | null
           apariencia_tema: string | null
           apariencia_texto: string | null
+          avisar_cambios: boolean
+          avisar_cocina: boolean
           avisar_hora_limite: boolean
           avisar_mensajes: boolean
           correo: string
@@ -359,6 +361,8 @@ export type Database = {
           apariencia_contraste?: string | null
           apariencia_tema?: string | null
           apariencia_texto?: string | null
+          avisar_cambios?: boolean
+          avisar_cocina?: boolean
           avisar_hora_limite?: boolean
           avisar_mensajes?: boolean
           correo: string
@@ -374,6 +378,8 @@ export type Database = {
           apariencia_contraste?: string | null
           apariencia_tema?: string | null
           apariencia_texto?: string | null
+          avisar_cambios?: boolean
+          avisar_cocina?: boolean
           avisar_hora_limite?: boolean
           avisar_mensajes?: boolean
           correo?: string

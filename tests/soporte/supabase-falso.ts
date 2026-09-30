@@ -88,6 +88,8 @@ export function perfilDePrueba(id: string, rol: Rol): Perfil {
     activo: true,
     debe_cambiar_contrasena: false,
     avisar_hora_limite: true,
+    avisar_cambios: true,
+    avisar_cocina: true,
     avisar_mensajes: true,
     apariencia_tema: null,
     apariencia_contraste: null,
