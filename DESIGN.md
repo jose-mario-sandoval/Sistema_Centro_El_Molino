@@ -458,6 +458,19 @@ principal para que un lector de pantalla anuncie dónde quedó la persona.
   o pasar a otra comida no cierran y preguntan *"¿Agregar o descartar?"*; Escape descarta. La
   pregunta y sus dos respuestas aparecen **debajo** de *"Agregar"* y *"Cerrar"*, que no se mueven: un
   doble toque en *"Cerrar"* cae dos veces en *"Cerrar"* (sigue preguntando), nunca en *"Descartar"*.
+- **Instalar la app: una franja arriba del contenido, no un modal, y nunca en la computadora.** En el
+  teléfono o la tablet, mientras la app se usa desde el navegador, la primera tarjeta del contenido
+  (elevada, icono del teléfono + *"Instalá El Molino en tu teléfono"* + para qué sirve) ofrece
+  *"Instalar"* y *"Ahora no"*. Donde el navegador sabe instalar (Android, Chrome, Edge),
+  *"Instalar"* abre su diálogo; en iPhone y iPad despliega **en el lugar** una bandeja hundida con
+  tres pasos, cada uno con su dibujo (el teléfono con la barra donde está Compartir, abajo o arriba
+  según el aparato; el cuadrado con el más; el ícono nuevo), su número y su texto; en los demás, la
+  instrucción del menú. *"Ahora no"* la guarda una semana y la tarjeta *"Instalar la app"* de Ajustes
+  queda para después. Se ve desde el primer pintado (lo decide un script de `<head>`, como la
+  apariencia): nada salta cuando carga. Ya instalada, la misma franja ofrece *"Activá los avisos en
+  este teléfono"* (también con *"Ahora no"*) y el permiso se pide recién al tocar. Si el ancho no
+  alcanza (320px o letra grande) el icono sube sobre el título y el dibujo de cada paso sobre su
+  texto, por consulta de contenedor en `rem`; la letra no se achica.
 
 ---
 
@@ -544,6 +557,7 @@ El diseño ya está en la app Next.js. Dónde vive cada pieza:
 | Mini calendario para marcar un rango de días (ausencias) | `components/ui/mini-calendario.tsx`; su lógica pura (toques, teclado, límites, resumen) en `lib/calendario/seleccion-rango.ts` |
 | Nombres de mes y de día, sin `Intl` (iguales en servidor y navegador) | `lib/fechas/etiquetas.ts` |
 | La casa del Director: tabla, quiénes comen y extras | `app/(app)/comidas/casa/` (`tabla-casa.tsx`, `burbuja-extra.tsx`, `[persona]/page.tsx`); textos y cálculos en `lib/comidas/casa.ts`; segunda y tercera persona en `lib/comidas/voz.ts` |
+| Instalar la app y activar los avisos (franja de arriba y tarjeta de Ajustes) | `components/app/invitaciones.tsx`, `components/app/instalar.tsx`; qué mostrar, pasos y script de `<head>`, puros y con pruebas, en `lib/pwa/instalar.ts`; el evento del navegador en `lib/pwa/instalacion.ts` |
 
 Decisiones tomadas al portar:
 

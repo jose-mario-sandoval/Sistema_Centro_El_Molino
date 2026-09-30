@@ -127,35 +127,57 @@ generada con `ImageResponse` (sin tocar `components/app/monograma.tsx`, que camb
 
 ## Tareas
 
-- [ ] **1. Migración y tipos.** `20260929120000_preferencias_avisos.sql`; probar en el banco local
+- [x] **1. Migración y tipos.** `20260929120000_preferencias_avisos.sql`; probar en el banco local
   (`banco_avisos`): columnas y valor por defecto, `authenticated` no puede actualizar `perfiles`
   (ni la propia ni la ajena). Integración en `tests/integration/push.test.ts`. Tipos editados a mano
   en el formato del generador.
-- [ ] **2. Preferencias (TDD).** Validación, acción (solo la propia fila, solo lo que llega), UI por
+- [x] **2. Preferencias (TDD).** Validación, acción (solo la propia fila, solo lo que llega), UI por
   rol, `perfilDePrueba` y fixtures con las columnas nuevas.
-- [ ] **3. Destinatarios (TDD).** `destinatariosPendiente`, `destinatarioModeracion`,
+- [x] **3. Destinatarios (TDD).** `destinatariosPendiente`, `destinatarioModeracion`,
   `destinatarioCambio`, `destinatariosCocina` en `lib/push/destinatarios.ts`.
-- [ ] **4. Textos (TDD).** (a) y (b) en `lib/push/mensajes-push.ts`; (c) y (d) en
+- [x] **4. Textos (TDD).** (a) y (b) en `lib/push/mensajes-push.ts`; (c) y (d) en
   `lib/push/cargas-casa.ts`, con `lib/fechas` y `lib/comidas`; `esUltimoMomento`; qué cambió en un
   evento para la cocina (`cambioPedidoCocina`).
-- [ ] **5. Envíos (TDD).** `avisarMensajePendiente`, `avisarModeracion` en `lib/push/avisos.ts`;
+- [x] **5. Envíos (TDD).** `avisarMensajePendiente`, `avisarModeracion` en `lib/push/avisos.ts`;
   `avisarCambioDelDirector`, `avisarExtraCocina`, `avisarPedidoCocina`, `avisarSerieCocina` en
   `lib/push/avisos-casa.ts`. Cliente admin falso, `enviarAUsuarios` espiado.
-- [ ] **6. Acciones (TDD).** `after()` en mensajes (publicar/responder pendiente, editar rechazado,
+- [x] **6. Acciones (TDD).** `after()` en mensajes (publicar/responder pendiente, editar rechazado,
   moderar), comidas (seleccion/volver/plan con otro objetivo), ausencias, extras y eventos (crear,
   editar, eliminar, serie, cancelar serie).
-- [ ] **7. Instalación, lógica pura (TDD).** `lib/pwa/instalar.ts`: `esTelefonoOTablet`,
+- [x] **7. Instalación, lógica pura (TDD).** `lib/pwa/instalar.ts`: `esTelefonoOTablet`,
   `puedeSerMovil` (servidor), `varianteInstalar`, `pasosIOS`, descarte de 7 días,
   `debeOfrecerInstalar`, `debeOfrecerAvisos`, `SCRIPT_INSTALACION` (+ prueba que lo compara).
-- [ ] **8. Instalación, cliente.** Almacén del evento (`lib/pwa/instalacion.ts`), `InvitacionInstalar`,
+- [x] **8. Instalación, cliente.** Almacén del evento (`lib/pwa/instalacion.ts`), `InvitacionInstalar`,
   `OfrecerAvisos`, tarjeta de Ajustes, script en `app/layout.tsx`, `related_applications` en el
   manifest, CSS (claro/oscuro/alto/enorme, 320px).
-- [ ] **9. Insignia.** `app/iconos/insignia/route.tsx`, `sw.js`, e2e de rutas públicas.
-- [ ] **10. E2E.** `tests/e2e/instalar.spec.ts`: franja en teléfono Android con evento sintético
+- [x] **9. Insignia.** `app/iconos/insignia/route.tsx`, `sw.js`, e2e de rutas públicas.
+- [x] **10. E2E.** `tests/e2e/instalar.spec.ts`: franja en teléfono Android con evento sintético
   (`prompt()` espiado, `appinstalled`), "Ahora no" y recarga, nunca en escritorio, variante iOS con
   los tres pasos; preferencias por rol en Ajustes que persisten.
-- [ ] **11. Verificación visual.** Banco con esbuild (como en PR anteriores): franja (3 variantes,
+- [x] **11. Verificación visual.** Banco con esbuild (como en PR anteriores): franja (3 variantes,
   pasos abiertos, listo), tarjeta de avisos y Ajustes, a 320/375/768 × claro/oscuro/alto/enorme.
-- [ ] **12. Documentación.** DESIGN.md (la franja de instalar) y spec §8 (avisos nuevos).
-- [ ] **13. Cierre.** lint, typecheck, unit, build; push; PR con la migración y el checklist de
+- [x] **12. Documentación.** DESIGN.md (la franja de instalar) y spec §8 (avisos nuevos).
+- [x] **13. Cierre.** lint, typecheck, unit, build; push; PR con la migración y el checklist de
   producción; CI; tipos desde el artefacto si difieren.
+
+---
+
+## Al implementar
+
+- El emoji 📲 del texto pedido se reemplazó por el icono del teléfono con la flecha (SVG,
+  `components/ui/iconos.tsx`): un emoji cambia de dibujo según el teléfono y no sigue el color ni el
+  contraste alto.
+- El título de la franja es un `<p>` que nombra la región, no un `<h2>`: va antes del `<h1>` de cada
+  página y un encabezado ahí desordenaba el esquema para el lector de pantalla.
+- Al cerrar la franja ("Ahora no", "Entendido") el foco pasa al `<h1>` de la página; tras instalar,
+  a "Entendido". Los botones ocupados usan `aria-disabled`, no `disabled` (DESIGN.md §10).
+- Ajustes: el recuadro con los pasos de iPhone que tenía `DispositivoPush` (estado `ios-instalar`)
+  pasa a remitir a la tarjeta "Instalar la app", para no repetir los mismos pasos dos veces.
+- El aviso de un cambio de plan abre `/comidas/plan` (donde está la marca "Director" en la celda);
+  los de comidas, la semana de esa fecha; los de ausencias y eventos, el calendario de ese mes.
+- `enviarConAutor` ya no llama a `enviarAUsuarios` con una lista vacía (mismo resultado, un envío
+  menos que registrar).
+- Verificado en el banco visual (esbuild + Playwright, fuera del repo) a 320/375/768 × claro,
+  oscuro, contraste alto y letra enorme: sin scroll lateral, sin desbordes, botones ≥56px y letra
+  nunca bajo `--t-xs`; los flujos del e2e (evento sintético, "Ahora no" + recarga, pasos de iOS)
+  pasan contra el banco. El e2e completo (con sesión) corre en CI.
