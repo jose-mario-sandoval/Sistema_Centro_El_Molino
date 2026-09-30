@@ -499,7 +499,7 @@ test('el Director ve los filtros con el color de cada tipo, oculta San Miguel, s
   const { error } = await clienteAdminPrueba()
     .from('eventos')
     .insert([
-      { titulo: 'Misa filtrable', fecha: hoy, hora: '08:00', tipo: 'san_miguel', creado_por: ids.director },
+      { titulo: 'Misa filtrable', fecha: hoy, hora: '08:00', tipo: 'san_miguel', requiere_cocina: [], creado_por: ids.director },
       { titulo: 'Charla a la vista', fecha: hoy, hora: '10:00', tipo: 'san_rafael', requiere_cocina: ['merienda'], creado_por: ids.director },
     ])
   expect(error).toBeNull()
@@ -569,8 +569,8 @@ test('«Solo eventos con pedido a cocina» deja los que piden algo, también por
     .from('eventos')
     .insert([
       { titulo: 'Con merienda', fecha: hoy, hora: '09:00', tipo: 'san_rafael', requiere_cocina: ['merienda'], creado_por: ids.director },
-      { titulo: 'Sin pedido', fecha: hoy, hora: '10:00', tipo: 'otro', creado_por: ids.director },
-      { titulo: 'Con sillas', fecha: hoy, hora: '11:00', tipo: 'san_gabriel', requiere_otro_texto: '10 sillas', creado_por: ids.director },
+      { titulo: 'Sin pedido', fecha: hoy, hora: '10:00', tipo: 'otro', requiere_cocina: [], creado_por: ids.director },
+      { titulo: 'Con sillas', fecha: hoy, hora: '11:00', tipo: 'san_gabriel', requiere_cocina: [], requiere_otro_texto: '10 sillas', creado_por: ids.director },
     ])
   expect(error).toBeNull()
 
