@@ -9,9 +9,11 @@ import {
   alternarRequerimiento,
   REQUERIMIENTOS_COCINA,
   TIPOS_EVENTO,
+  varsTipo,
   type RequerimientoCocina,
   type TipoEvento,
 } from '@/lib/calendario/tipos'
+import { MarcaTipo } from './marca-tipo'
 
 const ICONO: Record<RequerimientoCocina, NombreIcono> = { merienda: 'merienda', comida: 'comidas', materiales: 'materiales' }
 
@@ -53,8 +55,9 @@ export function CamposTipoYCocina({
       <fieldset className="grupo-campo">
         <legend>Tipo de evento</legend>
         <div className="opciones-pastilla">
+          {/* Cada tipo con su color y su marca, los mismos del calendario y de los filtros. */}
           {TIPOS_EVENTO.map((t) => (
-            <label key={t} className="opcion-pastilla">
+            <label key={t} className="opcion-pastilla opcion-tipo" style={varsTipo(t)}>
               <input
                 type="radio"
                 name="tipo"
@@ -63,7 +66,10 @@ export function CamposTipoYCocina({
                 onChange={() => alCambiarTipo(t)}
                 required
               />
-              <span>{ETIQUETA_TIPO[t]}</span>
+              <span>
+                <MarcaTipo tipo={t} />
+                {ETIQUETA_TIPO[t]}
+              </span>
             </label>
           ))}
         </div>
