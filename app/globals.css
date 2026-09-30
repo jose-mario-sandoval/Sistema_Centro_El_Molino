@@ -234,12 +234,8 @@ a{color:var(--acento);}
 
 #app-screen{display:flex;min-height:100vh;}
 
-.monograma{
-  width:3rem;height:3rem;flex:0 0 auto;border-radius:var(--r-sm);
-  display:grid;place-items:center;
-  background:var(--acento);color:var(--acento-tinta);
-  font-family:var(--fuente-display);font-weight:700;font-size:var(--t-base);
-}
+/* El escudo de El Molino (components/app/escudo.tsx): el alto lo pone cada lugar, el ancho sigue la proporción. */
+.escudo{display:block;flex:0 0 auto;height:3.25rem;width:auto;}
 
 .sidebar{
   width:16rem;flex:0 0 auto;padding:1.5rem 1rem;
@@ -1370,7 +1366,7 @@ button.comida-tarjeta[aria-busy="true"]{cursor:progress;}
 .login-apariencia{position:absolute;top:calc(1rem + env(safe-area-inset-top, 0px));right:var(--canal);}
 .login-wrap{width:100%;max-width:27rem;display:flex;flex-direction:column;gap:1.75rem;}
 .login-intro{text-align:center;display:flex;flex-direction:column;align-items:center;gap:.6rem;}
-.login-intro .monograma{width:4rem;height:4rem;font-size:var(--t-lg);margin-bottom:.4rem;}
+.login-intro .escudo{height:6rem;margin-bottom:.4rem;}
 .login-intro .eyebrow{color:var(--dorado);font-size:var(--t-sm);font-weight:700;}
 .login-intro h1{font-size:var(--t-2xl);}
 .login-intro p{color:var(--tinta-suave);font-size:var(--t-sm);max-width:36ch;}
@@ -1389,9 +1385,9 @@ button.comida-tarjeta[aria-busy="true"]{cursor:progress;}
     display:flex;align-items:center;gap:.75rem;
     padding-block:1rem .25rem;padding-inline:var(--canal);
   }
-  /* La barra superior no crece con la letra: con "Muy grande" en 320px no entraría. El monograma
+  /* La barra superior no crece con la letra: con "Muy grande" en 320px no entraría. El escudo
      y el avatar no se tocan, así que van en px; el nombre cede y se recorta si hace falta. */
-  .topbar .monograma{width:44px;height:44px;font-size:17px;}
+  .topbar .escudo{height:44px;}
   .topbar .name{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--fuente-display);font-weight:600;}
   .topbar-acciones{display:flex;align-items:center;gap:.6rem;flex:0 0 auto;}
   .topbar .avatar{width:44px;height:44px;font-size:15px;}

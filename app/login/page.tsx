@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation'
+import { Escudo } from '@/components/app/escudo'
 import { BotonApariencia } from '@/components/ui/apariencia'
 import { obtenerPerfilActual } from '@/lib/auth/sesion'
 import { FormularioLogin } from './formulario-login'
@@ -16,9 +17,7 @@ export default async function PaginaLogin() {
       </div>
       <div className="login-wrap">
         <div className="login-intro">
-          <span className="monograma" aria-hidden="true">
-            EM
-          </span>
+          <Escudo />
           <h1>Centro El Molino</h1>
           <p>Comida, mensajes y calendario, coordinados entre las dos partes de la casa.</p>
         </div>
