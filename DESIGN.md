@@ -536,6 +536,7 @@ El diseño ya está en la app Next.js. Dónde vive cada pieza:
 | Controles de apariencia y botón "Aa" | `components/ui/apariencia.tsx` |
 | Iconos (uno por estado de comida) | `components/ui/iconos.tsx` |
 | Lateral, barra superior y barra inferior | `components/app/estructura.tsx`, `components/app/navegacion.tsx` |
+| Marca: el escudo de El Molino (lateral, barra superior, inicio de sesión) | `components/app/escudo.tsx` con `components/app/marca/escudo.png`; íconos de la app (teléfono, Apple) en `components/app/monograma.tsx`; pestaña del navegador `app/icon.png` |
 | La burbuja (junto a lo que se tocó: portal, posición, foco, cierre) | `components/ui/burbuja.tsx`; dónde va y cuánto desplazar, puro y con pruebas, en `lib/burbuja.ts` |
 | La interacción única de comidas | `app/(app)/comidas/_componentes/panel-opciones.tsx` (seis opciones) y `editor-nota.tsx` (hora o nota); `contenido-comida.tsx` las compone dentro de la burbuja de una comida de un día (Semana y La casa), con el guardado optimista de `usar-comida-del-dia.ts` |
 | Plan semanal: la cuadrícula editable | `plan-editable.tsx`; guardado por celda en `usar-plan-editable.ts`; claves, títulos y nombres accesibles en `lib/comidas/plan.ts` |
@@ -588,7 +589,13 @@ Decisiones tomadas al portar:
   En el login no hay cuenta: ahí solo se guarda en el dispositivo.
 - **El diálogo de un día del calendario enfoca el diálogo y no su campo de texto**, para que el
   teléfono no abra el teclado sin que nadie lo pida (defecto anotado en el checklist de lanzamiento).
+- **La marca es el escudo del Centro Cultural, y el nombre va escrito aparte.** El logo original
+  trae "EL MOLINO / CENTRO CULTURAL" en azul oscuro, que en modo oscuro no se lee: en pantalla se usa
+  solo el escudo (imagen decorativa, `alt=""`) y el nombre es texto real que sigue el tema. Los
+  íconos de la app lo ponen sobre el crema de fondo, con la zona segura de los maskable. El archivo
+  que hay mide 68×81 px: en los usos grandes (inicio de sesión, ícono de 512 px) se ve blando hasta
+  que llegue una versión en alta resolución o SVG, que se cambia en `components/app/marca/`.
 - **Dos reglas más que salieron de verificar la app** en 320px con letra "Muy grande": la barra
-  superior (monograma y avatar) va en px y el nombre se recorta, porque si creciera con la letra no
+  superior (escudo y avatar) va en px y el nombre se recorta, porque si creciera con la letra no
   entraría; y en Mensajes el avatar va en la línea del nombre, porque mensaje, hilo y respuesta
   anidados reservaban cada uno una columna y a la respuesta le quedaban ~90px.
