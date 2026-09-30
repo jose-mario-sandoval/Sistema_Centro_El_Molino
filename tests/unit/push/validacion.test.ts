@@ -78,4 +78,16 @@ describe('esquemaPreferenciasAvisos', () => {
     expect(esquemaPreferenciasAvisos.safeParse({ avisarHoraLimite: 'si', avisarMensajes: false }).success).toBe(false)
     expect(esquemaPreferenciasAvisos.safeParse({ avisarMensajes: true }).success).toBe(false)
   })
+
+  it('acepta los avisos nuevos (cambios del Director, cocina) como opcionales y booleanos', () => {
+    const base = { avisarHoraLimite: true, avisarMensajes: false }
+    expect(esquemaPreferenciasAvisos.parse({ ...base, avisarCambios: false, avisarCocina: true })).toEqual({
+      ...base,
+      avisarCambios: false,
+      avisarCocina: true,
+    })
+    expect(esquemaPreferenciasAvisos.parse(base)).toEqual(base)
+    expect(esquemaPreferenciasAvisos.safeParse({ ...base, avisarCambios: 'no' }).success).toBe(false)
+    expect(esquemaPreferenciasAvisos.safeParse({ ...base, avisarCocina: null }).success).toBe(false)
+  })
 })
