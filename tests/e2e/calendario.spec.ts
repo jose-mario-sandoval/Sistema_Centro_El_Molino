@@ -8,6 +8,7 @@ import {
   USUARIOS_PRUEBA,
   type ClaveUsuario,
 } from '../soporte/usuarios-prueba'
+import { esperarAltoMinimo, esperarSinScrollLateral } from '../soporte/medidas-e2e'
 import { irAlMesDe, panelAusencias } from './soporte/ausencias'
 
 async function iniciarSesion(page: Page, clave: ClaveUsuario) {
@@ -204,19 +205,31 @@ test('Administración ve lo que la cocina debe preparar, sin título ni tipo', a
   expect(error).toBeNull()
 
   await iniciarSesion(page, 'administracion')
+  // Aunque el dispositivo tenga filtros guardados (lo usó antes alguien de la casa), a la cocina no le aplican.
+  await page.evaluate(() => localStorage.setItem('molino-calendario', '{"ocultos":["san_rafael","sin_pedido"]}'))
   await page.goto('/calendario')
   await expect(page.getByText('Lo que la casa necesita de la cocina')).toBeVisible()
 
-  await page.locator(`.cal-day[data-fecha="${hoy}"]`).click()
+  // Sin filtros ni nada que delate la categoría: ni chips, ni marcas, ni colores por tipo.
+  await expect(page.getByRole('region', { name: 'Filtros' })).toHaveCount(0)
+  await expect(page.getByRole('switch')).toHaveCount(0)
+  await expect(page.locator('[data-tipo], [data-marca], .marca-tipo, .chip-filtro, .aviso-filtros')).toHaveCount(0)
+  const celdaHoy = page.locator(`.cal-day[data-fecha="${hoy}"]`)
+  await expect(celdaHoy.locator('.cal-event')).toHaveText(['16:00 Merienda y comida'])
+  await expect(celdaHoy).toHaveAttribute('aria-label', /, 1 pedido para la cocina$/)
+
+  await celdaHoy.click()
   const modal = page.getByRole('dialog')
   await expect(modal.getByText('Merienda y comida')).toBeVisible()
   await expect(modal.getByText('16:00')).toBeVisible()
   // El evento que no pide nada a la cocina no aparece, ni su hora.
   await expect(modal.getByText('09:00')).toHaveCount(0)
+  await expect(modal.getByText(/ocultos? por los filtros/)).toHaveCount(0)
 
   // Ni el título ni el tipo llegan al navegador, ni en pantalla ni en los datos de la página.
   const html = await page.content()
-  for (const secreto of ['Retiro secreto', 'Reunión privada']) {
+  // (Las claves que este mismo dispositivo guardó arriba no cuentan: no vienen del servidor.)
+  for (const secreto of ['Retiro secreto', 'Reunión privada', 'San Rafael', 'San Gabriel', 'San Miguel', 'Estás ocultando']) {
     expect(html, `"${secreto}" no debería llegar a Administración`).not.toContain(secreto)
   }
   await expect(modal.getByLabel('Título del evento')).toHaveCount(0)
@@ -471,4 +484,216 @@ test('Administración no tiene ausencias en el calendario: ni tarjeta, ni mini c
   await expect(page.getByRole('button', { name: 'Marcar una ausencia' })).toHaveCount(0)
   await expect(page.locator('.mini-calendario')).toHaveCount(0)
   await expect(page.locator('.cal-day.ausente')).toHaveCount(0)
+})
+
+/** La sección "Filtros" del calendario (Director y Residente). */
+function seccionFiltros(page: Page) {
+  return page.getByRole('region', { name: 'Filtros' })
+}
+
+test('el Director ve los filtros con el color de cada tipo, oculta San Miguel, se recuerda al recargar y «Mostrar todo» lo devuelve', async ({
+  page,
+}) => {
+  const ids = await asegurarUsuariosPrueba()
+  const hoy = fechaISOEn(new Date())
+  const { error } = await clienteAdminPrueba()
+    .from('eventos')
+    .insert([
+      { titulo: 'Misa filtrable', fecha: hoy, hora: '08:00', tipo: 'san_miguel', requiere_cocina: [], creado_por: ids.director },
+      { titulo: 'Charla a la vista', fecha: hoy, hora: '10:00', tipo: 'san_rafael', requiere_cocina: ['merienda'], creado_por: ids.director },
+    ])
+  expect(error).toBeNull()
+
+  await iniciarSesion(page, 'director')
+  await page.goto('/calendario')
+  const filtros = seccionFiltros(page)
+  await expect(filtros).toBeVisible()
+
+  // Los cuatro tipos, cada uno con su color (distinto) y su marca, más "Mis ausencias": todos a la vista.
+  const chips = ['San Rafael', 'San Gabriel', 'San Miguel', 'Otro', 'Mis ausencias'].map((nombre) =>
+    filtros.getByRole('button', { name: nombre, exact: true }),
+  )
+  for (const chip of chips) await expect(chip).toHaveAttribute('aria-pressed', 'true')
+  await expect(chips[2]).toHaveAttribute('style', /--ev:\s*var\(--ev-san-miguel\)/)
+  const colores = await filtros
+    .locator('.marca-tipo')
+    .evaluateAll((marcas) => marcas.map((m) => getComputedStyle(m).backgroundColor))
+  expect(new Set(colores).size).toBe(4)
+  const soloCocina = filtros.getByRole('switch', { name: 'Solo eventos con pedido a cocina' })
+  await expect(soloCocina).toHaveAttribute('aria-checked', 'false')
+
+  // En la cuadrícula, cada evento con su marca (la sigla va por CSS: el texto del evento no cambia).
+  const celdaHoy = page.locator(`.cal-day[data-fecha="${hoy}"]`)
+  await expect(celdaHoy.locator('.cal-event')).toHaveText(['08:00 Misa filtrable', '10:00 Charla a la vista'])
+  await expect(celdaHoy.locator('.cal-event[data-marca="SM"]')).toHaveCount(1)
+  await expect(celdaHoy).toHaveAttribute('aria-label', /, 2 eventos: San Miguel y San Rafael$/)
+
+  // Ocultar San Miguel: el chip queda "Oculto", el evento se va y el aviso lo dice.
+  await chips[2].click()
+  await expect(chips[2]).toHaveAttribute('aria-pressed', 'false')
+  await expect(chips[2]).toContainText('Oculto')
+  await expect(celdaHoy.locator('.cal-event')).toHaveText(['10:00 Charla a la vista'])
+  await expect(celdaHoy).toHaveAttribute('aria-label', /, 1 evento: San Rafael, 1 oculto por los filtros$/)
+  await expect(page.getByText('Estás ocultando: San Miguel.')).toBeVisible()
+
+  // Se recuerda en este dispositivo.
+  await page.reload()
+  await expect(chips[2]).toHaveAttribute('aria-pressed', 'false')
+  await expect(celdaHoy.locator('.cal-event')).toHaveText(['10:00 Charla a la vista'])
+  await expect(page.getByText('Estás ocultando: San Miguel.')).toBeVisible()
+
+  // En el día, lo oculto se avisa y se puede ver sin cambiar los filtros.
+  await celdaHoy.click()
+  const modal = page.getByRole('dialog')
+  await expect(modal.getByText('Hay 1 evento oculto por los filtros.')).toBeVisible()
+  await expect(modal.getByText('Misa filtrable')).toHaveCount(0)
+  await modal.getByRole('button', { name: 'Mostrarlo' }).click()
+  await expect(modal.getByText('Misa filtrable')).toBeVisible()
+  await expect(modal.getByText('Oculto por los filtros')).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+  await expect(chips[2]).toHaveAttribute('aria-pressed', 'false')
+
+  // "Mostrar todo" vuelve todo a la vista, y el foco no se pierde.
+  await page.getByRole('button', { name: 'Mostrar todo' }).click()
+  await expect(chips[2]).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.getByText(/^Estás ocultando/)).toHaveCount(0)
+  await expect(celdaHoy.locator('.cal-event')).toHaveCount(2)
+  await expect(chips[0]).toBeFocused()
+})
+
+test('con San Miguel oculto, un evento de San Miguel recién agregado se ve en el día y el aviso explica por qué no está en el calendario', async ({
+  page,
+}) => {
+  const hoy = fechaISOEn(new Date())
+  await iniciarSesion(page, 'director')
+  await page.goto('/calendario')
+  const chipSanMiguel = seccionFiltros(page).getByRole('button', { name: 'San Miguel', exact: true })
+  await chipSanMiguel.click()
+  await expect(chipSanMiguel).toHaveAttribute('aria-pressed', 'false')
+
+  const celdaHoy = page.locator(`.cal-day[data-fecha="${hoy}"]`)
+  await celdaHoy.click()
+  const modal = page.getByRole('dialog')
+  await modal.getByLabel('Título del evento').fill('Misa recién cargada')
+  await modal.getByLabel('San Miguel', { exact: true }).check()
+  await modal.getByRole('button', { name: 'Agregar evento' }).click()
+
+  // No "desaparece": está en la lista del día, marcado como oculto, y el aviso dice por qué.
+  await expect(page.locator('.toast')).toHaveText(
+    'Evento agregado. No se ve en el calendario porque «San Miguel» está oculto en los filtros.',
+  )
+  await expect(modal.getByText('Misa recién cargada')).toBeVisible()
+  await expect(modal.getByText('Oculto por los filtros')).toBeVisible()
+  await expect(modal.getByText(/ocultos? por los filtros\.$/)).toHaveCount(0)
+  await expect(celdaHoy.locator('.cal-event')).toHaveCount(0)
+
+  // Desde ahí mismo se vuelve a mostrar San Miguel en el calendario.
+  await modal.getByRole('button', { name: 'Mostrar San Miguel en el calendario' }).click()
+  await expect(modal.getByText('Oculto por los filtros')).toHaveCount(0)
+  await expect(modal).toBeFocused()
+  await expect(chipSanMiguel).toHaveAttribute('aria-pressed', 'true')
+  await expect(celdaHoy.locator('.cal-event')).toHaveText(['Misa recién cargada'])
+})
+
+test('«Solo eventos con pedido a cocina» deja los que piden algo, también por texto libre', async ({ page }) => {
+  const ids = await asegurarUsuariosPrueba()
+  const hoy = fechaISOEn(new Date())
+  const { error } = await clienteAdminPrueba()
+    .from('eventos')
+    .insert([
+      { titulo: 'Con merienda', fecha: hoy, hora: '09:00', tipo: 'san_rafael', requiere_cocina: ['merienda'], creado_por: ids.director },
+      { titulo: 'Sin pedido', fecha: hoy, hora: '10:00', tipo: 'otro', requiere_cocina: [], creado_por: ids.director },
+      { titulo: 'Con sillas', fecha: hoy, hora: '11:00', tipo: 'san_gabriel', requiere_cocina: [], requiere_otro_texto: '10 sillas', creado_por: ids.director },
+    ])
+  expect(error).toBeNull()
+
+  await iniciarSesion(page, 'director')
+  await page.goto('/calendario')
+  const celdaHoy = page.locator(`.cal-day[data-fecha="${hoy}"]`)
+  await expect(celdaHoy.locator('.cal-event')).toHaveCount(3)
+
+  const soloCocina = seccionFiltros(page).getByRole('switch', { name: 'Solo eventos con pedido a cocina' })
+  await soloCocina.click()
+  await expect(soloCocina).toHaveAttribute('aria-checked', 'true')
+  await expect(celdaHoy.locator('.cal-event')).toHaveText(['09:00 Con merienda', '11:00 Con sillas'])
+  await expect(page.getByText('Estás ocultando: los eventos sin pedido a cocina.')).toBeVisible()
+
+  await soloCocina.click()
+  await expect(celdaHoy.locator('.cal-event')).toHaveCount(3)
+})
+
+test('un Residente también filtra, y «Mis ausencias» quita las marcas de sus ausencias del calendario', async ({ page }) => {
+  const ids = await asegurarUsuariosPrueba()
+  const hoy = fechaISOEn(new Date())
+  const resultados = await Promise.all([
+    clienteAdminPrueba().from('ausencias').insert({ usuario_id: ids.residente, desde: hoy, hasta: hoy }),
+    clienteAdminPrueba().from('eventos').insert({ titulo: 'Tertulia', fecha: hoy, hora: '19:00', tipo: 'san_gabriel', creado_por: ids.director }),
+  ])
+  for (const { error } of resultados) expect(error).toBeNull()
+
+  await iniciarSesion(page, 'residente')
+  await page.goto('/calendario')
+  const filtros = seccionFiltros(page)
+  for (const nombre of ['San Rafael', 'San Gabriel', 'San Miguel', 'Otro', 'Mis ausencias']) {
+    await expect(filtros.getByRole('button', { name: nombre, exact: true })).toHaveAttribute('aria-pressed', 'true')
+  }
+  await expect(filtros.getByRole('switch', { name: 'Solo eventos con pedido a cocina' })).toBeVisible()
+
+  const celdaHoy = page.locator(`.cal-day[data-fecha="${hoy}"]`)
+  await expect(celdaHoy).toHaveClass(/\bausente\b/)
+  await filtros.getByRole('button', { name: 'Mis ausencias', exact: true }).click()
+  await expect(celdaHoy).not.toHaveClass(/\bausente\b/)
+  await expect(celdaHoy.locator('.cal-ausente-icono')).toHaveCount(0)
+  await expect(page.getByText('Estás ocultando: Mis ausencias.')).toBeVisible()
+  // Los eventos siguen; y la tarjeta "Mis ausencias" de abajo no se toca.
+  await expect(celdaHoy.locator('.cal-event')).toHaveText(['19:00 Tertulia'])
+  await expect(panelAusencias(page).getByRole('button', { name: /^Quitar la ausencia del / })).toHaveCount(1)
+})
+
+test.describe('en un teléfono de 375px', () => {
+  test.use({ viewport: { width: 375, height: 812 } })
+
+  test('los filtros van detrás de «Filtros», los chips bajan de línea sin scroll lateral, miden 56px y ninguna letra baja de --t-xs', async ({
+    page,
+  }) => {
+    await iniciarSesion(page, 'director')
+    await page.goto('/calendario')
+    const filtros = seccionFiltros(page)
+    const abrir = filtros.getByRole('button', { name: /^Filtros/ })
+    await expect(abrir).toHaveAttribute('aria-expanded', 'false')
+    await expect(filtros.getByRole('button', { name: 'San Miguel', exact: true })).toBeHidden()
+
+    await abrir.click()
+    await expect(abrir).toHaveAttribute('aria-expanded', 'true')
+    const chips = filtros.locator('.chip-filtro')
+    await expect(chips).toHaveCount(6)
+    await esperarSinScrollLateral(page)
+    await esperarAltoMinimo(filtros.locator('button'))
+    const bordes = await chips.evaluateAll((lista) => lista.map((c) => c.getBoundingClientRect().right))
+    expect(Math.max(...bordes)).toBeLessThanOrEqual(375)
+
+    // Ninguna letra de los filtros (tampoco la sigla, que va por CSS) por debajo de --t-xs.
+    const { minima, piso } = await filtros.evaluate((seccion) => {
+      const piso = parseFloat(getComputedStyle(document.documentElement).fontSize) * 0.875
+      let minima = Infinity
+      for (const el of seccion.querySelectorAll('*')) {
+        if (!el.getClientRects().length) continue
+        const conTexto = [...el.childNodes].some((n) => n.nodeType === Node.TEXT_NODE && n.textContent?.trim())
+        if (conTexto) minima = Math.min(minima, parseFloat(getComputedStyle(el).fontSize))
+        const antes = getComputedStyle(el, '::before').content
+        if (antes && !['none', 'normal', '""'].includes(antes)) minima = Math.min(minima, parseFloat(getComputedStyle(el, '::before').fontSize))
+      }
+      return { minima, piso }
+    })
+    expect(minima).toBeGreaterThanOrEqual(piso - 0.01)
+
+    // Ocultar uno desde el teléfono: el aviso se ve con el panel cerrado, y la cuadrícula tampoco desborda.
+    await filtros.getByRole('button', { name: 'Otro', exact: true }).click()
+    await abrir.click()
+    await expect(page.getByText('Estás ocultando: Otro.')).toBeVisible()
+    await expect(abrir).toContainText('1 oculto')
+    await page.getByRole('button', { name: 'Ver mes' }).click()
+    await esperarSinScrollLateral(page)
+  })
 })

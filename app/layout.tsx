@@ -4,6 +4,7 @@ import { RegistrarServiceWorker } from '@/components/app/registrar-sw'
 import { ProveedorAvisos } from '@/components/ui/avisos'
 import { SCRIPT_APARIENCIA } from '@/lib/apariencia'
 import { scriptInstalacion } from '@/lib/pwa/instalar'
+import { SCRIPT_FILTROS_CALENDARIO } from '@/lib/calendario/filtros'
 import './globals.css'
 
 const serif = Source_Serif_4({ subsets: ['latin'], weight: ['400', '500', '600', '700'], variable: '--fuente-serif' })
@@ -25,8 +26,8 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    // suppressHydrationWarning: el script de <head> pone data-theme/data-contraste/data-texto antes
-    // de que React hidrate, así que esos atributos no coinciden con el HTML del servidor a propósito.
+    // suppressHydrationWarning: los scripts de <head> ponen data-theme/data-contraste/data-texto (y
+    // data-cal-oculta) antes de que React hidrate, así que no coinciden con el HTML del servidor a propósito.
     <html lang="es" className={`${serif.variable} ${plex.variable}`} suppressHydrationWarning>
       <head>
         {/* Antes de pintar: la letra y el contraste de cada persona desde el primer instante (DESIGN.md §5). */}
@@ -38,6 +39,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             __html: scriptInstalacion({ conAvisos: Boolean(process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY) }),
           }}
         />
+        {/* Lo que la persona ocultó del calendario, para que al recargar no aparezca un instante (lib/calendario/filtros.ts). */}
+        <script dangerouslySetInnerHTML={{ __html: SCRIPT_FILTROS_CALENDARIO }} />
       </head>
       <body>
         <RegistrarServiceWorker />

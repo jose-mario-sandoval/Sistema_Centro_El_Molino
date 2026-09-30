@@ -50,32 +50,35 @@ export default async function PaginaCalendario({
               : 'Vista de solo lectura de los eventos de la casa. Tocá un día para ver sus eventos.'}
         </div>
       </div>
-      <div className="card">
-        <div className="cal-head">
-          <div className="month-label">{etiquetaMes(mes)}</div>
-          <div className="cal-nav-btns">
-            {mes !== mesDeHoy && (
-              <Link href="/calendario" className="btn ghost">
-                Hoy
+      {/* Los filtros (Director y Residente) van arriba de la tarjeta; el mes y sus flechas, dentro. */}
+      <CalendarioMes
+        cabecera={
+          <div className="cal-head">
+            <div className="month-label">{etiquetaMes(mes)}</div>
+            <div className="cal-nav-btns">
+              {mes !== mesDeHoy && (
+                <Link href="/calendario" className="btn ghost">
+                  Hoy
+                </Link>
+              )}
+              <Link href={`/calendario?mes=${mesAnterior(mes)}`} className="icon-btn" aria-label="Mes anterior">
+                <Icono nombre="izquierda" />
               </Link>
-            )}
-            <Link href={`/calendario?mes=${mesAnterior(mes)}`} className="icon-btn" aria-label="Mes anterior">
-              <Icono nombre="izquierda" />
-            </Link>
-            <Link href={`/calendario?mes=${mesSiguiente(mes)}`} className="icon-btn" aria-label="Mes siguiente">
-              <Icono nombre="derecha" />
-            </Link>
+              <Link href={`/calendario?mes=${mesSiguiente(mes)}`} className="icon-btn" aria-label="Mes siguiente">
+                <Icono nombre="derecha" />
+              </Link>
+            </div>
           </div>
-        </div>
-        <CalendarioMes
-          dias={dias}
-          eventosPorFecha={agruparPorFecha(eventos)}
-          hoy={hoy}
-          puedeEditar={puedeEditar}
-          paraCocina={perfil.rol === 'administracion'}
-          ausencias={ausencias}
-        />
-      </div>
+        }
+        dias={dias}
+        eventosPorFecha={agruparPorFecha(eventos)}
+        hoy={hoy}
+        puedeEditar={puedeEditar}
+        paraCocina={perfil.rol === 'administracion'}
+        ausencias={ausencias}
+        // Administración no filtra por tipo: nunca conoce el tipo de un evento.
+        conFiltros={conAusencias}
+      />
       {/* Debajo del calendario, compacta. `hoy` va del servidor: el navegador nunca calcula "hoy". */}
       {conAusencias && <PanelAusencias ausencias={ausencias} hoy={hoy} />}
     </>
