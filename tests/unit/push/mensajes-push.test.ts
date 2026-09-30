@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
+  cargaMensajePendiente,
+  cargaModeracion,
   cargaNuevaPublicacion,
   cargaNuevaRespuesta,
   cargaRecordatorio,
@@ -76,5 +78,62 @@ describe('cargaRecordatorio', () => {
         ahora: new Date('2026-09-20T23:45:00-06:00'),
       }).cuerpo,
     ).toBe('Cierra mañana a las 00:30. Elegí tu opción en Semana.')
+  })
+})
+
+describe('mensaje por aprobar (a los Directores)', () => {
+  it('una publicación: abre los pendientes y reemplaza el aviso anterior', () => {
+    expect(cargaMensajePendiente({ autor: 'Juan Pérez', tipo: 'publicacion', pendientes: 1 })).toEqual({
+      titulo: 'Mensaje por aprobar',
+      cuerpo: 'Juan Pérez publicó un mensaje que espera tu aprobación.',
+      url: '/mensajes?vista=pendientes',
+      etiqueta: 'mensajes-por-aprobar',
+    })
+  })
+
+  it('con varios pendientes, el título dice cuántos (el aviso nuevo pisa al anterior)', () => {
+    expect(cargaMensajePendiente({ autor: 'Ana', tipo: 'publicacion', pendientes: 3 }).titulo).toBe('3 mensajes por aprobar')
+  })
+
+  it('una respuesta y un mensaje corregido tras un rechazo', () => {
+    expect(cargaMensajePendiente({ autor: 'Ana', tipo: 'respuesta', pendientes: 1 }).cuerpo).toBe(
+      'Ana respondió en un hilo y la respuesta espera tu aprobación.',
+    )
+    expect(cargaMensajePendiente({ autor: 'Ana', tipo: 'correccion', pendientes: 1 }).cuerpo).toBe(
+      'Ana corrigió su mensaje y espera tu aprobación.',
+    )
+  })
+})
+
+describe('moderación (al autor)', () => {
+  it('aprobado: publicación y respuesta', () => {
+    expect(cargaModeracion({ id: 'm1', estado: 'aprobado', esRespuesta: false, motivo: null })).toEqual({
+      titulo: 'Tu mensaje fue aprobado',
+      cuerpo: 'Ya lo pueden leer todos en Mensajes.',
+      url: '/mensajes',
+      etiqueta: 'moderacion-m1',
+    })
+    expect(cargaModeracion({ id: 'm2', estado: 'aprobado', esRespuesta: true, motivo: null })).toMatchObject({
+      titulo: 'Tu respuesta fue aprobada',
+      cuerpo: 'Ya la pueden leer todos en el hilo.',
+    })
+  })
+
+  it('rechazado: con el motivo y qué hacer', () => {
+    expect(cargaModeracion({ id: 'm1', estado: 'rechazado', esRespuesta: false, motivo: 'Falta la fecha' })).toEqual({
+      titulo: 'Tu mensaje no fue aprobado',
+      cuerpo: 'Motivo: Falta la fecha. Podés corregirlo y volver a enviarlo desde Mensajes.',
+      url: '/mensajes',
+      etiqueta: 'moderacion-m1',
+    })
+    expect(cargaModeracion({ id: 'm1', estado: 'rechazado', esRespuesta: true, motivo: null })).toMatchObject({
+      titulo: 'Tu respuesta no fue aprobada',
+      cuerpo: 'Podés corregirla y volver a enviarla desde Mensajes.',
+    })
+  })
+
+  it('un motivo largo se recorta', () => {
+    const { cuerpo } = cargaModeracion({ id: 'm1', estado: 'rechazado', esRespuesta: false, motivo: 'x'.repeat(500) })
+    expect(Array.from(cuerpo).length).toBeLessThanOrEqual(LARGO_MAXIMO_CUERPO)
   })
 })
