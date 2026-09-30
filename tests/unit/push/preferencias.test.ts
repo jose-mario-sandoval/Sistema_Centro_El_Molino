@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { descripcionAvisos, opcionesAvisos } from '@/lib/push/preferencias'
+import { descripcionAvisos, opcionesAvisos, textoOfrecerAvisos } from '@/lib/push/preferencias'
 
 const claves = (rol: Parameters<typeof opcionesAvisos>[0]) => opcionesAvisos(rol).map((o) => o.clave)
 
@@ -39,5 +39,15 @@ describe('descripcionAvisos', () => {
     expect(descripcionAvisos('administracion')).not.toMatch(/hora límite|Director/)
     expect(descripcionAvisos('administracion')).toContain('cocina')
     expect(descripcionAvisos('residente')).toContain('hora límite')
+  })
+})
+
+describe('textoOfrecerAvisos (la tarjeta de después de instalar)', () => {
+  it('dice para qué sirven, según lo que recibe cada rol', () => {
+    expect(textoOfrecerAvisos('residente')).toBe(
+      'Te avisa antes de que cierre una comida sin definir, cuando hay mensajes nuevos y si el Director cambia algo tuyo.',
+    )
+    expect(textoOfrecerAvisos('administracion')).toBe('Te avisa cuando hay mensajes nuevos y cambios para la cocina.')
+    expect(textoOfrecerAvisos('director')).toContain('mensajes por aprobar')
   })
 })

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import { TarjetaInstalar } from '@/components/app/instalar'
 import { useAviso } from '@/components/ui/avisos'
 import { llamarAccion } from '@/lib/acciones/llamar'
 import type { Rol } from '@/lib/perfiles/roles'
@@ -12,16 +13,7 @@ import { DispositivoPush } from './dispositivo-push'
 type Preferencias = Required<PreferenciasAvisos>
 
 /** Sección "Notificaciones" (spec §8.2): este dispositivo y preferencias de la cuenta, según el rol. */
-export function SeccionNotificaciones({
-  preferencias: iniciales,
-  rol,
-  instalar,
-}: {
-  preferencias: Preferencias
-  rol: Rol
-  /** La tarjeta "Instalar la app" (solo en teléfono o tablet; la decide el layout del servidor). */
-  instalar?: React.ReactNode
-}) {
+export function SeccionNotificaciones({ preferencias: iniciales, rol }: { preferencias: Preferencias; rol: Rol }) {
   const aviso = useAviso()
   const [preferencias, setPreferencias] = useState<Preferencias>(iniciales)
   const [guardando, iniciarGuardado] = useTransition()
@@ -47,7 +39,8 @@ export function SeccionNotificaciones({
       {/* Cada rol ve solo lo que recibe: Administración no tiene recordatorios ni comidas propias. */}
       <div className="desc">{descripcionAvisos(rol)}</div>
 
-      {instalar}
+      {/* Para quien tocó "Ahora no" en la franja de arriba. Solo en teléfono o tablet. */}
+      <TarjetaInstalar />
 
       <div className="card" style={{ marginBottom: 14 }}>
         <div className="section-title">Notificaciones en este dispositivo</div>

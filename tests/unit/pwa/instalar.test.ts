@@ -7,6 +7,7 @@ import {
   debeOfrecerInstalar,
   esTelefonoOTablet,
   navegadorIOS,
+  nombreAparato,
   pasosIOS,
   puedeSerMovil,
   scriptInstalacion,
@@ -70,6 +71,21 @@ describe('puedeSerMovil (servidor: solo el User-Agent)', () => {
     expect(puedeSerMovil(UA.windows)).toBe(false)
     expect(puedeSerMovil(UA.linux)).toBe(false)
     expect(puedeSerMovil(null)).toBe(false)
+  })
+})
+
+describe('nombreAparato (el texto lo pinta el servidor: solo el User-Agent)', () => {
+  it('tablet: iPad (también el que se presenta como Mac) y Android sin "Mobile"', () => {
+    expect(nombreAparato(UA.ipadViejo)).toBe('tablet')
+    expect(nombreAparato(UA.macOiPad)).toBe('tablet')
+    expect(nombreAparato(UA.androidTablet)).toBe('tablet')
+  })
+
+  it('teléfono: todo lo demás', () => {
+    expect(nombreAparato(UA.iphoneSafari)).toBe('teléfono')
+    expect(nombreAparato(UA.android)).toBe('teléfono')
+    expect(nombreAparato(UA.firefoxAndroid)).toBe('teléfono')
+    expect(nombreAparato(null)).toBe('teléfono')
   })
 })
 

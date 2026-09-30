@@ -58,6 +58,15 @@ export function opcionesAvisos(rol: Rol): OpcionAviso[] {
   ]
 }
 
+/** Para qué sirven los avisos, en la tarjeta que los ofrece al abrir la app instalada. */
+export function textoOfrecerAvisos(rol: Rol): string {
+  if (rol === 'administracion') return 'Te avisa cuando hay mensajes nuevos y cambios para la cocina.'
+  if (rol === 'director') {
+    return 'Te avisa antes de que cierre una comida sin definir, cuando hay mensajes nuevos y cuando hay mensajes por aprobar.'
+  }
+  return 'Te avisa antes de que cierre una comida sin definir, cuando hay mensajes nuevos y si el Director cambia algo tuyo.'
+}
+
 /** El texto bajo el título "Notificaciones": solo lo que ese rol recibe. */
 export function descripcionAvisos(rol: Rol): string {
   if (rol === 'administracion') return 'Avisos de mensajes nuevos y de cambios para la cocina.'

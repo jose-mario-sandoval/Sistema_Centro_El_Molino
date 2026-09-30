@@ -14,7 +14,8 @@ const LLAVE_PUBLICA = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? ''
 const TEXTO_ESTADO: Record<EstadoDispositivo | 'revisando', string> = {
   revisando: 'Revisando este dispositivo…',
   'sin-llave': 'Las notificaciones todavía no están configuradas en el servidor.',
-  'ios-instalar': 'En iPhone y iPad, las notificaciones funcionan solo con la app agregada a la pantalla de inicio.',
+  'ios-instalar':
+    'En iPhone y iPad, las notificaciones funcionan solo con la app instalada. Seguí los pasos de «Instalar la app», acá arriba, y activalas desde la app.',
   'sin-soporte': 'Este navegador no permite notificaciones push. Probá con Chrome, Edge, Firefox o Safari actualizados.',
   bloqueado: 'Las notificaciones están bloqueadas para esta app. Habilitalas en los ajustes del navegador y recargá la página.',
   inactivo: 'Las notificaciones están desactivadas en este dispositivo.',
@@ -69,19 +70,8 @@ export function DispositivoPush() {
         {TEXTO_ESTADO[estado]}
       </p>
 
-      {estado === 'ios-instalar' && (
-        <div className="locked-banner" role="note">
-          <div>
-            Para activarlas:
-            <ol className="pasos-ios">
-              <li>En Safari, tocá el botón Compartir (el cuadrado con la flecha hacia arriba).</li>
-              <li>Elegí “Agregar a pantalla de inicio”.</li>
-              <li>Abrí la app desde el ícono nuevo, iniciá sesión y volvé a esta sección.</li>
-            </ol>
-            <div className="hint">Requiere iOS 16.4 o posterior.</div>
-          </div>
-        </div>
-      )}
+      {/* Los pasos para instalarla están en la tarjeta "Instalar la app" (components/app/instalar.tsx). */}
+      {estado === 'ios-instalar' && <div className="hint">Requiere iOS 16.4 o posterior.</div>}
 
       {estado === 'inactivo' && (
         <button type="button" className="btn" onClick={activar} disabled={ocupado} aria-busy={ocupado}>

@@ -36,6 +36,17 @@ export function puedeSerMovil(userAgent: string | null): boolean {
 }
 
 /**
+ * "tu teléfono" o "tu tablet", para el texto de la invitación (lo pinta el servidor). Si un
+ * "Macintosh" llega a verla es porque es un iPad: en una Mac el script de <head> no la muestra.
+ */
+export function nombreAparato(userAgent: string | null): 'teléfono' | 'tablet' {
+  const ua = userAgent ?? ''
+  if (/iPad|Macintosh/.test(ua)) return 'tablet'
+  if (/Android/.test(ua) && !/Mobile/.test(ua)) return 'tablet'
+  return 'teléfono'
+}
+
+/**
  * - `nativa`: el navegador ofrece instalar (`beforeinstallprompt`): el botón llama a `prompt()`.
  * - `ios`: iPhone o iPad, que solo instalan desde Compartir → "Agregar a pantalla de inicio".
  * - `generica`: cualquier otro, y Chrome mientras todavía no disparó el evento.
@@ -105,9 +116,9 @@ export type PasoIOS = { titulo: string; detalle: string }
 
 /** Dónde está Compartir: abajo en el iPhone con Safari; arriba en el iPad y en los demás navegadores. */
 function dondeCompartir(n: NavegadorIOS): string {
-  if (!n.safari) return 'Está arriba, en la barra de la dirección. En algunos navegadores está dentro del botón ⋯.'
-  if (n.aparato === 'ipad') return 'Está arriba, a la derecha. Si no lo ves, tocá primero el botón ⋯.'
-  return 'Está abajo, en la barra de Safari. Si no lo ves, tocá primero el botón ⋯.'
+  if (!n.safari) return 'Está arriba, en la barra de la dirección. En algunos navegadores está dentro del botón\u00a0⋯.'
+  if (n.aparato === 'ipad') return 'Está arriba, a la derecha. Si no lo ves, tocá primero el botón\u00a0⋯.'
+  return 'Está abajo, en la barra de Safari. Si no lo ves, tocá primero el botón\u00a0⋯.'
 }
 
 export function pasosIOS(n: NavegadorIOS): PasoIOS[] {
@@ -123,7 +134,7 @@ export function pasosIOS(n: NavegadorIOS): PasoIOS[] {
 
 export const REQUISITO_IOS = 'Requiere iOS 16.4 o posterior para los avisos.'
 export const PASOS_GENERICOS =
-  'Abrí el menú del navegador (⋮ o ⋯) y elegí «Instalar app» o «Agregar a pantalla de inicio».'
+  'Abrí el menú del navegador (⋮\u00a0o\u00a0⋯) y elegí «Instalar app» o «Agregar a pantalla de inicio».'
 
 // ---------- Script de <head> ----------
 

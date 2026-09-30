@@ -96,6 +96,41 @@ const TRAZOS = {
       <path d="M8 11V7a4 4 0 0 1 8 0v4" />
     </>
   ),
+  // Instalar la app: un teléfono con una flecha que baja.
+  instalar: (
+    <>
+      <path d="M8 2h8a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z" />
+      <path d="M12 6.5v7M9 10.5l3 3 3-3M10.5 18.5h3" />
+    </>
+  ),
+  // El botón Compartir de iPhone y iPad: un cuadrado abierto con una flecha hacia arriba.
+  compartir: (
+    <>
+      <path d="M12 3v12M8 7l4-4 4 4" />
+      <path d="M8.5 10H6.5a1.5 1.5 0 0 0-1.5 1.5v8A1.5 1.5 0 0 0 6.5 21h11a1.5 1.5 0 0 0 1.5-1.5v-8a1.5 1.5 0 0 0-1.5-1.5h-2" />
+    </>
+  ),
+  // "Agregar a pantalla de inicio": un cuadrado con un más, como en el menú de iOS.
+  agregarInicio: (
+    <>
+      <path d="M7 3h10a4 4 0 0 1 4 4v10a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V7a4 4 0 0 1 4-4z" />
+      <path d="M12 8v8M8 12h8" />
+    </>
+  ),
+  // El ícono nuevo en la pantalla de inicio: un ícono de app con una casa.
+  iconoApp: (
+    <>
+      <path d="M7 3h10a4 4 0 0 1 4 4v10a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V7a4 4 0 0 1 4-4z" />
+      <path d="M7.5 12.5L12 8l4.5 4.5M9 11v5h6v-5" />
+    </>
+  ),
+  // Los avisos push: la misma campana que "Sin definir", que es lo que el aviso persigue.
+  campana: (
+    <>
+      <path d="M12 3a6 6 0 0 1 6 6c0 5 2 6 2 6H4s2-1 2-6a6 6 0 0 1 6-6z" />
+      <path d="M10 21h4" />
+    </>
+  ),
 } satisfies Record<EstadoComida, ReactNode> & Record<string, ReactNode> // agregar un estado sin icono no compila
 
 export type NombreIcono = keyof typeof TRAZOS

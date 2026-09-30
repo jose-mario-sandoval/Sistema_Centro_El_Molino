@@ -3,6 +3,7 @@ import { IBM_Plex_Sans, Source_Serif_4 } from 'next/font/google'
 import { RegistrarServiceWorker } from '@/components/app/registrar-sw'
 import { ProveedorAvisos } from '@/components/ui/avisos'
 import { SCRIPT_APARIENCIA } from '@/lib/apariencia'
+import { scriptInstalacion } from '@/lib/pwa/instalar'
 import './globals.css'
 
 const serif = Source_Serif_4({ subsets: ['latin'], weight: ['400', '500', '600', '700'], variable: '--fuente-serif' })
@@ -30,6 +31,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         {/* Antes de pintar: la letra y el contraste de cada persona desde el primer instante (DESIGN.md §5). */}
         <script dangerouslySetInnerHTML={{ __html: SCRIPT_APARIENCIA }} />
+        {/* Antes de pintar: si se invita a instalar o a activar los avisos, y el evento de instalar
+            del navegador, que puede llegar antes de que cargue React (lib/pwa/instalar.ts). */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: scriptInstalacion({ conAvisos: Boolean(process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY) }),
+          }}
+        />
       </head>
       <body>
         <RegistrarServiceWorker />

@@ -46,7 +46,9 @@ self.addEventListener('push', (event) => {
     self.registration.showNotification(datos.titulo || 'Centro El Molino', {
       body: datos.cuerpo || '',
       icon: '/iconos/192',
-      badge: '/iconos/192',
+      // Android pinta la insignia como silueta (solo el canal alfa): el ícono a color salía como un
+      // cuadrado blanco. /iconos/insignia es el escudo en blanco sobre transparente.
+      badge: '/iconos/insignia',
       tag: datos.etiqueta || undefined,
       data: { url: datos.url || '/' },
     }),
