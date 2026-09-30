@@ -4,7 +4,7 @@ import { useEffect, useId, useRef, useState } from 'react'
 import { PasosInstalar, textoBotonInstalar, useInstaladaSegunNavegador, useInstalar } from '@/components/app/instalar'
 import { useAviso } from '@/components/ui/avisos'
 import { Icono } from '@/components/ui/iconos'
-import { CLAVE_AVISOS_DESCARTADOS, CLAVE_INSTALAR_DESCARTADA, enEsteAparato } from '@/lib/pwa/instalar'
+import { CLAVE_AVISOS_DESCARTADOS, CLAVE_INSTALAR_DESCARTADA, CLAVE_YA_LA_INSTALE, enEsteAparato } from '@/lib/pwa/instalar'
 import { activarEsteDispositivo } from '@/lib/push/cliente'
 
 /*
@@ -54,10 +54,12 @@ export function InvitacionInstalar({ enEste }: { enEste: Aparato }) {
   const idPasos = useId()
   const refEntendido = useRef<HTMLButtonElement>(null)
 
-  // Chrome en Android: si ya se instaló (por ejemplo, desde el menú), la franja no corresponde.
+  // Chrome en Android: si ya se instaló (por ejemplo, desde el menú), la franja no corresponde. Si
+  // el navegador ofrece instalar (nativa), no está instalada: eso manda.
+  const instaladaPorFuera = yaInstalada && fase !== 'lista' && variante !== 'nativa'
   useEffect(() => {
-    if (yaInstalada && fase !== 'lista') quitarAtributo('data-instalar')
-  }, [yaInstalada, fase])
+    if (instaladaPorFuera) quitarAtributo('data-instalar')
+  }, [instaladaPorFuera])
 
   // Instalada desde esta franja: el foco va a "Entendido" (el botón "Instalar" ya no está). Si se
   // instaló desde otro lado (Ajustes, el menú del navegador), el foco no salta hasta acá arriba.
@@ -65,13 +67,26 @@ export function InvitacionInstalar({ enEste }: { enEste: Aparato }) {
     if (tocada && fase === 'lista') refEntendido.current?.focus({ preventScroll: true })
   }, [tocada, fase])
 
-  if (cerrada || (yaInstalada && fase !== 'lista')) return null
+  if (cerrada || instaladaPorFuera) return null
 
   function ahoraNo() {
     anotarAhora(CLAVE_INSTALAR_DESCARTADA)
     quitarAtributo('data-instalar')
     setCerrada(true)
     aviso('Te lo volvemos a ofrecer en una semana. También está en Ajustes.')
+    enfocarContenido()
+  }
+
+  /**
+   * iPhone, iPad y navegadores sin forma de saber si ya está instalada: quien la instaló y abre un
+   * enlace en el navegador vería la franja cada semana. 60 días; no es la marca de instalada, así
+   * que si se equivocó (o la borra), vuelve sola.
+   */
+  function yaLaInstale() {
+    anotarAhora(CLAVE_YA_LA_INSTALE)
+    quitarAtributo('data-instalar')
+    setCerrada(true)
+    aviso('Listo. Abrí El Molino desde su ícono en la pantalla de inicio.')
     enfocarContenido()
   }
 
@@ -138,7 +153,17 @@ export function InvitacionInstalar({ enEste }: { enEste: Aparato }) {
           Ahora no
         </button>
       </div>
-      {abiertos && aparato && <PasosInstalar id={idPasos} variante={variante} navegador={aparato.navegador} />}
+      {abiertos && aparato && (
+        <>
+          <PasosInstalar id={idPasos} variante={variante} navegador={aparato.navegador} />
+          <div className="invitacion-acciones">
+            <button type="button" className="btn ghost" onClick={yaLaInstale}>
+              <Icono nombre="si" />
+              Ya la instalé
+            </button>
+          </div>
+        </>
+      )}
     </section>
   )
 }

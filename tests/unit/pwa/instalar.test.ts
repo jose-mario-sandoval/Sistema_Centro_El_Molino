@@ -3,6 +3,7 @@ import {
   CLAVE_AVISOS_DESCARTADOS,
   CLAVE_INSTALADA,
   CLAVE_INSTALAR_DESCARTADA,
+  CLAVE_YA_LA_INSTALE,
   debeOfrecerAvisos,
   debeOfrecerInstalar,
   esTelefonoOTablet,
@@ -12,6 +13,7 @@ import {
   pasosIOS,
   puedeSerMovil,
   scriptInstalacion,
+  SESENTA_DIAS_MS,
   SIETE_DIAS_MS,
   sigueDescartada,
   varianteInstalar,
@@ -36,7 +38,9 @@ const UA = {
   firefoxAndroid: 'Mozilla/5.0 (Android 14; Mobile; rv:130.0) Gecko/130.0 Firefox/130.0',
   windows:
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
+  // Linux de escritorio, y también Chrome en una tablet Android con "Sitio de escritorio".
   linux: 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
+  chromebook: 'Mozilla/5.0 (X11; CrOS x86_64 14541.0.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
 }
 
 describe('esTelefonoOTablet', () => {
@@ -48,6 +52,7 @@ describe('esTelefonoOTablet', () => {
     ['Android', UA.android, 5],
     ['tablet Android', UA.androidTablet, 5],
     ['Firefox en Android', UA.firefoxAndroid, 5],
+    ['tablet Android con "Sitio de escritorio" (Linux con pantalla táctil)', UA.linux, 5],
   ])('%s: sí', (_nombre, userAgent, maxTouchPoints) => {
     expect(esTelefonoOTablet({ userAgent, maxTouchPoints })).toBe(true)
   })
@@ -56,21 +61,23 @@ describe('esTelefonoOTablet', () => {
     ['Mac', UA.macOiPad, 0],
     ['Windows (aunque tenga pantalla táctil)', UA.windows, 10],
     ['Linux', UA.linux, 0],
+    ['Chromebook (aunque tenga pantalla táctil)', UA.chromebook, 10],
   ])('%s: no', (_nombre, userAgent, maxTouchPoints) => {
     expect(esTelefonoOTablet({ userAgent, maxTouchPoints })).toBe(false)
   })
 })
 
 describe('puedeSerMovil (servidor: solo el User-Agent)', () => {
-  it('los teléfonos y tablets, y también "Macintosh" (puede ser un iPad)', () => {
+  it('los teléfonos y tablets, y también "Macintosh" (puede ser un iPad) y Linux (una tablet en modo escritorio)', () => {
     expect(puedeSerMovil(UA.android)).toBe(true)
     expect(puedeSerMovil(UA.iphoneSafari)).toBe(true)
     expect(puedeSerMovil(UA.macOiPad)).toBe(true)
+    expect(puedeSerMovil(UA.linux)).toBe(true)
   })
 
-  it('escritorio (Windows, Linux) o sin User-Agent: no se pinta nada', () => {
+  it('Windows, Chromebook o sin User-Agent: no se pinta nada', () => {
     expect(puedeSerMovil(UA.windows)).toBe(false)
-    expect(puedeSerMovil(UA.linux)).toBe(false)
+    expect(puedeSerMovil(UA.chromebook)).toBe(false)
     expect(puedeSerMovil(null)).toBe(false)
   })
 })
@@ -80,6 +87,8 @@ describe('nombreAparato (el texto lo pinta el servidor: solo el User-Agent)', ()
     expect(nombreAparato(UA.ipadViejo)).toBe('tablet')
     expect(nombreAparato(UA.macOiPad)).toBe('tablet')
     expect(nombreAparato(UA.androidTablet)).toBe('tablet')
+    // Chrome en tablets Android pide el sitio de escritorio por defecto.
+    expect(nombreAparato(UA.linux)).toBe('tablet')
   })
 
   it('teléfono: todo lo demás', () => {
@@ -127,6 +136,11 @@ describe('"Ahora no": 7 días', () => {
       expect(sigueDescartada(guardado, AHORA)).toBe(false)
     }
   })
+
+  it('"Ya la instalé" dura 60 días', () => {
+    expect(sigueDescartada(String(AHORA - SIETE_DIAS_MS * 3), AHORA, SESENTA_DIAS_MS)).toBe(true)
+    expect(sigueDescartada(String(AHORA - SESENTA_DIAS_MS), AHORA, SESENTA_DIAS_MS)).toBe(false)
+  })
 })
 
 describe('debeOfrecerInstalar', () => {
@@ -140,6 +154,11 @@ describe('debeOfrecerInstalar', () => {
     expect(debeOfrecerInstalar({ ...base, standalone: true })).toBe(false)
     expect(debeOfrecerInstalar({ ...base, instalada: true })).toBe(false)
     expect(debeOfrecerInstalar({ ...base, descartadaEn: String(base.ahora - 1000) })).toBe(false)
+  })
+
+  it('"Ya la instalé" (iPhone, donde no se puede saber): 60 días sin ofrecerla', () => {
+    expect(debeOfrecerInstalar({ ...base, yaInstaladaEn: String(base.ahora - SIETE_DIAS_MS * 3) })).toBe(false)
+    expect(debeOfrecerInstalar({ ...base, yaInstaladaEn: String(base.ahora - SESENTA_DIAS_MS) })).toBe(true)
   })
 })
 
@@ -213,6 +232,9 @@ function correrScript(p: {
     setItem: (k: string, v: string) => {
       guardado[k] = v
     },
+    removeItem: (k: string) => {
+      delete guardado[k]
+    },
   }
   const window: Record<string, unknown> = {
     matchMedia: (q: string) => ({ matches: Boolean(p.standalone) && q === '(display-mode: standalone)' }),
@@ -254,6 +276,9 @@ describe('scriptInstalacion (antes de pintar)', () => {
     { userAgent: UA.macOiPad, maxTouchPoints: 0 },
     { userAgent: UA.windows, maxTouchPoints: 10 },
     { userAgent: UA.firefoxAndroid, maxTouchPoints: 5 },
+    { userAgent: UA.linux, maxTouchPoints: 5 },
+    { userAgent: UA.linux, maxTouchPoints: 0 },
+    { userAgent: UA.chromebook, maxTouchPoints: 10 },
   ]
   const guardados: Record<string, string>[] = [
     {},
@@ -262,6 +287,9 @@ describe('scriptInstalacion (antes de pintar)', () => {
     { [CLAVE_INSTALADA]: '1' },
     { [CLAVE_AVISOS_DESCARTADOS]: String(AHORA - 1000) },
     { [CLAVE_INSTALAR_DESCARTADA]: 'basura', [CLAVE_AVISOS_DESCARTADOS]: String(AHORA + 5000) },
+    { [CLAVE_YA_LA_INSTALE]: String(AHORA - SIETE_DIAS_MS * 2) },
+    { [CLAVE_YA_LA_INSTALE]: String(AHORA - SESENTA_DIAS_MS - 1), [CLAVE_INSTALADA]: '1' },
+    { [CLAVE_INSTALADA]: '1', [CLAVE_INSTALAR_DESCARTADA]: String(AHORA - 1000) },
   ]
   const casos = combinaciones.flatMap((c) =>
     guardados.flatMap((guardado) =>
@@ -275,18 +303,18 @@ describe('scriptInstalacion (antes de pintar)', () => {
 
   it(`coincide con la lógica de TypeScript en ${casos.length} combinaciones`, () => {
     for (const caso of casos) {
-      const { atributos } = correrScript({ ...caso, ahora: AHORA })
+      const { atributos, oyentes, window, guardado } = correrScript({ ...caso, ahora: AHORA })
       const movil = esTelefonoOTablet(caso)
       const esperado: Record<string, string> = {}
-      if (
-        debeOfrecerInstalar({
-          movil,
-          standalone: caso.standalone,
-          instalada: caso.guardado[CLAVE_INSTALADA] === '1',
-          descartadaEn: caso.guardado[CLAVE_INSTALAR_DESCARTADA] ?? null,
-          ahora: AHORA,
-        })
-      ) {
+      const reglas = {
+        movil,
+        standalone: caso.standalone,
+        instalada: caso.guardado[CLAVE_INSTALADA] === '1',
+        yaInstaladaEn: caso.guardado[CLAVE_YA_LA_INSTALE] ?? null,
+        descartadaEn: caso.guardado[CLAVE_INSTALAR_DESCARTADA] ?? null,
+        ahora: AHORA,
+      }
+      if (debeOfrecerInstalar(reglas)) {
         esperado['data-instalar'] = 'ofrecer'
       }
       if (
@@ -303,7 +331,52 @@ describe('scriptInstalacion (antes de pintar)', () => {
         esperado['data-ofrecer-avisos'] = 'si'
       }
       expect(atributos, JSON.stringify(caso)).toEqual(esperado)
+
+      // Después llega el evento de instalar: Chrome solo lo manda si la app NO está instalada.
+      let prevenido = false
+      for (const oyente of oyentes.beforeinstallprompt ?? []) oyente({ preventDefault: () => (prevenido = true) })
+      expect(prevenido, `preventDefault solo en teléfono o tablet: ${JSON.stringify(caso)}`).toBe(movil)
+      expect(Boolean(window.__molinoInstalar)).toBe(movil)
+      if (movil) {
+        expect(guardado[CLAVE_INSTALADA], JSON.stringify(caso)).toBeUndefined()
+        expect(guardado[CLAVE_YA_LA_INSTALE], JSON.stringify(caso)).toBeUndefined()
+      }
+      const trasEvento = debeOfrecerInstalar({ ...reglas, instalada: false, yaInstaladaEn: null })
+      expect(atributos['data-instalar'], `tras el evento: ${JSON.stringify(caso)}`).toBe(trasEvento ? 'ofrecer' : undefined)
     }
+  })
+
+  it('en la computadora no toca el evento: la barra propia del navegador sigue', () => {
+    const { oyentes, window } = correrScript({ userAgent: UA.windows, maxTouchPoints: 10, ahora: AHORA })
+    let prevenido = false
+    for (const oyente of oyentes.beforeinstallprompt ?? []) oyente({ preventDefault: () => (prevenido = true) })
+    expect(prevenido).toBe(false)
+    expect(window.__molinoInstalar ?? null).toBeNull()
+  })
+
+  it('si la desinstalaron, el evento lo dice: borra la marca y vuelve a ofrecerla en la misma carga', () => {
+    const { atributos, oyentes, guardado } = correrScript({
+      userAgent: UA.android,
+      maxTouchPoints: 5,
+      ahora: AHORA,
+      guardado: { [CLAVE_INSTALADA]: '1' },
+    })
+    expect(atributos['data-instalar']).toBeUndefined()
+    for (const oyente of oyentes.beforeinstallprompt ?? []) oyente({ preventDefault: () => {} })
+    expect(guardado[CLAVE_INSTALADA]).toBeUndefined()
+    expect(atributos['data-instalar']).toBe('ofrecer')
+  })
+
+  it('pero si tocó "Ahora no" hace poco, solo borra la marca: la franja sigue oculta', () => {
+    const { atributos, oyentes, guardado } = correrScript({
+      userAgent: UA.android,
+      maxTouchPoints: 5,
+      ahora: AHORA,
+      guardado: { [CLAVE_INSTALADA]: '1', [CLAVE_INSTALAR_DESCARTADA]: String(AHORA - 1000) },
+    })
+    for (const oyente of oyentes.beforeinstallprompt ?? []) oyente({ preventDefault: () => {} })
+    expect(guardado[CLAVE_INSTALADA]).toBeUndefined()
+    expect(atributos['data-instalar']).toBeUndefined()
   })
 
   it('captura el evento de instalación antes de que cargue React y evita la barra propia del navegador', () => {

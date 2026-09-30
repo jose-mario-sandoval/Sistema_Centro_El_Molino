@@ -1,4 +1,4 @@
-import { CLAVE_INSTALADA } from './instalar'
+import { CLAVE_INSTALADA, CLAVE_YA_LA_INSTALE } from './instalar'
 
 /*
  * Estado de la instalación en el navegador: si hay un `beforeinstallprompt` guardado (Android,
@@ -42,11 +42,17 @@ function enganchar() {
 
   // Lo reenvía el script de <head> cada vez que el navegador ofrece instalar.
   window.addEventListener('molino:instalable', () => cambiar({ hayPrompt: Boolean(window.__molinoInstalar) }))
-  // Por si el script no corrió (una página sin él): el mismo trato, directo.
-  window.addEventListener('beforeinstallprompt', (evento) => {
-    evento.preventDefault()
-    window.__molinoInstalar = evento as EventoInstalar
-    cambiar({ hayPrompt: true })
+  // Chrome solo manda beforeinstallprompt si la app NO está instalada: si estaba anotada, la
+  // desinstalaron. Si guardarlo (y el preventDefault) lo decide el script de <head>: solo en
+  // teléfono o tablet; en la computadora sigue la invitación propia del navegador.
+  window.addEventListener('beforeinstallprompt', () => {
+    try {
+      window.localStorage.removeItem(CLAVE_INSTALADA)
+      window.localStorage.removeItem(CLAVE_YA_LA_INSTALE)
+    } catch {
+      // Sin almacenamiento: no había marca que borrar.
+    }
+    cambiar({ hayPrompt: Boolean(window.__molinoInstalar), instalada: false })
   })
   window.addEventListener('appinstalled', () => {
     window.__molinoInstalar = null

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { CLAVE_INSTALADA } from '@/lib/pwa/instalar'
+import { CLAVE_INSTALADA, CLAVE_YA_LA_INSTALE } from '@/lib/pwa/instalar'
 
 // El almacén vive en el navegador: acá, una ventana mínima con EventTarget y un localStorage en memoria.
 type VentanaFalsa = EventTarget & { __molinoInstalar?: unknown; localStorage: Storage }
@@ -26,6 +26,7 @@ beforeEach(() => {
     localStorage: {
       getItem: (k: string) => guardado[k] ?? null,
       setItem: (k: string, v: string) => void (guardado[k] = v),
+      removeItem: (k: string) => void delete guardado[k],
     } as unknown as Storage,
   })
   vi.stubGlobal('window', ventana)
@@ -84,5 +85,33 @@ describe('almacén de la instalación', () => {
     expect(leerInstalacion()).toEqual({ hayPrompt: false, instalada: true })
     expect(guardado[CLAVE_INSTALADA]).toBe('1')
     expect(oyente).toHaveBeenCalled()
+  })
+})
+
+describe('beforeinstallprompt: Chrome solo lo manda si la app no está instalada', () => {
+  it('borra las marcas de instalada y vuelve a ofrecer instalar; el preventDefault lo decide el script', async () => {
+    guardado[CLAVE_INSTALADA] = '1'
+    guardado[CLAVE_YA_LA_INSTALE] = '1900000000000'
+    const { leerInstalacion, suscribirInstalacion } = await cargar()
+    suscribirInstalacion(() => {})
+    ventana.dispatchEvent(new Event('appinstalled'))
+    expect(leerInstalacion().instalada).toBe(true)
+
+    const evento = eventoInstalar('accepted')
+    const prevenir = vi.spyOn(evento, 'preventDefault')
+    // El script de <head> ya lo guardó (teléfono o tablet).
+    ventana.__molinoInstalar = evento
+    ventana.dispatchEvent(evento)
+    expect(guardado[CLAVE_INSTALADA]).toBeUndefined()
+    expect(guardado[CLAVE_YA_LA_INSTALE]).toBeUndefined()
+    expect(leerInstalacion()).toEqual({ hayPrompt: true, instalada: false })
+    expect(prevenir).not.toHaveBeenCalled()
+  })
+
+  it('si el script no lo guardó (computadora), no hay botón nativo', async () => {
+    const { leerInstalacion, suscribirInstalacion } = await cargar()
+    suscribirInstalacion(() => {})
+    ventana.dispatchEvent(eventoInstalar('accepted'))
+    expect(leerInstalacion().hayPrompt).toBe(false)
   })
 })

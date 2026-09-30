@@ -211,7 +211,10 @@ export function TarjetaInstalar() {
 
   if (!datos?.movil) return null
 
-  const instaladaAca = datos.standalone || datos.instaladaAntes || segunNavegador || fase === 'lista'
+  // Si el navegador ofrece instalar (nativa), no está instalada aunque haya quedado anotada: la
+  // desinstalaron. Sin eso, la tarjeta diría "Ya está instalada" sin botón para siempre.
+  const instaladaAca =
+    datos.standalone || fase === 'lista' || (variante !== 'nativa' && (datos.instaladaAntes || segunNavegador))
   return (
     <div className="card tarjeta-instalar">
       <div className="section-title">Instalar la app</div>

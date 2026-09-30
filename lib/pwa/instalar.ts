@@ -10,25 +10,43 @@ import { esIOS } from '@/lib/push/plataforma'
 export const CLAVE_INSTALAR_DESCARTADA = 'molino-instalar-descartada'
 /** "Ahora no" (avisos después de instalar). */
 export const CLAVE_AVISOS_DESCARTADOS = 'molino-avisos-descartados'
-/** '1' después de `appinstalled` en este dispositivo. */
+/**
+ * '1' después de `appinstalled` (o si Chrome dice que ya está instalada). Se borra cuando llega
+ * `beforeinstallprompt`: Chrome solo lo manda si la app NO está instalada (la desinstalaron).
+ */
 export const CLAVE_INSTALADA = 'molino-instalada'
+/**
+ * "Ya la instalé" (iPhone, iPad y navegadores sin forma de saberlo), en milisegundos desde 1970:
+ * 60 días sin ofrecerla. No es la marca de instalada: si se equivocó, la franja vuelve sola.
+ */
+export const CLAVE_YA_LA_INSTALE = 'molino-ya-la-instale'
 
 export const SIETE_DIAS_MS = 7 * 24 * 60 * 60 * 1000
+export const SESENTA_DIAS_MS = 60 * 24 * 60 * 60 * 1000
 
 /** Android (teléfono o tablet) y demás navegadores móviles. iPhone e iPad los decide `esIOS`. */
 const PATRON_MOVIL = /Android|Mobi|Tablet|Silk|Kindle/i
 
 export type Aparato = { userAgent: string; maxTouchPoints: number }
 
+/**
+ * Chrome en una tablet Android con "Sitio de escritorio" (lo que pide por defecto en pantallas
+ * grandes) se presenta como Linux de escritorio: se distingue por la pantalla táctil. Un Chromebook
+ * (CrOS) es una computadora.
+ */
+function esLinuxTactil(p: Aparato): boolean {
+  return /Linux/.test(p.userAgent) && !/CrOS/.test(p.userAgent) && p.maxTouchPoints > 1
+}
+
 /** Teléfono o tablet: donde tiene sentido instalar la app. Nunca una computadora. */
 export function esTelefonoOTablet(p: Aparato): boolean {
-  return esIOS(p) || PATRON_MOVIL.test(p.userAgent)
+  return esIOS(p) || PATRON_MOVIL.test(p.userAgent) || esLinuxTactil(p)
 }
 
 /**
- * En el servidor solo está el User-Agent: ¿puede ser un teléfono o tablet? "Macintosh" cuenta,
- * porque el iPad con Safari se presenta así; el script de <head> lo termina de decidir con la
- * pantalla táctil. En escritorio el servidor no pinta nada.
+ * En el servidor solo está el User-Agent: ¿puede ser un teléfono o tablet? "Macintosh" (un iPad con
+ * Safari) y Linux (una tablet Android en modo escritorio) cuentan; el script de <head> lo termina
+ * de decidir con la pantalla táctil. En Windows o un Chromebook el servidor no pinta nada.
  */
 export function puedeSerMovil(userAgent: string | null): boolean {
   if (!userAgent) return false
@@ -43,6 +61,8 @@ export function nombreAparato(userAgent: string | null): 'teléfono' | 'tablet' 
   const ua = userAgent ?? ''
   if (/iPad|Macintosh/.test(ua)) return 'tablet'
   if (/Android/.test(ua) && !/Mobile/.test(ua)) return 'tablet'
+  // Linux sin Android: Chrome en una tablet con "Sitio de escritorio" (lo que pide por defecto ahí).
+  if (/X11; Linux/.test(ua) && !/CrOS/.test(ua)) return 'tablet'
   return 'teléfono'
 }
 
@@ -63,23 +83,34 @@ export function varianteInstalar(p: { ios: boolean; hayPromptNativo: boolean }):
   return p.ios ? 'ios' : 'generica'
 }
 
-/** ¿Se tocó "Ahora no" hace menos de 7 días? Un valor inválido o en el futuro no cuenta. */
-export function sigueDescartada(guardado: string | null, ahora: number): boolean {
+/**
+ * ¿Se tocó "Ahora no" (o "Ya la instalé", con `duracion`) hace menos de `duracion`? Un valor
+ * inválido o en el futuro (reloj cambiado) no cuenta.
+ */
+export function sigueDescartada(guardado: string | null, ahora: number, duracion = SIETE_DIAS_MS): boolean {
   if (guardado === null || guardado === '') return false
   const cuando = Number(guardado)
   if (!Number.isFinite(cuando)) return false
   const pasaron = ahora - cuando
-  return pasaron >= 0 && pasaron < SIETE_DIAS_MS
+  return pasaron >= 0 && pasaron < duracion
 }
 
 export function debeOfrecerInstalar(p: {
   movil: boolean
   standalone: boolean
   instalada: boolean
+  /** Cuándo tocó "Ya la instalé" (60 días). */
+  yaInstaladaEn?: string | null
   descartadaEn: string | null
   ahora: number
 }): boolean {
-  return p.movil && !p.standalone && !p.instalada && !sigueDescartada(p.descartadaEn, p.ahora)
+  return (
+    p.movil &&
+    !p.standalone &&
+    !p.instalada &&
+    !sigueDescartada(p.yaInstaladaEn ?? null, p.ahora, SESENTA_DIAS_MS) &&
+    !sigueDescartada(p.descartadaEn, p.ahora)
+  )
 }
 
 /**
@@ -149,25 +180,30 @@ export const PASOS_GENERICOS =
  *    `data-ofrecer-avisos="si"` si, ya instalada, corresponde ofrecer los avisos. El CSS muestra la
  *    franja solo con ese atributo: se ve desde el primer pintado, sin saltos ni diferencias con el
  *    HTML del servidor.
- * 2. Captura `beforeinstallprompt` apenas llega (puede llegar en /login o antes de que React
- *    hidrate): lo deja en `window.__molinoInstalar` y avisa con `molino:instalable`.
+ * 2. En teléfono o tablet, captura `beforeinstallprompt` apenas llega (puede llegar en /login o
+ *    antes de que React hidrate): lo deja en `window.__molinoInstalar` y avisa con
+ *    `molino:instalable`. Chrome solo lo manda si la app NO está instalada, así que además borra
+ *    las marcas de instalada (la desinstalaron) y, si no tocó "Ahora no", vuelve a ofrecerla en la
+ *    misma carga. En la computadora no lo toca: queda la invitación propia del navegador.
  * 3. Tras `appinstalled`, lo anota en el dispositivo.
  * Es la misma regla que debeOfrecerInstalar / debeOfrecerAvisos, escrita sin dependencias.
  */
 export function scriptInstalacion({ conAvisos }: { conAvisos: boolean }): string {
   return `(function(){try{
 var h=document.documentElement,w=window,n=navigator,u=n.userAgent||'',t=n.maxTouchPoints||0;
-var movil=/iPhone|iPad|iPod/.test(u)||(/Macintosh/.test(u)&&t>1)||new RegExp(${JSON.stringify(PATRON_MOVIL.source)},'i').test(u);
+var movil=/iPhone|iPad|iPod/.test(u)||(/Macintosh/.test(u)&&t>1)||new RegExp(${JSON.stringify(PATRON_MOVIL.source)},'i').test(u)||(/Linux/.test(u)&&!/CrOS/.test(u)&&t>1);
 var sa=(!!w.matchMedia&&w.matchMedia('(display-mode: standalone)').matches)||n.standalone===true;
 function leer(k){try{return w.localStorage.getItem(k)}catch(e){return null}}
 function anotar(k,v){try{w.localStorage.setItem(k,v)}catch(e){}}
-function descartada(v){if(v===null||v==='')return false;var x=Number(v);if(!isFinite(x))return false;var d=Date.now()-x;return d>=0&&d<${SIETE_DIAS_MS}}
-if(movil&&!sa&&leer(${JSON.stringify(CLAVE_INSTALADA)})!=='1'&&!descartada(leer(${JSON.stringify(CLAVE_INSTALAR_DESCARTADA)})))h.setAttribute('data-instalar','ofrecer');
+function borrar(k){try{w.localStorage.removeItem(k)}catch(e){}}
+function descartada(v,m){if(v===null||v==='')return false;var x=Number(v);if(!isFinite(x))return false;var d=Date.now()-x;return d>=0&&d<(m||${SIETE_DIAS_MS})}
+var ahoraNo=function(){return descartada(leer(${JSON.stringify(CLAVE_INSTALAR_DESCARTADA)}))};
+if(movil&&!sa&&leer(${JSON.stringify(CLAVE_INSTALADA)})!=='1'&&!descartada(leer(${JSON.stringify(CLAVE_YA_LA_INSTALE)}),${SESENTA_DIAS_MS})&&!ahoraNo())h.setAttribute('data-instalar','ofrecer');
 var push=('serviceWorker' in n)&&('PushManager' in w)&&('Notification' in w);
 var permiso=push?w.Notification.permission:null;
 if(${conAvisos ? 'true' : 'false'}&&movil&&sa&&push&&permiso==='default'&&!descartada(leer(${JSON.stringify(CLAVE_AVISOS_DESCARTADOS)})))h.setAttribute('data-ofrecer-avisos','si');
 w.__molinoInstalar=null;
-w.addEventListener('beforeinstallprompt',function(e){e.preventDefault();w.__molinoInstalar=e;try{w.dispatchEvent(new Event('molino:instalable'))}catch(x){}});
+w.addEventListener('beforeinstallprompt',function(e){if(!movil)return;e.preventDefault();w.__molinoInstalar=e;borrar(${JSON.stringify(CLAVE_INSTALADA)});borrar(${JSON.stringify(CLAVE_YA_LA_INSTALE)});if(!sa&&!ahoraNo())h.setAttribute('data-instalar','ofrecer');try{w.dispatchEvent(new Event('molino:instalable'))}catch(x){}});
 w.addEventListener('appinstalled',function(){w.__molinoInstalar=null;anotar(${JSON.stringify(CLAVE_INSTALADA)},'1')});
 }catch(e){}})();`
 }

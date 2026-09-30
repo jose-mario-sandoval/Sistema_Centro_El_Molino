@@ -47,6 +47,20 @@ const ANDROID = enChromium(devices['Pixel 7'])
 test.describe('invitación a instalar: teléfono Android', () => {
   test.use(ANDROID)
 
+  // Si el Chromium de la prueba llegara a ofrecer instalar de verdad (un evento del navegador,
+  // isTrusted), se ignora: las pruebas mandan el suyo cuando lo necesitan.
+  test.beforeEach(async ({ page }) => {
+    await page.addInitScript(() =>
+      window.addEventListener(
+        'beforeinstallprompt',
+        (evento) => {
+          if (evento.isTrusted) evento.stopImmediatePropagation()
+        },
+        true,
+      ),
+    )
+  })
+
   test('aparece arriba, "Instalar" abre el diálogo del navegador y, al instalarse, dice "Listo"', async ({ page }) => {
     await iniciarSesion(page, 'residente')
     const franja = page.getByRole('region', { name: 'Instalá El Molino en tu teléfono' })
@@ -67,14 +81,17 @@ test.describe('invitación a instalar: teléfono Android', () => {
 
     // Quedó anotada en el dispositivo: no vuelve a ofrecerla.
     await page.reload()
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
     await expect(franjaDe(page)).toBeHidden()
+
+    // La desinstalan: Chrome vuelve a ofrecer instalar, y la franja vuelve en la misma carga.
+    await ofrecerInstalacion(page, 'dismissed')
+    await expect(franja).toBeVisible()
+    await expect(franja.getByRole('button', { name: 'Instalar' })).not.toHaveAttribute('aria-expanded')
+    expect(await page.evaluate(() => localStorage.getItem('molino-instalada'))).toBeNull()
   })
 
   test('sin el evento del navegador, "Instalar" despliega las instrucciones del menú', async ({ page }) => {
-    // Por si el Chromium de la prueba llegara a ofrecer instalar de verdad: acá se prueba sin evento.
-    await page.addInitScript(() =>
-      window.addEventListener('beforeinstallprompt', (evento) => evento.stopImmediatePropagation(), true),
-    )
     await iniciarSesion(page, 'residente')
     const instalar = franjaDe(page).getByRole('button', { name: 'Instalar' })
     await expect(instalar).toHaveAttribute('aria-expanded', 'false')
@@ -117,6 +134,19 @@ test.describe('invitación a instalar: iPhone', () => {
     await expect(franja.getByText('Requiere iOS 16.4 o posterior para los avisos.')).toBeVisible()
     // En el lugar, no en un modal.
     await expect(page.getByRole('dialog')).toHaveCount(0)
+  })
+
+  test('"Ya la instalé" (Safari no puede saberlo) la oculta, también después de recargar', async ({ page }) => {
+    await iniciarSesion(page, 'residente')
+    await expect(page.getByRole('button', { name: 'Ya la instalé' })).toHaveCount(0)
+    await franjaDe(page).getByRole('button', { name: 'Instalar' }).click()
+    await franjaDe(page).getByRole('button', { name: 'Ya la instalé' }).click()
+    await expect(franjaDe(page)).toBeHidden()
+    expect(Number(await page.evaluate(() => localStorage.getItem('molino-ya-la-instale')))).toBeGreaterThan(0)
+
+    await page.reload()
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+    await expect(franjaDe(page)).toBeHidden()
   })
 })
 
