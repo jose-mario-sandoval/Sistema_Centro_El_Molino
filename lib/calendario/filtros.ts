@@ -66,6 +66,51 @@ export function filtrarEventos(eventos: Evento[], ocultos: readonly Filtro[]): {
   return { visibles, ocultos: eventos.length - visibles.length }
 }
 
+type DatosFiltrables = Pick<Evento, 'tipo' | 'requiere_cocina' | 'requiere_otro_texto'>
+
+/** Qué filtro esconde este evento (su tipo primero: es lo que la persona reconoce), o null si se ve. */
+export function filtroQueOculta(evento: DatosFiltrables, ocultos: readonly Filtro[]): Filtro | null {
+  if (evento.tipo === null) return null
+  if (ocultos.includes(evento.tipo)) return evento.tipo
+  if (ocultos.includes('sin_pedido') && !tienePedido(evento)) return 'sin_pedido'
+  return null
+}
+
+/**
+ * El aviso al guardar, más por qué no aparece en el calendario si los filtros lo esconden: sin eso,
+ * el evento "desaparece" y quien lo cargó cree que no se guardó y lo vuelve a agregar (dos pedidos
+ * a la cocina). `varios`: una serie.
+ */
+export function avisoGuardado(base: string, evento: DatosFiltrables, ocultos: readonly Filtro[], { varios = false } = {}): string {
+  const filtro = filtroQueOculta(evento, ocultos)
+  if (filtro === null) return base
+  const noSeVe = varios ? 'No se ven en el calendario porque' : 'No se ve en el calendario porque'
+  if (filtro === 'sin_pedido') {
+    return `${base} ${noSeVe} ${varios ? 'no piden' : 'no pide'} nada a la cocina y estás viendo solo los eventos con pedido.`
+  }
+  return `${base} ${noSeVe} «${NOMBRE_OCULTO[filtro]}» está oculto en los filtros.`
+}
+
+/** El botón que vuelve a mostrar en el calendario lo que esconde un filtro. */
+export function textoMostrarFiltro(filtro: Filtro): string {
+  return filtro === 'sin_pedido'
+    ? 'Mostrar en el calendario los eventos sin pedido'
+    : `Mostrar ${NOMBRE_OCULTO[filtro]} en el calendario`
+}
+
+/**
+ * Qué lista el diálogo de un día: lo que se ve; todo, si se pidió "Mostrarlos"; y siempre lo que se
+ * acaba de agregar o editar ahí (`revelados`), aunque los filtros lo escondan.
+ */
+export function eventosDelDia(
+  eventos: Evento[],
+  ocultos: readonly Filtro[],
+  { verTodos, revelados }: { verTodos: boolean; revelados: ReadonlySet<string> },
+): { lista: Evento[]; ocultosSinMostrar: number } {
+  const lista = verTodos ? eventos : eventos.filter((e) => revelados.has(e.id) || eventoVisible(e, ocultos))
+  return { lista, ocultosSinMostrar: eventos.length - lista.length }
+}
+
 /** 'A' · 'A y B' · 'A, B y C' */
 function enumerar(nombres: string[]): string {
   if (nombres.length <= 1) return nombres.join('')
@@ -118,11 +163,13 @@ export function etiquetaDiaCalendario({
 type Almacenamiento = Pick<Storage, 'getItem' | 'setItem'>
 
 /**
- * Lo elegido en este dispositivo, como texto (lo lee `leerOcultos`). Nunca rompe: si localStorage
- * está bloqueado o lleno, el filtro funciona igual en esta visita porque lo último elegido queda en
- * memoria. `almacenamiento` es una función para que ni siquiera tocar `localStorage` pueda lanzar.
+ * Lo elegido en este dispositivo, como texto (lo lee `leerOcultos`). Se lee siempre de localStorage,
+ * así lo que otra pestaña guardó manda aunque esta no estuviera escuchando. Nunca rompe: si
+ * localStorage está bloqueado o lleno, lo último elegido queda en memoria y el filtro funciona igual en
+ * esta visita. `almacenamiento` es una función para que ni siquiera tocar `localStorage` pueda lanzar.
  */
 export function crearAlmacenOcultos(almacenamiento: () => Almacenamiento) {
+  /** Solo si guardar falló: lo que el dispositivo no pudo recordar. */
   let enMemoria: string | null = null
   const oyentes = new Set<() => void>()
   const avisar = () => oyentes.forEach((oyente) => oyente())
@@ -136,17 +183,18 @@ export function crearAlmacenOcultos(almacenamiento: () => Almacenamiento) {
       }
     },
     guardar(texto: string) {
-      enMemoria = texto
       try {
         almacenamiento().setItem(CLAVE_FILTROS, texto)
+        enMemoria = null
       } catch {
         // Bloqueado o lleno: queda en memoria para esta visita.
+        enMemoria = texto
       }
       avisar()
     },
-    /** Cambió en otra pestaña (evento `storage`): eso manda. null = lo borraron. */
-    desdeOtraPestana(texto: string | null) {
-      enMemoria = texto ?? ''
+    /** Cambió en otra pestaña (evento `storage`): se vuelve a leer el dispositivo, que manda. */
+    desdeOtraPestana() {
+      enMemoria = null
       avisar()
     },
     suscribir(oyente: () => void): () => void {
@@ -166,7 +214,8 @@ export function atributoOcultos(ocultos: readonly Filtro[]): string | null {
 /**
  * Se ejecuta en <head> antes de pintar: copia lo oculto a html[data-cal-oculta] para que, al recargar
  * /calendario, el CSS esconda esos eventos mientras React no hidrató (globals.css, "antes de
- * hidratar"). Sin eso, lo oculto aparecería un instante y la página saltaría al esconderlo.
+ * hidratar"). Sin eso, lo oculto aparecería un instante y la página saltaría al esconderlo. En
+ * html[data-cal-oculta-n], cuántos (hasta 3): con eso el CSS reserva el alto del aviso.
  *
  * Va en todas las páginas, también en las de Administración: por eso no nombra ninguna clave (ni
  * categorías ni ausencias). Copia solo palabras simples de lo guardado; el CSS reconoce las suyas y
@@ -176,5 +225,6 @@ export const SCRIPT_FILTROS_CALENDARIO = `(function(){try{
 var g=JSON.parse(localStorage.getItem(${JSON.stringify(CLAVE_FILTROS)})||'null'),o=g&&g.ocultos,t=[],i;
 if(Object.prototype.toString.call(o)!=='[object Array]')return;
 for(i=0;i<o.length;i++)if(typeof o[i]==='string'&&/^[a-z_]{1,24}$/.test(o[i])&&t.indexOf(o[i])<0)t.push(o[i]);
-if(t.length)document.documentElement.setAttribute('data-cal-oculta',t.join(' '));
+if(!t.length)return;
+var h=document.documentElement;h.setAttribute('data-cal-oculta',t.join(' '));h.setAttribute('data-cal-oculta-n',String(Math.min(t.length,3)));
 }catch(e){}})();`

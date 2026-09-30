@@ -15,9 +15,9 @@ const almacen = crearAlmacenOcultos(() => window.localStorage)
 function suscribir(avisar: () => void) {
   const dejar = almacen.suscribir(avisar)
   // Cambió en otra pestaña (o se borró todo el almacenamiento: key null): se repinta también esta.
+  // Si esta no estaba escuchando (otra sección), igual lee lo último al volver: el almacén lee el dispositivo.
   const deOtraPestana = (e: StorageEvent) => {
-    if (e.key === CLAVE_FILTROS) almacen.desdeOtraPestana(e.newValue)
-    else if (e.key === null) almacen.desdeOtraPestana(null)
+    if (e.key === CLAVE_FILTROS || e.key === null) almacen.desdeOtraPestana()
   }
   window.addEventListener('storage', deOtraPestana)
   return () => {

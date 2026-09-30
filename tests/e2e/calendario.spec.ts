@@ -562,6 +562,40 @@ test('el Director ve los filtros con el color de cada tipo, oculta San Miguel, s
   await expect(chips[0]).toBeFocused()
 })
 
+test('con San Miguel oculto, un evento de San Miguel recién agregado se ve en el día y el aviso explica por qué no está en el calendario', async ({
+  page,
+}) => {
+  const hoy = fechaISOEn(new Date())
+  await iniciarSesion(page, 'director')
+  await page.goto('/calendario')
+  const chipSanMiguel = seccionFiltros(page).getByRole('button', { name: 'San Miguel', exact: true })
+  await chipSanMiguel.click()
+  await expect(chipSanMiguel).toHaveAttribute('aria-pressed', 'false')
+
+  const celdaHoy = page.locator(`.cal-day[data-fecha="${hoy}"]`)
+  await celdaHoy.click()
+  const modal = page.getByRole('dialog')
+  await modal.getByLabel('Título del evento').fill('Misa recién cargada')
+  await modal.getByLabel('San Miguel', { exact: true }).check()
+  await modal.getByRole('button', { name: 'Agregar evento' }).click()
+
+  // No "desaparece": está en la lista del día, marcado como oculto, y el aviso dice por qué.
+  await expect(page.locator('.toast')).toHaveText(
+    'Evento agregado. No se ve en el calendario porque «San Miguel» está oculto en los filtros.',
+  )
+  await expect(modal.getByText('Misa recién cargada')).toBeVisible()
+  await expect(modal.getByText('Oculto por los filtros')).toBeVisible()
+  await expect(modal.getByText(/ocultos? por los filtros\.$/)).toHaveCount(0)
+  await expect(celdaHoy.locator('.cal-event')).toHaveCount(0)
+
+  // Desde ahí mismo se vuelve a mostrar San Miguel en el calendario.
+  await modal.getByRole('button', { name: 'Mostrar San Miguel en el calendario' }).click()
+  await expect(modal.getByText('Oculto por los filtros')).toHaveCount(0)
+  await expect(modal).toBeFocused()
+  await expect(chipSanMiguel).toHaveAttribute('aria-pressed', 'true')
+  await expect(celdaHoy.locator('.cal-event')).toHaveText(['Misa recién cargada'])
+})
+
 test('«Solo eventos con pedido a cocina» deja los que piden algo, también por texto libre', async ({ page }) => {
   const ids = await asegurarUsuariosPrueba()
   const hoy = fechaISOEn(new Date())

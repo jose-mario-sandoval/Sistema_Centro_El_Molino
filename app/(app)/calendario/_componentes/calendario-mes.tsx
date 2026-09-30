@@ -7,6 +7,7 @@ import { DIAS_SEMANA_CORTOS, type DiaConEtiqueta } from '@/lib/calendario/cuadri
 import { etiquetaDiaCalendario, filtrarEventos, textoCantidadOcultos } from '@/lib/calendario/filtros'
 import { INICIAL_TIPO, MARCA_TIPO, tienePedido, varsTipo, type Evento } from '@/lib/calendario/tipos'
 import { horaHHMM, type FechaISO } from '@/lib/fechas'
+import { DIAS_SEMANA } from '@/lib/fechas/etiquetas'
 import { FiltrosCalendario } from './filtros-calendario'
 import { InsigniasEvento } from './insignias-evento'
 import { ModalDia } from './modal-dia'
@@ -163,9 +164,14 @@ export function CalendarioMes({
           </div>
 
           <div className="cal-grid">
-            {DIAS_SEMANA_CORTOS.map((nombre) => (
+            {/* El nombre entero para el lector de pantalla; a la vista, la abreviatura o, si no entra con
+                la letra mínima, la inicial (como el mini calendario). */}
+            {DIAS_SEMANA_CORTOS.map((nombre, i) => (
               <div key={nombre} className="cal-dow">
-                <span className="dia-corto">{nombre}</span>
+                <span className="sr-only">{DIAS_SEMANA[i]}</span>
+                <span className="dia-corto" aria-hidden="true">
+                  {nombre}
+                </span>
                 <span className="dia-inicial" aria-hidden="true">
                   {nombre[0]}
                 </span>
@@ -213,6 +219,7 @@ export function CalendarioMes({
           dia={diaAbierto}
           eventos={eventosPorFecha[diaAbierto.fecha] ?? []}
           ocultos={ocultos}
+          alMostrarFiltro={alternar}
           puedeEditar={puedeEditar}
           paraCocina={paraCocina}
           ausente={estaAusente(ausencias, diaAbierto.fecha)}

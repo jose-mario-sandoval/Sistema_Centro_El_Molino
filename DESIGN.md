@@ -244,8 +244,9 @@ cumplen WCAG 2.2 AA (24px) pero no este contrato. La tercera es de separación, 
 1. **La cuadrícula mensual del calendario.** Siete columnas en 320px dejan días de ~36px de ancho;
    por eso en el teléfono el calendario abre en **lista** y la cuadrícula queda detrás de *"Ver mes"*.
    Ahí tampoco cede la letra: cada evento es su marca (§2.4) y, cuando la columna no alcanza (consulta
-   de contenedor en `rem` sobre `.cal-grid`), la cabecera pasa a la inicial del día y la marca a la
-   inicial del tipo, en lugar de achicarse por debajo de `--t-xs`.
+   de contenedor en `rem` sobre `.cal-grid`), la cabecera pasa a la inicial del día (el lector de
+   pantalla oye el nombre entero) y la marca a la inicial del tipo, en lugar de achicarse por debajo
+   de `--t-xs`.
 2. **El mini calendario de ausencias** (`components/ui/mini-calendario.tsx`). Marcar una ausencia es
    tocar el primer y el último día en un mes, y eso no tiene lista equivalente: cada día mide ~43px
    de ancho a 375px (~39px en un teléfono con más margen, ~36px a 320px). Mitigaciones:
@@ -511,19 +512,33 @@ principal para que un lector de pantalla anuncie dónde quedó la persona.
 - **Los filtros del calendario se ven, y lo oculto se dice.** Arriba de la tarjeta del mes (Director
   y Residente; Administración no, porque delatarían la categoría): un chip por tipo con su color y su
   marca, *"Mis ausencias"* y, en su línea, *"Solo eventos con pedido a cocina"* (un `switch` con
-  *"Sí"*/*"No"* escrito). Cada chip es un interruptor (`aria-pressed`): **mostrado = hundido + visto**,
-  como toda opción elegida; **oculto = elevado + ojo tachado + *"Oculto"* escrito** (se toca para
-  volver a verlo), y su marca queda hueca. En un contenedor angosto (consulta en `rem`) los chips van
-  detrás de un botón *"Filtros · 2 ocultos"* con `aria-expanded`. Si algo está oculto, siempre a la
-  vista arriba de la tarjeta: *"Estás ocultando: San Miguel y Mis ausencias."* con *"Mostrar todo"*
-  (una persona mayor puede ocultar algo sin querer y creer que los eventos desaparecieron). Un día con
-  todo oculto no queda vacío y normal: ojo tachado + *"2 ocultos"* en la cuadrícula, *"+1 evento
-  oculto por los filtros"* en la lista (los días con todo oculto no se listan, y al final dice cuántos
-  hay en el mes), y en el diálogo del día *"Hay 2 eventos ocultos por los filtros."* con
-  *"Mostrarlos"*, que los muestra ahí sin tocar los filtros. La elección se recuerda en el
-  dispositivo; al recargar, un script en `<head>` esconde lo guardado antes de pintar
-  (`html[data-cal-oculta]`, mientras `.zona-calendario` no tenga `data-listo`) y reserva el lugar del
-  aviso, así nada aparece un instante ni salta.
+  *"Sí"*/*"No"* escrito). Cada chip es un interruptor (`aria-pressed`): **mostrado = hundido + visto +
+  *"Visible"***, como toda opción elegida; **oculto = elevado + ojo tachado + *"Oculto"*** (se toca
+  para volver a verlo), y su marca queda hueca. *"Visible"* y *"Oculto"* ocupan el mismo ancho: tocar
+  un chip no corre a los demás, y el siguiente toque cae donde se apuntó. En un contenedor angosto
+  (consulta en `rem`) los chips van detrás de un botón *"Filtros · 2 ocultos"* con `aria-expanded`.
+  Si algo está oculto, siempre a la vista (al final de la sección, fuera de lo plegable):
+  *"Estás ocultando: San Miguel y Mis ausencias."* con *"Mostrar todo"* (una persona mayor puede
+  ocultar algo sin querer y creer que los eventos desaparecieron). Un día con todo oculto no queda
+  vacío y normal: ojo tachado + *"2 ocultos"* en la cuadrícula, *"+1 evento oculto por los filtros"*
+  en la lista (los días con todo oculto no se listan, y al final dice cuántos hay en el mes), y en el
+  diálogo del día *"Hay 2 eventos ocultos por los filtros."* con *"Mostrarlos"*, que los muestra ahí
+  sin tocar los filtros; cada uno así mostrado dice *"Oculto por los filtros"* y ofrece *"Mostrar San
+  Miguel en el calendario"*.
+- **Lo que se acaba de guardar nunca desaparece.** Si el Director agrega o edita un evento de un tipo
+  oculto (o sin pedido con *"Solo eventos con pedido a cocina"*), el diálogo del día lo sigue
+  listando, marcado como oculto y con *"Mostrar San Miguel en el calendario"*, y el aviso lo explica:
+  *"Evento agregado. No se ve en el calendario porque «San Miguel» está oculto en los filtros."* (en
+  plural para una serie). Si desapareciera, parecería que no se guardó y se cargaría dos veces: dos
+  pedidos para la cocina. Los avisos largos duran lo que hace falta para leerlos (~70 ms por letra,
+  entre 2,6 y 10 s).
+- **Recargar no hace saltar nada.** La elección se recuerda en el dispositivo; al recargar, un script
+  en `<head>` copia lo guardado a `html[data-cal-oculta]` (y cuántos, en `data-cal-oculta-n`) antes de
+  pintar. Mientras `.zona-calendario` no tenga `data-listo`, el CSS esconde esos eventos, eleva sus
+  chips, calla *"Visible"* y la cuenta de *"Filtros"* (dirían "todo a la vista", lo del servidor) y
+  reserva el alto del aviso: una fila en un contenedor ancho; en uno angosto, una línea por cosa
+  oculta, más una o dos cuanto más angosto, y el botón debajo. Medido a 320/375/768/1280 ×
+  normal/grande/enorme: la tarjeta se corre a lo sumo ~25px al hidratar (sin reservar, hasta ~200).
 
 ---
 
@@ -640,8 +655,9 @@ Decisiones tomadas al portar:
   tipo lleva `data-tipo`, `data-marca` y `data-inicial` (Administración, nunca). Se suman la sección
   nombrada *"Filtros"* (`.filtros-cal`, por su rol: `getByRole('region', { name: 'Filtros' })`), sus
   chips `.chip-filtro[data-filtro]` (botones con `aria-pressed`, nombrados por el tipo: *"San
-  Miguel"*), el `switch` *"Solo eventos con pedido a cocina"*, el aviso `.aviso-filtros`, lo oculto de
-  un día (`.cal-ocultos` en la cuadrícula, `.aviso-ocultos-dia` en su diálogo) y `.zona-calendario`,
+  Miguel"*), el `switch` *"Solo eventos con pedido a cocina"*, el aviso `.aviso-filtros` (dentro de la
+  sección), lo oculto de un día (`.cal-ocultos` en la cuadrícula, `.aviso-ocultos-dia` en su diálogo,
+  y en cada evento oculto que se lista ahí, `.mostrar-filtro`) y `.zona-calendario`,
   que envuelve filtros, aviso y tarjeta (`data-listo` una vez hidratada).
 - **La tabla de Administración se apila por el ancho de su tarjeta, no de la pantalla** (contenedor
   `tabla-admin` sobre `.admin-table-scroll`, umbral 34rem). En una media query el `rem` es siempre

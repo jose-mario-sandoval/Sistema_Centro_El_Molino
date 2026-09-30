@@ -1306,6 +1306,8 @@ button.comida-tarjeta[aria-busy="true"]{cursor:progress;}
   border:2px dashed var(--tinta-suave);color:var(--tinta-suave);font-size:var(--t-xs);font-weight:700;
 }
 .pastilla-oculto .icono{width:1.1em;height:1.1em;}
+/* En un evento oculto de la lista del día: vuelve a mostrar en el calendario lo que lo esconde. */
+.mostrar-filtro{display:flex;margin-top:.6rem;text-align:left;}
 
 /* Formulario: cada tipo con su marca; elegido, hundido con el borde y el texto de su color. */
 .opcion-tipo input:checked + span{color:var(--ev);border-color:var(--ev);}
@@ -1336,7 +1338,10 @@ button.comida-tarjeta[aria-busy="true"]{cursor:progress;}
 [data-contraste="alto"] .chip-filtro[aria-pressed="true"],
 [data-contraste="alto"] .chip-filtro[aria-checked="true"]{border-width:3px;background:var(--ev-bg,var(--acento-suave));}
 .chip-etiqueta{min-width:0;}
-.chip-estado{display:inline-flex;align-items:center;gap:.25rem;font-size:var(--t-xs);font-weight:700;color:var(--tinta-suave);}
+/* "Visible" y "Oculto" ocupan lo mismo: tocar un chip no lo ensancha ni corre a los de al lado (el
+   siguiente toque cae donde la persona apuntó), y al hidratar tampoco cambia nada de lugar. */
+.chip-estado{display:inline-flex;align-items:center;gap:.25rem;min-width:4.9em;font-size:var(--t-xs);font-weight:700;color:var(--tinta-suave);}
+.chip-cocina .chip-estado{min-width:1.5em;}
 .chip-estado .icono{width:1.35em;height:1.35em;}
 .chip-filtro[aria-pressed="true"] .chip-estado{color:var(--ev,var(--acento));}
 /* Oculto: la marca queda hueca (el color sigue a la vista, pero "apagado"). */
@@ -1367,12 +1372,16 @@ button.comida-tarjeta[aria-busy="true"]{cursor:progress;}
   .filtros-alternar{display:inline-flex;justify-content:space-between;width:100%;text-align:left;}
   .filtros-cal:not([data-abierto]) .filtros-cuerpo{display:none;}
   .filtros-cuerpo{margin-top:1rem;}
+  /* El aviso: el ojo al lado del texto (no solo en una fila) y "Mostrar todo" debajo, a la derecha. */
+  .aviso-filtros{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:start;}
+  .aviso-filtros .btn{grid-column:1 / -1;justify-self:end;}
 }
 
-/* Aviso de lo oculto, arriba de la tarjeta: bandeja con borde dorado, ojo tachado, qué se oculta
-   escrito y "Mostrar todo". La región existe siempre (aria-live). */
+/* Aviso de lo oculto, al final de la sección (fuera de lo plegable), arriba de la tarjeta: bandeja
+   con borde dorado, ojo tachado, qué se oculta escrito y "Mostrar todo". La región existe siempre
+   (aria-live). */
 .aviso-filtros{
-  display:flex;align-items:center;flex-wrap:wrap;gap:.6rem 1rem;margin-bottom:1.25rem;
+  display:flex;align-items:center;flex-wrap:wrap;gap:.6rem 1rem;margin-top:1rem;
   padding:.6rem .6rem .6rem var(--marco);border-radius:var(--r-md);
   border:2px solid var(--dorado);box-shadow:var(--hundido-suave);
   font-size:var(--t-sm);font-weight:600;
@@ -1402,7 +1411,41 @@ html[data-cal-oculta~="sin_pedido"] .zona-calendario:not([data-listo]) [data-ped
 html[data-cal-oculta~="ausencias"] .zona-calendario:not([data-listo]) .cal-ausente-icono,
 html[data-cal-oculta~="ausencias"] .zona-calendario:not([data-listo]) .etiqueta-ausente{display:none;}
 html[data-cal-oculta~="ausencias"] .zona-calendario:not([data-listo]) .cal-day.ausente{border:2px solid var(--borde-elevado);}
-html[data-cal-oculta] .zona-calendario:not([data-listo]) .aviso-filtros-zona{min-height:calc(var(--toque) + 1.2rem + 4px);margin-bottom:1.25rem;}
+/* Los chips no dicen todavía "Visible" ni la cuenta del botón "Filtros": dirían lo del servidor
+   (todo a la vista), no lo de este dispositivo. Lo oculto ya se ve elevado, como después. */
+html[data-cal-oculta] .zona-calendario:not([data-listo]) :is(.chip-estado,.filtros-resumen,.interruptor-perilla){visibility:hidden;}
+html[data-cal-oculta~="san_rafael"] .zona-calendario:not([data-listo]) .chip-filtro[data-filtro="san_rafael"],
+html[data-cal-oculta~="san_gabriel"] .zona-calendario:not([data-listo]) .chip-filtro[data-filtro="san_gabriel"],
+html[data-cal-oculta~="san_miguel"] .zona-calendario:not([data-listo]) .chip-filtro[data-filtro="san_miguel"],
+html[data-cal-oculta~="otro"] .zona-calendario:not([data-listo]) .chip-filtro[data-filtro="otro"],
+html[data-cal-oculta~="ausencias"] .zona-calendario:not([data-listo]) .chip-filtro[data-filtro="ausencias"]{
+  box-shadow:var(--relieve);border-color:var(--borde-elevado);border-width:2px;background:var(--fondo);
+}
+html[data-cal-oculta~="sin_pedido"] .zona-calendario:not([data-listo]) .chip-cocina{box-shadow:var(--hundido);}
+html[data-cal-oculta~="san_rafael"] .zona-calendario:not([data-listo]) .chip-filtro[data-filtro="san_rafael"] .marca-tipo,
+html[data-cal-oculta~="san_gabriel"] .zona-calendario:not([data-listo]) .chip-filtro[data-filtro="san_gabriel"] .marca-tipo,
+html[data-cal-oculta~="san_miguel"] .zona-calendario:not([data-listo]) .chip-filtro[data-filtro="san_miguel"] .marca-tipo,
+html[data-cal-oculta~="otro"] .zona-calendario:not([data-listo]) .chip-filtro[data-filtro="otro"] .marca-tipo{
+  background:transparent;color:var(--ev);box-shadow:inset 0 0 0 2px var(--ev);
+}
+/* El lugar del aviso: una fila (ojo, texto y "Mostrar todo") en un contenedor ancho; en uno angosto,
+   una línea de texto por cada cosa oculta (html[data-cal-oculta-n], hasta 3), una o dos más cuanto
+   más angosto (el texto se parte en más líneas), y el botón debajo. Medido a 320/375/768/1280 ×
+   normal/grande/enorme: la tarjeta se corre a lo sumo ~25px al hidratar (antes, hasta ~200). */
+html[data-cal-oculta] .zona-calendario:not([data-listo]) .aviso-filtros-zona{--lineas:1;--mas:0;min-height:calc(1rem + 1.2rem + 4px + var(--toque));}
+html[data-cal-oculta-n="2"] .zona-calendario:not([data-listo]) .aviso-filtros-zona{--lineas:2;}
+html[data-cal-oculta-n="3"] .zona-calendario:not([data-listo]) .aviso-filtros-zona{--lineas:3;}
+@container filtros (max-width:30rem){
+  html[data-cal-oculta] .zona-calendario:not([data-listo]) .aviso-filtros-zona{
+    min-height:calc(1rem + 1.2rem + 4px + (var(--lineas) + var(--mas)) * var(--t-sm) * 1.55 + .6rem + var(--toque));
+  }
+}
+@container filtros (max-width:18rem){
+  html[data-cal-oculta] .zona-calendario:not([data-listo]) .aviso-filtros-zona{--mas:1;}
+}
+@container filtros (max-width:13rem){
+  html[data-cal-oculta] .zona-calendario:not([data-listo]) .aviso-filtros-zona{--mas:2;}
+}
 
 /* Enlace público de confirmación de cena extra: fuera del layout de la app, sin sesión. */
 .pagina-publica{

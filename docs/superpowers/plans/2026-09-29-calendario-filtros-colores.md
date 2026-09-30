@@ -113,6 +113,27 @@ tests/e2e/calendario.spec.ts                    + filtros (Director, Residente, 
   por la sigla. En contraste alto oscuro los colores quedan muy juntos en luminosidad (7:1 manda): ahí
   la sigla y el borde son el canal principal.
 
+## Tras la revisión
+
+- **Lo recién guardado no desaparece.** Agregar o editar un evento de un tipo oculto (o sin pedido con
+  "solo cocina") lo dejaba fuera de la lista del día mientras el aviso decía "Evento agregado.": el
+  Director lo cargaría de nuevo (dos pedidos a la cocina; con una serie, peor). Ahora el diálogo lista
+  lo agregado o editado ahí aunque esté oculto (`eventosDelDia` con los ids que no estaban al abrir y
+  los editados), marcado "Oculto por los filtros" con "Mostrar San Miguel en el calendario"
+  (`textoMostrarFiltro`), y el aviso explica por qué (`avisoGuardado`, también en plural para una
+  serie). Los avisos largos duran más (`duracionAviso`: ~70 ms por letra, entre 2,6 y 10 s).
+- **Entre pestañas:** el almacén ya no se queda con lo último que guardó; lee siempre el dispositivo
+  (la memoria es solo el respaldo si guardar falló). Así, lo que otra pestaña cambió mientras esta
+  estaba en otra sección manda al volver, y el siguiente toque no lo pisa.
+- **Recargar en el teléfono:** el aviso pasó al final de la sección (dentro del contenedor de la
+  consulta) y, angosto, lleva el ojo al lado del texto y el botón debajo. El script también deja
+  cuántos están ocultos (`data-cal-oculta-n`) y el CSS reserva una línea por cada uno (más una o dos
+  en contenedores ≤18rem / ≤13rem). Medido: la tarjeta se corría 34–197px; ahora a lo sumo ~23. Antes
+  de hidratar, los chips no dicen "Visible" ni el botón "todo a la vista", y los ocultos ya se ven
+  elevados con la marca hueca. "Visible" y "Oculto" ocupan lo mismo: al hidratar (o al tocar un chip)
+  los demás no se corren; antes, en 768 con letra grande, una fila de chips nueva corría la tarjeta 63px.
+- **Cabecera de días:** con la inicial a la vista, el lector de pantalla oye el nombre entero (`sr-only`).
+
 ## Tareas
 
 - [x] 1. `tipos.ts`: `MARCA_TIPO`, `varsTipo`, `tienePedido` (pruebas primero).

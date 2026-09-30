@@ -4,8 +4,12 @@ import {
   alternarFiltro,
   atributoOcultos,
   CLAVE_FILTROS,
+  avisoGuardado,
   crearAlmacenOcultos,
   escribirOcultos,
+  eventosDelDia,
+  filtroQueOculta,
+  textoMostrarFiltro,
   etiquetaDiaCalendario,
   eventoVisible,
   FILTROS,
@@ -201,8 +205,8 @@ describe('atributoOcultos', () => {
   })
 })
 
-/** Corre el script previo al pintado con un localStorage y un <html> falsos. */
-function correrScript(guardado: string | null | (() => never)): string | null {
+/** Corre el script previo al pintado con un localStorage y un <html> falsos: devuelve los atributos que puso. */
+function atributosDelScript(guardado: string | null | (() => never)): Map<string, string> {
   const atributos = new Map<string, string>()
   const localStorage = {
     getItem: (clave: string) => {
@@ -212,7 +216,12 @@ function correrScript(guardado: string | null | (() => never)): string | null {
   }
   const document = { documentElement: { setAttribute: (n: string, v: string) => atributos.set(n, v) } }
   runInNewContext(SCRIPT_FILTROS_CALENDARIO, { localStorage, document })
-  return atributos.get('data-cal-oculta') ?? null
+  return atributos
+}
+
+/** Lo que el script dejó en html[data-cal-oculta], o null. */
+function correrScript(guardado: string | null | (() => never)): string | null {
+  return atributosDelScript(guardado).get('data-cal-oculta') ?? null
 }
 
 describe('SCRIPT_FILTROS_CALENDARIO', () => {
@@ -235,6 +244,13 @@ describe('SCRIPT_FILTROS_CALENDARIO', () => {
     const conocidas = (delScript ?? '').split(' ').filter((c) => (FILTROS as readonly string[]).includes(c))
     expect(new Set(conocidas)).toEqual(new Set(leerOcultos(guardado)))
     if (leerOcultos(guardado).length === 0) expect(delScript).toBeNull()
+  })
+
+  it('también cuántos (hasta 3), para reservar el lugar del aviso antes de hidratar', () => {
+    expect(atributosDelScript('{"ocultos":["san_miguel"]}').get('data-cal-oculta-n')).toBe('1')
+    expect(atributosDelScript('{"ocultos":["san_miguel","ausencias"]}').get('data-cal-oculta-n')).toBe('2')
+    expect(atributosDelScript(escribirOcultos([...FILTROS])).get('data-cal-oculta-n')).toBe('3')
+    expect(atributosDelScript('{"ocultos":[]}').has('data-cal-oculta-n')).toBe(false)
   })
 
   it('si el almacenamiento está bloqueado no rompe la página', () => {
@@ -312,15 +328,124 @@ describe('crearAlmacenOcultos', () => {
     expect(leerOcultos(almacen.leer())).toEqual(['otro'])
   })
 
-  it('lo que cambió en otra pestaña manda sobre lo recordado en esta', () => {
-    const almacen = crearAlmacenOcultos(() => bloqueado)
-    almacen.guardar(escribirOcultos(['otro']))
+  it('lo que otra pestaña guardó manda, aunque esta no la haya estado escuchando (el calendario no estaba abierto)', () => {
+    const compartido = almacenFalso()
+    const pestanaA = crearAlmacenOcultos(() => compartido)
+    const pestanaB = crearAlmacenOcultos(() => compartido)
+    pestanaA.guardar(escribirOcultos(['san_miguel']))
+    // A se va a otra sección (nadie escucha "storage"); B toca "Mostrar todo".
+    pestanaB.guardar(escribirOcultos([]))
+    // A vuelve al calendario: lee lo último, y su próximo toque parte de ahí (no pisa lo de B).
+    expect(leerOcultos(pestanaA.leer())).toEqual([])
+    pestanaA.guardar(escribirOcultos(['otro']))
+    expect(leerOcultos(compartido.getItem(CLAVE_FILTROS))).toEqual(['otro'])
+  })
+
+  it('al enterarse de un cambio de otra pestaña vuelve a leer el dispositivo y avisa', () => {
+    const compartido = almacenFalso()
+    const almacen = crearAlmacenOcultos(() => compartido)
     let avisos = 0
     almacen.suscribir(() => avisos++)
-    almacen.desdeOtraPestana('{"ocultos":["san_rafael"]}')
+    compartido.setItem(CLAVE_FILTROS, '{"ocultos":["san_rafael"]}')
+    almacen.desdeOtraPestana()
     expect(leerOcultos(almacen.leer())).toEqual(['san_rafael'])
-    almacen.desdeOtraPestana(null)
-    expect(leerOcultos(almacen.leer())).toEqual([])
-    expect(avisos).toBe(2)
+    expect(avisos).toBe(1)
+  })
+
+  it('si guardar falló, lo recordado en memoria se olvida cuando otra pestaña cambia algo', () => {
+    let lleno = true
+    const compartido = almacenFalso()
+    const almacen = crearAlmacenOcultos(() => ({
+      getItem: compartido.getItem,
+      setItem: (clave: string, valor: string) => {
+        if (lleno) throw new Error('QuotaExceededError')
+        compartido.setItem(clave, valor)
+      },
+    }))
+    almacen.guardar(escribirOcultos(['otro']))
+    expect(leerOcultos(almacen.leer())).toEqual(['otro'])
+    lleno = false
+    compartido.setItem(CLAVE_FILTROS, '{"ocultos":["san_gabriel"]}')
+    almacen.desdeOtraPestana()
+    expect(leerOcultos(almacen.leer())).toEqual(['san_gabriel'])
+  })
+})
+
+describe('filtroQueOculta', () => {
+  it('nada, si el evento se ve', () => {
+    expect(filtroQueOculta(miguel, [])).toBeNull()
+    expect(filtroQueOculta(rafael, ['san_miguel', 'sin_pedido'])).toBeNull()
+  })
+
+  it('su tipo, si está oculto (primero el tipo: es lo que la persona reconoce)', () => {
+    expect(filtroQueOculta(gabriel, ['san_gabriel', 'sin_pedido'])).toBe('san_gabriel')
+  })
+
+  it('"sin pedido", si no pide nada y se ven solo los que piden', () => {
+    expect(filtroQueOculta(otro, ['sin_pedido'])).toBe('sin_pedido')
+  })
+
+  it('un evento sin tipo (Administración) nunca', () => {
+    expect(filtroQueOculta(evento('a', null), ['sin_pedido'])).toBeNull()
+  })
+})
+
+describe('avisoGuardado', () => {
+  it('si se ve, el aviso de siempre', () => {
+    expect(avisoGuardado('Evento agregado.', miguel, [])).toBe('Evento agregado.')
+  })
+
+  it('si su tipo está oculto, dice por qué no aparece en el calendario', () => {
+    expect(avisoGuardado('Evento agregado.', miguel, ['san_miguel'])).toBe(
+      'Evento agregado. No se ve en el calendario porque «San Miguel» está oculto en los filtros.',
+    )
+  })
+
+  it('una serie, en plural', () => {
+    expect(avisoGuardado('Se crearon 5 eventos.', miguel, ['san_miguel'], { varios: true })).toBe(
+      'Se crearon 5 eventos. No se ven en el calendario porque «San Miguel» está oculto en los filtros.',
+    )
+  })
+
+  it('sin pedido con "Solo eventos con pedido a cocina"', () => {
+    expect(avisoGuardado('Evento actualizado.', otro, ['sin_pedido'])).toBe(
+      'Evento actualizado. No se ve en el calendario porque no pide nada a la cocina y estás viendo solo los eventos con pedido.',
+    )
+    expect(avisoGuardado('Se crearon 3 eventos.', otro, ['sin_pedido'], { varios: true })).toBe(
+      'Se crearon 3 eventos. No se ven en el calendario porque no piden nada a la cocina y estás viendo solo los eventos con pedido.',
+    )
+  })
+})
+
+describe('textoMostrarFiltro', () => {
+  it('lo que dice el botón que vuelve a mostrar lo que esconde un filtro', () => {
+    expect(textoMostrarFiltro('san_miguel')).toBe('Mostrar San Miguel en el calendario')
+    expect(textoMostrarFiltro('sin_pedido')).toBe('Mostrar en el calendario los eventos sin pedido')
+    expect(textoMostrarFiltro('ausencias')).toBe('Mostrar Mis ausencias en el calendario')
+  })
+})
+
+describe('eventosDelDia', () => {
+  const todos = [rafael, gabriel, miguel, otro]
+
+  it('lista lo que se ve y cuenta lo oculto', () => {
+    expect(eventosDelDia(todos, ['san_miguel'], { verTodos: false, revelados: new Set() })).toEqual({
+      lista: [rafael, gabriel, otro],
+      ocultosSinMostrar: 1,
+    })
+  })
+
+  it('"Mostrarlos": todo, en su orden', () => {
+    expect(eventosDelDia(todos, ['san_miguel'], { verTodos: true, revelados: new Set() })).toEqual({
+      lista: todos,
+      ocultosSinMostrar: 0,
+    })
+  })
+
+  it('lo que se acaba de agregar o editar se lista aunque los filtros lo escondan (si no, parece que no se guardó)', () => {
+    expect(eventosDelDia(todos, ['san_miguel', 'san_gabriel'], { verTodos: false, revelados: new Set(['m']) })).toEqual({
+      lista: [rafael, miguel, otro],
+      ocultosSinMostrar: 1,
+    })
   })
 })
