@@ -10,15 +10,20 @@ import { llamarAccion } from './llamar-accion'
 export function FilaCuenta({
   cuenta,
   esPropia,
+  alCambiarUsuario,
   alPonerContrasena,
   alDesactivar,
   alConfirmarRol,
 }: {
   cuenta: Cuenta
   esPropia: boolean
+  alCambiarUsuario: () => void
   alPonerContrasena: () => void
   alDesactivar: () => void
-  /** Dar o quitar el rol Director pasa por una confirmación; el resto de los cambios de rol se aplica directo. */
+  /**
+   * Dar o quitar el rol Director, o pasar a Administración (cambia el nombre por uno genérico), pasa
+   * por una confirmación; el resto de los cambios de rol se aplica directo.
+   */
   alConfirmarRol: (rol: Rol) => void
 }) {
   const aviso = useAviso()
@@ -35,15 +40,23 @@ export function FilaCuenta({
 
   function cambiarRol(nuevo: Rol) {
     if (pendiente || nuevo === rol) return
-    if (nuevo === 'director' || rol === 'director') {
+    if (nuevo === 'director' || rol === 'director' || nuevo === 'administracion') {
       // El select es controlado: sigue mostrando el rol vigente hasta que se confirme.
       alConfirmarRol(nuevo)
       return
     }
+    // Quien sale de Administración conserva el nombre genérico hasta que ponga el suyo.
+    const saleDeAdministracion = rol === 'administracion'
     iniciarTransicion(async () => {
       setRolOptimista(nuevo)
       const resultado = await llamarAccion(() => cambiarRolCuenta({ id: cuenta.id, rol: nuevo }))
-      aviso(resultado.ok ? `Rol actualizado para ${cuenta.nombre}.` : resultado.error)
+      aviso(
+        !resultado.ok
+          ? resultado.error
+          : saleDeAdministracion
+            ? 'Rol actualizado. Pedile que ponga su nombre en Ajustes → Mi cuenta.'
+            : `Rol actualizado para ${cuenta.nombre}.`,
+      )
     })
   }
 
@@ -60,7 +73,7 @@ export function FilaCuenta({
         {cuenta.nombre} <span className="role-pill">{cuenta.siglas}</span>
         {esPropia && <div className="hint">Tu cuenta</div>}
       </td>
-      <td data-et="Correo">{cuenta.correo}</td>
+      <td data-et="Usuario">{cuenta.usuario}</td>
       <td data-et="Rol">
         <select
           aria-label={`Rol de ${cuenta.nombre}`}
@@ -81,40 +94,52 @@ export function FilaCuenta({
         {cuenta.debe_cambiar_contrasena && <div className="hint">Cambio de contraseña pendiente</div>}
       </td>
       <td className="acciones-celda">
-        {!esPropia && (
-          <div className="acciones-cuenta">
-            <button
-              type="button"
-              className="btn ghost small"
-              aria-label={`Contraseña temporal de ${cuenta.nombre}`}
-              aria-busy={pendiente}
-              onClick={siLibre(alPonerContrasena)}
-            >
-              Contraseña temporal
-            </button>
-            {cuenta.activo ? (
+        <div className="acciones-cuenta">
+          {/* También en la propia fila: el Director cambia su usuario igual que el de los demás. */}
+          <button
+            type="button"
+            className="btn ghost small"
+            aria-label={`Cambiar usuario de ${cuenta.nombre}`}
+            aria-busy={pendiente}
+            onClick={siLibre(alCambiarUsuario)}
+          >
+            Cambiar usuario
+          </button>
+          {!esPropia && (
+            <>
               <button
                 type="button"
                 className="btn ghost small"
-                aria-label={`Desactivar a ${cuenta.nombre}`}
+                aria-label={`Contraseña temporal de ${cuenta.nombre}`}
                 aria-busy={pendiente}
-                onClick={siLibre(alDesactivar)}
+                onClick={siLibre(alPonerContrasena)}
               >
-                Desactivar
+                Contraseña temporal
               </button>
-            ) : (
-              <button
-                type="button"
-                className="btn small"
-                aria-label={`Reactivar a ${cuenta.nombre}`}
-                aria-busy={pendiente}
-                onClick={siLibre(reactivar)}
-              >
-                Reactivar
-              </button>
-            )}
-          </div>
-        )}
+              {cuenta.activo ? (
+                <button
+                  type="button"
+                  className="btn ghost small"
+                  aria-label={`Desactivar a ${cuenta.nombre}`}
+                  aria-busy={pendiente}
+                  onClick={siLibre(alDesactivar)}
+                >
+                  Desactivar
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="btn small"
+                  aria-label={`Reactivar a ${cuenta.nombre}`}
+                  aria-busy={pendiente}
+                  onClick={siLibre(reactivar)}
+                >
+                  Reactivar
+                </button>
+              )}
+            </>
+          )}
+        </div>
       </td>
     </tr>
   )

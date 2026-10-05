@@ -241,6 +241,9 @@ a{color:var(--acento);}
 }
 .field textarea,.compose textarea{min-height:7rem;resize:vertical;line-height:1.5;}
 .field input:disabled,.field select:disabled,.user-table select:disabled{opacity:.6;cursor:not-allowed;}
+/* Solo lectura = plano (DESIGN.md §2): sin hueco hundido y con borde punteado, para que no parezca un
+   campo donde escribir. Se puede seleccionar y copiar. */
+.field input[readonly]{box-shadow:none;border-style:dashed;background:transparent;cursor:default;}
 .campo-error{color:var(--peligro);font-size:var(--t-sm);font-weight:600;}
 .hint{font-size:var(--t-sm);color:var(--tinta-tenue);}
 .login-error{
