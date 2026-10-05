@@ -558,6 +558,17 @@ principal para que un lector de pantalla anuncie dónde quedó la persona.
   reserva el alto del aviso: una fila en un contenedor ancho; en uno angosto, una línea por cosa
   oculta, más una o dos cuanto más angosto, y el botón debajo. Medido a 320/375/768/1280 ×
   normal/grande/enorme: la tarjeta se corre a lo sumo ~25px al hidratar (sin reservar, hasta ~200).
+- **Un campo que no se edita es plano, no un hueco.** `.field input[readonly]` pierde el relieve
+  hundido y lleva borde punteado: el usuario en *"Mi cuenta"* (lo cambia el Director) y el nombre de
+  una cuenta de Administración (lo pone la app). Siempre con una línea debajo que dice por qué no se
+  cambia y a quién pedirlo; si todo el formulario es de solo lectura, tampoco hay botón de guardar.
+- **El usuario se cambia donde se ve.** En la tabla de cuentas el usuario es un botón elevado con
+  lápiz (`.boton-usuario`): tocarlo abre el diálogo, igual que tocar una comida abre su burbuja. No
+  es un tercer botón en la columna de acciones: con tres, cada fila crecía un renglón.
+- **Lo que la app decide se dice antes de guardar.** Al crear una cuenta de Administración, o al
+  pasar una cuenta a ese rol, el formulario dice cómo se va a llamar (*"Se va a llamar
+  «Administración 3» (A3)"*) en el lugar de los campos que no pide; el cambio de rol pasa además por
+  una confirmación, porque reemplaza el nombre.
 
 ---
 
