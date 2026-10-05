@@ -159,8 +159,10 @@ tritanopía):
   tipo completo. Junto al nombre completo (chips, pastilla, formulario) "Otro" es el cuadrito gris sin
   letras: la ausencia de letras también lo distingue. En la cuadrícula del teléfono, si la sigla no
   entra en la columna, queda la inicial (`INICIAL_TIPO`: R, G, M; Otro, punto gris).
-- **Tinte + marca, nunca franja lateral** (§8). Administración no recibe el tipo: sus eventos se
-  pintan como siempre, sin color ni marca.
+- **Tinte + marca, nunca franja lateral** (§8). Administración recibe el tipo solo de los eventos que
+  le piden algo, y los ve con el mismo color y la misma marca; el título, nunca. En la lista y en el
+  diálogo del día lleva la pastilla con el nombre completo, sin repetir el pedido (para ella el texto
+  del evento ya es el pedido).
 
 ---
 
@@ -525,7 +527,9 @@ principal para que un lector de pantalla anuncie dónde quedó la persona.
   texto, por consulta de contenedor en `rem`; la letra no se achica.
 
 - **Los filtros del calendario se ven, y lo oculto se dice.** Arriba de la tarjeta del mes (Director
-  y Residente; Administración no, porque delatarían la categoría): un chip por tipo con su color y su
+  y Residente; Administración no: ve todo lo que le piden, y su `.zona-calendario` sale con
+  `data-listo` desde el servidor para que lo oculto en ese dispositivo no le esconda nada): un chip
+  por tipo con su color y su
   marca, *"Mis ausencias"* y, en su línea, *"Solo eventos con pedido a cocina"* (un `switch` con
   *"Sí"*/*"No"* escrito). Cada chip es un interruptor (`aria-pressed`): **mostrado = hundido + visto +
   *"Visible"***, como toda opción elegida; **oculto = elevado + ojo tachado + *"Oculto"*** (se toca
@@ -668,7 +672,8 @@ Decisiones tomadas al portar:
   `.celda-casa-marco` con `.extra-mas` (el *"+ Extra"* de cada comida, hermano del botón de la
   celda) y `.fila-extra` (cada extra ya agregado, dentro de su burbuja). Con los filtros del
   calendario, `.cal-event` sigue siendo el evento y su texto no cambia (la sigla es un `::before`); con
-  tipo lleva `data-tipo`, `data-marca` y `data-inicial` (Administración, nunca). Se suman la sección
+  tipo lleva `data-tipo`, `data-marca` y `data-inicial` (también para Administración). Lo que puede
+  comer quien está enfermo va en `.nota-parte`, debajo de su `.parte`. Se suman la sección
   nombrada *"Filtros"* (`.filtros-cal`, por su rol: `getByRole('region', { name: 'Filtros' })`), sus
   chips `.chip-filtro[data-filtro]` (botones con `aria-pressed`, nombrados por el tipo: *"San
   Miguel"*), el `switch` *"Solo eventos con pedido a cocina"*, el aviso `.aviso-filtros` (dentro de la

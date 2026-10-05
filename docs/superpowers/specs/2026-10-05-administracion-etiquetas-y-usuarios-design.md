@@ -64,7 +64,8 @@ Hallazgos del análisis:
 ### Avisos push a la cocina
 
 - `paraCocina()` deja pasar también `tipo`. El texto lo nombra junto a la fecha:
-  "Jueves 1/10, 15:00 · San Gabriel: Merienda".
+  "Jueves 1/10, 15:00 · San Gabriel: Merienda". «Otro» no se nombra en el aviso: no le dice nada a
+  la cocina.
 - `cambioPedidoCocina()` no cambia: si solo cambia la categoría (o el título), no hay aviso nuevo.
 - `cargaSeriePedidos()`: nombra el tipo si todas las fechas lo comparten.
 

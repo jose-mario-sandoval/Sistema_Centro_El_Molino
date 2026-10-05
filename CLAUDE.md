@@ -49,10 +49,13 @@ opcionales:
   cualquier pantalla o payload nuevo para Administración debe pasar por ahí, no leer `nombre`
   directo. Tampoco ve la comida persona por persona: su semana es agregada (`agregarSemana()` en
   `lib/comidas/vista.ts`), con el desglose por estado y horas (`partesParaCocina()`, `CeldaResumen`:
-  "2 temprano (06:30 ×2)", en bolsa, enfermo solo como cantidad) y los extras como cifra + nota
+  "2 temprano (06:30 ×2)", en bolsa, enfermo con lo que puede comer —la nota en `parte.notas`, nunca
+  quién; `textoParte()` la lleva a los textos corridos—) y los extras como cifra + nota
   (`extras_de_la_semana()` suma enlace público + manuales; `extras_manuales_de_la_semana()` da las
-  notas sin autor), sin nombres ni lista de invitados. Tampoco ve colores, marcas ni filtros de
-  categoría en el calendario, ni lee ausencias (solo `ausentes_en()`).
+  notas sin autor), sin nombres ni lista de invitados. De un evento ve la categoría (color y marca),
+  nunca el título; no tiene filtros en el calendario (`.zona-calendario` le sale `data-listo` desde el
+  servidor: lo que otro ocultó en ese dispositivo no le esconde nada) ni lee ausencias (solo
+  `ausentes_en()`).
 - Valor efectivo de una comida, en cascada: **selección de la persona → ausencia → plan semanal →
   "Sin definir"**. Ver `lib/comidas/reglas.ts` (`valorEfectivo`) y el espejo en SQL
   (`guardar_seleccion_de`, `cerrar_comidas_vencidas`, `comidas_sin_definir`). Si cambia una regla,
@@ -84,7 +87,7 @@ opcionales:
   la app no se lo permite en pantalla, pero no hay una barrera de RLS que lo impida a nivel de fila.
 - Eventos: `tipo_evento` = `san_rafael | san_gabriel | san_miguel | otro`; `requiere_otro_texto` es
   el pedido libre a Administración (`eventos_para_cocina()` también devuelve el evento si solo pide
-  texto). Administración ve el pedido, nunca el título ni la categoría.
+  texto). Administración ve el pedido y la categoría, nunca el título.
 - **Series de eventos**: `series_eventos` + `eventos.serie_id`; cada ocurrencia es un evento normal
   (se edita/borra sola). `crear_serie_eventos()` NO es `security definer`: corre como quien llama,
   así RLS aplica fila a fila y la creación de serie + ocurrencias es atómica. Las fechas las calcula
@@ -117,7 +120,7 @@ opcionales:
   `avisar_cocina`). Un mensaje solo se avisa al público cuando queda `aprobado`; además: pendiente →
   Directores, aprobado/rechazado → autor, cambios del Director → la persona, cambios para la cocina →
   Administración. **Todo lo que va a Administración pasa por `paraCocina()`
-  (`lib/push/cargas-casa.ts`)**: solo fecha, hora, cantidad y pedido. En producción dependen de las
+  (`lib/push/cargas-casa.ts`)**: solo fecha, hora, categoría, cantidad y pedido. En producción dependen de las
   llaves VAPID y `CRON_SECRET` en Vercel y de `url_app` / `cron_secret` en Supabase Vault
   (`supabase/snippets/configurar-vault.sql`).
 - **Filtros del calendario** (Director y Residente): por tipo, "Mis ausencias" y "solo con pedido a
