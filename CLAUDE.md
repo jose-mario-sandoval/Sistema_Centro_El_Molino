@@ -99,6 +99,22 @@ opcionales:
   `info_enlace_confirmacion()` / `confirmar_cena_extra()` (`security definer`, error `MOL05`);
   `anon` no toca las tablas. Revocar = adelantar `vence_en`, no borrar (se perderían las
   confirmaciones ya recibidas).
+- **Se entra con usuario, no con correo** (`perfiles.usuario`: único, normalizado con
+  `normalizarUsuario()` de `lib/cuentas/usuario.ts`; el mismo formato en zod y en el `check` de la
+  base). Lo pone y lo cambia solo el Director (`cambiarUsuarioCuenta`): es actualizar esa columna.
+  Auth exige un correo, así que cada cuenta tiene una **dirección interna** opaca
+  (`<uuid>@cuentas.molino.invalid`, `direccionInterna()`) que nadie ve ni escribe; el login la busca
+  con la llave secreta (`direccionDeAcceso()`: `perfiles` → `auth.admin.getUserById`, el único uso
+  de esa llave sin sesión). Un usuario inexistente sigue el mismo camino con
+  `DIRECCION_INEXISTENTE`: mismo mensaje, sin revelar qué usuarios existen. Quien escribe su correo
+  viejo pasa por `usuarioDesdeCorreo()`, espejo en TS de la limpieza de la migración
+  `20261005110000` (casos compartidos en `tests/fixtures/casos-usuario.json`: si cambia una,
+  cambia la otra). El prefijo `demo.` es de los scripts: lo rechazan solo los formularios del
+  Director. La app nunca manda correos.
+- **Las cuentas de Administración se llaman "Administración N" / "AN"**
+  (`lib/cuentas/administracion.ts`): la casa no ve su nombre real. El número sale de los nombres
+  que ya existen (sin contador); el servidor lo pone al crear la cuenta o al pasarla a ese rol
+  (con confirmación), y esas cuentas no pueden editar su nombre en "Mi cuenta".
 - **Aprobación de mensajes** (`estado_mensaje`: pendiente/aprobado/rechazado): el estado lo fuerza el
   trigger `mensajes_forzar_estado` según el rol de *quien tiene la sesión* (`mi_rol()`), no según
   `autor_id` ni lo que mande el cliente. Residente → `pendiente`; **Director y Administración →
@@ -277,6 +293,8 @@ de varias filas con claves distintas manda `null` en las que faltan (no el defau
   `components/app/marca/escudo.png` y regenerar `escudo-datos.ts`.
 - `tests/soporte/usuarios-prueba.ts` — usuarios de prueba y clientes: `clienteAdminPrueba()`
   (llave secreta), `clienteComo(clave)` (sesión real, RLS aplica), `clienteAnonimoPrueba()`.
+  `USUARIOS_PRUEBA[clave].usuario` es con lo que se entra por la pantalla; `.correo` es la dirección
+  de Auth con la que entra `clienteComo()` (en `perfiles` no se guarda).
 - `lib/<dominio>/` (comidas, calendario, ausencias, mensajes, perfiles, push) separa reglas (`reglas.ts`),
   vista/armado para UI (`vista.ts`), consultas a Supabase (`consultas.ts`) y validación zod
   (`lib/validacion/`).
