@@ -37,7 +37,7 @@ function leerFormulario(formData: FormData) {
 /*
  * Avisos a la cocina (plan 2026-09-29, aviso d): cuando un evento con pedido se crea, cambia de
  * pedido, fecha u hora, o se borra. Se programan con after() (no demoran ni rompen la acción) y solo
- * con paraCocina(): el título, la categoría y la serie nunca llegan al aviso.
+ * con paraCocina(): el título y la serie nunca llegan al aviso.
  */
 function avisarCocinaSiPide(actorId: string, eventoId: string, antes: PedidoCocina | null, despues: PedidoCocina | null) {
   const a = antes && paraCocina(antes)
@@ -83,7 +83,7 @@ export async function editarEvento(_previo: Resultado<null> | null, formData: Fo
   // edición sigue igual y solo se pierde el aviso.
   const anterior = await supabase
     .from('eventos')
-    .select('fecha, hora, requiere_cocina, requiere_otro_texto')
+    .select('fecha, hora, tipo, requiere_cocina, requiere_otro_texto')
     .eq('id', id)
     .maybeSingle()
   if (anterior.error) console.error('editarEvento: no se pudo leer el evento antes de cambiarlo', anterior.error)
@@ -112,7 +112,7 @@ export async function eliminarEvento(entrada: unknown): Promise<Resultado<null>>
     .from('eventos')
     .delete()
     .eq('id', datos.data.id)
-    .select('id, fecha, hora, requiere_cocina, requiere_otro_texto')
+    .select('id, fecha, hora, tipo, requiere_cocina, requiere_otro_texto')
   if (error) return fallo('No se pudo eliminar el evento. Intentá de nuevo.')
   if (data.length === 0) {
     revalidatePath('/calendario')
@@ -283,7 +283,7 @@ export async function eliminarSerieDesdeHoy(entrada: unknown): Promise<Resultado
     .delete()
     .eq('serie_id', datos.data.serie_id)
     .gte('fecha', hoy)
-    .select('id, fecha, hora, requiere_cocina, requiere_otro_texto')
+    .select('id, fecha, hora, tipo, requiere_cocina, requiere_otro_texto')
   if (error) return fallo('No se pudo cancelar la serie. Intentá de nuevo.')
 
   revalidatePath('/calendario')

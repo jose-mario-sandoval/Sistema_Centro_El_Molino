@@ -49,7 +49,7 @@ const EVENTO = {
   requiere_cocina: ['merienda'],
   requiere_otro_texto: '20 sillas',
 }
-const PARA_COCINA = { fecha: '2099-01-15', hora: '15:00', requiere_cocina: ['merienda'], requiere_otro_texto: '20 sillas' }
+const PARA_COCINA = { fecha: '2099-01-15', hora: '15:00', tipo: 'san_rafael', requiere_cocina: ['merienda'], requiere_otro_texto: '20 sillas' }
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -60,8 +60,8 @@ afterEach(() => {
   vi.useRealTimers()
 })
 
-describe('avisos a la cocina desde el calendario: solo cuándo y qué, nunca el título ni la categoría', () => {
-  it('crear un evento con pedido avisa sin título ni tipo', async () => {
+describe('avisos a la cocina desde el calendario: solo cuándo, categoría y qué; nunca el título', () => {
+  it('crear un evento con pedido avisa con su categoría y sin título', async () => {
     usarCliente(clienteSupabaseFalso({ consultas: [{ data: { id: ID }, error: null }] }))
     expect(await crearEvento(null, formulario(EVENTO))).toEqual({ ok: true, data: { id: ID } })
     await correrAfter()
@@ -78,19 +78,19 @@ describe('avisos a la cocina desde el calendario: solo cuándo y qué, nunca el 
     const falso = usarCliente(
       clienteSupabaseFalso({
         consultas: [
-          { data: { fecha: '2099-01-15', hora: '15:00:00', requiere_cocina: ['merienda'], requiere_otro_texto: null }, error: null },
+          { data: { fecha: '2099-01-15', hora: '15:00:00', tipo: 'san_miguel', requiere_cocina: ['merienda'], requiere_otro_texto: null }, error: null },
           { data: [{ id: ID }], error: null },
         ],
       }),
     )
     expect(await editarEvento(null, formulario({ ...EVENTO, id: ID, hora: '16:00' }))).toEqual({ ok: true, data: null })
     expect(falso.operaciones.map((o) => o.operacion)).toEqual(['select', 'update'])
-    expect(falso.operaciones[0].columnas).toBe('fecha, hora, requiere_cocina, requiere_otro_texto')
+    expect(falso.operaciones[0].columnas).toBe('fecha, hora, tipo, requiere_cocina, requiere_otro_texto')
     await correrAfter()
     expect(avisarPedidoCocina).toHaveBeenCalledWith({
       actorId: DIRECTOR.id,
       eventoId: ID,
-      antes: { fecha: '2099-01-15', hora: '15:00:00', requiere_cocina: ['merienda'], requiere_otro_texto: null },
+      antes: { fecha: '2099-01-15', hora: '15:00:00', tipo: 'san_miguel', requiere_cocina: ['merienda'], requiere_otro_texto: null },
       despues: { ...PARA_COCINA, hora: '16:00' },
     })
   })
@@ -109,16 +109,18 @@ describe('avisos a la cocina desde el calendario: solo cuándo y qué, nunca el 
   it('borrar avisa con lo que tenía el evento borrado', async () => {
     const falso = usarCliente(
       clienteSupabaseFalso({
-        consultas: [{ data: [{ id: ID, fecha: '2099-01-15', hora: null, requiere_cocina: [], requiere_otro_texto: 'Sillas' }], error: null }],
+        consultas: [
+          { data: [{ id: ID, fecha: '2099-01-15', hora: null, tipo: 'san_gabriel', requiere_cocina: [], requiere_otro_texto: 'Sillas' }], error: null },
+        ],
       }),
     )
     expect(await eliminarEvento({ id: ID })).toEqual({ ok: true, data: null })
-    expect(falso.operaciones[0].columnas).toBe('id, fecha, hora, requiere_cocina, requiere_otro_texto')
+    expect(falso.operaciones[0].columnas).toBe('id, fecha, hora, tipo, requiere_cocina, requiere_otro_texto')
     await correrAfter()
     expect(avisarPedidoCocina).toHaveBeenCalledWith({
       actorId: DIRECTOR.id,
       eventoId: ID,
-      antes: { fecha: '2099-01-15', hora: null, requiere_cocina: [], requiere_otro_texto: 'Sillas' },
+      antes: { fecha: '2099-01-15', hora: null, tipo: 'san_gabriel', requiere_cocina: [], requiere_otro_texto: 'Sillas' },
       despues: null,
     })
   })
@@ -148,6 +150,7 @@ describe('avisos a la cocina desde el calendario: solo cuándo y qué, nunca el 
       pedidos: ['2099-01-01', '2099-01-08', '2099-01-15', '2099-01-22'].map((fecha) => ({
         fecha,
         hora: null,
+        tipo: 'otro',
         requiere_cocina: ['comida'],
         requiere_otro_texto: null,
       })),
@@ -158,8 +161,8 @@ describe('avisos a la cocina desde el calendario: solo cuándo y qué, nunca el 
     vi.useFakeTimers({ toFake: ['Date'] })
     vi.setSystemTime(new Date('2099-01-10T12:00:00-06:00'))
     const borradas = [
-      { id: ID, fecha: '2099-01-15', hora: '10:00:00', requiere_cocina: ['comida'], requiere_otro_texto: null },
-      { id: SERIE, fecha: '2099-01-22', hora: '10:00:00', requiere_cocina: ['comida'], requiere_otro_texto: null },
+      { id: ID, fecha: '2099-01-15', hora: '10:00:00', tipo: 'san_rafael', requiere_cocina: ['comida'], requiere_otro_texto: null },
+      { id: SERIE, fecha: '2099-01-22', hora: '10:00:00', tipo: 'san_rafael', requiere_cocina: ['comida'], requiere_otro_texto: null },
     ]
     const falso = usarCliente(clienteSupabaseFalso({ consultas: [{ data: borradas, error: null }] }))
     expect(await eliminarSerieDesdeHoy({ serie_id: SERIE })).toEqual({ ok: true, data: { cantidad: 2 } })
@@ -172,7 +175,7 @@ describe('avisos a la cocina desde el calendario: solo cuándo y qué, nunca el 
       actorId: DIRECTOR.id,
       serieId: SERIE,
       accion: 'cancelada',
-      pedidos: borradas.map(({ fecha, hora, requiere_cocina, requiere_otro_texto }) => ({ fecha, hora, requiere_cocina, requiere_otro_texto })),
+      pedidos: borradas.map(({ fecha, hora, tipo, requiere_cocina, requiere_otro_texto }) => ({ fecha, hora, tipo, requiere_cocina, requiere_otro_texto })),
     })
   })
 })

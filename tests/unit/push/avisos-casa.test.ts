@@ -50,7 +50,7 @@ function envios() {
   return vi.mocked(enviarAUsuarios).mock.calls.map(([ids, carga]) => ({ ids, carga }))
 }
 
-const NOMBRES = /Juan|Pérez|Ana|Torres|Directora|Administración Prueba|Cocina Dos|Cumpleaños|San Rafael|san_rafael/
+const NOMBRES = /Juan|Pérez|Ana|Torres|Directora|Administración Prueba|Cocina Dos|Cumpleaños|san_rafael/
 
 beforeEach(() => {
   vi.mocked(enviarAUsuarios).mockReset().mockResolvedValue({ enviadas: 1, caducadas: 0, fallidas: 0, descartadas: 0 })
@@ -180,25 +180,28 @@ describe('avisarPedidoCocina', () => {
   const evento = {
     id: 'e1',
     titulo: 'Cumpleaños de Juan Pérez',
-    tipo: 'san_rafael',
+    tipo: 'san_rafael' as const,
     fecha: '2026-10-01',
     hora: '15:00:00',
     requiere_cocina: ['merienda' as const],
     requiere_otro_texto: null,
   }
 
-  it('evento nuevo con pedido: a Administración, sin título, categoría ni nombres', async () => {
+  it('evento nuevo con pedido: a Administración, con su categoría y sin título ni nombres', async () => {
     usarTablas({ perfiles: PERFILES })
     await avisarPedidoCocina({ actorId: 'dir', eventoId: 'e1', antes: null, despues: evento })
     expect(envios()).toHaveLength(1)
     expect(envios()[0].ids).toEqual(['adm'])
-    expect(envios()[0].carga).toMatchObject({ titulo: 'Nuevo pedido para la cocina', cuerpo: 'Jueves 1/10, 15:00: Merienda.' })
+    expect(envios()[0].carga).toMatchObject({
+      titulo: 'Nuevo pedido para la cocina',
+      cuerpo: 'Jueves 1/10, 15:00 · San Rafael: Merienda.',
+    })
     expect(JSON.stringify(envios())).not.toMatch(NOMBRES)
   })
 
-  it('un cambio que no toca a la cocina (el título) no se avisa', async () => {
+  it('un cambio que no toca a la cocina (el título o la categoría) no se avisa', async () => {
     usarTablas({ perfiles: PERFILES })
-    const otroTitulo = { ...evento, titulo: 'Otro título', tipo: 'otro' }
+    const otroTitulo = { ...evento, titulo: 'Otro título', tipo: 'otro' as const }
     await avisarPedidoCocina({ actorId: 'dir', eventoId: 'e1', antes: evento, despues: otroTitulo })
     expect(enviarAUsuarios).not.toHaveBeenCalled()
   })
@@ -210,9 +213,10 @@ describe('avisarSerieCocina', () => {
     const pedidos = ['2026-09-22', '2026-10-06', '2026-10-13', '2026-10-20'].map((fecha) => ({
       fecha,
       hora: null,
+      tipo: 'san_miguel' as const,
       requiere_cocina: ['comida' as const],
       requiere_otro_texto: null,
-      titulo: 'Retiro de San Miguel',
+      titulo: 'Retiro de los jueves',
     }))
     await avisarSerieCocina({ actorId: 'dir', serieId: 's1', accion: 'creada', pedidos })
     expect(envios()).toEqual([
@@ -220,13 +224,13 @@ describe('avisarSerieCocina', () => {
         ids: ['adm'],
         carga: {
           titulo: 'Se agregaron 3 eventos con pedido a cocina',
-          cuerpo: 'Del 6 al 20 de octubre: Comida.',
+          cuerpo: 'Del 6 al 20 de octubre · San Miguel: Comida.',
           url: '/calendario?mes=2026-10',
           etiqueta: 'cocina-serie-s1',
         },
       },
     ])
-    expect(JSON.stringify(envios())).not.toMatch(/Retiro|San Miguel/)
+    expect(JSON.stringify(envios())).not.toMatch(/Retiro|jueves/)
   })
 
   it('sin pedido a la cocina no se avisa', async () => {
@@ -235,7 +239,7 @@ describe('avisarSerieCocina', () => {
       actorId: 'dir',
       serieId: 's1',
       accion: 'cancelada',
-      pedidos: [{ fecha: '2026-10-06', hora: null, requiere_cocina: [], requiere_otro_texto: null }],
+      pedidos: [{ fecha: '2026-10-06', hora: null, tipo: 'otro', requiere_cocina: [], requiere_otro_texto: null }],
     })
     expect(enviarAUsuarios).not.toHaveBeenCalled()
   })

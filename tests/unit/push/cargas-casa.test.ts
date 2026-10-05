@@ -144,6 +144,8 @@ describe('(d) pedidos de eventos para la cocina', () => {
   const pedido = (cambios: Partial<PedidoCocina> = {}): PedidoCocina => ({
     fecha: '2026-10-01',
     hora: '15:00:00',
+    // "Otro" no se nombra en el aviso: las pruebas que no miran la categoría quedan con el texto de siempre.
+    tipo: 'otro',
     requiere_cocina: ['merienda'],
     requiere_otro_texto: null,
     ...cambios,
@@ -228,8 +230,53 @@ describe('(d) pedidos de eventos para la cocina', () => {
     expect(cuerpo).toBe('Del 1 al 8 de octubre: pedidos distintos, miralos en el calendario.')
   })
 
-  it('nunca lleva títulos, categorías ni nombres aunque el objeto los traiga', () => {
-    const conDeMas = { ...pedido(), titulo: 'Cumpleaños de Juan Pérez', tipo: 'san_rafael', creado_por: 'Directora Prueba' }
+  it('nombra la categoría junto al cuándo; "Otro" no se nombra (no le dice nada a la cocina)', () => {
+    const rafael = pedido({ tipo: 'san_rafael' })
+    expect(cargaPedidoCocina({ id: 'e1', tipo: 'nuevo', antes: null, despues: rafael, hoy: HOY }).cuerpo).toBe(
+      'Jueves 1/10, 15:00 · San Rafael: Merienda.',
+    )
+    expect(cargaPedidoCocina({ id: 'e1', tipo: 'cancelado', antes: rafael, despues: null, hoy: HOY }).cuerpo).toBe(
+      'Jueves 1/10, 15:00 · San Rafael: Merienda.',
+    )
+    expect(
+      cargaPedidoCocina({ id: 'e1', tipo: 'cambiado', antes: rafael, despues: { ...rafael, hora: '16:30' }, hoy: HOY }).cuerpo,
+    ).toBe('Ahora: Jueves 1/10, 16:30 · San Rafael: Merienda (antes: jueves 1/10, 15:00).')
+    expect(
+      cargaPedidoCocina({ id: 'e1', tipo: 'cambiado', antes: rafael, despues: { ...rafael, requiere_cocina: ['comida'] }, hoy: HOY })
+        .cuerpo,
+    ).toBe('Jueves 1/10, 15:00 · San Rafael: ahora Comida (antes: Merienda).')
+    expect(
+      cargaPedidoCocina({
+        id: 'e1',
+        tipo: 'cambiado',
+        antes: rafael,
+        despues: { ...rafael, fecha: '2026-09-30', hora: null, requiere_cocina: ['materiales'] },
+        hoy: HOY,
+      }).cuerpo,
+    ).toBe('Ahora: Mañana · San Rafael: Utensilios y materiales. Antes: Jueves 1/10, 15:00: Merienda.')
+  })
+
+  it('un cambio solo de categoría no es un cambio para la cocina', () => {
+    expect(cambioPedidoCocina(pedido({ tipo: 'san_rafael' }), pedido({ tipo: 'san_miguel' }), HOY)).toBeNull()
+  })
+
+  it('una serie nombra la categoría si todas sus fechas la comparten', () => {
+    const fechas = ['2026-10-01', '2026-10-08']
+    expect(
+      cargaSeriePedidos({ serieId: 's1', accion: 'creada', pedidos: fechas.map((fecha) => pedido({ fecha, tipo: 'san_gabriel' })) })
+        .cuerpo,
+    ).toBe('Del 1 al 8 de octubre, a las 15:00 · San Gabriel: Merienda.')
+    expect(
+      cargaSeriePedidos({
+        serieId: 's1',
+        accion: 'creada',
+        pedidos: [pedido({ fecha: fechas[0], tipo: 'san_gabriel' }), pedido({ fecha: fechas[1], tipo: 'san_miguel' })],
+      }).cuerpo,
+    ).toBe('Del 1 al 8 de octubre, a las 15:00: Merienda.')
+  })
+
+  it('nunca lleva títulos ni nombres aunque el objeto los traiga; la categoría sí, escrita', () => {
+    const conDeMas = { ...pedido({ tipo: 'san_rafael' }), titulo: 'Cumpleaños de Juan Pérez', creado_por: 'Directora Prueba' }
     const cargas = [
       cargaPedidoCocina({ id: 'e1', tipo: 'nuevo', antes: null, despues: conDeMas, hoy: HOY }),
       cargaPedidoCocina({ id: 'e1', tipo: 'cambiado', antes: conDeMas, despues: { ...conDeMas, hora: '18:00' }, hoy: HOY }),
@@ -237,7 +284,8 @@ describe('(d) pedidos de eventos para la cocina', () => {
     ]
     for (const carga of cargas) {
       const json = JSON.stringify(carga)
-      expect(json).not.toMatch(/Cumpleaños|Juan|Pérez|San Rafael|san_rafael|Directora/)
+      expect(json).not.toMatch(/Cumpleaños|Juan|Pérez|san_rafael|Directora/)
+      expect(carga.cuerpo).toContain('San Rafael')
       expect(Array.from(carga.cuerpo).length).toBeLessThanOrEqual(LARGO_MAXIMO_CUERPO)
     }
   })
@@ -248,7 +296,7 @@ describe('paraCocina / importaALaCocina', () => {
     const evento = {
       id: 'e1',
       titulo: 'Cumpleaños de Juan',
-      tipo: 'san_rafael',
+      tipo: 'san_rafael' as const,
       fecha: '2026-10-01',
       hora: '15:00:00',
       requiere_cocina: ['merienda' as const],
@@ -256,11 +304,17 @@ describe('paraCocina / importaALaCocina', () => {
       serie_id: 's1',
       creado_por: 'x',
     }
-    expect(paraCocina(evento)).toEqual({ fecha: '2026-10-01', hora: '15:00:00', requiere_cocina: ['merienda'], requiere_otro_texto: null })
+    expect(paraCocina(evento)).toEqual({
+      fecha: '2026-10-01',
+      hora: '15:00:00',
+      tipo: 'san_rafael',
+      requiere_cocina: ['merienda'],
+      requiere_otro_texto: null,
+    })
   })
 
   it('importa si pide algo y es de hoy en adelante', () => {
-    const base: PedidoCocina = { fecha: HOY, hora: null, requiere_cocina: [], requiere_otro_texto: '  ' }
+    const base: PedidoCocina = { fecha: HOY, hora: null, tipo: 'otro', requiere_cocina: [], requiere_otro_texto: '  ' }
     expect(importaALaCocina(base, HOY)).toBe(false)
     expect(importaALaCocina({ ...base, requiere_otro_texto: 'Sillas' }, HOY)).toBe(true)
     expect(importaALaCocina({ ...base, requiere_cocina: ['comida'], fecha: '2026-09-28' }, HOY)).toBe(false)

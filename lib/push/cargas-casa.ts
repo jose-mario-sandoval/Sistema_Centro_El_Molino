@@ -1,4 +1,4 @@
-import { REQUERIMIENTOS_COCINA, textoPedido, type EventoParaCocina } from '@/lib/calendario/tipos'
+import { ETIQUETA_TIPO, REQUERIMIENTOS_COCINA, textoPedido, type EventoParaCocina } from '@/lib/calendario/tipos'
 import { textoCantidadExtra } from '@/lib/comidas/casa'
 import { diaPlural } from '@/lib/comidas/plan'
 import { cierreDe } from '@/lib/comidas/reglas'
@@ -13,8 +13,8 @@ import { recortar, type CargaPush } from './mensajes-push'
  * Textos de los avisos de "la casa": lo que el Director cambió de una persona (c) y lo que cambió
  * para la cocina (d). Puros y sin `Intl`: las fechas salen de lib/fechas y lib/comidas.
  *
- * Los de la cocina reciben solo lo que Administración puede ver (fecha, hora, comida, cantidad,
- * pedido o nota): nunca un título, una categoría ni un nombre (CLAUDE.md, `eventos_para_cocina()`).
+ * Los de la cocina reciben solo lo que Administración puede ver (fecha, hora, categoría, comida,
+ * cantidad, pedido o nota): nunca un título ni un nombre (CLAUDE.md, `eventos_para_cocina()`).
  */
 
 // ---------- (c) El Director cambió algo tuyo ----------
@@ -143,7 +143,7 @@ export function cargaExtraCocina(p: {
   }
 }
 
-/** Lo que la cocina sabe de un evento (`eventos_para_cocina()` sin el id): cuándo y qué preparar. */
+/** Lo que la cocina sabe de un evento (`eventos_para_cocina()` sin el id): cuándo, de qué categoría y qué preparar. */
 export type PedidoCocina = Omit<EventoParaCocina, 'id'>
 
 function textoLibre(texto: string | null): string | null {
@@ -157,11 +157,11 @@ export function pideALaCocina(e: PedidoCocina): boolean {
 }
 
 /**
- * De un evento completo (con título, tipo, serie…), solo lo que la cocina puede saber. Las acciones
- * pasan por acá antes de programar el aviso: así el título ni siquiera llega a la función que lo arma.
+ * De un evento completo (con título, serie…), solo lo que la cocina puede saber. Las acciones pasan
+ * por acá antes de programar el aviso: así el título ni siquiera llega a la función que lo arma.
  */
 export function paraCocina(e: PedidoCocina): PedidoCocina {
-  return { fecha: e.fecha, hora: e.hora, requiere_cocina: e.requiere_cocina, requiere_otro_texto: e.requiere_otro_texto }
+  return { fecha: e.fecha, hora: e.hora, tipo: e.tipo, requiere_cocina: e.requiere_cocina, requiere_otro_texto: e.requiere_otro_texto }
 }
 
 /** Le importa a la cocina: pide algo y es de hoy en adelante. */
@@ -184,9 +184,20 @@ function cuandoHora(e: PedidoCocina, hoy: FechaISO): string {
   return hora ? `${cuando(e.fecha, hoy)}, ${hora}` : cuando(e.fecha, hoy)
 }
 
-/** 'Jueves 1/10, 15:00: Merienda · 20 sillas' */
+/** ' · San Gabriel': la categoría, junto al cuándo. "Otro" no se nombra: no le dice nada a la cocina. */
+function categoriaDe(e: PedidoCocina): string {
+  const etiqueta = e.tipo === 'otro' ? undefined : ETIQUETA_TIPO[e.tipo]
+  return etiqueta ? ` · ${etiqueta}` : ''
+}
+
+/** 'Jueves 1/10, 15:00 · San Gabriel' */
+function cuandoYCategoria(e: PedidoCocina, hoy: FechaISO): string {
+  return `${cuandoHora(e, hoy)}${categoriaDe(e)}`
+}
+
+/** 'Jueves 1/10, 15:00 · San Gabriel: Merienda · 20 sillas' */
 function textoEvento(e: PedidoCocina, hoy: FechaISO): string {
-  return `${cuandoHora(e, hoy)}: ${pedidoDe(e)}`
+  return `${cuandoYCategoria(e, hoy)}: ${pedidoDe(e)}`
 }
 
 function enMinuscula(texto: string): string {
@@ -234,9 +245,10 @@ export function cargaPedidoCocina(p: {
     if (mismoPedido) {
       cuerpo = `Ahora: ${textoEvento(despues, hoy)} (antes: ${enMinuscula(cuandoHora(antes, hoy))}).`
     } else if (mismoCuando) {
-      cuerpo = `${cuandoHora(despues, hoy)}: ahora ${pedidoDe(despues)} (antes: ${pedidoDe(antes)}).`
+      cuerpo = `${cuandoYCategoria(despues, hoy)}: ahora ${pedidoDe(despues)} (antes: ${pedidoDe(antes)}).`
     } else {
-      cuerpo = `Ahora: ${textoEvento(despues, hoy)}. Antes: ${textoEvento(antes, hoy)}.`
+      // La categoría, una sola vez: en lo que vale ahora.
+      cuerpo = `Ahora: ${textoEvento(despues, hoy)}. Antes: ${cuandoHora(antes, hoy)}: ${pedidoDe(antes)}.`
     }
   } else {
     throw new Error(`cargaPedidoCocina: faltan datos para "${p.tipo}"`)
@@ -252,7 +264,7 @@ export function cargaPedidoCocina(p: {
 
 /**
  * Una serie creada o cancelada, en un solo aviso: cuántas fechas, desde cuándo hasta cuándo y, si
- * todas coinciden, a qué hora y qué pedido. `pedidos` son solo los que le importan a la cocina.
+ * todas coinciden, a qué hora, de qué categoría y qué pedido. `pedidos` son solo los que le importan a la cocina.
  */
 export function cargaSeriePedidos(p: { serieId: string; accion: 'creada' | 'cancelada'; pedidos: PedidoCocina[] }): CargaPush {
   const pedidos = [...p.pedidos].sort((a, b) => a.fecha.localeCompare(b.fecha))
@@ -272,10 +284,12 @@ export function cargaSeriePedidos(p: { serieId: string; accion: 'creada' | 'canc
   const horas = new Set(pedidos.map(horaDe))
   const textos = new Set(pedidos.map(pedidoDe))
   const hora = horas.size === 1 && pedidos[0].hora ? `, a las ${horaDe(pedidos[0])}` : ''
+  const categorias = new Set(pedidos.map(categoriaDe))
+  const categoria = categorias.size === 1 ? categoriaDe(pedidos[0]) : ''
   const cuerpo =
     textos.size === 1
-      ? `${rango}${hora}: ${pedidoDe(pedidos[0])}.`
-      : `${rango}: pedidos distintos, miralos en el calendario.`
+      ? `${rango}${hora}${categoria}: ${pedidoDe(pedidos[0])}.`
+      : `${rango}${categoria}: pedidos distintos, miralos en el calendario.`
   return {
     titulo,
     cuerpo: recortar(cuerpo),
