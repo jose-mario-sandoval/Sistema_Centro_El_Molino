@@ -34,7 +34,6 @@ const DIRECTOR: Perfil = {
   nombre: 'Directora Prueba',
   siglas: 'DP',
   usuario: 'director',
-  correo: null,
   rol: 'director',
   activo: true,
   debe_cambiar_contrasena: false,
