@@ -289,6 +289,8 @@ test('el Director crea una cuenta de Administración sin escribir ningún nombre
 
   // Esa cuenta entra con su usuario, y en Mi cuenta su nombre no se puede cambiar.
   await page.getByRole('button', { name: 'Cerrar sesión' }).click()
+  // Sin esperar el cierre, /login todavía ve la sesión del Director y redirige: no hay formulario.
+  await expect(page).toHaveURL(/\/login$/)
   await iniciarSesion(page, USUARIO_ADMIN_NUEVO, temporal)
   await expect(page).toHaveURL(/\/cambiar-contrasena$/)
   await page.getByLabel('Contraseña nueva').fill('clave-de-admin-456')
