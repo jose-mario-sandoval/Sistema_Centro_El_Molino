@@ -103,7 +103,9 @@ Supabase Auth exige un correo para entrar con contraseña. Opciones:
 
 1. **`perfiles.usuario`**: texto, obligatorio y único. Se guarda normalizado. Formato: 3 a 30
    caracteres, `^[a-z0-9]+([._-][a-z0-9]+)*$` (el mismo `check` en la base y en zod). El prefijo
-   `demo.` queda reservado para los scripts de demo: los formularios lo rechazan.
+   `demo.` queda reservado para los scripts de demo: lo rechazan solo los dos formularios del
+   Director (crear cuenta y cambiar usuario), no el `check` de la base, ni `crearCuenta()`, ni el
+   login.
 2. **`normalizarUsuario()`** (`lib/cuentas/usuario.ts`): quita espacios de los extremos, pasa a
    minúsculas y quita tildes y la virgulilla de la ñ. "R.Flores" = "r.flores"; "Muñoz" = "munoz".
    Se usa al crear, al cambiar y al entrar.
@@ -157,11 +159,15 @@ Supabase Auth exige un correo para entrar con contraseña. Opciones:
 con la misma tabla de casos en la prueba unitaria y en el banco SQL). De lo que va antes de la
 arroba:
 
-1. minúsculas, sin tildes ni virgulilla;
+1. minúsculas, y una lista fija de reemplazos, la misma en los dos lados (`á é í ó ú ü ñ` →
+   `a e i o u u n`); cualquier otra letra con marca cae en el paso 2;
 2. se quita todo lo que no sea `a-z`, `0-9`, `.`, `_` o `-`;
 3. varios separadores seguidos quedan en el primero, y se quitan los de los extremos;
 4. se corta a 30 caracteres (y se vuelve a quitar un separador final);
 5. si quedan menos de 3: `cuenta.<lo que quedó>`, o `cuenta` si no quedó nada.
+
+El prefijo `demo.` y los sufijos `.2`, `.3` cuentan dentro de los 30: si no entran, se recorta la
+base.
 
 **Quién recibe qué:**
 
@@ -174,22 +180,26 @@ arroba:
 - **Repetidos:** al más antiguo le queda el limpio; a los siguientes, `.2`, `.3`…
 - `usuario` queda `not null` y único; `correo` pasa a admitir nulos (el código nuevo ya no lo
   escribe).
-- La migración termina con una consulta que lista siglas, rol, usuario y una marca "avisar" en las
-  cuentas cuyo usuario no se deduce de su correo (Administración, repetidos, los de menos de 3):
-  al pegarla en el SQL Editor, el resultado es la lista para repartir. El archivo no lleva ningún
-  dato real (el repo es público).
+- La migración termina con una consulta que lista, por cuenta, el correo de antes (para saber quién
+  es quién: las siglas de Administración ya son `A1`, `A2`), el rol, el usuario y una marca "avisar"
+  en las que no se deducen de su correo (Administración, repetidos, los de menos de 3). Al pegarla
+  en el SQL Editor, el resultado es la lista para repartir. El archivo no lleva ningún dato real (el
+  repo es público).
 - La contraseña y las sesiones abiertas de cada quien no cambian: nadie queda afuera.
 
 ### Borrar los correos (PR 3)
 
 Después de comprobar en producción que la gente entra, en este orden:
 
-1. **Migración B:** `alter table perfiles drop column correo`.
-2. **`npm run borrar-correos -- --confirmar`** (script nuevo, con el patrón `exigirConfirmacion` de
-   los demás): a toda cuenta de Auth cuya dirección no sea interna le pone una interna nueva con
-   `auth.admin.updateUserById(id, { email, email_confirm: true })`, la misma llamada con la que hoy
-   se cambia un correo en "Mi cuenta". Idempotente; sin `--confirmar` solo dice cuántas cambiaría.
-   No se reescribe el esquema `auth` por SQL.
+1. **`npm run borrar-correos -- --confirmar`** (script nuevo): a toda cuenta de Auth cuya dirección
+   no sea interna le pone una interna nueva con `auth.admin.updateUserById(id, { email,
+   email_confirm: true })`, la misma llamada con la que hoy se cambia un correo en "Mi cuenta". El
+   núcleo es una función por cuenta (`pasarADireccionInterna(admin, id)`), que es lo que se prueba.
+   Idempotente. Sin `--confirmar` no cambia nada: solo dice cuántas cambiaría (rama propia, no
+   `exigirConfirmacion`, que corta antes). No se reescribe el esquema `auth` por SQL.
+2. Comprobar otra vez que la gente entra. `perfiles.correo` sigue ahí por si hubiera que restaurar
+   alguna dirección.
+3. **Migración B:** `alter table perfiles drop column correo`.
 
 "Borrar" abarca `perfiles.correo`, la dirección de la cuenta en Auth y su identidad de correo. Queda
 afuera el registro interno de Auth (`auth.audit_log_entries`), que solo ve quien entra al panel de
