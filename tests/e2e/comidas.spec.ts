@@ -354,6 +354,26 @@ test('Administración ve en Plan semanal cuántos comen y cómo, sin nombres', a
   await sinNombresAjenos(page, 'administracion')
 })
 
+test('Administración ve qué puede comer quien está enfermo, sin saber quién es', async ({ page }) => {
+  const { error } = await clienteAdminPrueba()
+    .from('plan_semanal')
+    .insert([
+      { usuario_id: ids.residente, dia_semana: 3, comida: 'almuerzo', estado: 'enfermo', nota: 'Sopa de pollo' },
+      { usuario_id: ids.residente2, dia_semana: 3, comida: 'almuerzo', estado: 'enfermo', nota: 'Dieta blanda' },
+    ])
+  expect(error).toBeNull()
+
+  await iniciarSesion(page, 'administracion')
+  await page.goto('/comidas/plan')
+  const celda = page.locator('.admin-week-table td[data-dia="3"][data-comida="almuerzo"]')
+  await expect(celda.locator('.parte').first()).toHaveText('2 enfermos')
+  // Una nota por persona, sin nombre (el orden es el de las personas: no se afirma).
+  await expect(celda.locator('.nota-parte')).toHaveCount(2)
+  await expect(celda).toContainText('Sopa de pollo')
+  await expect(celda).toContainText('Dieta blanda')
+  await sinNombresAjenos(page, 'administracion')
+})
+
 test.describe('en el teléfono', () => {
   test.use({ viewport: { width: 375, height: 812 } })
 
