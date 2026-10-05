@@ -1,5 +1,5 @@
 import { exigirPerfil } from '@/lib/auth/sesion'
-import { obtenerPlanPropio, obtenerResumenPlanSemanal } from '@/lib/comidas/consultas'
+import { obtenerPlanDe, obtenerResumenPlanSemanal } from '@/lib/comidas/consultas'
 import { PlanAgregadoAdministracion } from '../_componentes/plan-agregado-administracion'
 import { PlanEditable } from '../_componentes/plan-editable'
 
@@ -11,12 +11,12 @@ export default async function PaginaPlanSemanal() {
     return <PlanAgregadoAdministracion resumenSemana={resumenSemana} />
   }
 
-  const plan = await obtenerPlanPropio(perfil.id)
+  const plan = await obtenerPlanDe(perfil.id)
   return (
     <>
       <div className="locked-banner">
-        Este es tu patrón habitual de comidas: se usa en cada semana mientras no cambies un día puntual. Los cambios se
-        guardan solos.
+        Lo que comés normalmente cada semana. Se usa en todas las semanas mientras no cambies un día puntual. Tocá una
+        comida para cambiarla: los cambios se guardan solos.
       </div>
       <PlanEditable plan={plan} />
     </>

@@ -30,6 +30,15 @@
   --st-bolsa:#4B6988;     --st-bolsa-bg:#DEE6ED;
   --st-enfermo:#8B4B63;   --st-enfermo-bg:#EEDCE2;
 
+  /* Tipos de evento (DESIGN.md §2.4): el color va en el texto, el borde y la marca con la sigla; el
+     tinte, de fondo. Colores de cada arcángel, separados también por luminosidad (con daltonismo el
+     rojo y el verde se parecen: el verde es el más oscuro y el gris el más claro). Estos NOMBRES son
+     contrato: varsTipo() (lib/calendario/tipos.ts) los arma por interpolación. */
+  --ev-san-rafael:#123D20;   --ev-san-rafael-bg:#CFE3D2;
+  --ev-san-gabriel:#2F52A8;  --ev-san-gabriel-bg:#DEE2F3;
+  --ev-san-miguel:#B51D3A;   --ev-san-miguel-bg:#FAE4E3;
+  --ev-otro:#6B6458;         --ev-otro-bg:#E9E5DE;
+
   --acento-suave:var(--st-si-bg);
   --peligro-suave:var(--st-no-bg);
   --dorado-suave:var(--st-temprano-bg);
@@ -85,6 +94,10 @@
     --st-tarde:#B4906A;     --st-tarde-bg:#2E2619;
     --st-bolsa:#8FB2D6;     --st-bolsa-bg:#1F2C38;
     --st-enfermo:#CC93A9;   --st-enfermo-bg:#33212A;
+    --ev-san-rafael:#BFF2CA;   --ev-san-rafael-bg:#293E2E;
+    --ev-san-gabriel:#98B0EA;  --ev-san-gabriel-bg:#2E3243;
+    --ev-san-miguel:#E9707A;   --ev-san-miguel-bg:#3D2627;
+    --ev-otro:#BFB8AC;         --ev-otro-bg:#33302B;
   }
 }
 :root[data-theme="dark"]{
@@ -98,6 +111,10 @@
   --st-tarde:#B4906A;     --st-tarde-bg:#2E2619;
   --st-bolsa:#8FB2D6;     --st-bolsa-bg:#1F2C38;
   --st-enfermo:#CC93A9;   --st-enfermo-bg:#33212A;
+  --ev-san-rafael:#BFF2CA;   --ev-san-rafael-bg:#293E2E;
+  --ev-san-gabriel:#98B0EA;  --ev-san-gabriel-bg:#2E3243;
+  --ev-san-miguel:#E9707A;   --ev-san-miguel-bg:#3D2627;
+  --ev-otro:#BFB8AC;         --ev-otro-bg:#33302B;
 }
 
 /* Contraste alto: el relieve se apaga y todo pasa a bordes sólidos. Un sistema que no puede
@@ -107,6 +124,7 @@
   --acento:#3A5540; --dorado:#664924; --peligro:#86352B;
   --st-si:#36503C; --st-no:#7C3228; --st-temprano:#614522;
   --st-tarde:#5A442E; --st-bolsa:#364C63; --st-enfermo:#69384A;
+  --ev-san-rafael:#0E3319; --ev-san-gabriel:#1E3F8A; --ev-san-miguel:#960033; --ev-otro:#4B463D;
   --luz:transparent; --sombra:transparent;
   --borde-elevado:var(--tinta);
   --borde-hundido:var(--tinta-suave);
@@ -118,6 +136,7 @@
     --acento:#94B49B; --dorado:#CEA66C; --peligro:#DE9C90;
     --st-si:#AAC3AF; --st-no:#E2A89E; --st-temprano:#D5B180;
     --st-tarde:#C8AE92; --st-bolsa:#9ABADA; --st-enfermo:#D4A4B6;
+    --ev-san-rafael:#C4F4CE; --ev-san-gabriel:#B4C6F6; --ev-san-miguel:#FFA3B4; --ev-otro:#D7D1C6;
   }
 }
 :root[data-contraste="alto"][data-theme="dark"]{
@@ -125,6 +144,7 @@
   --acento:#94B49B; --dorado:#CEA66C; --peligro:#DE9C90;
   --st-si:#AAC3AF; --st-no:#E2A89E; --st-temprano:#D5B180;
   --st-tarde:#C8AE92; --st-bolsa:#9ABADA; --st-enfermo:#D4A4B6;
+  --ev-san-rafael:#C4F4CE; --ev-san-gabriel:#B4C6F6; --ev-san-miguel:#FFA3B4; --ev-otro:#D7D1C6;
 }
 
 html{font-size:112.5%;}                       /* 18px */
@@ -234,12 +254,8 @@ a{color:var(--acento);}
 
 #app-screen{display:flex;min-height:100vh;}
 
-.monograma{
-  width:3rem;height:3rem;flex:0 0 auto;border-radius:var(--r-sm);
-  display:grid;place-items:center;
-  background:var(--acento);color:var(--acento-tinta);
-  font-family:var(--fuente-display);font-weight:700;font-size:var(--t-base);
-}
+/* El escudo de El Molino (components/app/escudo.tsx): el alto lo pone cada lugar, el ancho sigue la proporción. */
+.escudo{display:block;flex:0 0 auto;height:3.25rem;width:auto;}
 
 .sidebar{
   width:16rem;flex:0 0 auto;padding:1.5rem 1rem;
@@ -253,6 +269,7 @@ a{color:var(--acento);}
 
 .nav{display:flex;flex-direction:column;gap:.6rem;}
 .nav-item{
+  position:relative;
   display:flex;align-items:center;gap:.75rem;
   min-height:var(--toque);padding:0 1rem;
   border-radius:var(--r-md);border:2px solid var(--borde-elevado);
@@ -263,6 +280,16 @@ a{color:var(--acento);}
 .nav-item:hover{box-shadow:var(--relieve);}
 .nav-item.active{box-shadow:var(--hundido);color:var(--acento);}
 [data-contraste="alto"] .nav-item.active{border-color:var(--acento);background:var(--acento-suave);}
+
+/* Globito con una cantidad (pendientes de aprobación): número visible y texto para el lector de
+   pantalla al lado (components/app/pendientes.tsx). Peligro sobre pergamino: ≥4.5:1 en los cuatro modos. */
+.insignia-conteo{
+  display:inline-grid;place-items:center;min-width:1.75em;height:1.75em;padding:0 .45em;
+  border-radius:var(--r-full);background:var(--peligro);color:var(--fondo);
+  box-shadow:0 0 0 2px var(--fondo);
+  font-size:var(--t-xs);font-weight:700;line-height:1;font-variant-numeric:tabular-nums;
+}
+.nav .insignia-conteo{margin-left:auto;}
 
 .sidebar-foot{margin-top:auto;display:flex;flex-direction:column;gap:.75rem;}
 .who-box{
@@ -306,6 +333,7 @@ a{color:var(--acento);}
   transition:box-shadow var(--dur) var(--curva);
 }
 .tab-btn.active{box-shadow:var(--hundido);color:var(--acento);}
+.tab-btn .insignia-conteo{margin-left:.5rem;}
 [data-contraste="alto"] .tab-btn.active{border-color:var(--acento);background:var(--acento-suave);}
 
 /* Superficie elevada. Lo que va adentro es plano o hundido, nunca elevado otra vez. */
@@ -361,28 +389,89 @@ a{color:var(--acento);}
 .range-fechas{display:block;font-weight:700;}
 .week-nav .btn{flex-basis:100%;}
 
-.week-list,.plan-lista{display:flex;flex-direction:column;gap:1.25rem;}
+/* Semana: siete tarjetitas por día, que resumen las tres comidas con icono + texto corto + color.
+   Una columna con letra grande en un teléfono angosto, dos en el teléfono y cuatro cuando hay lugar;
+   nunca siete: con el ancho máximo del contenido, siete tarjetas obligarían a bajar la letra del piso.
+   Los cortes van en rem de container query, que siguen al tamaño de letra elegido: con letra grande
+   hay menos columnas, nunca letra más chica. Ningún texto de la tarjeta baja de --t-xs.
+   La tarjeta ya no se toca entera: es una bandeja (hundida) y lo que se toca son sus tres comidas,
+   botones elevados con su color, como las celdas del Plan. Tocar una abre su burbuja. */
+.semana-ayuda{margin-bottom:.9rem;}
+.semana-marco{container-type:inline-size;}
+.tarjetas-semana{display:grid;grid-template-columns:minmax(0,1fr);gap:.75rem;}
+@container (min-width:15rem){ .tarjetas-semana{grid-template-columns:repeat(2,minmax(0,1fr));} }
+@container (min-width:34rem){ .tarjetas-semana{grid-template-columns:repeat(4,minmax(0,1fr));} }
 
-.day-row{
-  background:var(--fondo);border:2px solid var(--borde-elevado);border-radius:var(--r-lg);
-  box-shadow:var(--relieve);padding:1.25rem var(--marco);
+/* Cada tarjeta es su propio contenedor: el valor sube a --t-sm cuando la tarjeta tiene lugar. */
+.tarjeta-dia{
+  display:flex;flex-direction:column;align-items:stretch;gap:.55rem;
+  min-width:0;padding:.7rem min(.6rem, 2.6vw) .75rem;
+  border-radius:var(--r-md);border:2px solid var(--borde-hundido);
+  background:var(--fondo);color:var(--tinta);box-shadow:var(--hundido-suave);
+  line-height:1.2;scroll-margin-top:1rem;scroll-margin-bottom:1rem;container-type:inline-size;
 }
-.day-row.today{box-shadow:var(--relieve-alto);}
-[data-contraste="alto"] .day-row.today{border-color:var(--acento);border-width:3px;}
-.day-row-top{display:flex;align-items:baseline;flex-wrap:wrap;gap:.6rem;margin-bottom:.5rem;}
-.day-title{display:flex;align-items:baseline;flex-wrap:wrap;gap:.6rem;}
-.day-title .dname{font-family:var(--fuente-display);font-size:var(--t-lg);font-weight:600;}
-.day-title .ddate{color:var(--tinta-tenue);font-size:var(--t-sm);}
+/* Hoy: borde de acento (con "Hoy" escrito). En contraste alto, más grueso. */
+.tarjeta-dia.today{border-color:var(--acento);}
+[data-contraste="alto"] .tarjeta-dia.today{border-width:3px;}
+/* Cerrada: plana, porque ya solo se lee; el candado y "Cerrado" lo dicen escrito. */
+.tarjeta-dia.pasada{box-shadow:none;border-color:var(--separador);}
+.tarjeta-cabeza{display:flex;flex-wrap:wrap;align-items:baseline;gap:0 .4rem;}
+.tarjeta-nombre{font-family:var(--fuente-display);font-size:var(--t-base);font-weight:600;}
+.tarjeta-fecha{font-size:var(--t-sm);color:var(--tinta-tenue);}
+.tarjeta-marcas{display:flex;flex-wrap:wrap;gap:.3rem;}
+.tarjeta-marcas > span{font-size:var(--t-xs);padding-inline:.45rem;}
+.etiqueta-cerrado{display:inline-flex;align-items:center;gap:.3rem;color:var(--tinta-suave);font-weight:700;}
+.tarjeta-marcas > .etiqueta-cerrado{padding-inline:0;}
+.etiqueta-cerrado .icono{width:1.1em;height:1.1em;}
+.tarjeta-comidas{display:flex;flex-direction:column;gap:.5rem;}
+
+/* Una comida de la tarjeta: el nombre y, al lado o debajo según entre, icono + texto corto + hora.
+   Botón elevado con el color de su estado (como .celda-plan); sin definir, el hueco punteado. */
+.comida-tarjeta{
+  display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:.1rem .5rem;
+  width:100%;min-width:0;min-height:var(--toque);padding:.4rem .55rem;
+  border-radius:var(--r-sm);border:2px solid var(--borde-elevado);
+  background:var(--cbg,var(--fondo));color:var(--c,var(--tinta));box-shadow:var(--relieve-bajo);
+  font-size:var(--t-xs);font-weight:700;line-height:1.2;text-align:left;
+  transition:box-shadow var(--dur) var(--curva),background-color var(--dur) var(--curva);
+}
+button.comida-tarjeta:hover{box-shadow:var(--relieve);}
+button.comida-tarjeta:active{box-shadow:var(--hundido);}
+[data-contraste="alto"] button.comida-tarjeta{border-color:var(--c,var(--tinta));}
+.comida-tarjeta.vacia{background:var(--fondo);color:var(--peligro);border:2px dashed var(--peligro);box-shadow:var(--hundido-suave);}
+/* Con su burbuja abierta: hundida y con borde grueso de su color (sin sombras, el borde solo alcanza). */
+button.comida-tarjeta[aria-expanded="true"]{box-shadow:var(--hundido);border:3px solid var(--c,var(--peligro));padding:calc(.4rem - 1px) calc(.55rem - 1px);}
+[data-contraste="alto"] button.comida-tarjeta[aria-expanded="true"]{border-width:5px;padding:calc(.4rem - 3px) calc(.55rem - 3px);}
+button.comida-tarjeta[aria-busy="true"]{cursor:progress;}
+.comida-tarjeta-nombre{font-weight:600;color:var(--tinta);}
+/* El icono va pegado a su texto; si no entran juntos, antes se parte la palabra que el par. */
+.comida-tarjeta-valor{display:inline-flex;flex-wrap:wrap;align-items:center;gap:0 .3rem;min-width:0;}
+.comida-tarjeta-texto{overflow-wrap:anywhere;}
+.comida-tarjeta .icono{width:1.15em;height:1.15em;}
+.comida-tarjeta > .celda-director,.comida-tarjeta > .etiqueta-cerrado{flex-basis:100%;}
+@container (min-width:9rem){ .comida-tarjeta-valor{font-size:var(--t-sm);} }
+/* Cerrada: plana y sin botón; el valor, en su pastilla de color (solo se lee). */
+.comida-tarjeta.cerrada{min-height:0;padding:.15rem 0;background:none;border-color:transparent;box-shadow:none;color:var(--tinta);}
+.comida-tarjeta.cerrada > .etiqueta-cerrado{font-size:var(--t-xs);}
+/* El valor plano (comidas cerradas): color + icono + texto, nunca solo icono. */
+.tarjeta-valor{
+  display:inline-flex;flex-wrap:wrap;align-items:center;gap:0 .35rem;max-width:100%;
+  padding:.1rem .35rem;border-radius:var(--r-sm);
+  background:var(--cbg);color:var(--c);border:2px solid transparent;
+  font-size:var(--t-xs);font-weight:700;
+}
+.tarjeta-valor .comida-tarjeta-valor{font-size:inherit;}
+@container (min-width:9rem){ .tarjeta-valor{font-size:var(--t-sm);} }
+[data-contraste="alto"] .tarjeta-valor{border-color:var(--c);}
+.tarjeta-valor.vacia{background:var(--fondo);color:var(--peligro);border:2px dashed var(--peligro);}
+.tarjeta-hora{font-variant-numeric:tabular-nums;font-weight:600;}
+
 .etiqueta-hoy{
   display:inline-block;padding:.1rem .65rem;border-radius:var(--r-full);
   background:var(--acento-suave);color:var(--acento);border:2px solid var(--acento);
   font-size:var(--t-xs);font-weight:700;
 }
 
-.comida-fila{padding:.9rem 0;}
-.comida-fila + .comida-fila{border-top:2px solid var(--separador);}
-.comida-fila-top{display:flex;align-items:center;flex-wrap:wrap;gap:.6rem;margin-bottom:.6rem;}
-.comida-nombre{font-weight:700;}
 .origen{
   display:inline-block;padding:.15rem .7rem;border-radius:var(--r-full);
   border:2px solid var(--borde-hundido);box-shadow:var(--hundido-suave);
@@ -390,27 +479,6 @@ a{color:var(--acento);}
 }
 .origen.cambiada{color:var(--dorado);}
 [data-contraste="alto"] .origen.cambiada{border-color:var(--dorado);}
-
-/* El estado actual: botón grande, elevado, con su color. Al tocarlo se abren las opciones. */
-.estado-actual{
-  display:flex;align-items:center;gap:.6rem;width:100%;
-  min-height:var(--toque);padding:.5rem 1.1rem;
-  border-radius:var(--r-full);border:2px solid var(--borde-elevado);
-  background:var(--cbg,var(--fondo));color:var(--c,var(--tinta));box-shadow:var(--relieve);
-  font-weight:700;text-align:left;
-  transition:box-shadow var(--dur) var(--curva),background-color var(--dur) var(--curva);
-}
-[data-contraste="alto"] .estado-actual{border-color:var(--c,var(--tinta));}
-.estado-actual:active{box-shadow:var(--hundido);}
-.estado-actual-texto{flex:1;min-width:0;}
-.estado-actual .flecha{opacity:.8;transition:transform var(--dur) var(--curva);}
-.estado-actual[aria-expanded="true"] .flecha{transform:rotate(180deg);}
-/* "Sin definir" es un hueco: hundido, vacío, con borde punteado y la pregunta escrita. */
-.estado-actual.sin-definir{
-  background:var(--fondo);color:var(--peligro);
-  box-shadow:var(--hundido);border:2px dashed var(--peligro);
-}
-.estado-actual:disabled{cursor:not-allowed;opacity:.65;box-shadow:var(--hundido-suave);}
 
 .nota-comida,.motivo-cierre{
   display:flex;align-items:center;gap:.5rem;margin-top:.6rem;
@@ -447,7 +515,7 @@ a{color:var(--acento);}
 
 /* "Mañana" nunca queda escondido detrás de la paginación. */
 .siguiente-semana{
-  display:flex;align-items:center;gap:.9rem;min-height:5rem;padding:1rem var(--marco);
+  display:flex;align-items:center;gap:.9rem;min-height:5rem;padding:1rem var(--marco);margin-top:1.25rem;
   border-radius:var(--r-lg);border:2px solid var(--borde-elevado);
   background:var(--fondo);color:var(--tinta);box-shadow:var(--relieve);text-decoration:none;
   transition:box-shadow var(--dur) var(--curva);
@@ -459,34 +527,135 @@ a{color:var(--acento);}
 .siguiente-semana .hint{display:block;margin-top:.15rem;}
 .siguiente-semana > .icono{width:1.6em;height:1.6em;color:var(--acento);}
 
-/* Días ya cerrados de la semana en curso: plegados al final. */
-.dias-pasados > summary{
-  list-style:none;cursor:pointer;
-  display:flex;align-items:center;gap:.6rem;min-height:var(--toque);padding:0 1.25rem;
-  border-radius:var(--r-full);border:2px solid var(--borde-elevado);
-  box-shadow:var(--relieve-bajo);color:var(--tinta-suave);font-weight:600;
+/* Plan semanal: la cuadrícula es el editor. Teselas separadas y elevadas (la cuadrícula de líneas
+   finas no se puede hacer con relieve), cada una un botón. Tres formatos según el ancho del
+   contenedor en rem, que sigue al tamaño de letra elegido (con letra grande se pasa antes al más
+   holgado, nunca se achica la letra):
+   - angosto o letra grande (< 16rem): cada celda ocupa la fila entera y escribe la comida,
+     "Desayuno · Temprano 07:30", con la letra entera;
+   - teléfono (16–32rem): el día en su propia línea y las tres teselas debajo (~90px a 320px);
+   - ancho (≥ 32rem): el día a la izquierda y las tres teselas.
+   Ningún texto de la cuadrícula baja de --t-xs. */
+.cuadro-marco{container-type:inline-size;}
+.cuadro-plan{display:flex;flex-direction:column;gap:.9rem;}
+.cuadro-cabecera{display:none;}
+.cuadro-esquina{display:none;}
+.cuadro-cab{text-align:center;font-size:var(--t-xs);font-weight:700;color:var(--tinta-suave);}
+.cuadro-fila{display:grid;grid-template-columns:minmax(0,1fr);gap:.5rem;scroll-margin-top:1rem;}
+.cuadro-dia{font-family:var(--fuente-display);font-size:var(--t-base);font-weight:600;line-height:1.2;}
+.celda-plan{
+  --ry:.5rem;--rx:.9rem;
+  display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:.25rem .75rem;
+  width:100%;min-width:0;min-height:var(--toque);padding:var(--ry) var(--rx);
+  border-radius:var(--r-sm);border:2px solid var(--borde-elevado);
+  background:var(--cbg);color:var(--c);box-shadow:var(--relieve-bajo);
+  font-size:var(--t-sm);font-weight:700;line-height:1.2;text-align:left;
+  scroll-margin-top:1rem;
+  transition:box-shadow var(--dur) var(--curva),background-color var(--dur) var(--curva);
 }
-.dias-pasados > summary::-webkit-details-marker{display:none;}
-.dias-pasados > summary .icono{transition:transform var(--dur) var(--curva);}
-.dias-pasados[open] > summary{box-shadow:var(--hundido);margin-bottom:1.25rem;}
-.dias-pasados[open] > summary .icono{transform:rotate(180deg);}
-.dias-pasados > .day-row + .day-row{margin-top:1.25rem;}
+.celda-plan:hover{box-shadow:var(--relieve);}
+.celda-comida{color:var(--tinta);}
+.celda-valor{display:inline-flex;flex-wrap:wrap;align-items:center;gap:.15rem .4rem;min-width:0;}
+.celda-plan .icono{width:1.25em;height:1.25em;}
+.celda-texto{max-width:100%;overflow-wrap:anywhere;}
+.celda-hora{font-variant-numeric:tabular-nums;font-weight:600;}
+[data-contraste="alto"] .celda-plan{border-color:var(--c);}
+/* Sin definir: el mismo hueco que en la Semana (hundido, borde punteado, "Falta" escrito). */
+.celda-plan.vacia{background:var(--fondo);color:var(--peligro);border:2px dashed var(--peligro);box-shadow:var(--hundido-suave);}
+/* Con su burbuja abierta: hundida y con borde grueso de su color; sin sombras, el borde solo alcanza.
+   El borde de más sale del relleno, no del texto: "Temprano" no se parte al abrirla. */
+.celda-plan[aria-expanded="true"]{
+  box-shadow:var(--hundido);border:3px solid var(--c,var(--peligro));
+  padding:calc(var(--ry) - 1px) max(0px, calc(var(--rx) - 1px));
+}
+[data-contraste="alto"] .celda-plan[aria-expanded="true"]{border-width:5px;padding:calc(var(--ry) - 3px) max(0px, calc(var(--rx) - 3px));}
+.celda-plan[aria-busy="true"]{cursor:progress;}
+.opciones-titulo{font-weight:700;margin-bottom:.9rem;}
+@container (min-width:16rem){
+  /* La cabecera de comidas acompaña mientras se recorre la semana: en el teléfono no entra en una pantalla. */
+  .cuadro-cabecera{
+    display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.5rem;
+    position:sticky;top:0;z-index:2;padding-block:.5rem;margin-bottom:-.5rem;background:var(--fondo);
+  }
+  .cuadro-fila{grid-template-columns:repeat(3,minmax(0,1fr));gap:.35rem .5rem;scroll-margin-top:3.5rem;}
+  .cuadro-dia{grid-column:1 / -1;}
+  /* La comida ya la dice la cabecera (y el nombre accesible de la celda). */
+  .celda-comida{display:none;}
+  .celda-plan{
+    --rx:.25rem;
+    flex-direction:column;flex-wrap:nowrap;justify-content:center;gap:.15rem;
+    text-align:center;font-size:max(var(--t-xs), min(var(--t-sm), 4.8vw));scroll-margin-top:4rem;
+  }
+  .celda-valor{flex-direction:column;flex-wrap:nowrap;}
+  .celda-plan .icono{width:1.35em;height:1.35em;}
+}
+@container (min-width:32rem){
+  .cuadro-cabecera,.cuadro-fila{grid-template-columns:minmax(0,8rem) repeat(3,minmax(0,1fr));gap:.5rem;}
+  .cuadro-esquina{display:block;}
+  .cuadro-dia{grid-column:auto;align-self:center;}
+}
 
-/* Resumen del plan: solo escritorio y solo para mirar. Teselas separadas: la cuadrícula de
-   líneas finas no se puede hacer con relieve. */
-.resumen-plan{display:none;margin-bottom:1.5rem;}
-.matriz{display:grid;grid-template-columns:minmax(0,7rem) repeat(7,minmax(0,1fr));gap:.5rem;}
-.matriz-fila{display:contents;}
-.matriz-cab{text-align:center;font-size:var(--t-xs);font-weight:700;color:var(--tinta-suave);text-transform:uppercase;letter-spacing:.04em;}
-.matriz-nombre{display:flex;align-items:center;font-weight:700;font-size:var(--t-sm);}
-.matriz-celda{
-  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.2rem;
-  min-height:3.5rem;padding:.4rem .2rem;border-radius:var(--r-sm);
-  background:var(--cbg);color:var(--c);border:2px solid transparent;box-shadow:var(--relieve-bajo);
-  font-size:var(--t-xs);font-weight:600;text-align:center;line-height:1.2;
+/* ---------- 5b. La burbuja de una comida --------------------------------
+   Tocar una comida (Semana, Plan, un nombre en La casa, "+ Extra") abre sus opciones en una burbuja
+   junto a ella: una capa pasajera, elevada, con una flecha que señala lo que se tocó. No es una
+   tarjeta dentro de otra (no está dentro de nada: va en un portal sobre la página) ni un modal (no
+   oscurece ni bloquea). La posición la calcula components/ui/burbuja.tsx: debajo del botón, arriba si
+   abajo no entra, dentro de la pantalla con 16px de margen; en el teléfono ocupa todo el ancho menos
+   ese margen. Borde de acento, como todo lo abierto; en contraste alto, más grueso y sin sombras. */
+.burbuja{
+  position:absolute;top:0;left:0;z-index:25;
+  width:min(28rem, calc(100% - 32px));
+  padding:1rem min(1.1rem, 4vw) 1.1rem;
+  border-radius:var(--r-lg);border:2px solid var(--acento);
+  background:var(--fondo);color:var(--tinta);
+  box-shadow:var(--relieve-alto),0 18px 36px -14px rgba(42,37,30,.45);
+  font-size:var(--t-base);line-height:1.45;text-align:left;
 }
-[data-contraste="alto"] .matriz-celda{border-color:var(--c);}
-.matriz-celda.vacia{background:var(--fondo);color:var(--peligro);border:2px dashed var(--peligro);box-shadow:var(--hundido-suave);}
+:root[data-theme="dark"] .burbuja{box-shadow:var(--relieve-alto),0 18px 36px -12px rgba(0,0,0,.7);}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]) .burbuja{box-shadow:var(--relieve-alto),0 18px 36px -12px rgba(0,0,0,.7);}
+}
+[data-contraste="alto"] .burbuja{border-width:3px;box-shadow:none;}
+.burbuja:focus-visible{outline-offset:4px;}
+/* Debajo de la burbuja la página sigue un poco: si es más alta que la pantalla, se llega a su final. */
+.burbuja::after{content:"";position:absolute;top:100%;left:0;width:1px;height:1rem;}
+/* La flecha: un cuadrado girado con el mismo fondo y el mismo borde, del lado del botón. */
+.burbuja-flecha{
+  position:absolute;left:calc(var(--flecha, 50%) - 10px);z-index:1;
+  width:20px;height:20px;background:var(--fondo);
+  border:inherit;border-width:2px;transform:rotate(45deg);
+}
+[data-contraste="alto"] .burbuja-flecha{border-width:3px;}
+.burbuja[data-lado="abajo"] .burbuja-flecha{top:-11px;border-right-color:transparent;border-bottom-color:transparent;border-top-left-radius:4px;}
+.burbuja[data-lado="arriba"] .burbuja-flecha{bottom:-11px;border-left-color:transparent;border-top-color:transparent;border-bottom-right-radius:4px;}
+[data-contraste="alto"] .burbuja[data-lado="abajo"] .burbuja-flecha{top:-12px;}
+[data-contraste="alto"] .burbuja[data-lado="arriba"] .burbuja-flecha{bottom:-12px;}
+.burbuja-contenido{container:burbuja / inline-size;}
+.burbuja-cabeza{display:flex;flex-wrap:wrap;align-items:center;gap:.35rem .6rem;}
+.burbuja-titulo{flex:1 1 100%;font-size:var(--t-lg);line-height:1.2;overflow-wrap:anywhere;outline-offset:4px;}
+.burbuja-cierre{font-size:var(--t-sm);color:var(--tinta-tenue);}
+.burbuja .opciones{margin-top:.75rem;padding:.8rem min(.8rem, 2.6vw);}
+/* Las seis opciones según el ancho de la burbuja (en rem de contenedor, que sigue a la letra
+   elegida; el ancho que cuenta es el de adentro, sin el relleno). Con lugar, 3×2 con el icono arriba,
+   como siempre. En el teléfono, 2×3; y si cada opción tiene ancho para el icono al lado de su texto,
+   más bajitas (56px): así la burbuja entra en la pantalla más veces sin achicar nada. Ninguna
+   palabra se parte: con menos ancho, el icono vuelve arriba. */
+@container burbuja (width < 22rem){
+  .opciones .status-row{grid-template-columns:repeat(2,minmax(0,1fr));}
+}
+@container burbuja (16.5rem <= width < 22rem){
+  .opciones .status-chip{flex-direction:row;justify-content:flex-start;gap:.4rem;min-height:var(--toque);padding:.45rem .5rem;text-align:left;}
+  .opciones .status-chip .icono{width:1.3em;height:1.3em;}
+}
+/* Sin consultas de contenedor (iOS 15): 2×3 en el teléfono, con el icono arriba. */
+@supports not (container-type:inline-size){
+  @media (max-width:40rem){ .opciones .status-row{grid-template-columns:repeat(2,minmax(0,1fr));} }
+}
+.burbuja-valor{display:flex;flex-wrap:wrap;align-items:center;gap:.4rem;margin-top:.8rem;}
+.burbuja-pie{display:flex;flex-wrap:wrap;gap:.75rem;margin-top:1rem;}
+.burbuja-pie .btn{flex:1 1 8rem;}
+.burbuja-subtitulo{font-family:var(--fuente-ui);font-size:var(--t-sm);font-weight:700;margin-bottom:.6rem;outline-offset:4px;}
+.burbuja .enlace-persona{margin-top:.35rem;}
 
 /* ---------- 6. Comidas: Administración ----------------------------------- */
 
@@ -545,10 +714,289 @@ a{color:var(--acento);}
 /* Cambio respecto del plan: celda teñida (sin franja lateral). */
 .admin-week-table td.excepcion{background:var(--dorado-suave);}
 .admin-week-table td.sin-definir .status-note{color:var(--peligro);font-weight:600;}
+/* Semana y Plan de Administración: un día por fila y una columna por comida, de igual ancho. */
+.admin-week-table{table-layout:fixed;}
+.admin-week-table thead th:first-child{width:19%;}
+
+/* Desglose de una comida (celda-resumen.tsx): cuántos comen y, debajo, cómo. Cada línea lleva
+   icono + texto + color: el color nunca va solo. */
+.conteo-celda{display:flex;flex-wrap:wrap;align-items:baseline;gap:0 .35rem;}
+.conteo-celda .conteo-numero{font-size:var(--t-xl);}
+.conteo-etiqueta{font-size:var(--t-sm);font-weight:600;color:var(--tinta-suave);}
+.conteo-celda ~ .partes{margin-top:.6rem;gap:.4rem;}
+.conteo-celda ~ .partes .parte{padding:.3rem .6rem;line-height:1.3;}
+/* Los extras no están en el número: se leen aparte, con el mismo peso que una línea del desglose. */
+.conteo-extra{margin-top:.5rem;font-weight:700;color:var(--tinta);}
+.notas-extra{display:flex;flex-direction:column;gap:.2rem;margin-top:.25rem;font-size:var(--t-sm);color:var(--tinta-suave);}
+.notas-extra > *{display:block;}
+
+/* Contraste alto sin relieve: cada fila (un día) lleva su borde, como toda superficie hundida.
+   Apilada, el borde lo lleva la ficha entera (abajo se quitan los de las celdas). */
+[data-contraste="alto"] .admin-week-table td,
+[data-contraste="alto"] .admin-week-table .namecell{border-block:2px solid var(--borde-hundido);}
+[data-contraste="alto"] .admin-week-table .namecell{border-left:2px solid var(--borde-hundido);}
+[data-contraste="alto"] .admin-week-table td:last-child{border-right:2px solid var(--borde-hundido);}
+
+/* Tarjeta angosta: la tabla se apila como fichas (un día por ficha, una comida por renglón) con
+   sus etiquetas escritas. Sin scroll lateral (DESIGN.md §8). Se mide la tarjeta y no la pantalla:
+   en una consulta de contenedor el rem sigue al tamaño de letra elegido, así que con letra "Muy
+   grande" la tabla se apila antes de que el desglose deje de caber en sus columnas. El umbral es
+   el menor que no desborda con ninguna letra entre 320 y 1700px (así una tablet vertical ve la
+   tabla y no fichas). Contenedor con nombre: si la tabla va dentro de otro contenedor (PR 5), la
+   consulta no se equivoca de caja. */
+.admin-table-scroll{container:tabla-admin / inline-size;}
+@container tabla-admin (width <= 34rem){
+  .admin-week-table,.admin-week-table tbody,.admin-week-table tr{display:block;width:100%;}
+  .admin-week-table thead{display:none;}
+  .admin-week-table tr{
+    margin-bottom:.9rem;padding:.75rem var(--marco);border-radius:var(--r-md);
+    border:2px solid var(--borde-hundido);box-shadow:var(--hundido-suave);
+  }
+  .admin-week-table th.namecell,.admin-week-table td,.admin-week-table td:last-child{
+    display:block;width:100%;padding:.35rem 0;background:none;box-shadow:none;border-radius:0;
+  }
+  [data-contraste="alto"] .admin-week-table .namecell,
+  [data-contraste="alto"] .admin-week-table td,
+  [data-contraste="alto"] .admin-week-table td:last-child{border:0;}
+  .admin-week-table th.namecell{font-size:var(--t-base);padding-bottom:.5rem;}
+  /* Cada comida: etiqueta a la izquierda, cuántos comen a la derecha y el desglose debajo, a todo
+     el ancho y en renglones. Una línea separa las comidas del día. */
+  .admin-week-table td[data-et]{display:flex;align-items:center;flex-wrap:wrap;gap:.3rem .6rem;}
+  .admin-week-table td[data-et]::before{
+    content:attr(data-et);flex:1 1 auto;font-size:var(--t-xs);font-weight:700;color:var(--tinta-suave);
+    text-transform:uppercase;letter-spacing:.04em;
+  }
+  .admin-week-table td[data-et] + td[data-et]{border-top:2px solid var(--separador);margin-top:.35rem;padding-top:.7rem;}
+  .admin-week-table td[data-et] .partes{flex-basis:100%;flex-direction:row;flex-wrap:wrap;margin-top:.15rem;}
+  .admin-week-table td[data-et] .status-note,
+  .admin-week-table td[data-et] .notas-extra{flex-basis:100%;text-align:right;margin:0;}
+  .admin-week-table td.excepcion{background:var(--dorado-suave);padding:.35rem .6rem;border-radius:var(--r-sm);}
+  .admin-week-table td .plan-linea{white-space:normal;}
+}
+/* Navegadores sin consultas de contenedor (iOS 15 y anteriores): mismo apilado, por ancho de
+   pantalla. Mantener igual al bloque de arriba. */
+@supports not (container-type:inline-size){
+  @media (max-width:40rem){
+    .admin-week-table,.admin-week-table tbody,.admin-week-table tr{display:block;width:100%;}
+    .admin-week-table thead{display:none;}
+    .admin-week-table tr{
+      margin-bottom:.9rem;padding:.75rem var(--marco);border-radius:var(--r-md);
+      border:2px solid var(--borde-hundido);box-shadow:var(--hundido-suave);
+    }
+    .admin-week-table th.namecell,.admin-week-table td,.admin-week-table td:last-child{
+      display:block;width:100%;padding:.35rem 0;background:none;box-shadow:none;border-radius:0;
+    }
+    [data-contraste="alto"] .admin-week-table .namecell,
+    [data-contraste="alto"] .admin-week-table td,
+    [data-contraste="alto"] .admin-week-table td:last-child{border:0;}
+    .admin-week-table th.namecell{font-size:var(--t-base);padding-bottom:.5rem;}
+    /* Cada comida: etiqueta a la izquierda, cuántos comen a la derecha y el desglose debajo, a todo
+       el ancho y en renglones. Una línea separa las comidas del día. */
+    .admin-week-table td[data-et]{display:flex;align-items:center;flex-wrap:wrap;gap:.3rem .6rem;}
+    .admin-week-table td[data-et]::before{
+      content:attr(data-et);flex:1 1 auto;font-size:var(--t-xs);font-weight:700;color:var(--tinta-suave);
+      text-transform:uppercase;letter-spacing:.04em;
+    }
+    .admin-week-table td[data-et] + td[data-et]{border-top:2px solid var(--separador);margin-top:.35rem;padding-top:.7rem;}
+    .admin-week-table td[data-et] .partes{flex-basis:100%;flex-direction:row;flex-wrap:wrap;margin-top:.15rem;}
+    .admin-week-table td[data-et] .status-note,
+    .admin-week-table td[data-et] .notas-extra{flex-basis:100%;text-align:right;margin:0;}
+    .admin-week-table td.excepcion{background:var(--dorado-suave);padding:.35rem .6rem;border-radius:var(--r-sm);}
+    .admin-week-table td .plan-linea{white-space:normal;}
+  }
+}
+
 .plan-linea{display:flex;align-items:center;gap:.35rem;margin-bottom:.35rem;white-space:nowrap;}
 .plan-linea .plan-letra{font-weight:700;color:var(--tinta-suave);}
 .plan-linea .status-badge{font-size:var(--t-xs);padding:.1rem .5rem;}
 .plan-linea .status-note{display:inline;margin:0;font-size:var(--t-xs);}
+
+/* ---------- 6b. Comidas: La casa (Director) ------------------------------ */
+
+/* "Ver la semana de:": un select nativo y "Ver", en la misma línea mientras entren. */
+.ver-persona{margin-bottom:1.25rem;}
+.ver-persona .field{margin-bottom:.5rem;}
+.ver-persona-fila{display:flex;flex-wrap:wrap;gap:.75rem;}
+.ver-persona-fila select{flex:1 1 min(13rem,100%);width:auto;min-width:0;}
+.ver-persona-fila .btn{flex:0 0 auto;}
+.tabla-casa-ayuda{margin:-.4rem 0 .5rem;}
+
+/* La misma tabla que Administración (contenedor tabla-admin, apilado incluido), pero cada celda es un
+   botón elevado dentro de su hueco: se toca para ver quiénes comen. Abierta: hundida con borde de acento.
+   En su esquina de arriba a la derecha, "+ Extra" (otro botón, hermano del de la celda y no dentro de
+   él): el de la celda deja libre ese rincón en su primera línea, así "N comen" nunca queda debajo. */
+.tabla-casa td{padding:.35rem;}
+.celda-casa-marco{position:relative;min-width:0;}
+.tabla-casa .namecell .etiqueta-hoy{margin-left:.4rem;vertical-align:middle;}
+.celda-casa{
+  display:block;width:100%;min-height:var(--toque);padding:.6rem .7rem;
+  border-radius:var(--r-sm);border:2px solid var(--borde-elevado);
+  background:var(--fondo);color:var(--tinta);box-shadow:var(--relieve-bajo);
+  text-align:left;line-height:1.25;
+  transition:box-shadow var(--dur) var(--curva);
+}
+.celda-casa:hover{box-shadow:var(--relieve);}
+.celda-casa[aria-expanded="true"]{box-shadow:var(--hundido);border:3px solid var(--acento);}
+[data-contraste="alto"] .celda-casa[aria-expanded="true"]{border-width:5px;background:var(--acento-suave);}
+/* Cerrada: plana, porque ya solo se lee (tocarla igual muestra quiénes comieron). */
+.celda-casa.cerrada{box-shadow:none;border-color:var(--separador);}
+.tabla-casa .namecell .etiqueta-cerrado{display:flex;margin-top:.35rem;font-size:var(--t-xs);}
+.celda-casa-cerrada{display:flex;margin-top:.45rem;font-size:var(--t-xs);}
+/* Dentro de un botón el desglose va en <span>: se ordena igual que la lista de Administración. */
+.celda-casa .partes{display:flex;}
+.celda-casa .parte,.celda-casa .conteo-extra{display:flex;}
+.celda-casa .notas-extra{display:flex;}
+/* "+ Extra": lo que se toca es la pastilla con 4px a cada lado y 56px de alto (nunca menos de 56×56),
+   no el rincón entero: al lado, la celda sigue siendo la celda. La primera línea de la celda ("N comen")
+   deja libre ese ancho (--pastilla-extra + los 8px, menos el relleno y el borde de la celda, más un
+   respiro). Relleno de acento como un botón principal, para que no se confunda con el desglose. */
+.tabla-casa{--pastilla-extra:4.8rem;}
+.celda-casa.con-extra .conteo-celda{padding-right:calc(var(--pastilla-extra) + 8px - .7rem - 2px + .35rem);}
+.extra-mas{
+  position:absolute;top:0;right:0;z-index:1;
+  display:flex;align-items:flex-start;justify-content:center;
+  min-width:var(--toque);min-height:var(--toque);padding:.4rem 4px;
+  border:0;border-radius:var(--r-sm);background:none;color:inherit;
+}
+.extra-mas-pastilla{
+  display:inline-flex;align-items:center;justify-content:center;gap:.2rem;min-width:var(--pastilla-extra);
+  padding:.3rem .65rem .3rem .5rem;border-radius:var(--r-full);border:2px solid var(--borde-elevado);
+  background:var(--acento);color:var(--acento-tinta);box-shadow:var(--relieve-bajo);
+  font-size:var(--t-xs);font-weight:700;line-height:1.1;white-space:nowrap;
+  transition:box-shadow var(--dur) var(--curva),background-color var(--dur) var(--curva);
+}
+.extra-mas-pastilla .icono{width:1.15em;height:1.15em;}
+.extra-mas:hover .extra-mas-pastilla{box-shadow:var(--relieve);}
+.extra-mas:active .extra-mas-pastilla{box-shadow:var(--hundido);}
+/* Con su burbuja abierta: hundida y teñida, como toda opción elegida. */
+.extra-mas[aria-expanded="true"] .extra-mas-pastilla{box-shadow:var(--hundido);background:var(--acento-suave);color:var(--acento);border-color:var(--acento);}
+/* El foco se ve en la pastilla, que es lo que se ve del botón (como en .opcion-pastilla): un anillo
+   alrededor del rincón entero no diría nada. */
+.extra-mas:focus-visible{outline:none;}
+.extra-mas:focus-visible .extra-mas-pastilla{outline:3px solid var(--acento);outline-offset:3px;}
+@container tabla-admin (width <= 34rem){
+  .tabla-casa td[data-et]{padding:.35rem 0;}
+  .tabla-casa td[data-et] .celda-casa-marco{flex-basis:100%;}
+  .tabla-casa td[data-et] .celda-casa .partes{flex-direction:row;flex-wrap:wrap;}
+  .tabla-casa td[data-et] .celda-casa .notas-extra{text-align:left;}
+}
+@supports not (container-type:inline-size){
+  @media (max-width:40rem){
+    .tabla-casa td[data-et] .celda-casa-marco{flex-basis:100%;}
+    .tabla-casa td[data-et] .celda-casa .partes{flex-direction:row;flex-wrap:wrap;}
+    .tabla-casa td[data-et] .celda-casa .notas-extra{text-align:left;}
+  }
+}
+
+/* Quiénes comen: una fila más de la tabla, justo debajo del día tocado y a todo el ancho (también
+   apilada en el teléfono), como el panel del Plan y de la Semana. Está dentro de la tarjeta de la
+   tabla, así que es una bandeja hundida (nunca una tarjeta dentro de otra). La fila y su celda no
+   llevan nada de la tabla: ni hueco, ni ficha apilada, ni la letra chica de las celdas. */
+.tabla-casa tr.fila-panel{padding:0;margin-bottom:.9rem;border:0;border-radius:0;box-shadow:none;background:none;}
+.tabla-casa tr.fila-panel > td{padding:0 0 .25rem;background:none;box-shadow:none;border-radius:0;font-size:var(--t-base);}
+[data-contraste="alto"] .tabla-casa tr.fila-panel > td{border:0;}
+.panel-casa{
+  padding:1.1rem var(--marco);scroll-margin-top:1rem;scroll-margin-bottom:1rem;
+  background:var(--fondo);border:2px solid var(--borde-hundido);border-radius:var(--r-md);box-shadow:var(--hundido);
+}
+.panel-casa-titulo{font-size:var(--t-lg);margin-bottom:.25rem;outline-offset:4px;}
+[data-contraste="alto"] .panel-casa{border-color:var(--acento);border-width:3px;}
+.panel-casa.pasada{box-shadow:var(--hundido-suave);border-color:var(--separador);}
+.tabla-casa tr{scroll-margin-top:1rem;}
+.panel-casa > .detalle-cierre,.panel-casa > .motivo-cierre{margin-top:.25rem;}
+.grupos-casa{display:flex;flex-direction:column;gap:1.25rem;margin-top:1.1rem;}
+/* Cada grupo dice qué eligieron con icono + texto + color, como una línea del desglose. */
+.grupo-casa-titulo{
+  display:inline-flex;align-items:center;gap:.45rem;padding:.3rem .8rem;border-radius:var(--r-sm);
+  background:var(--cbg);color:var(--c);border:2px solid transparent;
+  font-family:var(--fuente-ui);font-size:var(--t-sm);font-weight:700;
+}
+[data-contraste="alto"] .grupo-casa-titulo{border-color:var(--c);}
+.grupo-casa-titulo.sin-definir{background:var(--fondo);color:var(--peligro);border:2px dashed var(--peligro);}
+.personas-casa{display:flex;flex-direction:column;gap:.6rem;margin-top:.6rem;}
+.persona-casa{
+  display:flex;align-items:center;gap:.6rem;width:100%;min-height:var(--toque);padding:.5rem 1.1rem;
+  border-radius:var(--r-md);border:2px solid var(--borde-elevado);
+  background:var(--fondo);color:var(--tinta);box-shadow:var(--relieve-bajo);
+  font-weight:700;text-align:left;
+  transition:box-shadow var(--dur) var(--curva);
+}
+.persona-casa:hover{box-shadow:var(--relieve);}
+.persona-casa-nombre{flex:1;min-width:0;overflow-wrap:anywhere;}
+.persona-casa .flecha{opacity:.8;transition:transform var(--dur) var(--curva);}
+.persona-casa[aria-expanded="true"]{box-shadow:var(--hundido);border-color:var(--acento);color:var(--acento);}
+.persona-casa[aria-expanded="true"] .flecha{transform:rotate(180deg);}
+[data-contraste="alto"] .persona-casa[aria-expanded="true"]{border-width:3px;background:var(--acento-suave);}
+.enlace-persona{
+  display:inline-flex;align-items:center;gap:.4rem;min-height:var(--toque);padding:.4rem 0;
+  color:var(--acento);font-weight:700;
+}
+
+/* Los extras de una comida, en su burbuja: el formulario y, debajo, una línea por extra ya agregado
+   (como las ausencias). */
+.fila-extra{
+  display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem;
+  padding:.35rem .35rem .35rem .9rem;border-radius:var(--r-md);
+  border:2px solid var(--borde-hundido);box-shadow:var(--hundido-suave);
+}
+.extra-texto{flex:1 1 7rem;display:flex;flex-direction:column;gap:.15rem;min-width:0;line-height:1.3;}
+.extra-cuanto{font-weight:700;}
+.extra-nota{font-size:var(--t-sm);color:var(--tinta-suave);overflow-wrap:anywhere;}
+.fila-extra > .btn,.fila-extra > .ausencia-acciones,.fila-extra > .etiqueta-cerrado{margin-left:auto;}
+.fila-extra > .etiqueta-cerrado{padding:.4rem .6rem;font-size:var(--t-sm);}
+.formulario-extra{margin-top:1rem;}
+.formulario-extra .field{margin-bottom:.9rem;}
+/* Aviso antes de agregar un extra a una comida que ya cerró, y la pregunta al cerrar con algo sin
+   agregar: icono + texto, nunca solo color. */
+.aviso-extra{
+  display:flex;align-items:center;gap:.5rem;margin:0 0 1rem;padding:.75rem var(--marco);
+  border-radius:var(--r-md);border:2px dashed var(--dorado);color:var(--tinta);font-weight:600;font-size:var(--t-sm);
+}
+.aviso-extra .icono{color:var(--dorado);flex:0 0 auto;}
+/* La pregunta, debajo de los botones de siempre (que no se mueven), con sus dos respuestas al lado. */
+.pregunta-extra{margin-top:1rem;padding-top:1rem;border-top:2px solid var(--separador);}
+.pregunta-extra > .aviso-extra{margin:0;}
+.pregunta-extra > .burbuja-pie{margin-top:.75rem;}
+.cantidad-extra{display:flex;align-items:center;gap:.6rem;}
+/* El número cede antes que los botones: a 320px con letra enorme, − y + siguen midiendo 56px. */
+.cantidad-extra input{width:5.5rem;flex:0 1 auto;min-width:0;padding-inline:.5rem;text-align:center;font-weight:700;font-variant-numeric:tabular-nums;}
+.extras-de-comida{margin-top:1.25rem;padding-top:1rem;border-top:2px solid var(--separador);}
+.extras-de-comida .lista-ausencias{margin-bottom:0;}
+
+/* La página de una persona: de quién es, bien a la vista ("Comidas de Juan"), y sus tres vistas en un
+   control segmentado distinto de las pestañas de arriba (que son las del propio Director): una
+   bandeja hundida con segmentos rectos, icono + "Su semana"/"Su plan"/"Sus ausencias", y la elegida
+   hundida y teñida de acento. En un teléfono angosto o con letra grande, un segmento por fila. */
+.volver-casa{margin-bottom:1rem;}
+.persona-cabecera{margin-bottom:1.25rem;container-type:inline-size;}
+.persona-titulo{font-size:var(--t-lg);margin-bottom:.35rem;overflow-wrap:anywhere;}
+.persona-cabecera > .hint{margin-bottom:.9rem;max-width:65ch;}
+.sub-tabs{
+  display:grid;grid-template-columns:minmax(0,1fr);gap:.4rem;padding:.4rem;
+  border-radius:var(--r-md);border:2px solid var(--borde-hundido);box-shadow:var(--hundido);
+}
+.sub-tab{
+  display:flex;align-items:center;justify-content:center;gap:.45rem;min-height:var(--toque);padding:.4rem .8rem;
+  border-radius:var(--r-sm);border:2px solid var(--borde-elevado);
+  background:var(--fondo);color:var(--tinta);box-shadow:var(--relieve-bajo);
+  font-weight:600;line-height:1.2;text-align:center;text-decoration:none;
+  transition:box-shadow var(--dur) var(--curva);
+}
+.sub-tab .icono{flex:0 0 auto;width:1.25em;height:1.25em;}
+.sub-tab.active{
+  box-shadow:var(--hundido);border-color:var(--acento);background:var(--acento-suave);color:var(--acento);font-weight:700;
+}
+[data-contraste="alto"] .sub-tab.active{border-width:3px;}
+@container (min-width:30rem){ .sub-tabs{grid-template-columns:repeat(3,minmax(0,1fr));} }
+
+/* "La marcó el Director": la misma marca de origen que las comidas. */
+.ausencia-quien{display:table;margin-top:.25rem;}
+/* A la vista sin abrir nada: lápiz + "Director" (nunca solo el lápiz), en la comida de la tarjeta del
+   día y en la celda del plan, en tinta, que sobre el fondo de color se lee mejor; la leyenda lo explica. */
+.celda-director{display:inline-flex;align-items:center;gap:.2rem;font-size:var(--t-xs);font-weight:700;color:var(--tinta);}
+.celda-plan .celda-director .icono,.leyenda-director .icono{width:1.05em;height:1.05em;}
+.leyenda-director{display:flex;flex-wrap:wrap;align-items:center;gap:.25rem .5rem;margin-bottom:.9rem;font-size:var(--t-sm);color:var(--tinta-suave);}
+.leyenda-director .celda-director{padding:.1rem .45rem;border-radius:var(--r-sm);border:2px solid var(--borde-hundido);}
 
 /* ---------- 7. Mensajes -------------------------------------------------- */
 
@@ -597,6 +1045,28 @@ a{color:var(--acento);}
   border:2px solid var(--borde-hundido);border-radius:var(--r-sm);box-shadow:var(--hundido);
 }
 
+/* Fijados: arriba del feed, con título (icono + texto). Cada fijada lleva además su insignia. */
+.titulo-feed{display:flex;align-items:center;gap:.5rem;font-size:var(--t-lg);margin-bottom:1rem;}
+.seccion-fijados{margin-bottom:2.25rem;}
+.seccion-fijados .titulo-feed{color:var(--dorado);}
+.msg:focus-visible{outline-offset:4px;}
+.insignia-fijado{
+  display:inline-flex;align-items:center;gap:.4rem;justify-self:start;max-width:100%;margin-bottom:.4rem;
+  padding:.2rem .75rem;border-radius:var(--r-md);
+  border:2px solid var(--borde-hundido);box-shadow:var(--hundido-suave);
+  color:var(--dorado);font-size:var(--t-xs);font-weight:700;line-height:1.35;
+}
+.insignia-fijado .icono{width:1.15em;height:1.15em;}
+[data-contraste="alto"] .insignia-fijado{border-color:var(--dorado);}
+/* Por cuánto tiempo fijarla: bandeja hundida en la tarjeta, con opciones en pastilla (sin modal). */
+.panel-fijar{
+  margin-top:1rem;padding:1rem min(1rem, 3vw);border-radius:var(--r-md);
+  border:2px solid var(--borde-hundido);box-shadow:var(--hundido);
+}
+.panel-fijar .grupo-campo{margin-bottom:.5rem;}
+.panel-fijar .field{margin:.75rem 0 0;max-width:20rem;}
+.panel-fijar .acciones-formulario{margin-top:1rem;}
+
 /* Cola de moderación del Director: una tarjeta por mensaje pendiente, más viejo primero. */
 .lista-pendientes{display:flex;flex-direction:column;gap:1.25rem;}
 .pendiente-item{display:flex;flex-direction:column;gap:.75rem;}
@@ -635,8 +1105,9 @@ a{color:var(--acento);}
 [data-contraste="alto"] .agenda-evento{border-color:var(--acento);}
 
 /* Días como teselas separadas; los que tienen eventos, hundidos. */
-.cal-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:.5rem;}
-.cal-dow{text-align:center;font-size:var(--t-xs);font-weight:700;color:var(--tinta-suave);text-transform:uppercase;letter-spacing:.04em;padding:.3rem 0;}
+.cal-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:.5rem;container:cal-grid / inline-size;}
+.cal-dow{text-align:center;font-size:var(--t-xs);font-weight:700;color:var(--tinta-suave);text-transform:uppercase;letter-spacing:.04em;padding:.3rem 0;white-space:nowrap;}
+.cal-dow .dia-inicial{display:none;}
 .cal-day{
   display:flex;flex-direction:column;gap:.25rem;min-width:0;min-height:5.5rem;padding:.5rem;
   border-radius:var(--r-md);border:2px solid var(--borde-elevado);
@@ -653,9 +1124,11 @@ a{color:var(--acento);}
   display:inline-grid;place-items:center;width:1.9rem;height:1.9rem;border-radius:var(--r-full);
   background:var(--acento);color:var(--acento-tinta);
 }
+/* Hasta dos líneas: con la marca adelante, en una sola no quedaba lugar ni para el título. */
 .cal-event{
+  display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2;
   padding:.15rem .4rem;border-radius:6px;background:var(--acento-suave);color:var(--acento);
-  font-size:var(--t-xs);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  font-size:var(--t-xs);font-weight:600;line-height:1.3;overflow:hidden;overflow-wrap:anywhere;
 }
 
 .cal-evento-lista{display:flex;flex-direction:column;gap:.6rem;margin-bottom:1rem;}
@@ -703,18 +1176,79 @@ a{color:var(--acento);}
   border:2px dashed var(--dorado);color:var(--dorado);font-size:var(--t-xs);font-weight:700;
 }
 .etiqueta-ausente .icono{width:1.1em;height:1.1em;}
-.panel-ausencias{margin-bottom:1.25rem;}
+/* Tarjeta compacta debajo del calendario: una línea por ausencia y el mini calendario plegado. */
+.panel-ausencias{margin-top:1.5rem;}
+.panel-ausencias > .section-title{margin-bottom:.35rem;}
 .panel-ausencias > .hint{margin-bottom:1rem;max-width:65ch;}
-.lista-ausencias{display:flex;flex-direction:column;gap:.6rem;margin-bottom:1.25rem;}
+.ausencias-vacio{margin-bottom:1rem;color:var(--tinta-suave);font-size:var(--t-sm);}
+.lista-ausencias{display:flex;flex-direction:column;gap:.5rem;margin-bottom:1rem;}
 .fila-ausencia{
-  display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.6rem;
-  padding:.75rem;border-radius:var(--r-sm);border:2px solid var(--borde-hundido);box-shadow:var(--hundido-suave);
+  display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem;
+  padding:.35rem .35rem .35rem .9rem;border-radius:var(--r-md);
+  border:2px solid var(--borde-hundido);box-shadow:var(--hundido-suave);
 }
-.ausencia-rango{display:inline-flex;align-items:center;gap:.5rem;font-weight:700;}
+/* El rango se parte en dos líneas antes que mandar "Quitar" abajo: así cada ausencia sigue siendo una fila. */
+.ausencia-rango{flex:1 1 6rem;display:inline-flex;align-items:center;gap:.5rem;font-weight:700;line-height:1.3;}
 .ausencia-acciones{display:flex;flex-wrap:wrap;gap:.5rem;}
 /* Siempre a la derecha, aunque baje de línea: así todas las filas se leen igual. */
 .fila-ausencia > .btn,.fila-ausencia > .ausencia-acciones{margin-left:auto;}
-.formulario-ausencia{border-top:2px solid var(--separador);padding-top:1.25rem;}
+.boton-marcar-ausencia .flecha{opacity:.8;transition:transform var(--dur) var(--curva);}
+.boton-marcar-ausencia[aria-expanded="true"]{box-shadow:var(--hundido);color:var(--acento);}
+.boton-marcar-ausencia[aria-expanded="true"] .flecha{transform:rotate(180deg);}
+[data-contraste="alto"] .boton-marcar-ausencia[aria-expanded="true"]{border-color:var(--acento);background:var(--acento-suave);}
+.formulario-ausencia{margin-top:1.25rem;border-top:2px solid var(--separador);padding-top:1.25rem;}
+.formulario-ausencia > .hint{margin-bottom:1rem;max-width:65ch;}
+.resumen-ausencia{margin-top:1rem;}
+.resumen-ausencia-texto{font-weight:600;max-width:65ch;}
+.resumen-ausencia .campo-error{margin-top:.4rem;}
+
+/* Mini calendario para marcar ausencias. Excepción táctil documentada (DESIGN.md §4): en un
+   teléfono de 375px cada día mide ~43px de ancho (≈36 en 320), pero siempre 56px de alto. Clases
+   propias: nunca .cal-day, que los E2E del calendario grande buscan como único. */
+/* Contenedor con nombre: la cabecera cambia a iniciales según el ancho del calendario, no de la pantalla. */
+.mini-calendario{max-width:30rem;container:mini-calendario / inline-size;}
+.mini-cabeza{display:flex;align-items:center;gap:.5rem;margin-bottom:.5rem;}
+.mini-mes{flex:1;min-width:0;text-align:center;font-family:var(--fuente-display);font-size:var(--t-base);font-weight:600;}
+.mini-tabla{width:100%;table-layout:fixed;border-collapse:separate;border-spacing:3px;}
+/* Ningún texto del mini calendario baja de --t-xs, el piso absoluto (DESIGN.md §4): si "Mié" no
+   cabe a ese tamaño en la columna, se ve la inicial. El umbral va en rem, así que también sigue a la
+   letra que eligió la persona (grande/enorme cambian a iniciales antes). */
+.mini-tabla th{
+  padding:.2rem 0 .3rem;text-align:center;
+  font-size:var(--t-xs);font-weight:700;color:var(--tinta-suave);white-space:nowrap;
+}
+.mini-tabla .dia-inicial{display:none;}
+@container mini-calendario (max-width:15.3rem){
+  .mini-tabla .dia-corto{display:none;}
+  .mini-tabla .dia-inicial{display:inline;}
+}
+.mini-tabla td{padding:0;}
+.mini-dia{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.1rem;
+  width:100%;min-height:var(--toque);padding:0;
+  border-radius:var(--r-sm);border:2px solid var(--borde-elevado);
+  background:var(--fondo);color:var(--tinta);box-shadow:var(--relieve-bajo);
+  font-size:max(var(--t-xs), min(var(--t-base), 5.4vw));font-weight:700;line-height:1;
+  transition:box-shadow var(--dur) var(--curva),background-color var(--dur) var(--curva);
+}
+.mini-dia:active{box-shadow:var(--hundido);}
+/* Por encima de los vecinos: con 3px entre días, el anillo pisa el borde del de al lado. */
+.mini-dia:focus-visible{position:relative;z-index:1;outline-offset:2px;}
+/* El anillo de hoy nunca más ancho que el día (a 320px con letra enorme, 1.7em no entra). */
+.mini-num{display:inline-grid;place-items:center;min-width:min(1.7em, 100%);height:1.7em;}
+/* Hoy: anillo alrededor del número (con color, forma y "hoy" en el nombre accesible). */
+.mini-dia[aria-current="date"] .mini-num{border:2px solid currentColor;border-radius:var(--r-full);}
+.mini-icono{width:.8em;height:.8em;color:var(--dorado);}
+/* Ya ausente: el lenguaje de .cal-day.ausente (punteado dorado + valija). */
+.mini-dia.marcado{border:2px dashed var(--dorado);}
+/* Elegido: hundido, con color y borde; el primer y el último día, rellenos. */
+.mini-dia.elegido{box-shadow:var(--hundido);background:var(--acento-suave);color:var(--acento);border-color:var(--acento);}
+.mini-dia.extremo{background:var(--acento);color:var(--acento-tinta);box-shadow:var(--hundido-suave);}
+.mini-dia.elegido .mini-icono{color:currentColor;}
+[data-contraste="alto"] .mini-dia.elegido{border-width:3px;}
+/* Pasado o fuera de rango: plano (solo se lee) y atenuado. */
+.mini-dia:disabled{box-shadow:none;border-color:transparent;color:var(--tinta-tenue);opacity:.5;cursor:not-allowed;}
+.mini-dia.marcado:disabled{border-color:var(--dorado);}
 .aviso-ausente{
   display:flex;align-items:center;gap:.6rem;padding:.75rem 1rem;margin-bottom:1rem;border-radius:var(--r-md);
   border:2px dashed var(--dorado);box-shadow:var(--hundido-suave);
@@ -722,6 +1256,196 @@ a{color:var(--acento);}
 }
 .cal-day.ausente{border:2px dashed var(--dorado);}
 .cal-ausente-icono{width:1.1em;height:1.1em;color:var(--dorado);}
+
+/* ---------- 8b. Tipos de evento y filtros del calendario -----------------
+   Cada tipo tiene su color (--ev / --ev-bg, de varsTipo) y SIEMPRE su marca con la sigla (SR, SG, SM;
+   "Otro" es el cuadrito gris sin letras junto a su nombre). Tinte + marca, nunca una franja lateral
+   (DESIGN.md §8). Administración no recibe el tipo: sus eventos se pintan como antes. */
+
+/* La marca: el color de relleno con la sigla en pergamino (≥4.5:1, ≥7:1 en alto; prueba en
+   tests/unit/calendario/colores-evento.test.ts). La sigla va por CSS: no forma parte del texto. */
+.marca-tipo{
+  display:inline-grid;place-items:center;flex:0 0 auto;min-width:1.5rem;height:1.35rem;padding:0 .3rem;
+  border-radius:6px;background:var(--ev);color:var(--fondo);
+  font-size:var(--t-xs);font-weight:700;line-height:1;letter-spacing:.02em;
+}
+.marca-tipo::before{content:attr(data-marca);}
+
+/* Cuadrícula: tinte del tipo, texto en su color y la marca adelante (el texto del evento no cambia). */
+.cal-event[data-tipo]{background:var(--ev-bg);color:var(--ev);}
+.cal-event[data-marca]::before{
+  content:attr(data-marca);display:inline-block;margin-right:.3rem;padding:0 .3rem;border-radius:4px;
+  background:var(--ev);color:var(--fondo);font-weight:700;
+}
+[data-contraste="alto"] .cal-event[data-tipo]{box-shadow:inset 0 0 0 2px var(--ev);}
+/* Eventos ocultos por los filtros: ojo tachado + cuántos. El día no queda vacío y normal. */
+.cal-ocultos{
+  display:inline-flex;align-items:center;flex-wrap:wrap;gap:0 .25rem;max-width:100%;
+  font-size:var(--t-xs);font-weight:700;line-height:1.3;color:var(--tinta-suave);overflow:hidden;
+}
+.cal-ocultos .icono{width:1.1em;height:1.1em;}
+/* En columnas angostas (tablet, letra grande) queda el ojo tachado y el número; el nombre del día lo dice entero. */
+@container cal-grid (max-width:40rem){
+  .cal-ocultos-palabra{display:none;}
+}
+
+/* Lista: la misma lógica, con el nombre completo del tipo en su pastilla. */
+.agenda-evento[data-tipo]{background:var(--ev-bg);color:var(--ev);}
+[data-contraste="alto"] .agenda-evento[data-tipo]{border-color:var(--ev);}
+.agenda-ocultos,.agenda-ocultos-mes{
+  display:inline-flex;align-items:center;gap:.4rem;font-size:var(--t-sm);font-weight:600;color:var(--tinta-suave);
+}
+.agenda-ocultos .icono,.agenda-ocultos-mes .icono{width:1.2em;height:1.2em;flex:0 0 auto;}
+.agenda-ocultos-mes{display:flex;margin-top:1rem;}
+
+/* Pastilla del tipo (lista y diálogo del día): su color y su marca, sobre pergamino. */
+.pastilla-tipo[style]{color:var(--ev);}
+[data-contraste="alto"] .pastilla-tipo[style]{border-color:var(--ev);}
+.pastilla-oculto{
+  display:inline-flex;align-items:center;gap:.35rem;padding:.15rem .65rem;border-radius:var(--r-full);
+  border:2px dashed var(--tinta-suave);color:var(--tinta-suave);font-size:var(--t-xs);font-weight:700;
+}
+.pastilla-oculto .icono{width:1.1em;height:1.1em;}
+/* En un evento oculto de la lista del día: vuelve a mostrar en el calendario lo que lo esconde. */
+.mostrar-filtro{display:flex;margin-top:.6rem;text-align:left;}
+
+/* Formulario: cada tipo con su marca; elegido, hundido con el borde y el texto de su color. */
+.opcion-tipo input:checked + span{color:var(--ev);border-color:var(--ev);}
+[data-contraste="alto"] .opcion-tipo input:checked + span{background:var(--ev-bg);}
+
+/* Filtros: una fila de chips arriba de la tarjeta del calendario. Cada chip es un interruptor:
+   mostrado = hundido + visto; oculto = elevado (se toca para volver a verlo) + ojo tachado + "Oculto".
+   Cuántos entran lo decide el ancho del contenedor en rem (sigue a la letra, DESIGN.md §4 regla 4). */
+.filtros-cal{container:filtros / inline-size;margin-bottom:1.25rem;}
+.filtros-titulo{margin-bottom:.2rem;}
+.filtros-ayuda{margin-bottom:.75rem;}
+.filtros-alternar{display:none;}
+.filtros-resumen{font-weight:400;color:var(--tinta-suave);}
+.filtros-alternar .flecha{opacity:.8;transition:transform var(--dur) var(--curva);}
+.filtros-alternar[aria-expanded="true"]{box-shadow:var(--hundido);color:var(--acento);}
+.filtros-alternar[aria-expanded="true"] .flecha{transform:rotate(180deg);}
+[data-contraste="alto"] .filtros-alternar[aria-expanded="true"]{border-color:var(--acento);background:var(--acento-suave);}
+.filtros-chips{display:flex;flex-wrap:wrap;gap:.6rem;}
+.chip-filtro{
+  display:inline-flex;align-items:center;gap:.55rem;max-width:100%;min-height:var(--toque);
+  padding:.35rem 1rem .35rem .75rem;border-radius:var(--r-full);border:2px solid var(--borde-elevado);
+  background:var(--fondo);color:var(--tinta);box-shadow:var(--relieve);
+  font-size:var(--t-sm);font-weight:600;line-height:1.2;text-align:left;
+  transition:box-shadow var(--dur) var(--curva),background-color var(--dur) var(--curva);
+}
+.chip-filtro:hover{box-shadow:var(--relieve-alto);}
+.chip-filtro[aria-pressed="true"],.chip-filtro[aria-checked="true"]{box-shadow:var(--hundido);border-color:var(--ev,var(--acento));}
+[data-contraste="alto"] .chip-filtro[aria-pressed="true"],
+[data-contraste="alto"] .chip-filtro[aria-checked="true"]{border-width:3px;background:var(--ev-bg,var(--acento-suave));}
+.chip-etiqueta{min-width:0;}
+/* "Visible" y "Oculto" ocupan lo mismo: tocar un chip no lo ensancha ni corre a los de al lado (el
+   siguiente toque cae donde la persona apuntó), y al hidratar tampoco cambia nada de lugar. */
+.chip-estado{display:inline-flex;align-items:center;gap:.25rem;min-width:4.9em;font-size:var(--t-xs);font-weight:700;color:var(--tinta-suave);}
+.chip-cocina .chip-estado{min-width:1.5em;}
+.chip-estado .icono{width:1.35em;height:1.35em;}
+.chip-filtro[aria-pressed="true"] .chip-estado{color:var(--ev,var(--acento));}
+/* Oculto: la marca queda hueca (el color sigue a la vista, pero "apagado"). */
+.chip-filtro[aria-pressed="false"] .marca-tipo{background:transparent;color:var(--ev);box-shadow:inset 0 0 0 2px var(--ev);}
+/* "Mis ausencias" con el lenguaje de siempre de la ausencia: punteado dorado + valija. */
+.chip-ausencias,.chip-cocina{--ev:var(--dorado);--ev-bg:var(--dorado-suave);}
+.marca-ausencia,.marca-cocina{
+  display:inline-grid;place-items:center;flex:0 0 auto;width:1.9rem;height:1.5rem;border-radius:6px;color:var(--dorado);
+}
+.marca-ausencia{border:2px dashed var(--dorado);}
+.marca-ausencia .icono,.marca-cocina .icono{width:1.15rem;height:1.15rem;}
+/* "Solo eventos con pedido a cocina": un interruptor de verdad (role="switch"), en su propia línea. */
+.chip-cocina{margin-top:.6rem;}
+.interruptor{
+  position:relative;flex:0 0 auto;width:2.6rem;height:1.5rem;border-radius:var(--r-full);
+  border:2px solid var(--tinta-suave);background:var(--fondo);box-shadow:var(--hundido-suave);
+  transition:background-color var(--dur) var(--curva);
+}
+.interruptor-perilla{
+  position:absolute;top:2px;left:2px;width:calc(1.5rem - 8px);height:calc(1.5rem - 8px);border-radius:50%;
+  background:var(--tinta-suave);transition:transform var(--dur) var(--curva);
+}
+.chip-cocina[aria-checked="true"] .interruptor{background:var(--acento);border-color:var(--acento);}
+.chip-cocina[aria-checked="true"] .interruptor-perilla{transform:translateX(1.1rem);background:var(--acento-tinta);}
+.chip-cocina[aria-checked="true"] .chip-estado{color:var(--acento);}
+@container filtros (max-width:30rem){
+  .filtros-titulo{display:none;}
+  .filtros-alternar{display:inline-flex;justify-content:space-between;width:100%;text-align:left;}
+  .filtros-cal:not([data-abierto]) .filtros-cuerpo{display:none;}
+  .filtros-cuerpo{margin-top:1rem;}
+  /* El aviso: el ojo al lado del texto (no solo en una fila) y "Mostrar todo" debajo, a la derecha. */
+  .aviso-filtros{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:start;}
+  .aviso-filtros .btn{grid-column:1 / -1;justify-self:end;}
+}
+
+/* Aviso de lo oculto, al final de la sección (fuera de lo plegable), arriba de la tarjeta: bandeja
+   con borde dorado, ojo tachado, qué se oculta escrito y "Mostrar todo". La región existe siempre
+   (aria-live). */
+.aviso-filtros{
+  display:flex;align-items:center;flex-wrap:wrap;gap:.6rem 1rem;margin-top:1rem;
+  padding:.6rem .6rem .6rem var(--marco);border-radius:var(--r-md);
+  border:2px solid var(--dorado);box-shadow:var(--hundido-suave);
+  font-size:var(--t-sm);font-weight:600;
+}
+.aviso-filtros > .icono{width:1.5em;height:1.5em;color:var(--dorado);}
+.aviso-filtros p{flex:1 1 min(14rem, 100%);min-width:0;}
+.aviso-filtros .btn{margin-left:auto;}
+/* En el diálogo del día: lo que ocultan los filtros, con "Mostrarlos" (solo en este día). */
+.aviso-ocultos-dia{
+  display:flex;align-items:center;flex-wrap:wrap;gap:.5rem .9rem;margin-bottom:1rem;
+  padding:.5rem .5rem .5rem .9rem;border-radius:var(--r-md);
+  border:2px solid var(--dorado);box-shadow:var(--hundido-suave);font-size:var(--t-sm);font-weight:600;
+}
+.aviso-ocultos-dia > .icono{width:1.4em;height:1.4em;color:var(--dorado);}
+.aviso-ocultos-dia span{flex:1 1 min(12rem, 100%);}
+.aviso-ocultos-dia .btn{margin-left:auto;}
+
+/* Antes de hidratar: el HTML del servidor muestra todo, y el script de <head> dejó en
+   html[data-cal-oculta] lo que este dispositivo oculta. Hasta que React toma el control
+   (.zona-calendario[data-listo]) el CSS lo esconde y reserva el lugar del aviso: nada aparece un
+   instante ni salta. */
+html[data-cal-oculta~="san_rafael"] .zona-calendario:not([data-listo]) [data-tipo="san_rafael"],
+html[data-cal-oculta~="san_gabriel"] .zona-calendario:not([data-listo]) [data-tipo="san_gabriel"],
+html[data-cal-oculta~="san_miguel"] .zona-calendario:not([data-listo]) [data-tipo="san_miguel"],
+html[data-cal-oculta~="otro"] .zona-calendario:not([data-listo]) [data-tipo="otro"],
+html[data-cal-oculta~="sin_pedido"] .zona-calendario:not([data-listo]) [data-pedido="no"],
+html[data-cal-oculta~="ausencias"] .zona-calendario:not([data-listo]) .cal-ausente-icono,
+html[data-cal-oculta~="ausencias"] .zona-calendario:not([data-listo]) .etiqueta-ausente{display:none;}
+html[data-cal-oculta~="ausencias"] .zona-calendario:not([data-listo]) .cal-day.ausente{border:2px solid var(--borde-elevado);}
+/* Los chips no dicen todavía "Visible" ni la cuenta del botón "Filtros": dirían lo del servidor
+   (todo a la vista), no lo de este dispositivo. Lo oculto ya se ve elevado, como después. */
+html[data-cal-oculta] .zona-calendario:not([data-listo]) :is(.chip-estado,.filtros-resumen,.interruptor-perilla){visibility:hidden;}
+html[data-cal-oculta~="san_rafael"] .zona-calendario:not([data-listo]) .chip-filtro[data-filtro="san_rafael"],
+html[data-cal-oculta~="san_gabriel"] .zona-calendario:not([data-listo]) .chip-filtro[data-filtro="san_gabriel"],
+html[data-cal-oculta~="san_miguel"] .zona-calendario:not([data-listo]) .chip-filtro[data-filtro="san_miguel"],
+html[data-cal-oculta~="otro"] .zona-calendario:not([data-listo]) .chip-filtro[data-filtro="otro"],
+html[data-cal-oculta~="ausencias"] .zona-calendario:not([data-listo]) .chip-filtro[data-filtro="ausencias"]{
+  box-shadow:var(--relieve);border-color:var(--borde-elevado);border-width:2px;background:var(--fondo);
+}
+html[data-cal-oculta~="sin_pedido"] .zona-calendario:not([data-listo]) .chip-cocina{box-shadow:var(--hundido);}
+html[data-cal-oculta~="san_rafael"] .zona-calendario:not([data-listo]) .chip-filtro[data-filtro="san_rafael"] .marca-tipo,
+html[data-cal-oculta~="san_gabriel"] .zona-calendario:not([data-listo]) .chip-filtro[data-filtro="san_gabriel"] .marca-tipo,
+html[data-cal-oculta~="san_miguel"] .zona-calendario:not([data-listo]) .chip-filtro[data-filtro="san_miguel"] .marca-tipo,
+html[data-cal-oculta~="otro"] .zona-calendario:not([data-listo]) .chip-filtro[data-filtro="otro"] .marca-tipo{
+  background:transparent;color:var(--ev);box-shadow:inset 0 0 0 2px var(--ev);
+}
+/* El lugar del aviso: una fila (ojo, texto y "Mostrar todo") en un contenedor ancho; en uno angosto,
+   una línea de texto por cada cosa oculta (html[data-cal-oculta-n], hasta 3), una o dos más cuanto
+   más angosto (el texto se parte en más líneas), y el botón debajo. Medido a 320/375/768/1280 ×
+   normal/grande/enorme: la tarjeta se corre a lo sumo ~25px al hidratar (antes, hasta ~200). */
+html[data-cal-oculta] .zona-calendario:not([data-listo]) .aviso-filtros-zona{--lineas:1;--mas:0;min-height:calc(1rem + 1.2rem + 4px + var(--toque));}
+html[data-cal-oculta-n="2"] .zona-calendario:not([data-listo]) .aviso-filtros-zona{--lineas:2;}
+html[data-cal-oculta-n="3"] .zona-calendario:not([data-listo]) .aviso-filtros-zona{--lineas:3;}
+@container filtros (max-width:30rem){
+  html[data-cal-oculta] .zona-calendario:not([data-listo]) .aviso-filtros-zona{
+    min-height:calc(1rem + 1.2rem + 4px + (var(--lineas) + var(--mas)) * var(--t-sm) * 1.55 + .6rem + var(--toque));
+  }
+}
+@container filtros (max-width:18rem){
+  html[data-cal-oculta] .zona-calendario:not([data-listo]) .aviso-filtros-zona{--mas:1;}
+}
+@container filtros (max-width:13rem){
+  html[data-cal-oculta] .zona-calendario:not([data-listo]) .aviso-filtros-zona{--mas:2;}
+}
 
 /* Enlace público de confirmación de cena extra: fuera del layout de la app, sin sesión. */
 .pagina-publica{
@@ -804,7 +1528,6 @@ a{color:var(--acento);}
 }
 
 .estado-push{margin-bottom:1rem;}
-.pasos-ios{margin:.5rem 0 0 1.25rem;padding:0;list-style:decimal;line-height:1.6;}
 .opcion-aviso{display:flex;align-items:flex-start;gap:.9rem;min-height:var(--toque);padding:.9rem 0;}
 .opcion-aviso + .opcion-aviso{border-top:2px solid var(--separador);}
 .opcion-aviso input[type="checkbox"]{width:1.6rem;height:1.6rem;margin:.1rem 0 0;flex:0 0 auto;accent-color:var(--acento);}
@@ -845,6 +1568,68 @@ a{color:var(--acento);}
 .hacia-arriba .panel-apariencia{top:auto;bottom:calc(100% + .75rem);left:0;right:auto;}
 .panel-apariencia .opcion-apariencia{padding:.4rem .95rem;font-size:var(--t-sm);}
 
+/* ---------- 10b. Invitaciones: instalar la app y activar los avisos -------
+   Arriba del contenido, en teléfono o tablet (components/app/invitaciones.tsx). Ocultas salvo que
+   el script de <head> marque <html> (lib/pwa/instalar.ts): se ven desde el primer pintado y no
+   empujan el contenido después. Son una tarjeta elevada (se toca); los pasos, una bandeja hundida. */
+
+.invitacion{display:none;margin-bottom:1.5rem;container-type:inline-size;}
+html[data-instalar="ofrecer"] .invitacion-instalar,
+html[data-ofrecer-avisos="si"] .invitacion-avisos{display:block;}
+.invitacion-cabeza{display:flex;align-items:flex-start;gap:.9rem;}
+.invitacion-icono{
+  flex:0 0 auto;width:3rem;height:3rem;display:grid;place-items:center;
+  border-radius:var(--r-md);border:2px solid var(--borde-hundido);box-shadow:var(--hundido-suave);
+  background:var(--acento-suave);color:var(--acento);
+}
+.invitacion-icono .icono{width:1.6rem;height:1.6rem;}
+.invitacion-titulo{font-family:var(--fuente-display);font-size:var(--t-lg);font-weight:600;line-height:1.25;text-wrap:balance;}
+.invitacion-texto{margin-top:.3rem;color:var(--tinta-suave);font-size:var(--t-sm);max-width:65ch;}
+.invitacion-acciones{display:flex;flex-wrap:wrap;gap:.75rem;margin-top:1.1rem;}
+.invitacion-acciones .btn{flex:1 1 min(11rem,100%);}
+.invitacion-error{margin-top:.9rem;color:var(--peligro);font-weight:600;font-size:var(--t-sm);}
+/* Angosta (teléfono chico o letra grande): el icono va arriba y el título usa todo el ancho. La
+   consulta es de contenedor y en rem: sigue a la letra elegida (DESIGN.md §4, regla 4). */
+@container (max-width:15rem){
+  .invitacion-cabeza{flex-direction:column;gap:.6rem;}
+  .invitacion-icono{width:2.6rem;height:2.6rem;}
+}
+
+/* Los pasos: bandeja hundida dentro de la tarjeta, cada uno con su dibujo, su número y su texto. */
+.pasos-instalar{
+  margin-top:1rem;padding:1rem var(--marco);border-radius:var(--r-md);
+  border:2px solid var(--borde-hundido);box-shadow:var(--hundido-suave);
+  container-type:inline-size;
+}
+.lista-pasos{display:flex;flex-direction:column;gap:1.1rem;}
+.paso-instalar{display:grid;grid-template-columns:auto minmax(0,1fr);gap:.9rem;align-items:start;}
+.paso-dibujo{width:3.25rem;min-height:3.25rem;display:grid;place-items:center;color:var(--tinta);}
+.dibujo-telefono{display:block;width:auto;height:4rem;}
+.dibujo-barra{fill:var(--acento-suave);stroke:var(--acento);stroke-width:1.5;}
+.dibujo-telefono g{stroke:var(--acento);}
+.dibujo-icono{width:2.6rem;height:2.6rem;color:var(--acento);}
+.paso-titulo{display:flex;gap:.55rem;align-items:baseline;font-weight:700;}
+.paso-numero{
+  flex:0 0 auto;display:inline-grid;place-items:center;min-width:1.6em;height:1.6em;border-radius:var(--r-full);
+  background:var(--acento);color:var(--acento-tinta);font-size:var(--t-sm);font-weight:700;line-height:1;
+}
+.paso-icono-titulo{white-space:nowrap;color:var(--acento);}
+.paso-icono-titulo .icono{vertical-align:-.2em;}
+.paso-texto .hint{margin-top:.25rem;}
+.paso-requisito{margin-top:1.1rem;}
+.paso-generico{font-weight:600;}
+/* Sin ancho para el dibujo al costado: el dibujo va arriba del paso, nunca se achica la letra. */
+@container (max-width:13rem){
+  .paso-instalar{grid-template-columns:minmax(0,1fr);gap:.4rem;}
+  .paso-dibujo{justify-items:start;min-height:0;}
+}
+
+/* En Ajustes: la misma invitación, sin "Ahora no". */
+.tarjeta-instalar{margin-bottom:14px;}
+.tarjeta-instalar-texto{margin-bottom:.9rem;}
+.estado-instalada{display:flex;align-items:flex-start;gap:.6rem;font-weight:600;}
+.estado-instalada .icono{color:var(--st-si);margin-top:.15em;}
+
 /* ---------- 11. Login ---------------------------------------------------- */
 
 #login-screen{
@@ -855,7 +1640,7 @@ a{color:var(--acento);}
 .login-apariencia{position:absolute;top:calc(1rem + env(safe-area-inset-top, 0px));right:var(--canal);}
 .login-wrap{width:100%;max-width:27rem;display:flex;flex-direction:column;gap:1.75rem;}
 .login-intro{text-align:center;display:flex;flex-direction:column;align-items:center;gap:.6rem;}
-.login-intro .monograma{width:4rem;height:4rem;font-size:var(--t-lg);margin-bottom:.4rem;}
+.login-intro .escudo{height:6rem;margin-bottom:.4rem;}
 .login-intro .eyebrow{color:var(--dorado);font-size:var(--t-sm);font-weight:700;}
 .login-intro h1{font-size:var(--t-2xl);}
 .login-intro p{color:var(--tinta-suave);font-size:var(--t-sm);max-width:36ch;}
@@ -874,9 +1659,9 @@ a{color:var(--acento);}
     display:flex;align-items:center;gap:.75rem;
     padding-block:1rem .25rem;padding-inline:var(--canal);
   }
-  /* La barra superior no crece con la letra: con "Muy grande" en 320px no entraría. El monograma
+  /* La barra superior no crece con la letra: con "Muy grande" en 320px no entraría. El escudo
      y el avatar no se tocan, así que van en px; el nombre cede y se recorta si hace falta. */
-  .topbar .monograma{width:44px;height:44px;font-size:17px;}
+  .topbar .escudo{height:44px;}
   .topbar .name{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--fuente-display);font-weight:600;}
   .topbar-acciones{display:flex;align-items:center;gap:.6rem;flex:0 0 auto;}
   .topbar .avatar{width:44px;height:44px;font-size:15px;}
@@ -902,8 +1687,17 @@ a{color:var(--acento);}
   .barra-inferior .nav-item .icono{width:1.6em;height:1.6em;}
   .barra-inferior .nav-item.active{box-shadow:var(--hundido);}
   [data-contraste="alto"] .barra-inferior .nav-item.active{border-color:var(--acento);}
+  /* El globito va sobre la esquina del icono: no ensancha la etiqueta ni empuja a las demás. */
+  .barra-inferior .insignia-conteo{position:absolute;top:.2rem;left:calc(50% + .3rem);font-size:min(var(--t-xs), 3.6vw);}
 
   .toast{bottom:calc(6rem + env(safe-area-inset-bottom, 0px));}
+  /* Lo que se trae a la vista (la tarjeta de hoy, el panel de quiénes comen) no cuenta como visible
+     si lo tapa la barra inferior. */
+  .tarjeta-dia,.panel-casa{scroll-margin-bottom:calc(5.5rem + env(safe-area-inset-bottom, 0px));}
+  /* La página se alarga debajo de una burbuja más alta que la pantalla: su final no queda bajo la barra. */
+  .burbuja::after{height:calc(6rem + env(safe-area-inset-bottom, 0px));}
+  /* Un campo que toma el foco (la hora en la burbuja) no queda tapado por la barra inferior. */
+  html{scroll-padding-bottom:calc(5.5rem + env(safe-area-inset-bottom, 0px));}
 
   /* Calendario: lista por defecto; la cuadrícula a un toque. */
   .cal-alternar{display:block;}
@@ -912,33 +1706,24 @@ a{color:var(--acento);}
 }
 @media (min-width:56.001rem){
   .barra-inferior{display:none;}
-  .resumen-plan{display:block;}
 }
 
-/* Teléfono: las tablas se apilan como fichas con sus etiquetas escritas. Sin scroll lateral. */
+/* Teléfono: las tablas se apilan como fichas con sus etiquetas escritas. Sin scroll lateral.
+   (.admin-week-table se apila con su propia regla, por ancho de la tarjeta: sección 6.) */
 @media (max-width:40rem){
-  .admin-week-table,.admin-week-table tbody,.admin-week-table tr,
   .user-table,.user-table tbody,.user-table tr{display:block;width:100%;}
-  .admin-week-table thead,.user-table thead{display:none;}
-  .admin-week-table tr,.user-table tr{
+  .user-table thead{display:none;}
+  .user-table tr{
     margin-bottom:.9rem;padding:.75rem var(--marco);border-radius:var(--r-md);
     border:2px solid var(--borde-hundido);box-shadow:var(--hundido-suave);
   }
-  .admin-week-table th.namecell,.admin-week-table td,.user-table td{
+  .user-table td{
     display:block;width:100%;padding:.35rem 0;background:none;box-shadow:none;border-radius:0;
   }
-  .admin-week-table th.namecell{font-size:var(--t-base);padding-bottom:.5rem;}
-  /* Cada comida en una sola línea: etiqueta a la izquierda, respuesta a la derecha. */
-  .admin-week-table td[data-et]{display:flex;align-items:center;flex-wrap:wrap;gap:.3rem .6rem;}
-  .admin-week-table td[data-et]::before,.user-table td[data-et]::before{
-    content:attr(data-et);font-size:var(--t-xs);font-weight:700;color:var(--tinta-suave);
+  .user-table td[data-et]::before{
+    content:attr(data-et);display:block;font-size:var(--t-xs);font-weight:700;color:var(--tinta-suave);
     text-transform:uppercase;letter-spacing:.04em;
   }
-  .admin-week-table td[data-et]::before{flex:1 1 auto;}
-  .admin-week-table td.excepcion{background:var(--dorado-suave);padding:.35rem .6rem;border-radius:var(--r-sm);}
-  .admin-week-table td[data-et] .status-note{flex-basis:100%;text-align:right;margin:0;}
-  .admin-week-table td .plan-linea{white-space:normal;}
-  .user-table td[data-et]::before{display:block;}
   .acciones-cuenta{justify-content:flex-start;}
 
   /* Mensajes: mensaje, hilo y respuesta anidados reservaban cada uno una columna para el avatar
@@ -951,12 +1736,34 @@ a{color:var(--acento);}
   .msg-text{margin-top:.6rem;}
   .msg-action{max-width:100%;}
 
-  /* Teléfono estrecho: las opciones pasan a 2 columnas antes que encogerse. */
-  .opciones .status-row{grid-template-columns:repeat(2,minmax(0,1fr));}
+  /* El mini calendario casi a sangre dentro de la tarjeta: cada píxel de ancho va a los días. */
+  .mini-calendario{max-width:none;margin-inline:calc(var(--marco) * -0.75);}
 
   /* La cuadrícula del mes marca los eventos con un punto: "Re…" no le sirve a nadie. */
   .cal-grid{gap:.3rem;}
-  .cal-day{min-height:4.5rem;padding:.35rem .2rem;align-items:center;}
+  .cal-day{min-height:4.5rem;padding:.35rem 2px;align-items:center;}
   .cal-event{font-size:0;width:.55rem;height:.55rem;padding:0;border-radius:50%;background:var(--acento);flex:0 0 auto;}
-  .cal-dow{font-size:min(var(--t-xs), 3.6vw);letter-spacing:0;}
+  /* Con tipo, el punto lleva su color y su sigla (el color nunca solo); "Otro", punto gris sin letras.
+     El nombre accesible del día dice los tipos. */
+  .cal-event[data-tipo]{
+    display:grid;place-items:center;width:auto;height:auto;min-width:.8rem;min-height:.8rem;max-width:100%;
+    border-radius:5px;background:var(--ev);overflow:visible;
+  }
+  .cal-event[data-tipo]{overflow-wrap:normal;}
+  .cal-event[data-marca]::before{margin:0;padding:.1rem .15rem;font-size:var(--t-xs);line-height:1.1;white-space:nowrap;background:none;}
+  .cal-event[data-tipo="otro"]{border-radius:50%;}
+  .cal-event[data-tipo="otro"]::before{content:none;}
+  [data-contraste="alto"] .cal-event[data-tipo]{box-shadow:none;}
+  /* Si la sigla no entra en la columna (320px, o letra grande), queda la inicial: R, G, M. Consulta
+     de contenedor en rem: sigue a la letra elegida, que nunca baja de --t-xs (DESIGN.md §4). */
+  @container cal-grid (max-width:15.4rem){
+    .cal-event[data-inicial]::before{content:attr(data-inicial);}
+    .cal-dow .dia-corto{display:none;}
+    .cal-dow .dia-inicial{display:inline;}
+  }
+  /* Ocultos: el ojo tachado arriba del número, así entra en la columna. */
+  .cal-ocultos{flex-direction:column;gap:0;line-height:1.1;}
+  .cal-ocultos-palabra{display:none;}
+  /* La cabecera no baja de --t-xs: si "MIÉ" no entra en la columna, la inicial (como el mini calendario). */
+  .cal-dow{letter-spacing:0;}
 }

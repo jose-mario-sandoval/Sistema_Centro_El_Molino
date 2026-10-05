@@ -324,7 +324,8 @@ La Server Action traduce `MOL01` a un mensaje específico ("El almuerzo ya cerr�
 - **Activación por dispositivo:** en Configuraciones → "Notificaciones en este dispositivo". Pide permiso con un gesto del usuario, envía la suscripción a `/api/push` y permite darla de baja.
 - **Dispositivos compartidos:** `/api/push` guarda la suscripción con el cliente admin haciendo upsert por `endpoint` y asignándola al usuario actual (si el endpoint era de otra persona, pasa a ser de quien inició sesión). Al cerrar sesión, la app borra la suscripción de ese dispositivo antes de salir.
 - **iPhone:** si detecta iOS sin la app instalada, muestra instrucciones para "Agregar a pantalla de inicio" (requiere iOS 16.4+).
-- **Preferencias:** interruptores `avisar_hora_limite` y `avisar_mensajes` en el perfil.
+- **Instalar la app** (plan `2026-09-29-instalar-y-avisos.md`): en teléfono o tablet, una franja arriba del contenido invita a instalarla (diálogo del navegador con `beforeinstallprompt`, pasos dibujados en iPhone/iPad o instrucciones del menú; "Ahora no" por 7 días) y, ya instalada, a activar los avisos. En Ajustes, la tarjeta "Instalar la app".
+- **Preferencias:** interruptores `avisar_hora_limite`, `avisar_mensajes`, `avisar_cambios` (cambios que hace el Director en mis comidas) y `avisar_cocina` (Administración) en el perfil; cada rol ve solo los suyos.
 - **Destinatarios** (usuarios activos con la preferencia correspondiente):
 
 | Evento | Destinatarios | Abre |
@@ -332,8 +333,12 @@ La Server Action traduce `MOL01` a un mensaje específico ("El almuerzo ya cerr�
 | Nueva publicación | Todos menos el autor | `/mensajes` |
 | Nueva respuesta | Autor de la publicación y quienes ya respondieron en el hilo, menos quien responde | `/mensajes` |
 | Recordatorio de hora límite | Directores/Residentes cuya comida esté **"Sin definir"** (sin selección ni plan) | `/comidas/semana` |
+| Mensaje por aprobar (un Residente publica, responde o corrige un rechazado) | Directores (`avisar_mensajes`) | `/mensajes?vista=pendientes` |
+| Tu mensaje fue aprobado / no fue aprobado (con el motivo) | El autor, menos quien moderó (`avisar_mensajes`) | `/mensajes` |
+| El Director cambió tu comida, tu plan o tu ausencia | La persona, si no es quien lo cambió (`avisar_cambios`) | `/comidas/semana`, `/comidas/plan`, `/calendario` |
+| Cambios para la cocina: extras manuales y pedidos de eventos (series en un solo aviso), solo fecha, comida u hora, cantidad y pedido o nota | Administración (`avisar_cocina`) | `/comidas/semana` o `/calendario` |
 
-- **Envío:** las notificaciones de mensajes se envían tras responder al usuario (`after()` de Next.js).
+- **Envío:** las notificaciones se envían tras responder al usuario (`after()` de Next.js); nunca a quien hizo el cambio, con `tag` para que una ráfaga reemplace el aviso anterior en vez de apilarse. La insignia (`badge`) es `/iconos/insignia`, una silueta blanca sobre transparente, porque Android solo usa su canal alfa.
 - **Suscripciones caducadas:** si el servicio push responde 404 o 410, se borra la suscripción.
 
 ### 8.3 Tareas programadas (`pg_cron`, cada 5 minutos)

@@ -40,7 +40,8 @@ async function restaurarHorasLimite() {
 
 async function limpiarComidas() {
   const usuarios = Object.values(ids)
-  for (const tabla of ['selecciones_comida', 'plan_semanal']) {
+  // El plan primero: borrarlo congela lo vencido de cada celda (trigger), y esas filas se borran después.
+  for (const tabla of ['plan_semanal', 'selecciones_comida']) {
     const { error } = await admin.from(tabla).delete().in('usuario_id', usuarios)
     if (error) throw error
   }
@@ -116,17 +117,25 @@ async function llamarCierre(ahora: string) {
   await conPostgres((c) => c.query(`call public.cerrar_comidas_vencidas('${ahora}'::timestamptz)`))
 }
 
-/**
- * comida_editable con horas límite y cierre del caso, en una transacción REPEATABLE READ que termina
- * en ROLLBACK: el caso no ve lo que el job real de pg_cron cierre mientras tanto y no deja estado.
- */
-async function editableEnPostgres(p: {
+type CasoEnPostgres = {
   fecha: string
   comida: string
   ahora: string
   horas: HorasLimite
   cerrada: boolean
-}): Promise<boolean> {
+}
+
+/** comida_editable con horas límite y cierre del caso (ver evaluarEnPostgres). */
+function editableEnPostgres(p: CasoEnPostgres): Promise<boolean> {
+  return evaluarEnPostgres('comida_editable', p)
+}
+
+/**
+ * comida_editable o comida_sin_cerrar con horas límite y cierre del caso, en una transacción
+ * REPEATABLE READ que termina en ROLLBACK: el caso no ve lo que el job real de pg_cron cierre
+ * mientras tanto y no deja estado.
+ */
+async function evaluarEnPostgres(funcion: 'comida_editable' | 'comida_sin_cerrar', p: CasoEnPostgres): Promise<boolean> {
   return conPostgres(async (c) => {
     await c.query('begin isolation level repeatable read')
     try {
@@ -141,11 +150,11 @@ async function editableEnPostgres(p: {
           comida,
         ])
       }
-      const { rows } = await c.query<{ editable: boolean }>(
-        'select public.comida_editable($1::date, $2::public.tiempo_comida, $3::timestamptz) as editable',
+      const { rows } = await c.query<{ resultado: boolean }>(
+        `select public.${funcion}($1::date, $2::public.tiempo_comida, $3::timestamptz) as resultado`,
         [p.fecha, p.comida, p.ahora],
       )
-      return rows[0].editable
+      return rows[0].resultado
     } finally {
       await c.query('rollback')
     }
@@ -408,7 +417,7 @@ describe('nota según el estado (CHECK nota_valida)', () => {
   })
 })
 
-describe('comida_editable: paridad con lib/comidas (tests/fixtures/casos-comidas.json)', () => {
+describe('comida_editable y comida_sin_cerrar: paridad con lib/comidas (tests/fixtures/casos-comidas.json)', () => {
   it.each(casos.abiertas)('$nombre', async (caso) => {
     const editable = await editableEnPostgres({
       fecha: caso.fecha,
@@ -425,6 +434,17 @@ describe('comida_editable: paridad con lib/comidas (tests/fixtures/casos-comidas
     const unMilisegundoAntes = new Date(Date.parse(cierre) - 1).toISOString()
     expect(await editableEnPostgres({ ...base, ahora: unMilisegundoAntes })).toBe(true)
     expect(await editableEnPostgres({ ...base, ahora: cierre })).toBe(false)
+  })
+
+  it.each(casos.sinCerrar)('comida_sin_cerrar (quitar un extra): $nombre', async (caso) => {
+    const sinCerrar = await evaluarEnPostgres('comida_sin_cerrar', {
+      fecha: caso.fecha,
+      comida: caso.comida,
+      ahora: caso.ahora,
+      horas: (caso.horas as HorasLimite | null) ?? HORAS_LIMITE_POR_DEFECTO,
+      cerrada: caso.cerrada,
+    })
+    expect(sinCerrar).toBe(caso.sinCerrar)
   })
 
   it('un residente la llama por RPC y por defecto usa la hora real', async () => {
@@ -778,13 +798,14 @@ describe('extras_de_la_semana', () => {
     expect(JSON.stringify(data)).not.toMatch(/familia/i)
   })
 
-  it('Director y Residente no obtienen nada (la función es solo para Administración)', async () => {
+  it('el Director obtiene lo mismo que Administración (La casa); un Residente, nada', async () => {
     await sembrarExtra(1)
-    for (const clave of ['director', 'residente'] as const) {
-      const cliente = await clienteComo(clave)
-      const { data } = await cliente.rpc('extras_de_la_semana', { p_desde: LUNES, p_hasta: '2026-10-11' })
-      expect(data).toEqual([])
-    }
+    const pedir = async (clave: ClaveUsuario) =>
+      (await (await clienteComo(clave)).rpc('extras_de_la_semana', { p_desde: LUNES, p_hasta: '2026-10-11' })).data
+    const cocina = await pedir('administracion')
+    expect(cocina).not.toEqual([])
+    expect(await pedir('director')).toEqual(cocina)
+    expect(await pedir('residente')).toEqual([])
   })
 
   it('sin confirmaciones en el rango, lista vacía', async () => {

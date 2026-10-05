@@ -11,6 +11,7 @@ import {
   semanaPedida,
   textoCierre,
   tipoSemana,
+  tituloComida,
 } from '@/lib/comidas/semana'
 import { HORAS_LIMITE_POR_DEFECTO, type TiempoComida } from '@/lib/comidas/tipos'
 
@@ -47,7 +48,7 @@ describe('etiquetas', () => {
   })
 
   it('rango de la semana que cruza de año', () => {
-    expect(rangoSemana('2026-12-28')).toBe('28 de diciembre al 3 de enero')
+    expect(rangoSemana('2026-12-28')).toBe('28 de diciembre de 2026 al 3 de enero de 2027')
   })
 
   it('diasDeSemana devuelve los 7 días desde el lunes', () => {
@@ -143,5 +144,15 @@ describe('mensajeComidaCerrada', () => {
     ['2026-09-16T08:00:00-06:00', '2026-09-28', 'almuerzo', 'Solo podés cambiar la semana actual y la siguiente.'],
   ])('%s, %s %s', (ahora, fecha, comida, esperado) => {
     expect(mensajeComidaCerrada({ fecha, comida: comida as TiempoComida, ahora: new Date(ahora), horas })).toBe(esperado)
+  })
+})
+
+describe('tituloComida: el título de la burbuja de una comida', () => {
+  it.each([
+    ['almuerzo', 'Almuerzo del miércoles 23/9'],
+    ['cena', 'Cena del miércoles 23/9'],
+    ['desayuno', 'Desayuno del miércoles 23/9'],
+  ] as const)('%s → %s', (comida, esperado) => {
+    expect(tituloComida(comida, 'Miércoles', '23/9')).toBe(esperado)
   })
 })

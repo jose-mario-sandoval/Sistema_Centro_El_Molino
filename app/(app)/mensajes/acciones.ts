@@ -4,14 +4,20 @@ import { revalidatePath } from 'next/cache'
 import { after } from 'next/server'
 import { exito, fallo, type Resultado } from '@/lib/acciones/resultado'
 import { perfilParaAccion } from '@/lib/auth/sesion'
-import { listarPublicaciones, type PaginaFeed } from '@/lib/mensajes/consultas'
+import { fechaISOEn } from '@/lib/fechas'
+import { listarPublicaciones, obtenerPublicacion, type PaginaFeed } from '@/lib/mensajes/consultas'
+import { publicaDirecto, type DatosFijado, type Publicacion } from '@/lib/mensajes/feed'
+import { fijadoHasta } from '@/lib/mensajes/fijados'
 import { listarPerfiles, type PerfilResumen } from '@/lib/perfiles/consultas'
-import { avisarNuevaPublicacion, avisarNuevaRespuesta } from '@/lib/push/avisos'
+import { avisarMensajePendiente, avisarModeracion, avisarNuevaPublicacion, avisarNuevaRespuesta } from '@/lib/push/avisos'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { camposConError } from '@/lib/validacion/auth'
 import {
   esquemaBorrado,
+  esquemaCargarPublicacion,
+  esquemaDesfijar,
   esquemaEdicionPropia,
+  esquemaFijar,
   esquemaModeracion,
   esquemaPaginaMensajes,
   esquemaPublicacion,
@@ -64,8 +70,11 @@ export async function publicarMensaje(_previo: ResultadoId | null, formData: For
   }
 
   revalidatePath('/mensajes')
-  // Pista 06: aviso push solo aquí (mensaje recién insertado), nunca en el reintento 23505 de arriba.
-  after(() => avisarNuevaPublicacion(id))
+  // Pista 06: aviso push solo aquí (mensaje recién insertado), nunca en el reintento 23505 de arriba. Y solo
+  // si ya quedó aprobado: el de un Residente se avisa a todos cuando el Director lo aprueba (moderarMensaje);
+  // mientras tanto, solo a los Directores, que son quienes lo aprueban.
+  if (publicaDirecto(sesion.perfil.rol)) after(() => avisarNuevaPublicacion(id))
+  else after(() => avisarMensajePendiente(id))
   return exito({ id })
 }
 
@@ -98,7 +107,8 @@ export async function responderMensaje(_previo: ResultadoId | null, formData: Fo
 
   revalidatePath('/mensajes')
   // Pista 06: ver publicarMensaje.
-  after(() => avisarNuevaRespuesta(id))
+  if (publicaDirecto(sesion.perfil.rol)) after(() => avisarNuevaRespuesta(id))
+  else after(() => avisarMensajePendiente(id))
   return exito({ id })
 }
 
@@ -176,6 +186,26 @@ export async function cargarMensajes(entrada: unknown): Promise<Resultado<Pagina
   }
 }
 
+/**
+ * Una sola publicación completa (con reacciones y respuestas), para la que llega por tiempo real sin estar
+ * cargada: así no hace falta recargar todo el feed ni perder las páginas anteriores que se están leyendo.
+ * null si RLS no la deja ver.
+ */
+export async function cargarPublicacion(entrada: unknown): Promise<Resultado<Publicacion | null>> {
+  const sesion = await perfilParaAccion()
+  if (!sesion.ok) return sesion
+
+  const datos = esquemaCargarPublicacion.safeParse(entrada)
+  if (!datos.success) return fallo('Mensaje inválido.')
+
+  try {
+    return exito(await obtenerPublicacion(datos.data.id))
+  } catch (error) {
+    console.error('cargarPublicacion', error)
+    return fallo('No se pudo cargar la publicación.')
+  }
+}
+
 /** Todos los perfiles, incluidos los inactivos (autores de mensajes antiguos). */
 export async function cargarPerfiles(): Promise<Resultado<PerfilResumen[]>> {
   const sesion = await perfilParaAccion()
@@ -189,7 +219,11 @@ export async function cargarPerfiles(): Promise<Resultado<PerfilResumen[]>> {
   }
 }
 
-/** Solo el Director. Aprobar/rechazar, y de paso corregir el texto si hace falta. */
+/**
+ * Solo el Director. Aprobar/rechazar, y de paso corregir el texto si hace falta. Solo lo que sigue
+ * pendiente: la transición ocurre una vez aunque dos Directores (o dos pestañas) moderen a la vez, y el
+ * aviso push sale una sola vez, recién al aprobar.
+ */
 export async function moderarMensaje(entrada: unknown): Promise<Resultado<null>> {
   const sesion = await perfilParaAccion('director')
   if (!sesion.ok) return sesion
@@ -204,14 +238,33 @@ export async function moderarMensaje(entrada: unknown): Promise<Resultado<null>>
   if (datos.data.texto !== undefined) cambios.texto = datos.data.texto
 
   const supabase = await crearClienteServidor()
-  const { data, error } = await supabase.from('mensajes').update(cambios).eq('id', datos.data.id).select('id')
+  const { data, error } = await supabase
+    .from('mensajes')
+    .update(cambios)
+    .eq('id', datos.data.id)
+    .eq('estado', 'pendiente')
+    .select('id, padre_id')
   if (error) {
     console.error('moderarMensaje', error)
     return fallo('No se pudo actualizar el mensaje. Intentá de nuevo.')
   }
-  if (data.length === 0) return fallo('El mensaje ya no existe.')
+  const moderado = data[0]
+  if (!moderado) return fallo('El mensaje ya no existe o ya fue moderado.')
 
   revalidatePath('/mensajes')
+  const { id, padre_id } = moderado
+  // El aviso a todos, menos al Director que acaba de aprobarlo.
+  const moderadorId = sesion.perfil.id
+  if (cambios.estado === 'aprobado') {
+    after(() =>
+      padre_id === null
+        ? avisarNuevaPublicacion(id, { excluir: moderadorId })
+        : avisarNuevaRespuesta(id, { excluir: moderadorId }),
+    )
+  }
+  // Al autor, aprobado o no (con el motivo): así sabe que ya lo leen todos, o que tiene que corregirlo.
+  const estado = cambios.estado
+  after(() => avisarModeracion(id, moderadorId, estado))
   return exito(null)
 }
 
@@ -224,12 +277,75 @@ export async function editarMensajePropio(_previo: Resultado<null> | null, formD
   if (!entrada.success) return fallo('Revisá el mensaje.', camposConError(entrada.error))
 
   const supabase = await crearClienteServidor()
-  const { data, error } = await supabase.from('mensajes').update({ texto: entrada.data.texto }).eq('id', entrada.data.id).select('id')
+  const { data, error } = await supabase
+    .from('mensajes')
+    .update({ texto: entrada.data.texto })
+    .eq('id', entrada.data.id)
+    .select('id, autor_id')
   if (error) {
     console.error('editarMensajePropio', error)
     return fallo('No se pudo guardar. Intentá de nuevo.')
   }
   if (data.length === 0) return fallo('Ya no podés editar este mensaje.')
+
+  revalidatePath('/mensajes')
+  // Corregido tras un rechazo vuelve a pendiente (trigger): los Directores tienen algo nuevo por aprobar.
+  // Solo si lo corrigió su autor: RLS también deja editar al Director, y eso no es una corrección.
+  const id = entrada.data.id
+  if (data[0].autor_id === sesion.perfil.id) after(() => avisarMensajePendiente(id, { correccion: true }))
+  return exito(null)
+}
+
+const DIA_PASADO = 'Elegí un día de hoy en adelante.'
+
+/**
+ * Director o Administración fijan una publicación aprobada arriba del feed. El fin lo calcula el reloj del
+ * servidor (el del navegador puede estar mal); `fijar_mensaje` verifica rol y estado.
+ */
+export async function fijarPublicacion(entrada: unknown): Promise<Resultado<DatosFijado>> {
+  const sesion = await perfilParaAccion('director', 'administracion')
+  if (!sesion.ok) return sesion
+
+  const datos = esquemaFijar.safeParse(entrada)
+  if (!datos.success) return fallo('Revisá por cuánto tiempo fijarla.', camposConError(datos.error))
+  const { id, duracion, fecha } = datos.data
+
+  const ahora = new Date()
+  // Fechas ISO: el orden de las cadenas es el de los días.
+  if (duracion === 'fecha' && fecha! < fechaISOEn(ahora)) return fallo(DIA_PASADO, { fecha: DIA_PASADO })
+  const hasta = fijadoHasta(duracion, ahora, fecha)?.toISOString() ?? null
+
+  const supabase = await crearClienteServidor()
+  // Los argumentos de una RPC salen no nulos en los tipos generados aunque la función acepte null.
+  const { data: fijadoEn, error } = await supabase.rpc('fijar_mensaje', { p_id: id, p_hasta: hasta as string })
+  if (error) {
+    if (error.code === '42501') return fallo('No tenés permiso para fijar publicaciones.')
+    if (error.code === 'P0002') return fallo('Solo se pueden fijar publicaciones aprobadas que todavía existen.')
+    if (error.code === '22023') return fallo(DIA_PASADO, { fecha: DIA_PASADO })
+    console.error('fijarPublicacion', error)
+    return fallo('No se pudo fijar la publicación. Intentá de nuevo.')
+  }
+
+  revalidatePath('/mensajes')
+  return exito({ fijadoEn, fijadoHasta: hasta, fijadoPor: sesion.perfil.id })
+}
+
+/** Director o Administración la quitan de fijados, la haya fijado quien la haya fijado. */
+export async function desfijarPublicacion(entrada: unknown): Promise<Resultado<null>> {
+  const sesion = await perfilParaAccion('director', 'administracion')
+  if (!sesion.ok) return sesion
+
+  const datos = esquemaDesfijar.safeParse(entrada)
+  if (!datos.success) return fallo('Mensaje inválido.')
+
+  const supabase = await crearClienteServidor()
+  const { error } = await supabase.rpc('desfijar_mensaje', { p_id: datos.data.id })
+  if (error) {
+    if (error.code === '42501') return fallo('No tenés permiso para quitar publicaciones fijadas.')
+    if (error.code === 'P0002') return fallo('La publicación ya no existe.')
+    console.error('desfijarPublicacion', error)
+    return fallo('No se pudo quitar de fijados. Intentá de nuevo.')
+  }
 
   revalidatePath('/mensajes')
   return exito(null)

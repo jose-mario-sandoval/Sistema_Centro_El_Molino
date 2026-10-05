@@ -6,6 +6,7 @@ import { Icono } from '@/components/ui/iconos'
 import { Modal } from '@/components/ui/modal'
 import { fallo } from '@/lib/acciones/resultado'
 import type { DiaConEtiqueta } from '@/lib/calendario/cuadricula'
+import { eventosDelDia, filtroQueOculta, textoMostrarFiltro, type Filtro } from '@/lib/calendario/filtros'
 import type { Evento } from '@/lib/calendario/tipos'
 import { horaHHMM } from '@/lib/fechas'
 import { eliminarEvento, eliminarSerieDesdeHoy } from '../acciones'
@@ -15,11 +16,20 @@ import { InsigniasEvento } from './insignias-evento'
 
 function FilaEvento({
   evento,
+  ocultoPor,
+  alMostrarFiltro,
   puedeEditar,
   alEditar,
   enfocarDialogo,
 }: {
   evento: Evento
+  /**
+   * El filtro que lo esconde del calendario (null si se ve): está en la lista porque se pidió
+   * "Mostrarlos" o porque se acaba de agregar o editar acá.
+   */
+  ocultoPor: Filtro | null
+  /** Vuelve a mostrar en el calendario lo que esconde ese filtro. */
+  alMostrarFiltro?: (filtro: Filtro) => void
   puedeEditar: boolean
   alEditar: () => void
   enfocarDialogo: () => void
@@ -80,7 +90,20 @@ function FilaEvento({
     <div className="cal-evento-fila">
       <div className="cal-evento-texto">
         {evento.hora && <b>{horaHHMM(evento.hora)}</b>} <span>{evento.titulo}</span>
-        <InsigniasEvento evento={evento} />
+        <InsigniasEvento evento={evento} oculto={ocultoPor !== null} />
+        {ocultoPor !== null && alMostrarFiltro && (
+          <button
+            type="button"
+            className="link-btn mostrar-filtro"
+            onClick={() => {
+              // El botón desaparece al verse el evento: el foco vuelve al diálogo, no a <body>.
+              enfocarDialogo()
+              alMostrarFiltro(ocultoPor)
+            }}
+          >
+            {textoMostrarFiltro(ocultoPor)}
+          </button>
+        )}
       </div>
       {puedeEditar && (
         <div className="cal-evento-acciones">
@@ -154,13 +177,19 @@ function FilaEvento({
 export function ModalDia({
   dia,
   eventos,
+  ocultos = [],
+  alMostrarFiltro,
   puedeEditar,
   paraCocina,
   ausente = false,
   alCerrar,
 }: {
   dia: DiaConEtiqueta
+  /** Todos los eventos del día; los filtros (`ocultos`) deciden cuáles se listan. */
   eventos: Evento[]
+  ocultos?: readonly Filtro[]
+  /** Vuelve a mostrar en el calendario lo que esconde un filtro (desde un evento oculto de la lista). */
+  alMostrarFiltro?: (filtro: Filtro) => void
   puedeEditar: boolean
   /** Administración: la lista es lo que debe preparar la cocina, no los eventos de la casa. */
   paraCocina: boolean
@@ -169,7 +198,15 @@ export function ModalDia({
   alCerrar: () => void
 }) {
   const [editandoId, setEditandoId] = useState<string | null>(null)
-  const editando = puedeEditar && eventos.some((e) => e.id === editandoId)
+  // "Mostrarlos": los eventos ocultos por los filtros se ven en este día, sin cambiar los filtros.
+  const [verOcultos, setVerOcultos] = useState(false)
+  // Lo que se agrega o edita acá se ve en la lista aunque los filtros lo escondan (marcado como
+  // oculto y con el aviso de por qué): si desapareciera, parecería que no se guardó y se cargaría dos veces.
+  const [idsAlAbrir] = useState(() => new Set(eventos.map((e) => e.id)))
+  const [editados, setEditados] = useState<ReadonlySet<string>>(() => new Set())
+  const revelados = new Set([...eventos.filter((e) => !idsAlAbrir.has(e.id)).map((e) => e.id), ...editados])
+  const { lista: aListar, ocultosSinMostrar } = eventosDelDia(eventos, ocultos, { verTodos: verOcultos, revelados })
+  const editando = puedeEditar && aListar.some((e) => e.id === editandoId)
   const lista = useRef<HTMLDivElement>(null)
 
   /**
@@ -193,19 +230,52 @@ export function ModalDia({
           <span>Marcaste que no vas a estar este día. Tus comidas están canceladas.</span>
         </div>
       )}
+      {ocultosSinMostrar > 0 && (
+        <div className="aviso-ocultos-dia">
+          <Icono nombre="oculto" />
+          <span>
+            {ocultosSinMostrar === 1
+              ? 'Hay 1 evento oculto por los filtros.'
+              : `Hay ${ocultosSinMostrar} eventos ocultos por los filtros.`}
+          </span>
+          <button
+            type="button"
+            className="btn ghost small"
+            onClick={() => {
+              // El botón desaparece: el foco vuelve al diálogo, no a <body>.
+              enfocarDialogo()
+              setVerOcultos(true)
+            }}
+          >
+            {ocultosSinMostrar === 1 ? 'Mostrarlo' : 'Mostrarlos'}
+          </button>
+        </div>
+      )}
       <div ref={lista} className="cal-evento-lista">
-        {eventos.length === 0 ? (
+        {aListar.length === 0 ? (
           <div className="empty-state">
-            {paraCocina ? 'No hay nada para la cocina este día.' : 'No hay eventos este día.'}
+            {paraCocina
+              ? 'No hay nada para la cocina este día.'
+              : ocultosSinMostrar > 0
+                ? 'No hay eventos a la vista este día.'
+                : 'No hay eventos este día.'}
           </div>
         ) : (
-          eventos.map((evento) =>
+          aListar.map((evento) =>
             editando && evento.id === editandoId ? (
-              <FormularioEditarEvento key={evento.id} evento={evento} alTerminar={terminarEdicion} />
+              <FormularioEditarEvento
+                key={evento.id}
+                evento={evento}
+                ocultos={ocultos}
+                alGuardar={() => setEditados((antes) => new Set(antes).add(evento.id))}
+                alTerminar={terminarEdicion}
+              />
             ) : (
               <FilaEvento
                 key={evento.id}
                 evento={evento}
+                ocultoPor={filtroQueOculta(evento, ocultos)}
+                alMostrarFiltro={alMostrarFiltro}
                 puedeEditar={puedeEditar}
                 alEditar={() => setEditandoId(evento.id)}
                 enfocarDialogo={enfocarDialogo}
@@ -215,7 +285,7 @@ export function ModalDia({
         )}
       </div>
       {puedeEditar && !editando ? (
-        <FormularioNuevoEvento fecha={dia.fecha} alCerrar={alCerrar} />
+        <FormularioNuevoEvento fecha={dia.fecha} ocultos={ocultos} alCerrar={alCerrar} />
       ) : (
         <div className="modal-foot">
           <button type="button" className="btn ghost" onClick={alCerrar}>

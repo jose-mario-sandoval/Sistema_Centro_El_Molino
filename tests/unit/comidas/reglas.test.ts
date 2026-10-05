@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import casos from '@/tests/fixtures/casos-comidas.json'
-import { cierreDe, enVentanaEditable, estaAbierta, valorEfectivo } from '@/lib/comidas/reglas'
+import { cierreDe, comidaSinCerrar, enVentanaEditable, estaAbierta, valorEfectivo } from '@/lib/comidas/reglas'
 import { HORAS_LIMITE_POR_DEFECTO, type HorasLimite, type TiempoComida } from '@/lib/comidas/tipos'
 
 describe('cierreDe', () => {
@@ -20,6 +20,47 @@ describe('estaAbierta', () => {
         cerrada,
       }),
     ).toBe(abierta)
+  })
+})
+
+describe('comidaSinCerrar: casos compartidos con la paridad de SQL (tests/fixtures/casos-comidas.json)', () => {
+  it.each(casos.sinCerrar)('$nombre', ({ ahora, fecha, comida, cerrada, horas, sinCerrar }) => {
+    expect(
+      comidaSinCerrar({
+        fecha,
+        comida: comida as TiempoComida,
+        ahora: new Date(ahora),
+        horas: (horas as HorasLimite | null) ?? HORAS_LIMITE_POR_DEFECTO,
+        cerrada,
+      }),
+    ).toBe(sinCerrar)
+  })
+})
+
+describe('comidaSinCerrar (espejo de public.comida_sin_cerrar: quitar un extra)', () => {
+  const ahora = new Date('2026-09-16T08:00:00-06:00') // miércoles 08:00
+  const base = { ahora, horas: HORAS_LIMITE_POR_DEFECTO, cerrada: false }
+
+  it('antes de la hora límite: sin cerrar', () => {
+    expect(comidaSinCerrar({ ...base, fecha: '2026-09-16', comida: 'almuerzo' })).toBe(true)
+  })
+
+  it('después de la hora límite: cerró (el desayuno de hoy cerró anoche)', () => {
+    expect(comidaSinCerrar({ ...base, fecha: '2026-09-16', comida: 'desayuno' })).toBe(false)
+    expect(comidaSinCerrar({ ...base, fecha: '2026-09-15', comida: 'cena' })).toBe(false)
+  })
+
+  it('justo a la hora límite ya cerró', () => {
+    expect(comidaSinCerrar({ ...base, ahora: new Date('2026-09-16T10:00:00-06:00'), fecha: '2026-09-16', comida: 'almuerzo' })).toBe(false)
+  })
+
+  it('si el job la cerró, cerró aunque falte para la hora', () => {
+    expect(comidaSinCerrar({ ...base, cerrada: true, fecha: '2026-09-16', comida: 'almuerzo' })).toBe(false)
+  })
+
+  it('a diferencia de estaAbierta, no mira la ventana editable: dentro de un mes sigue sin cerrar', () => {
+    expect(comidaSinCerrar({ ...base, fecha: '2026-10-20', comida: 'cena' })).toBe(true)
+    expect(estaAbierta({ ...base, fecha: '2026-10-20', comida: 'cena' })).toBe(false)
   })
 })
 
@@ -52,6 +93,12 @@ describe('valorEfectivo', () => {
 
   it('queda sin definir si no hay selección ni plan', () => {
     expect(valorEfectivo({ seleccion: null, plan: null, cerrada: false })).toBeNull()
+  })
+
+  it('deja pasar quién la cambió: "la cambió el Director" sigue a la selección', () => {
+    const delDirector = { ...seleccion, cambiadaPorOtro: true }
+    expect(valorEfectivo({ seleccion: delDirector, plan, cerrada: false })).toEqual(delDirector)
+    expect(valorEfectivo({ seleccion: delDirector, plan, cerrada: true, ausente: true })).toEqual(delDirector)
   })
 })
 

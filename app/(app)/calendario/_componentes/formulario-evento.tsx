@@ -5,6 +5,7 @@ import { useAviso } from '@/components/ui/avisos'
 import { BotonEnvio } from '@/components/ui/boton-envio'
 import { fallo, type Resultado } from '@/lib/acciones/resultado'
 import { FECHA_MAXIMA, FECHA_MINIMA } from '@/lib/calendario/cuadricula'
+import { avisoGuardado, type Filtro } from '@/lib/calendario/filtros'
 import type { Evento, RequerimientoCocina, TipoEvento } from '@/lib/calendario/tipos'
 import { horaHHMM, type FechaISO } from '@/lib/fechas'
 import { crearEvento, crearSerieEventos, editarEvento } from '../acciones'
@@ -28,8 +29,19 @@ function mensajeSinCampoVisible(resultado: { error: string; campos?: Record<stri
   return campos.id ?? resultado.error
 }
 
-/** Alta de un evento en el día abierto. Solo se muestra al Director. */
-export function FormularioNuevoEvento({ fecha, alCerrar }: { fecha: FechaISO; alCerrar: () => void }) {
+/**
+ * Alta de un evento en el día abierto. Solo se muestra al Director. `ocultos`: los filtros del
+ * calendario; si esconden lo que se acaba de guardar, el aviso dice por qué no aparece.
+ */
+export function FormularioNuevoEvento({
+  fecha,
+  ocultos = [],
+  alCerrar,
+}: {
+  fecha: FechaISO
+  ocultos?: readonly Filtro[]
+  alCerrar: () => void
+}) {
   const aviso = useAviso()
   // Controlados: React 19 reinicia los campos no controlados al terminar la acción,
   // y tras un error el Director perdería lo que escribió (mismo patrón que el login).
@@ -57,7 +69,9 @@ export function FormularioNuevoEvento({ fecha, alCerrar }: { fecha: FechaISO; al
         resultado = fallo('No se pudo guardar el evento. Revisá tu conexión e intentá de nuevo.')
       }
       if (resultado.ok) {
-        aviso(resultado.data.cantidad !== undefined ? `Se crearon ${resultado.data.cantidad} eventos.` : 'Evento agregado.')
+        const varios = resultado.data.cantidad !== undefined
+        const guardado = { tipo: tipo || null, requiere_cocina: requiere, requiere_otro_texto: otroTexto.trim() || null }
+        aviso(avisoGuardado(varios ? `Se crearon ${resultado.data.cantidad} eventos.` : 'Evento agregado.', guardado, ocultos, { varios }))
         setTitulo('')
         setHora('')
         setTipo('')
@@ -147,9 +161,19 @@ export function FormularioNuevoEvento({ fecha, alCerrar }: { fecha: FechaISO; al
 
 /**
  * Edición en línea de un evento (título, fecha y hora). Solo Director.
- * `alTerminar` se llama al cancelar y al guardar con éxito.
+ * `alTerminar` se llama al cancelar y al guardar con éxito; `alGuardar`, solo al guardar.
  */
-export function FormularioEditarEvento({ evento, alTerminar }: { evento: Evento; alTerminar: () => void }) {
+export function FormularioEditarEvento({
+  evento,
+  ocultos = [],
+  alGuardar,
+  alTerminar,
+}: {
+  evento: Evento
+  ocultos?: readonly Filtro[]
+  alGuardar?: () => void
+  alTerminar: () => void
+}) {
   const aviso = useAviso()
   // Controlados por la misma razón que en el alta: si guardar falla, quedan los valores escritos, no los originales.
   const [titulo, setTitulo] = useState(evento.titulo)
@@ -167,7 +191,9 @@ export function FormularioEditarEvento({ evento, alTerminar }: { evento: Evento;
         resultado = fallo('No se pudo guardar el evento. Revisá tu conexión e intentá de nuevo.')
       }
       if (resultado.ok) {
-        aviso('Evento actualizado.')
+        const guardado = { tipo: tipo || null, requiere_cocina: requiere, requiere_otro_texto: otroTexto.trim() || null }
+        aviso(avisoGuardado('Evento actualizado.', guardado, ocultos))
+        alGuardar?.()
         alTerminar()
       } else {
         const mensaje = mensajeSinCampoVisible(resultado)

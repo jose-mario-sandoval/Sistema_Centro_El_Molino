@@ -21,7 +21,7 @@ test.describe('PWA: rutas públicas', () => {
   })
 
   test('íconos, service worker y página sin conexión se sirven sin sesión', async ({ request }) => {
-    for (const ruta of ['/iconos/192', '/iconos/512', '/iconos/maskable-512']) {
+    for (const ruta of ['/iconos/192', '/iconos/512', '/iconos/maskable-512', '/iconos/insignia']) {
       const icono = await request.get(ruta, { maxRedirects: 0 })
       expect(icono.status(), ruta).toBe(200)
       expect(icono.headers()['content-type']).toContain('image/png')
@@ -34,6 +34,18 @@ test.describe('PWA: rutas públicas', () => {
     const sinConexion = await request.get('/sin-conexion', { maxRedirects: 0 })
     expect(sinConexion.status()).toBe(200)
     expect(await sinConexion.text()).toContain('Sin conexión')
+  })
+
+  test('el service worker usa la insignia monocroma y el ícono de la app', async ({ request }) => {
+    const sw = await (await request.get('/sw.js')).text()
+    expect(sw).toContain("badge: '/iconos/insignia'")
+    expect(sw).toContain("icon: '/iconos/192'")
+  })
+
+  test('el manifest se nombra a sí mismo para saber si ya está instalada', async ({ request }) => {
+    const manifest = await (await request.get('/manifest.webmanifest')).json()
+    expect(manifest.related_applications).toEqual([{ platform: 'webapp', url: '/manifest.webmanifest' }])
+    expect(manifest.prefer_related_applications).toBe(false)
   })
 
   test('el ícono de iOS se sirve sin sesión', async ({ page, request }) => {

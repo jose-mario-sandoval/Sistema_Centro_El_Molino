@@ -1,4 +1,5 @@
 import { BotonCerrarSesion } from '@/components/app/cerrar-sesion'
+import { Escudo } from '@/components/app/escudo'
 import { NavegacionInferior, NavegacionLateral } from '@/components/app/navegacion'
 import { BotonApariencia } from '@/components/ui/apariencia'
 
@@ -21,9 +22,7 @@ export function Estructura({
     <div id="app-screen">
       <aside className="sidebar">
         <div className="brand">
-          <span className="monograma" aria-hidden="true">
-            EM
-          </span>
+          <Escudo />
           <div>
             <div className="name">El Molino</div>
             <div className="sub">Sistema interno</div>
@@ -46,9 +45,7 @@ export function Estructura({
       </aside>
       <div className="main">
         <header className="topbar">
-          <span className="monograma" aria-hidden="true">
-            EM
-          </span>
+          <Escudo />
           <span className="name">El Molino</span>
           <div className="topbar-acciones">
             <BotonApariencia guardarEnCuenta />

@@ -1,7 +1,14 @@
 import { exigirPerfil } from '@/lib/auth/sesion'
-import { obtenerExtrasDeLaSemana, obtenerSemanaParaAdministracion, obtenerSemanaPropia } from '@/lib/comidas/consultas'
+import { notasPorComida } from '@/lib/comidas/casa'
+import {
+  obtenerExtrasDeLaSemana,
+  obtenerNotasExtras,
+  obtenerSemanaDe,
+  obtenerSemanaParaAdministracion,
+} from '@/lib/comidas/consultas'
 import { semanaPedida, tipoSemana } from '@/lib/comidas/semana'
-import { fechaISOEn } from '@/lib/fechas'
+import { diaParaMostrar } from '@/lib/comidas/vista'
+import { fechaISOEn, sumarDias } from '@/lib/fechas'
 import { NavegacionSemana } from '../_componentes/navegacion-semana'
 import { RefrescarAlVolver } from '../_componentes/refrescar-al-volver'
 import { SemanaAgregadaAdministracion } from '../_componentes/semana-agregada-administracion'
@@ -19,25 +26,38 @@ export default async function PaginaSemana({
   const lunes = semanaPedida(semana, hoy)
 
   if (perfil.rol === 'administracion') {
-    const [dias, extras] = await Promise.all([obtenerSemanaParaAdministracion(lunes), obtenerExtrasDeLaSemana(lunes)])
+    const [dias, extras, extrasManuales] = await Promise.all([
+      obtenerSemanaParaAdministracion(lunes),
+      obtenerExtrasDeLaSemana(lunes),
+      obtenerNotasExtras(lunes),
+    ])
     return (
       <>
         {/* La vieja SemanaAdministracion la traía adentro: sin esto, Administración no ve los cierres
             del job de cada 5 minutos hasta que recargue a mano. */}
         <RefrescarAlVolver />
         <NavegacionSemana lunes={lunes} hoy={hoy} />
-        <SemanaAgregadaAdministracion dias={dias} extras={extras} />
+        {/* Las notas de los extras del Director, sin quién los agregó: la cocina no conoce nombres. */}
+        <SemanaAgregadaAdministracion dias={dias} extras={extras} notas={notasPorComida(extrasManuales)} />
       </>
     )
   }
 
-  const dias = await obtenerSemanaPropia(perfil.id, lunes)
+  const dias = await obtenerSemanaDe(perfil.id, lunes)
+  const tipo = tipoSemana(lunes, hoy)
   return (
     <>
       {/* Al volver a la pestaña, trae cierres y cambios hechos mientras tanto. */}
       <RefrescarAlVolver />
       <NavegacionSemana lunes={lunes} hoy={hoy} />
-      <SemanaPersona dias={dias} tipo={tipoSemana(lunes, hoy)} lunes={lunes} />
+      {/* key: al cambiar de semana, la burbuja abierta se cierra y la página empieza en el día que corresponde. */}
+      <SemanaPersona
+        key={lunes}
+        dias={dias}
+        tipo={tipo}
+        diaAlEntrar={tipo === 'actual' ? diaParaMostrar(dias) : null}
+        hrefSiguienteSemana={tipo === 'actual' ? `/comidas/semana?semana=${sumarDias(lunes, 7)}` : null}
+      />
     </>
   )
 }

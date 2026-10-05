@@ -23,6 +23,19 @@ export const INFO_ESTADO: Record<EstadoComida, { etiqueta: string; nota: TipoNot
 }
 
 /**
+ * Texto corto para celdas y tarjetas, siempre junto al icono y el color del estado. Cada uno está
+ * contenido en la etiqueta completa, que es la que va en el nombre accesible.
+ */
+export const ETIQUETA_CORTA_ESTADO: Record<EstadoComida, string> = {
+  si: 'Sí',
+  no: 'No',
+  temprano: 'Temprano',
+  tarde: 'Tarde',
+  bolsa: 'Bolsa',
+  enfermo: 'Enfermo',
+}
+
+/**
  * persona: la eligió la persona (excepción). plan: patrón habitual, o plan congelado al cerrar.
  * ausencia: la comida quedó cancelada porque la persona no estará en la casa.
  */
@@ -38,6 +51,25 @@ export const HORAS_LIMITE_POR_DEFECTO: HorasLimite = {
 }
 
 export type ValorComida = { estado: EstadoComida; nota: string | null }
-export type SeleccionGuardada = ValorComida & { origen: OrigenSeleccion }
+/** Una celda del plan. `cambiadaPorOtro`: la cambió otra persona (solo puede un Director). */
+export type ValorPlan = ValorComida & { cambiadaPorOtro?: boolean }
+export type SeleccionGuardada = ValorComida & {
+  origen: OrigenSeleccion
+  /**
+   * La cambió otra persona (solo puede un Director): "la cambió el Director". Sin la clave, la
+   * propia persona (o el congelado). Viene de `modificado_por` en la base.
+   */
+  cambiadaPorOtro?: boolean
+}
 /** null = "Sin definir" */
 export type ValorEfectivo = SeleccionGuardada | null
+
+/**
+ * Un extra manual que agregó el Director, tal como lo ven la cocina y el Director: nunca quién lo
+ * agregó. `id` sirve para quitarlo (Director) y como clave de la lista.
+ */
+export type ExtraManual = { id: string; fecha: string; comida: TiempoComida; cantidad: number; nota: string | null }
+
+/** Igual que los checks de extras_manuales. */
+export const CANTIDAD_MAXIMA_EXTRA = 50
+export const LARGO_MAXIMO_NOTA_EXTRA = 200

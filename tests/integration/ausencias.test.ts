@@ -28,13 +28,25 @@ beforeAll(async () => {
 
 afterEach(async () => {
   const usuarios = Object.values(ids)
-  // Quitar las ausencias congela lo vencido: primero ellas y después lo que hayan escrito.
+  // Quitar ausencias y planes congela lo vencido (triggers): primero ellos y después lo que hayan escrito.
   await admin.from('ausencias').delete().in('usuario_id', usuarios)
-  await admin.from('selecciones_comida').delete().in('usuario_id', usuarios)
   await admin.from('plan_semanal').delete().in('usuario_id', usuarios)
+  await admin.from('selecciones_comida').delete().in('usuario_id', usuarios)
   await admin.from('comidas_cerradas').delete().eq('fecha', AYER)
   await asegurarUsuariosPrueba()
 })
+
+/**
+ * Deja AYER vencido pero sin congelar, justo antes de la acción que se prueba: el job real de
+ * pg_cron (cada 5 minutos) pudo haberlo cerrado desde la limpieza anterior, y una comida cerrada ya
+ * no se congela de nuevo (congelar_comidas_de la saltea).
+ */
+async function ayerSinCerrar() {
+  const { error } = await admin.from('comidas_cerradas').delete().eq('fecha', AYER)
+  if (error) throw error
+  const selecciones = await admin.from('selecciones_comida').delete().eq('fecha', AYER).in('usuario_id', Object.values(ids))
+  if (selecciones.error) throw selecciones.error
+}
 
 async function planTodoSi(clave: ClaveUsuario) {
   const filas = []
@@ -94,7 +106,7 @@ const cadaComida = (filas: Fila[], esperado: Partial<Fila>) => {
 }
 
 describe('ausencias: quién las ve y quién las escribe', () => {
-  it('una persona registra su propia ausencia y solo ella la ve', async () => {
+  it('una persona registra su propia ausencia; la ven ella y los Directores, nadie más', async () => {
     const residente = await clienteComo('residente')
     const { error } = await residente.from('ausencias').insert({ usuario_id: ids.residente, desde: FECHA_ABIERTA, hasta: FECHA_ABIERTA })
     expect(error).toBeNull()
@@ -102,7 +114,8 @@ describe('ausencias: quién las ve y quién las escribe', () => {
     for (const [clave, esperadas] of [
       ['residente', 1],
       ['residente2', 0],
-      ['director', 0],
+      ['director', 1],
+      ['director2', 1],
       ['administracion', 0],
     ] as const) {
       const cliente = await clienteComo(clave)
@@ -168,7 +181,7 @@ describe('ausentes_en: lo único que Administración sabe', () => {
     expect(fuera.data).toEqual([])
   })
 
-  it.each(['residente', 'director'] as const)('%s no obtiene nada: las ausencias son privadas', async (clave) => {
+  it.each(['residente', 'director'] as const)('%s no obtiene nada: la función es solo para Administración', async (clave) => {
     await admin.from('ausencias').insert({ usuario_id: ids.residente, desde: FECHA_ABIERTA, hasta: FECHA_ABIERTA })
     const cliente = await clienteComo(clave)
     const { data } = await cliente.rpc('ausentes_en', { p_fecha: FECHA_ABIERTA })
@@ -220,6 +233,7 @@ describe('ausencias: lo que ya cerró no se toca', () => {
     await planTodoSi('residente')
     await ausenciaYaExistente('residente', AYER, AYER)
     await ausenciaYaExistente('residente2', AYER, AYER) // sin plan
+    await ayerSinCerrar()
     await cerrarVencidas()
 
     cadaComida(await seleccionesDe('residente', AYER), { estado: 'no', nota: null, origen: 'ausencia' })
@@ -228,6 +242,7 @@ describe('ausencias: lo que ya cerró no se toca', () => {
 
   it('una elección suya (reactivó una comida) gana sobre la ausencia y no se pisa', async () => {
     await ausenciaYaExistente('residente', AYER, AYER)
+    await ayerSinCerrar()
     await admin.from('selecciones_comida').insert({ usuario_id: ids.residente, fecha: AYER, comida: 'cena', estado: 'si', origen: 'persona' })
     await cerrarVencidas()
 
@@ -239,6 +254,7 @@ describe('ausencias: lo que ya cerró no se toca', () => {
   it('agregar una ausencia sobre comidas ya vencidas las congela con lo que valían (el plan)', async () => {
     await planTodoSi('residente')
     const residente = await clienteComo('residente')
+    await ayerSinCerrar()
     const { error } = await residente.from('ausencias').insert({ usuario_id: ids.residente, desde: AYER, hasta: sumarDias(HOY, 2) })
     expect(error).toBeNull()
 
@@ -256,6 +272,7 @@ describe('ausencias: lo que ya cerró no se toca', () => {
     await ausenciaYaExistente('residente', AYER, sumarDias(HOY, 2))
     const residente = await clienteComo('residente')
     const { data } = await residente.from('ausencias').select('id').eq('usuario_id', ids.residente).single()
+    await ayerSinCerrar()
     const { error } = await residente.from('ausencias').delete().eq('id', data!.id)
     expect(error).toBeNull()
 

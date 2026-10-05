@@ -7,6 +7,11 @@ export type CargaPush = {
   cuerpo: string
   url: string
   etiqueta: string
+  /**
+   * Que vuelva a sonar aunque reemplace a un aviso con la misma etiqueta (por defecto el reemplazo
+   * es silencioso). Solo para lo que no puede pasar desapercibido: un extra de último momento.
+   */
+  renotificar?: boolean
 }
 
 export const LARGO_MAXIMO_CUERPO = 120
@@ -60,6 +65,54 @@ export function cargaNuevaRespuesta(p: { id: string; autor: string; texto: strin
     cuerpo: recortar(p.texto),
     url: '/mensajes',
     etiqueta: `mensaje-${p.id}`,
+  }
+}
+
+/** Qué quedó esperando aprobación: una publicación, una respuesta o un mensaje corregido tras un rechazo. */
+export type TipoPendiente = 'publicacion' | 'respuesta' | 'correccion'
+
+const QUE_QUEDO_PENDIENTE: Record<TipoPendiente, string> = {
+  publicacion: 'publicó un mensaje que espera tu aprobación.',
+  respuesta: 'respondió en un hilo y la respuesta espera tu aprobación.',
+  correccion: 'corrigió su mensaje y espera tu aprobación.',
+}
+
+/**
+ * A los Directores: un mensaje espera aprobación. Una sola etiqueta para todos: el aviso nuevo
+ * reemplaza al anterior y el título dice cuántos hay, así una ráfaga no llena la pantalla.
+ */
+export function cargaMensajePendiente(p: { autor: string; tipo: TipoPendiente; pendientes: number }): CargaPush {
+  return {
+    titulo: p.pendientes > 1 ? `${p.pendientes} mensajes por aprobar` : 'Mensaje por aprobar',
+    cuerpo: recortar(`${p.autor} ${QUE_QUEDO_PENDIENTE[p.tipo]}`),
+    url: '/mensajes?vista=pendientes',
+    etiqueta: 'mensajes-por-aprobar',
+  }
+}
+
+/** Al autor: el Director aprobó o no su mensaje (con el motivo, para que lo corrija). */
+export function cargaModeracion(p: {
+  id: string
+  estado: 'aprobado' | 'rechazado'
+  esRespuesta: boolean
+  motivo: string | null
+}): CargaPush {
+  const [que, lo, a] = p.esRespuesta ? ['Tu respuesta', 'la', 'a'] : ['Tu mensaje', 'lo', 'o']
+  if (p.estado === 'aprobado') {
+    return {
+      titulo: `${que} fue aprobad${a}`,
+      cuerpo: `Ya ${lo} pueden leer todos ${p.esRespuesta ? 'en el hilo' : 'en Mensajes'}.`,
+      url: '/mensajes',
+      etiqueta: `moderacion-${p.id}`,
+    }
+  }
+  const queHacer = `Podés corregir${lo} y volver a enviar${lo} desde Mensajes.`
+  const motivo = p.motivo?.trim().replace(/[.\s]+$/, '')
+  return {
+    titulo: `${que} no fue aprobad${a}`,
+    cuerpo: recortar(motivo ? `Motivo: ${motivo}. ${queHacer}` : queHacer),
+    url: '/mensajes',
+    etiqueta: `moderacion-${p.id}`,
   }
 }
 

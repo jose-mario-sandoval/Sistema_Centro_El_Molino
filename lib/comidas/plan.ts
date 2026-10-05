@@ -1,0 +1,86 @@
+import { NOMBRES_DIA } from './semana'
+import { ETIQUETA_TIEMPO, TIEMPOS_COMIDA, type TiempoComida, type ValorComida } from './tipos'
+import { textoValor, type PlanSemanal } from './vista'
+import { CAMBIADA_POR_EL_DIRECTOR } from './voz'
+
+/** Clave de una celda del plan (día de semana 1..7 + comida). */
+export function claveCelda(dia: number, comida: TiempoComida): string {
+  return `${dia}|${comida}`
+}
+
+/** El plan aplanado por clave de celda; lo que no está definido no aparece. */
+export function celdasDesdePlan(plan: PlanSemanal): Record<string, ValorComida> {
+  const celdas: Record<string, ValorComida> = {}
+  for (let dia = 1; dia <= 7; dia++) {
+    for (const comida of TIEMPOS_COMIDA) {
+      const valor = plan[dia]?.[comida]
+      if (valor) celdas[claveCelda(dia, comida)] = { estado: valor.estado, nota: valor.nota }
+    }
+  }
+  return celdas
+}
+
+/** Las celdas que cambió otra persona (el Director): 'la cambió el Director'. */
+export function cambiadasPorOtro(plan: PlanSemanal): Record<string, true> {
+  const marcas: Record<string, true> = {}
+  for (let dia = 1; dia <= 7; dia++) {
+    for (const comida of TIEMPOS_COMIDA) {
+      if (plan[dia]?.[comida]?.cambiadaPorOtro) marcas[claveCelda(dia, comida)] = true
+    }
+  }
+  return marcas
+}
+
+/** Copia de las celdas con `clave` cambiada; null la quita (sin definir). */
+export function conCelda(
+  celdas: Readonly<Record<string, ValorComida>>,
+  clave: string,
+  valor: ValorComida | null,
+): Record<string, ValorComida> {
+  const copia = { ...celdas }
+  if (valor) copia[clave] = valor
+  else delete copia[clave]
+  return copia
+}
+
+/** Si `nuevo` difiere de lo último pedido (o confirmado) para esa celda. null = sin definir. */
+export function hayQueGuardar(pedido: ValorComida | null, nuevo: ValorComida | null): boolean {
+  if (pedido === null || nuevo === null) return pedido !== nuevo
+  return pedido.estado !== nuevo.estado || pedido.nota !== nuevo.nota
+}
+
+const ARTICULO: Record<TiempoComida, string> = { desayuno: 'el', almuerzo: 'el', cena: 'la' }
+const PREFIJO_FALLO = 'No se pudo guardar.'
+/** 'los martes', 'los sábados': el plan habla de todas las semanas. */
+const DIA_PLURAL = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábados', 'domingos'] as const
+
+/** 'martes', 'sábados' (1 = lunes). */
+export function diaPlural(dia: number): string {
+  return DIA_PLURAL[dia - 1]
+}
+
+/** 'Almuerzo de los martes': el título de la burbuja de una celda. */
+export function tituloComidaPlan(dia: number, comida: TiempoComida): string {
+  return `${ETIQUETA_TIEMPO[comida]} de los ${diaPlural(dia)}`
+}
+
+/** 'el almuerzo de los martes': completa "Elegí qué hacés con …". */
+export function queComidaPlan(dia: number, comida: TiempoComida): string {
+  return `${ARTICULO[comida]} ${ETIQUETA_TIEMPO[comida].toLowerCase()} de los ${diaPlural(dia)}`
+}
+
+/** Aviso cuando una celda vuelve atrás: 'No se pudo guardar el almuerzo del martes. Intentá de nuevo.' */
+export function mensajeFalloCelda(dia: number, comida: TiempoComida, error: string): string {
+  const cual = `${ARTICULO[comida]} ${ETIQUETA_TIEMPO[comida].toLowerCase()} del ${NOMBRES_DIA[dia - 1].toLowerCase()}`
+  const motivo = error.startsWith(PREFIJO_FALLO) ? error.slice(PREFIJO_FALLO.length).trim() : error
+  return `No se pudo guardar ${cual}.${motivo ? ` ${motivo}` : ''}`
+}
+
+/**
+ * Nombre accesible de una celda: 'Martes, almuerzo: Comer temprano 12:00. Cambiar'. Contiene el texto
+ * visible de la celda (el corto está dentro de la etiqueta completa; "Falta" va escrito).
+ */
+export function etiquetaCelda(dia: number, comida: TiempoComida, valor: ValorComida | null, cambiadaPorOtro = false): string {
+  const quien = valor && cambiadaPorOtro ? `, ${CAMBIADA_POR_EL_DIRECTOR}` : ''
+  return `${NOMBRES_DIA[dia - 1]}, ${ETIQUETA_TIEMPO[comida].toLowerCase()}: ${textoValor(valor)}${quien}. Cambiar`
+}

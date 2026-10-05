@@ -70,13 +70,73 @@ const TRAZOS = {
       <path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M3 13h18" />
     </>
   ),
+  // Ojo tachado: algo que está oculto por los filtros del calendario (siempre junto a su texto).
+  oculto: (
+    <>
+      <path d="M2 12s3.5-7 10-7c1.6 0 3 .4 4.2 1M21.5 10.5C20.4 12.6 17 19 12 19c-1.7 0-3.2-.5-4.5-1.2" />
+      <path d="M9.9 14.1a3 3 0 0 1 4.2-4.2" />
+      <path d="M3 21L21 3" />
+    </>
+  ),
+  // Chinche: una publicación fijada arriba del feed.
+  fijar: (
+    <>
+      <path d="M8 3h8M9.5 3v6L6 14h12l-3.5-5V3" />
+      <path d="M12 14v7" />
+    </>
+  ),
   izquierda: <path d="M15 5l-7 7 7 7" />,
   derecha: <path d="M9 5l7 7-7 7" />,
   abajo: <path d="M5 9l7 7 7-7" />,
+  // "La cambió el Director": un lápiz, siempre junto a su texto.
+  editado: (
+    <>
+      <path d="M4 20h4L19 9l-4-4L4 16z" />
+      <path d="M13 7l4 4" />
+    </>
+  ),
+  // Para sumar y restar una cantidad (extras de La casa).
+  mas: <path d="M12 5v14M5 12h14" />,
+  menos: <path d="M5 12h14" />,
   candado: (
     <>
       <path d="M5 11h14v10H5z" />
       <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+    </>
+  ),
+  // Instalar la app: un teléfono con una flecha que baja.
+  instalar: (
+    <>
+      <path d="M8 2h8a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z" />
+      <path d="M12 6.5v7M9 10.5l3 3 3-3M10.5 18.5h3" />
+    </>
+  ),
+  // El botón Compartir de iPhone y iPad: un cuadrado abierto con una flecha hacia arriba.
+  compartir: (
+    <>
+      <path d="M12 3v12M8 7l4-4 4 4" />
+      <path d="M8.5 10H6.5a1.5 1.5 0 0 0-1.5 1.5v8A1.5 1.5 0 0 0 6.5 21h11a1.5 1.5 0 0 0 1.5-1.5v-8a1.5 1.5 0 0 0-1.5-1.5h-2" />
+    </>
+  ),
+  // "Agregar a pantalla de inicio": un cuadrado con un más, como en el menú de iOS.
+  agregarInicio: (
+    <>
+      <path d="M7 3h10a4 4 0 0 1 4 4v10a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V7a4 4 0 0 1 4-4z" />
+      <path d="M12 8v8M8 12h8" />
+    </>
+  ),
+  // El ícono nuevo en la pantalla de inicio: un ícono de app con una casa.
+  iconoApp: (
+    <>
+      <path d="M7 3h10a4 4 0 0 1 4 4v10a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V7a4 4 0 0 1 4-4z" />
+      <path d="M7.5 12.5L12 8l4.5 4.5M9 11v5h6v-5" />
+    </>
+  ),
+  // Los avisos push: la misma campana que "Sin definir", que es lo que el aviso persigue.
+  campana: (
+    <>
+      <path d="M12 3a6 6 0 0 1 6 6c0 5 2 6 2 6H4s2-1 2-6a6 6 0 0 1 6-6z" />
+      <path d="M10 21h4" />
     </>
   ),
 } satisfies Record<EstadoComida, ReactNode> & Record<string, ReactNode> // agregar un estado sin icono no compila

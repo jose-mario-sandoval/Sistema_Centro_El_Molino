@@ -1,9 +1,12 @@
 import { estaAusente, type RangoAusencia } from '@/lib/ausencias/tipos'
 import { diaSemana, fechaISOEn, type FechaISO } from '@/lib/fechas'
-import { estaAbierta, VALOR_POR_AUSENCIA, valorEfectivo } from './reglas'
-import { resumenComida, type ResumenComida } from './resumen'
-import { diasDeSemana, fechaCorta, nombreDia, textoCierre } from './semana'
+import { comidaSinCerrar, estaAbierta, VALOR_POR_AUSENCIA, valorEfectivo } from './reglas'
+import { resumenComida, type ClaveResumen, type ResumenComida } from './resumen'
+import { diasDeSemana, fechaCorta, nombreDia, textoCierre, tituloComida } from './semana'
+import { CAMBIADA_POR_EL_DIRECTOR } from './voz'
 import {
+  ETIQUETA_CORTA_ESTADO,
+  INFO_ESTADO,
   TIEMPOS_COMIDA,
   type EstadoComida,
   type HorasLimite,
@@ -12,19 +15,30 @@ import {
   type TiempoComida,
   type ValorComida,
   type ValorEfectivo,
+  type ValorPlan,
 } from './tipos'
 
 /** Plan de una persona: plan[díaDeSemana 1..7][comida]. Serializable (se pasa al cliente). */
-export type PlanSemanal = Partial<Record<number, Partial<Record<TiempoComida, ValorComida>>>>
+export type PlanSemanal = Partial<Record<number, Partial<Record<TiempoComida, ValorPlan>>>>
 
-/** Filas tal como las devuelve Supabase. */
-export type FilaPlan = { dia_semana: number; comida: TiempoComida; estado: EstadoComida; nota: string | null }
+/**
+ * Filas tal como las devuelve Supabase. `modificado_por` (quién la cambió si no fue la propia
+ * persona) es opcional: solo lo traen las consultas que lo muestran.
+ */
+export type FilaPlan = {
+  dia_semana: number
+  comida: TiempoComida
+  estado: EstadoComida
+  nota: string | null
+  modificado_por?: string | null
+}
 export type FilaSeleccion = {
   fecha: FechaISO
   comida: TiempoComida
   estado: EstadoComida
   nota: string | null
   origen: OrigenSeleccion
+  modificado_por?: string | null
 }
 export type FilaCerrada = { fecha: FechaISO; comida: TiempoComida }
 
@@ -32,7 +46,7 @@ export type FilaCerrada = { fecha: FechaISO; comida: TiempoComida }
 export type ComidaDeSemana = {
   comida: TiempoComida
   valor: ValorEfectivo
-  plan: ValorComida | null
+  plan: ValorPlan | null
   /** La persona está ausente ese día: la referencia de la comida es "No comer", no el plan. */
   ausente: boolean
   abierta: boolean
@@ -61,15 +75,20 @@ function clave(fecha: FechaISO, comida: TiempoComida): string {
   return `${fecha}|${comida}`
 }
 
-function aSeleccion(fila: FilaSeleccion | undefined): SeleccionGuardada | null {
-  return fila ? { estado: fila.estado, nota: fila.nota, origen: fila.origen } : null
+/** La marca solo aparece si otra persona la cambió: así un valor propio queda igual que siempre. */
+function marcaDeOtro(modificadoPor: string | null | undefined): { cambiadaPorOtro?: true } {
+  return modificadoPor ? { cambiadaPorOtro: true } : {}
 }
 
-export function planDesdeFilas(filas: FilaPlan[]): PlanSemanal {
+function aSeleccion(fila: FilaSeleccion | undefined): SeleccionGuardada | null {
+  return fila ? { estado: fila.estado, nota: fila.nota, origen: fila.origen, ...marcaDeOtro(fila.modificado_por) } : null
+}
+
+export function planDesdeFilas(filas: readonly FilaPlan[]): PlanSemanal {
   const plan: PlanSemanal = {}
   for (const fila of filas) {
     const dia = (plan[fila.dia_semana] ??= {})
-    dia[fila.comida] = { estado: fila.estado, nota: fila.nota }
+    dia[fila.comida] = { estado: fila.estado, nota: fila.nota, ...marcaDeOtro(fila.modificado_por) }
   }
   return plan
 }
@@ -79,8 +98,8 @@ export function armarSemanaPersona(p: {
   ahora: Date
   horas: HorasLimite
   plan: PlanSemanal
-  selecciones: FilaSeleccion[]
-  cerradas: FilaCerrada[]
+  selecciones: readonly FilaSeleccion[]
+  cerradas: readonly FilaCerrada[]
   /** Ausencias propias que tocan la semana. */
   ausencias?: readonly RangoAusencia[]
 }): DiaDeSemana[] {
@@ -153,12 +172,77 @@ export function armarDiaAdministracion(p: {
 /**
  * Valor optimista tras guardar: igual que guardar_seleccion, si coincide con la referencia no es
  * excepción. La referencia es el plan, o "No comer" si la persona está ausente ese día.
+ * `porOtro`: guarda otra persona (el Director); la excepción queda como "la cambió el Director",
+ * igual que modificado_por en la base.
  */
-export function valorTrasGuardar(plan: ValorComida | null, valor: ValorComida, ausente = false): SeleccionGuardada {
+export function valorTrasGuardar(
+  plan: ValorComida | null,
+  valor: ValorComida,
+  ausente = false,
+  porOtro = false,
+): SeleccionGuardada {
   const referencia = ausente ? VALOR_POR_AUSENCIA : plan
   const igual = referencia !== null && referencia.estado === valor.estado && referencia.nota === valor.nota
-  if (!igual) return { estado: valor.estado, nota: valor.nota, origen: 'persona' }
+  if (!igual) return { estado: valor.estado, nota: valor.nota, origen: 'persona', ...(porOtro ? { cambiadaPorOtro: true } : {}) }
   return { estado: valor.estado, nota: valor.nota, origen: ausente ? 'ausencia' : 'plan' }
+}
+
+/** Texto corto de una comida para celdas y tarjetas: siempre va junto al icono y el color del estado. */
+export type TextoCorto = { estado: EstadoComida | null; texto: string; hora: string | null }
+
+/** 'Temprano' + '07:30' · 'Sí' · 'Falta' (sin definir). La nota de enfermo no entra: es texto libre. */
+export function textoCorto(valor: ValorComida | null): TextoCorto {
+  if (!valor) return { estado: null, texto: 'Falta', hora: null }
+  const hora = INFO_ESTADO[valor.estado].nota === 'hora' ? valor.nota : null
+  return { estado: valor.estado, texto: ETIQUETA_CORTA_ESTADO[valor.estado], hora }
+}
+
+/** Para nombres accesibles: 'Comer temprano 07:30' · 'Enfermo, Sopa' · 'Falta, sin definir'. Contiene el corto. */
+export function textoValor(valor: ValorComida | null): string {
+  if (!valor) return 'Falta, sin definir'
+  const { etiqueta, nota } = INFO_ESTADO[valor.estado]
+  if (!valor.nota) return etiqueta
+  return nota === 'hora' ? `${etiqueta} ${valor.nota}` : `${etiqueta}, ${valor.nota}`
+}
+
+/** Un día está cerrado cuando ya no se puede cambiar ninguna de sus comidas (pasado, o hoy tras la cena). */
+export function diaCerrado(dia: DiaDeSemana): boolean {
+  return dia.comidas.every((comida) => !comida.abierta)
+}
+
+/**
+ * Nombre accesible del botón de una comida en la tarjeta de su día: todo lo que se ve escrito, quién
+ * la cambió y qué hace tocarlo. 'Almuerzo del miércoles 23/9: Comer temprano 07:30. Cambiar'.
+ * `valor` es el que muestra el botón (puede adelantarse al guardado mientras se guarda).
+ */
+export function etiquetaComidaTarjeta(
+  dia: Pick<DiaDeSemana, 'nombre' | 'fechaCorta'>,
+  comida: TiempoComida,
+  valor: ValorEfectivo,
+): string {
+  const quien = valor?.cambiadaPorOtro ? `, ${CAMBIADA_POR_EL_DIRECTOR}` : ''
+  return `${tituloComida(comida, dia.nombre, dia.fechaCorta)}: ${textoValor(valor)}${quien}. Cambiar`
+}
+
+/** Algún valor del día lo cambió otra persona (el Director). */
+export function diaCambiadoPorOtro(dia: DiaDeSemana): boolean {
+  return dia.comidas.some((comida) => comida.valor?.cambiadaPorOtro === true)
+}
+
+/** Alguna comida de la semana la cambió el Director: arriba de las tarjetas va la leyenda del lápiz. */
+export function semanaCambiadaPorOtro(dias: readonly DiaDeSemana[]): boolean {
+  return dias.some(diaCambiadoPorOtro)
+}
+
+/**
+ * Qué tarjeta de la semana en curso se trae a la vista al entrar: hoy, o si hoy ya cerró entero, el
+ * primer día que todavía tenga algo por cambiar (DESIGN.md §8: lo primero en pantalla es algo que se
+ * puede cambiar).
+ */
+export function diaParaMostrar(dias: readonly DiaDeSemana[]): FechaISO | null {
+  const hoy = dias.findIndex((dia) => dia.esHoy)
+  if (hoy < 0) return null
+  return dias.slice(hoy).find((dia) => !diaCerrado(dia))?.fecha ?? null
 }
 
 /** Lo único que cruza al navegador de Administración: nunca `filas`. */
@@ -185,4 +269,93 @@ export function resumenPlanSemanal(personas: readonly PersonaConPlan[]): Record<
     }
   }
   return semana
+}
+
+// ---------- "La casa" del Director: la semana de todas las personas ----------
+
+/** Una persona en una comida de la casa: lo mismo que ve ella en su Semana, con su nombre real. */
+export type PersonaEnComida = { id: string; nombre: string; datos: ComidaDeSemana }
+export type ComidaDeLaCasa = {
+  comida: TiempoComida
+  /** El mismo resumen que calcula Administración para esa comida. */
+  resumen: ResumenComida
+  /** Todavía se puede cambiar (hora límite, cierre del job y ventana editable): lo de cada persona. */
+  abierta: boolean
+  /** La hora límite no pasó y el job no la cerró: un extra de esta comida todavía se puede quitar. */
+  sinCerrar: boolean
+  /** 'cierra hoy 10:00' · 'cerrada' */
+  cierre: string
+  personas: PersonaEnComida[]
+}
+export type DiaDeLaCasa = { fecha: FechaISO; nombre: string; fechaCorta: string; esHoy: boolean; comidas: ComidaDeLaCasa[] }
+
+/**
+ * La semana de la casa por día y comida (solo el Director: lleva nombres y el detalle de cada
+ * persona). Arma la Semana de cada persona con `armarSemanaPersona` —así lo que ve el Director es
+ * exactamente lo que ve cada una— y la da vuelta; el resumen es `resumenComida`, igual que el de
+ * Administración.
+ */
+export function armarSemanaDeLaCasa(p: {
+  lunes: FechaISO
+  ahora: Date
+  horas: HorasLimite
+  /** En el orden en que se muestran. */
+  personas: readonly Persona[]
+  planes: readonly (FilaPlan & { usuario_id: string })[]
+  selecciones: readonly (FilaSeleccion & { usuario_id: string })[]
+  cerradas: readonly FilaCerrada[]
+  ausencias: readonly (RangoAusencia & { usuario_id: string })[]
+}): DiaDeLaCasa[] {
+  const hoy = fechaISOEn(p.ahora)
+  const cerradas = new Set(p.cerradas.map((fila) => clave(fila.fecha, fila.comida)))
+  const semanas = p.personas.map((persona) =>
+    armarSemanaPersona({
+      lunes: p.lunes,
+      ahora: p.ahora,
+      horas: p.horas,
+      plan: planDesdeFilas(p.planes.filter((fila) => fila.usuario_id === persona.id)),
+      selecciones: p.selecciones.filter((fila) => fila.usuario_id === persona.id),
+      cerradas: p.cerradas,
+      ausencias: p.ausencias.filter((ausencia) => ausencia.usuario_id === persona.id),
+    }),
+  )
+
+  return diasDeSemana(p.lunes).map((fecha, indiceDia) => ({
+    fecha,
+    nombre: nombreDia(fecha),
+    fechaCorta: fechaCorta(fecha),
+    esHoy: fecha === hoy,
+    comidas: TIEMPOS_COMIDA.map((comida, indiceComida) => {
+      const personas = p.personas.map((persona, indicePersona) => ({
+        id: persona.id,
+        nombre: persona.nombre,
+        datos: semanas[indicePersona][indiceDia].comidas[indiceComida],
+      }))
+      // Abierta y cierre son de la comida: se calculan aparte para que valgan también sin personas.
+      const momento = { fecha, comida, ahora: p.ahora, horas: p.horas, cerrada: cerradas.has(clave(fecha, comida)) }
+      return {
+        comida,
+        resumen: resumenComida(personas.map((persona) => persona.datos.valor)),
+        abierta: estaAbierta(momento),
+        sinCerrar: comidaSinCerrar(momento),
+        cierre: textoCierre(momento),
+        personas,
+      }
+    }),
+  }))
+}
+
+/** "Sin definir" primero (es lo que falta resolver); después, el orden en que lee la cocina. */
+const ORDEN_GRUPOS: readonly ClaveResumen[] = ['sin_definir', 'temprano', 'tarde', 'bolsa', 'enfermo', 'si', 'no']
+
+export type GrupoPorEstado = { clave: ClaveResumen; etiqueta: string; personas: PersonaEnComida[] }
+
+/** Las personas de una comida agrupadas por lo que eligieron; solo los grupos con alguien. */
+export function agruparPorEstado(personas: readonly PersonaEnComida[]): GrupoPorEstado[] {
+  return ORDEN_GRUPOS.flatMap((claveGrupo) => {
+    const delGrupo = personas.filter((persona) => (persona.datos.valor?.estado ?? 'sin_definir') === claveGrupo)
+    if (delGrupo.length === 0) return []
+    const etiqueta = claveGrupo === 'sin_definir' ? 'Sin definir' : INFO_ESTADO[claveGrupo].etiqueta
+    return [{ clave: claveGrupo, etiqueta, personas: delGrupo }]
+  })
 }

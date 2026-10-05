@@ -12,6 +12,7 @@ export type Database = {
       ausencias: {
         Row: {
           creado_en: string
+          creado_por: string | null
           desde: string
           hasta: string
           id: string
@@ -19,6 +20,7 @@ export type Database = {
         }
         Insert: {
           creado_en?: string
+          creado_por?: string | null
           desde: string
           hasta: string
           id?: string
@@ -26,12 +28,20 @@ export type Database = {
         }
         Update: {
           creado_en?: string
+          creado_por?: string | null
           desde?: string
           hasta?: string
           id?: string
           usuario_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "ausencias_creado_por_fkey"
+            columns: ["creado_por"]
+            isOneToOne: false
+            referencedRelation: "perfiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "ausencias_usuario_id_fkey"
             columns: ["usuario_id"]
@@ -211,6 +221,44 @@ export type Database = {
           },
         ]
       }
+      extras_manuales: {
+        Row: {
+          cantidad: number
+          creado_en: string
+          creado_por: string | null
+          fecha: string
+          id: string
+          nota: string | null
+          tiempo_comida: Database["public"]["Enums"]["tiempo_comida"]
+        }
+        Insert: {
+          cantidad: number
+          creado_en?: string
+          creado_por?: string | null
+          fecha: string
+          id?: string
+          nota?: string | null
+          tiempo_comida: Database["public"]["Enums"]["tiempo_comida"]
+        }
+        Update: {
+          cantidad?: number
+          creado_en?: string
+          creado_por?: string | null
+          fecha?: string
+          id?: string
+          nota?: string | null
+          tiempo_comida?: Database["public"]["Enums"]["tiempo_comida"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "extras_manuales_creado_por_fkey"
+            columns: ["creado_por"]
+            isOneToOne: false
+            referencedRelation: "perfiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       horas_limite: {
         Row: {
           comida: Database["public"]["Enums"]["tiempo_comida"]
@@ -234,6 +282,9 @@ export type Database = {
           autor_id: string
           creado_en: string
           estado: Database["public"]["Enums"]["estado_mensaje"]
+          fijado_en: string | null
+          fijado_hasta: string | null
+          fijado_por: string | null
           id: string
           motivo_rechazo: string | null
           padre_id: string | null
@@ -243,6 +294,9 @@ export type Database = {
           autor_id: string
           creado_en?: string
           estado?: Database["public"]["Enums"]["estado_mensaje"]
+          fijado_en?: string | null
+          fijado_hasta?: string | null
+          fijado_por?: string | null
           id?: string
           motivo_rechazo?: string | null
           padre_id?: string | null
@@ -252,6 +306,9 @@ export type Database = {
           autor_id?: string
           creado_en?: string
           estado?: Database["public"]["Enums"]["estado_mensaje"]
+          fijado_en?: string | null
+          fijado_hasta?: string | null
+          fijado_por?: string | null
           id?: string
           motivo_rechazo?: string | null
           padre_id?: string | null
@@ -261,6 +318,13 @@ export type Database = {
           {
             foreignKeyName: "mensajes_autor_id_fkey"
             columns: ["autor_id"]
+            isOneToOne: false
+            referencedRelation: "perfiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mensajes_fijado_por_fkey"
+            columns: ["fijado_por"]
             isOneToOne: false
             referencedRelation: "perfiles"
             referencedColumns: ["id"]
@@ -280,6 +344,8 @@ export type Database = {
           apariencia_contraste: string | null
           apariencia_tema: string | null
           apariencia_texto: string | null
+          avisar_cambios: boolean
+          avisar_cocina: boolean
           avisar_hora_limite: boolean
           avisar_mensajes: boolean
           correo: string
@@ -295,6 +361,8 @@ export type Database = {
           apariencia_contraste?: string | null
           apariencia_tema?: string | null
           apariencia_texto?: string | null
+          avisar_cambios?: boolean
+          avisar_cocina?: boolean
           avisar_hora_limite?: boolean
           avisar_mensajes?: boolean
           correo: string
@@ -310,6 +378,8 @@ export type Database = {
           apariencia_contraste?: string | null
           apariencia_tema?: string | null
           apariencia_texto?: string | null
+          avisar_cambios?: boolean
+          avisar_cocina?: boolean
           avisar_hora_limite?: boolean
           avisar_mensajes?: boolean
           correo?: string
@@ -327,6 +397,7 @@ export type Database = {
           comida: Database["public"]["Enums"]["tiempo_comida"]
           dia_semana: number
           estado: Database["public"]["Enums"]["estado_comida"]
+          modificado_por: string | null
           nota: string | null
           usuario_id: string
         }
@@ -334,6 +405,7 @@ export type Database = {
           comida: Database["public"]["Enums"]["tiempo_comida"]
           dia_semana: number
           estado: Database["public"]["Enums"]["estado_comida"]
+          modificado_por?: string | null
           nota?: string | null
           usuario_id: string
         }
@@ -341,10 +413,18 @@ export type Database = {
           comida?: Database["public"]["Enums"]["tiempo_comida"]
           dia_semana?: number
           estado?: Database["public"]["Enums"]["estado_comida"]
+          modificado_por?: string | null
           nota?: string | null
           usuario_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "plan_semanal_modificado_por_fkey"
+            columns: ["modificado_por"]
+            isOneToOne: false
+            referencedRelation: "perfiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "plan_semanal_usuario_id_fkey"
             columns: ["usuario_id"]
@@ -435,6 +515,7 @@ export type Database = {
           comida: Database["public"]["Enums"]["tiempo_comida"]
           estado: Database["public"]["Enums"]["estado_comida"]
           fecha: string
+          modificado_por: string | null
           nota: string | null
           origen: Database["public"]["Enums"]["origen_seleccion"]
           usuario_id: string
@@ -444,6 +525,7 @@ export type Database = {
           comida: Database["public"]["Enums"]["tiempo_comida"]
           estado: Database["public"]["Enums"]["estado_comida"]
           fecha: string
+          modificado_por?: string | null
           nota?: string | null
           origen: Database["public"]["Enums"]["origen_seleccion"]
           usuario_id: string
@@ -453,11 +535,19 @@ export type Database = {
           comida?: Database["public"]["Enums"]["tiempo_comida"]
           estado?: Database["public"]["Enums"]["estado_comida"]
           fecha?: string
+          modificado_por?: string | null
           nota?: string | null
           origen?: Database["public"]["Enums"]["origen_seleccion"]
           usuario_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "selecciones_comida_modificado_por_fkey"
+            columns: ["modificado_por"]
+            isOneToOne: false
+            referencedRelation: "perfiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "selecciones_comida_usuario_id_fkey"
             columns: ["usuario_id"]
@@ -575,6 +665,14 @@ export type Database = {
         }
         Returns: boolean
       }
+      comida_sin_cerrar: {
+        Args: {
+          p_ahora?: string
+          p_comida: Database["public"]["Enums"]["tiempo_comida"]
+          p_fecha: string
+        }
+        Returns: boolean
+      }
       comidas_sin_definir: {
         Args: {
           p_comida: Database["public"]["Enums"]["tiempo_comida"]
@@ -587,7 +685,13 @@ export type Database = {
         Returns: undefined
       }
       congelar_comidas_de: {
-        Args: { p_desde: string; p_hasta: string; p_usuario: string }
+        Args: {
+          p_comida?: Database["public"]["Enums"]["tiempo_comida"]
+          p_desde: string
+          p_dia_semana?: number
+          p_hasta: string
+          p_usuario: string
+        }
         Returns: undefined
       }
       crear_serie_eventos: {
@@ -607,6 +711,7 @@ export type Database = {
         }
         Returns: string
       }
+      desfijar_mensaje: { Args: { p_id: string }; Returns: undefined }
       eventos_para_cocina: {
         Args: { p_desde: string; p_hasta: string }
         Returns: {
@@ -625,12 +730,36 @@ export type Database = {
           total: number
         }[]
       }
+      extras_manuales_de_la_semana: {
+        Args: { p_desde: string; p_hasta: string }
+        Returns: {
+          cantidad: number
+          fecha: string
+          id: string
+          nota: string
+          tiempo_comida: Database["public"]["Enums"]["tiempo_comida"]
+        }[]
+      }
+      fijar_mensaje: {
+        Args: { p_hasta: string; p_id: string }
+        Returns: string
+      }
       guardar_seleccion: {
         Args: {
           p_comida: Database["public"]["Enums"]["tiempo_comida"]
           p_estado: Database["public"]["Enums"]["estado_comida"]
           p_fecha: string
           p_nota: string
+        }
+        Returns: undefined
+      }
+      guardar_seleccion_de: {
+        Args: {
+          p_comida: Database["public"]["Enums"]["tiempo_comida"]
+          p_estado: Database["public"]["Enums"]["estado_comida"]
+          p_fecha: string
+          p_nota: string
+          p_usuario: string
         }
         Returns: undefined
       }
@@ -654,15 +783,28 @@ export type Database = {
         }
         Returns: boolean
       }
+      puedo_gestionar_comidas_de: {
+        Args: { p_usuario: string }
+        Returns: boolean
+      }
       requiere_cocina_valido: {
         Args: { p: Database["public"]["Enums"]["requerimiento_cocina"][] }
         Returns: boolean
       }
       soy_activo: { Args: never; Returns: boolean }
+      tiene_comidas: { Args: { p_usuario: string }; Returns: boolean }
       volver_a_plan: {
         Args: {
           p_comida: Database["public"]["Enums"]["tiempo_comida"]
           p_fecha: string
+        }
+        Returns: undefined
+      }
+      volver_a_plan_de: {
+        Args: {
+          p_comida: Database["public"]["Enums"]["tiempo_comida"]
+          p_fecha: string
+          p_usuario: string
         }
         Returns: undefined
       }
