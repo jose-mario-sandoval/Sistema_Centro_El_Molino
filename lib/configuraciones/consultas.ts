@@ -14,13 +14,13 @@ export async function obtenerHorasLimite(): Promise<HorasLimite> {
 
 /**
  * Todas las cuentas, incluidas las desactivadas: primero las activas, después por nombre.
- * `listarPerfiles` (Fase 0) no incluye correo ni la marca de contraseña temporal.
+ * `listarPerfiles` (Fase 0) no incluye el usuario ni la marca de contraseña temporal.
  */
 export async function listarCuentas(): Promise<Cuenta[]> {
   const supabase = await crearClienteServidor()
   const { data, error } = await supabase
     .from('perfiles')
-    .select('id, nombre, siglas, correo, rol, activo, debe_cambiar_contrasena')
+    .select('id, nombre, siglas, usuario, rol, activo, debe_cambiar_contrasena')
     .order('activo', { ascending: false })
     .order('nombre')
   if (error) throw error

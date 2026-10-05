@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   esErrorAuthDefinitivo,
   esErrorPerfilEsperado,
-  MENSAJE_CORREO_REPETIDO,
+  MENSAJE_USUARIO_REPETIDO,
   MENSAJE_DIRECTOR_MINIMO,
   mensajeErrorPerfil,
 } from '@/lib/configuraciones/errores'
@@ -14,8 +14,8 @@ describe('mensajeErrorPerfil', () => {
     expect(MENSAJE_DIRECTOR_MINIMO).toBe('Debe quedar al menos un Director activo.')
   })
 
-  it('traduce el correo repetido (23505)', () => {
-    expect(mensajeErrorPerfil({ code: '23505' }, 'respaldo')).toBe(MENSAJE_CORREO_REPETIDO)
+  it('traduce el usuario repetido (23505)', () => {
+    expect(mensajeErrorPerfil({ code: '23505' }, 'respaldo')).toBe(MENSAJE_USUARIO_REPETIDO)
   })
 
   it('usa el mensaje de respaldo para cualquier otro error', () => {
