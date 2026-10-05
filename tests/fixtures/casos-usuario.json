@@ -1,0 +1,19 @@
+{
+  "_": "Parte local de un correo viejo → usuario. Espejo: usuarioDesdeCorreo() en lib/cuentas/usuario.ts y pg_temp.limpiar_usuario() en la migración 20261005110000.",
+  "casos": [
+    ["rflores@gmail.com", "rflores"],
+    ["R.Flores@Gmail.com", "r.flores"],
+    ["juan_perez-2@centro.org", "juan_perez-2"],
+    ["juan+algo@centro.org", "juanalgo"],
+    ["josé.muñoz@centro.org", "jose.munoz"],
+    ["a..b__c@x.org", "a.b_c"],
+    ["a.-_b@x.org", "a.b"],
+    [".punto.@x.org", "punto"],
+    ["jp@x.org", "cuenta.jp"],
+    ["j@x.org", "cuenta.j"],
+    ["+++@x.org", "cuenta"],
+    ["abcdefghijklmnopqrstuvwxyz0123456789@x.org", "abcdefghijklmnopqrstuvwxyz0123"],
+    ["abcdefghijklmnopqrstuvwxyz012.456@x.org", "abcdefghijklmnopqrstuvwxyz012"],
+    ["ÑANDÚ@x.org", "nandu"]
+  ]
+}
