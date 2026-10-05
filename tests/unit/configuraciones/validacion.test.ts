@@ -3,6 +3,7 @@ import { camposConError } from '@/lib/validacion/auth'
 import {
   esquemaCambioContrasenaPropia,
   esquemaCambioRol,
+  esquemaCambioUsuario,
   esquemaContrasenaTemporal,
   esquemaEstadoCuenta,
   esquemaHorasLimite,
@@ -18,16 +19,15 @@ function campos(resultado: { success: boolean; error?: Parameters<typeof camposC
 }
 
 describe('esquemaPerfilPropio', () => {
-  it('recorta espacios, pasa las siglas a mayúsculas y el correo a minúsculas', () => {
-    const r = esquemaPerfilPropio.safeParse({ nombre: '  Juan Pérez ', siglas: ' jp ', correo: ' Juan@Centro.ORG ' })
-    expect(r.success && r.data).toEqual({ nombre: 'Juan Pérez', siglas: 'JP', correo: 'juan@centro.org' })
+  it('recorta espacios y pasa las siglas a mayúsculas; el usuario no se cambia desde Mi cuenta', () => {
+    const r = esquemaPerfilPropio.safeParse({ nombre: '  Juan Pérez ', siglas: ' jp ', usuario: 'otro' })
+    expect(r.success && r.data).toEqual({ nombre: 'Juan Pérez', siglas: 'JP' })
   })
 
   it('marca cada campo inválido', () => {
-    expect(campos(esquemaPerfilPropio.safeParse({ nombre: '  ', siglas: 'ABCDEFG', correo: 'no-es-correo' }))).toEqual({
+    expect(campos(esquemaPerfilPropio.safeParse({ nombre: '  ', siglas: 'ABCDEFG' }))).toEqual({
       nombre: 'Ingresá el nombre.',
       siglas: 'Las siglas pueden tener hasta 6 caracteres.',
-      correo: 'Ingresá un correo válido.',
     })
   })
 })
@@ -108,21 +108,42 @@ describe('esquemaHorasLimite', () => {
 })
 
 describe('esquemaNuevaCuenta', () => {
-  const datos = {
-    nombre: 'Ana Torres',
-    siglas: 'at',
-    correo: 'Ana@Centro.org',
-    rol: 'administracion',
-    contrasena: 'k7hm-pq3x-wn9d',
-  }
+  const datos = { nombre: 'Ana Torres', siglas: 'at', usuario: ' A.Torres ', rol: 'residente', contrasena: 'k7hm-pq3x-wn9d' }
 
-  it('acepta y normaliza una cuenta nueva', () => {
+  it('una cuenta de la casa: nombre, siglas y usuario normalizados', () => {
     const r = esquemaNuevaCuenta.safeParse(datos)
-    expect(r.success && r.data).toEqual({ ...datos, siglas: 'AT', correo: 'ana@centro.org' })
+    expect(r.success && r.data).toEqual({ ...datos, siglas: 'AT', usuario: 'a.torres' })
+  })
+
+  it('una cuenta de Administración no lleva nombre ni siglas (los pone el servidor)', () => {
+    const r = esquemaNuevaCuenta.safeParse({ rol: 'administracion', usuario: 'admin.3', contrasena: datos.contrasena, nombre: 'Ana' })
+    expect(r.success && r.data).toEqual({ rol: 'administracion', usuario: 'admin.3', contrasena: datos.contrasena })
+  })
+
+  it('a una cuenta de la casa le pide nombre y siglas', () => {
+    expect(campos(esquemaNuevaCuenta.safeParse({ ...datos, nombre: '', siglas: '' }))).toEqual({
+      nombre: 'Ingresá el nombre.',
+      siglas: 'Ingresá las siglas.',
+    })
+    // Sin los campos (FormData de un formulario que no los pintó): también.
+    const sinNombre = { usuario: datos.usuario, rol: datos.rol, contrasena: datos.contrasena }
+    expect(Object.keys(campos(esquemaNuevaCuenta.safeParse(sinNombre))).sort()).toEqual(['nombre', 'siglas'])
+  })
+
+  it.each([
+    ['ab', 'El usuario debe tener al menos 3 caracteres.'],
+    ['a'.repeat(31), 'El usuario puede tener hasta 30 caracteres.'],
+    ['r flores', 'Usá solo letras sin tilde, números, punto, guion o guion bajo. Ejemplo: r.flores'],
+    ['r..flores', 'Usá solo letras sin tilde, números, punto, guion o guion bajo. Ejemplo: r.flores'],
+    ['rflores@gmail.com', 'Usá solo letras sin tilde, números, punto, guion o guion bajo. Ejemplo: r.flores'],
+    ['demo.director', 'Ese usuario está reservado. Elegí otro.'],
+  ])('usuario %s: %s', (usuario, mensaje) => {
+    expect(campos(esquemaNuevaCuenta.safeParse({ ...datos, usuario }))).toEqual({ usuario: mensaje })
   })
 
   it('rechaza un rol inexistente', () => {
     expect(campos(esquemaNuevaCuenta.safeParse({ ...datos, rol: 'jefe' }))).toEqual({ rol: 'Elegí un rol.' })
+    expect(campos(esquemaNuevaCuenta.safeParse({ ...datos, rol: null }))).toEqual({ rol: 'Elegí un rol.' })
   })
 
   it('exige una contraseña temporal de al menos 8 caracteres', () => {
@@ -136,6 +157,22 @@ describe('esquemaNuevaCuenta', () => {
     expect(campos(esquemaNuevaCuenta.safeParse({ ...datos, contrasena: 'a'.repeat(73) }))).toEqual({
       contrasena: 'La contraseña puede tener hasta 72 caracteres.',
     })
+  })
+})
+
+describe('esquemaCambioUsuario', () => {
+  it('normaliza el usuario nuevo', () => {
+    expect(esquemaCambioUsuario.safeParse({ id: ID, usuario: ' R.Muñoz ' })).toMatchObject({
+      success: true,
+      data: { id: ID, usuario: 'r.munoz' },
+    })
+  })
+
+  it('con el mismo formato que al crear la cuenta', () => {
+    expect(campos(esquemaCambioUsuario.safeParse({ id: ID, usuario: 'ab' }))).toEqual({
+      usuario: 'El usuario debe tener al menos 3 caracteres.',
+    })
+    expect(campos(esquemaCambioUsuario.safeParse({ id: ID, usuario: null }))).toHaveProperty('usuario')
   })
 })
 
