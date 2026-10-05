@@ -3,12 +3,23 @@ import { exigirBaseLocal } from './entorno-local'
 
 export const CONTRASENA_PRUEBA = 'clave-de-prueba-123'
 
+/**
+ * `usuario`: con lo que la persona entra por la pantalla de login. `correo`: la dirección con la que
+ * Auth conoce a esa cuenta de prueba (fija, para que `clienteComo()` entre sin pasar por la app); en
+ * `perfiles` no se guarda.
+ */
 export const USUARIOS_PRUEBA = {
-  director: { correo: 'director@prueba.test', nombre: 'Directora Prueba', siglas: 'DP', rol: 'director' },
-  director2: { correo: 'director2@prueba.test', nombre: 'Director Dos', siglas: 'D2', rol: 'director' },
-  residente: { correo: 'residente@prueba.test', nombre: 'Residente Prueba', siglas: 'RP', rol: 'residente' },
-  residente2: { correo: 'residente2@prueba.test', nombre: 'Residente Dos', siglas: 'R2', rol: 'residente' },
-  administracion: { correo: 'admin@prueba.test', nombre: 'Administración Prueba', siglas: 'AP', rol: 'administracion' },
+  director: { usuario: 'director', correo: 'director@prueba.test', nombre: 'Directora Prueba', siglas: 'DP', rol: 'director' },
+  director2: { usuario: 'director2', correo: 'director2@prueba.test', nombre: 'Director Dos', siglas: 'D2', rol: 'director' },
+  residente: { usuario: 'residente', correo: 'residente@prueba.test', nombre: 'Residente Prueba', siglas: 'RP', rol: 'residente' },
+  residente2: { usuario: 'residente2', correo: 'residente2@prueba.test', nombre: 'Residente Dos', siglas: 'R2', rol: 'residente' },
+  administracion: {
+    usuario: 'admin',
+    correo: 'admin@prueba.test',
+    nombre: 'Administración Prueba',
+    siglas: 'AP',
+    rol: 'administracion',
+  },
 } as const
 
 export type ClaveUsuario = keyof typeof USUARIOS_PRUEBA
@@ -44,7 +55,7 @@ export async function asegurarUsuariosPrueba(): Promise<Record<ClaveUsuario, str
   const ids = {} as Record<ClaveUsuario, string>
 
   for (const [clave, u] of Object.entries(USUARIOS_PRUEBA) as [ClaveUsuario, (typeof USUARIOS_PRUEBA)[ClaveUsuario]][]) {
-    const { data: existente } = await admin.from('perfiles').select('id').eq('correo', u.correo).maybeSingle()
+    const { data: existente } = await admin.from('perfiles').select('id').eq('usuario', u.usuario).maybeSingle()
     if (existente) {
       await admin.auth.admin.updateUserById(existente.id, { password: CONTRASENA_PRUEBA, ban_duration: 'none' })
       const { error } = await admin
@@ -73,7 +84,7 @@ export async function asegurarUsuariosPrueba(): Promise<Record<ClaveUsuario, str
     if (error) throw error
     const { error: errorPerfil } = await admin
       .from('perfiles')
-      .insert({ id: data.user.id, nombre: u.nombre, siglas: u.siglas, correo: u.correo, rol: u.rol })
+      .insert({ id: data.user.id, nombre: u.nombre, siglas: u.siglas, usuario: u.usuario, rol: u.rol })
     if (errorPerfil) throw errorPerfil
     ids[clave] = data.user.id
   }
