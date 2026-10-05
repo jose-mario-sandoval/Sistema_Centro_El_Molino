@@ -5,7 +5,8 @@ export const MENSAJE_MINIMO_CONTRASENA = 'La contraseña debe tener al menos 8 c
 export const MENSAJE_MAXIMO_CONTRASENA = 'La contraseña puede tener hasta 72 caracteres.'
 
 export const esquemaLogin = z.object({
-  correo: z.string().trim().toLowerCase().email('Ingresá un correo válido.'),
+  // Sin formato: quien entra puede escribir su correo de siempre (lib/cuentas/usuario.ts lo traduce).
+  usuario: z.string().trim().min(1, 'Ingresá tu usuario.').max(255, 'Ingresá tu usuario.'),
   contrasena: z.string().min(1, 'Ingresá tu contraseña.'),
 })
 

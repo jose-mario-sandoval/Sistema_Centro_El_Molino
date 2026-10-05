@@ -2,24 +2,33 @@
 
 import { redirect } from 'next/navigation'
 import { fallo, type Resultado } from '@/lib/acciones/resultado'
+import { direccionDeAcceso } from '@/lib/cuentas/direccion-de-acceso'
+import { usuarioParaEntrar } from '@/lib/cuentas/usuario'
+import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { camposConError, esquemaLogin } from '@/lib/validacion/auth'
 
 export async function iniciarSesion(_previo: Resultado<null> | null, formData: FormData): Promise<Resultado<null>> {
   const entrada = esquemaLogin.safeParse({
-    correo: formData.get('correo'),
+    usuario: formData.get('usuario'),
     contrasena: formData.get('contrasena'),
   })
   if (!entrada.success) return fallo('Revisá los datos.', camposConError(entrada.error))
 
+  // Auth conoce cada cuenta por una dirección que nadie escribe: se busca con la llave secreta (el
+  // único uso sin sesión: solo esta búsqueda, y nada de ella vuelve al navegador). Un usuario que no
+  // existe recibe una dirección que no es de nadie y sigue el mismo camino.
+  const direccion = await direccionDeAcceso(crearClienteAdmin(), usuarioParaEntrar(entrada.data.usuario))
+  if (!direccion.ok) return fallo('No se pudo iniciar sesión. Intentá de nuevo.')
+
   const supabase = await crearClienteServidor()
   const { data, error } = await supabase.auth.signInWithPassword({
-    email: entrada.data.correo,
+    email: direccion.correo,
     password: entrada.data.contrasena,
   })
   if (error || !data.user) {
     if (error?.code === 'user_banned') return fallo('Tu cuenta está desactivada. Hablá con el Director.')
-    return fallo('Correo o contraseña incorrectos.')
+    return fallo('Usuario o contraseña incorrectos.')
   }
 
   const { data: perfil, error: errorPerfil } = await supabase

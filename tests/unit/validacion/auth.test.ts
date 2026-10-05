@@ -3,33 +3,30 @@ import { z } from 'zod'
 import { camposConError, esquemaContrasenaNueva, esquemaLogin } from '@/lib/validacion/auth'
 
 describe('esquemaLogin', () => {
-  it('normaliza el correo: quita espacios y pasa a minúsculas', () => {
-    const r = esquemaLogin.safeParse({ correo: '  Residente@Demo.TEST ', contrasena: 'x' })
-    expect(r.success).toBe(true)
-    expect(r.data?.correo).toBe('residente@demo.test')
+  it('el usuario llega sin espacios en los extremos; normalizarlo es del login', () => {
+    const r = esquemaLogin.safeParse({ usuario: '  R.Flores ', contrasena: 'x' })
+    expect(r.success && r.data.usuario).toBe('R.Flores')
+  })
+
+  it('acepta un correo: quien entra puede escribir el de siempre', () => {
+    expect(esquemaLogin.safeParse({ usuario: 'rflores@gmail.com', contrasena: 'x' }).success).toBe(true)
   })
 
   it('no modifica la contraseña', () => {
-    const r = esquemaLogin.safeParse({ correo: 'a@b.test', contrasena: '  Clave con espacios ' })
+    const r = esquemaLogin.safeParse({ usuario: 'r.flores', contrasena: '  Clave con espacios ' })
     expect(r.data?.contrasena).toBe('  Clave con espacios ')
   })
 
-  it('rechaza un correo inválido con mensaje en el campo correo', () => {
-    const r = esquemaLogin.safeParse({ correo: 'no-es-correo', contrasena: 'x' })
+  it('pide el usuario y la contraseña', () => {
+    const r = esquemaLogin.safeParse({ usuario: '   ', contrasena: '' })
     expect(r.success).toBe(false)
-    expect(camposConError(r.error!)).toEqual({ correo: 'Ingresá un correo válido.' })
-  })
-
-  it('exige la contraseña', () => {
-    const r = esquemaLogin.safeParse({ correo: 'a@b.test', contrasena: '' })
-    expect(r.success).toBe(false)
-    expect(camposConError(r.error!)).toEqual({ contrasena: 'Ingresá tu contraseña.' })
+    expect(camposConError(r.error!)).toEqual({ usuario: 'Ingresá tu usuario.', contrasena: 'Ingresá tu contraseña.' })
   })
 
   it('rechaza campos ausentes (FormData.get devuelve null)', () => {
-    const r = esquemaLogin.safeParse({ correo: null, contrasena: null })
+    const r = esquemaLogin.safeParse({ usuario: null, contrasena: null })
     expect(r.success).toBe(false)
-    expect(Object.keys(camposConError(r.error!)).sort()).toEqual(['contrasena', 'correo'])
+    expect(Object.keys(camposConError(r.error!)).sort()).toEqual(['contrasena', 'usuario'])
   })
 })
 
