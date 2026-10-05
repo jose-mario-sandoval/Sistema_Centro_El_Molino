@@ -2,6 +2,7 @@
 
 import { useOptimistic, useTransition } from 'react'
 import { useAviso } from '@/components/ui/avisos'
+import { Icono } from '@/components/ui/iconos'
 import type { Cuenta } from '@/lib/configuraciones/tipos'
 import { ETIQUETA_ROL, ROLES, type Rol } from '@/lib/perfiles/roles'
 import { cambiarEstadoCuenta, cambiarRolCuenta } from '../acciones'
@@ -73,7 +74,19 @@ export function FilaCuenta({
         {cuenta.nombre} <span className="role-pill">{cuenta.siglas}</span>
         {esPropia && <div className="hint">Tu cuenta</div>}
       </td>
-      <td data-et="Usuario">{cuenta.usuario}</td>
+      <td data-et="Usuario">
+        {/* Se cambia donde se ve (también el propio): tocar el usuario abre el diálogo. */}
+        <button
+          type="button"
+          className="btn ghost small boton-usuario"
+          aria-label={`Cambiar usuario de ${cuenta.nombre}: ${cuenta.usuario}`}
+          aria-busy={pendiente}
+          onClick={siLibre(alCambiarUsuario)}
+        >
+          <span>{cuenta.usuario}</span>
+          <Icono nombre="editado" />
+        </button>
+      </td>
       <td data-et="Rol">
         <select
           aria-label={`Rol de ${cuenta.nombre}`}
@@ -94,52 +107,40 @@ export function FilaCuenta({
         {cuenta.debe_cambiar_contrasena && <div className="hint">Cambio de contraseña pendiente</div>}
       </td>
       <td className="acciones-celda">
-        <div className="acciones-cuenta">
-          {/* También en la propia fila: el Director cambia su usuario igual que el de los demás. */}
-          <button
-            type="button"
-            className="btn ghost small"
-            aria-label={`Cambiar usuario de ${cuenta.nombre}`}
-            aria-busy={pendiente}
-            onClick={siLibre(alCambiarUsuario)}
-          >
-            Cambiar usuario
-          </button>
-          {!esPropia && (
-            <>
+        {!esPropia && (
+          <div className="acciones-cuenta">
+            <button
+              type="button"
+              className="btn ghost small"
+              aria-label={`Contraseña temporal de ${cuenta.nombre}`}
+              aria-busy={pendiente}
+              onClick={siLibre(alPonerContrasena)}
+            >
+              Contraseña temporal
+            </button>
+            {cuenta.activo ? (
               <button
                 type="button"
                 className="btn ghost small"
-                aria-label={`Contraseña temporal de ${cuenta.nombre}`}
+                aria-label={`Desactivar a ${cuenta.nombre}`}
                 aria-busy={pendiente}
-                onClick={siLibre(alPonerContrasena)}
+                onClick={siLibre(alDesactivar)}
               >
-                Contraseña temporal
+                Desactivar
               </button>
-              {cuenta.activo ? (
-                <button
-                  type="button"
-                  className="btn ghost small"
-                  aria-label={`Desactivar a ${cuenta.nombre}`}
-                  aria-busy={pendiente}
-                  onClick={siLibre(alDesactivar)}
-                >
-                  Desactivar
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  className="btn small"
-                  aria-label={`Reactivar a ${cuenta.nombre}`}
-                  aria-busy={pendiente}
-                  onClick={siLibre(reactivar)}
-                >
-                  Reactivar
-                </button>
-              )}
-            </>
-          )}
-        </div>
+            ) : (
+              <button
+                type="button"
+                className="btn small"
+                aria-label={`Reactivar a ${cuenta.nombre}`}
+                aria-busy={pendiente}
+                onClick={siLibre(reactivar)}
+              >
+                Reactivar
+              </button>
+            )}
+          </div>
+        )}
       </td>
     </tr>
   )

@@ -32,7 +32,7 @@ export function SeccionGestionUsuarios({ cuentas, idPropio }: { cuentas: Cuenta[
       <h2 id="titulo-gestion-usuarios">Gestión de usuarios</h2>
       <div className="desc">
         Creá cuentas, asigná roles, poné contraseñas temporales y desactivá o reactivá cuentas. Cada persona edita su
-        propio nombre y siglas; el usuario con el que entra lo ponés vos.
+        propio nombre y siglas; el usuario con el que entra lo ponés vos: tocalo para cambiarlo.
       </div>
       <div className="card">
         <div className="tabla-desplazable">

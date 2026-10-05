@@ -89,10 +89,13 @@ function FormularioNuevaCuenta({ alCerrar, numeroAdministracion }: { alCerrar: (
             {campos?.usuario && <div className="campo-error">{campos.usuario}</div>}
           </div>
           {esAdministracion ? (
-            <p className="hint">
-              Se va a llamar «{nombreAdministracion(numeroAdministracion)}» ({siglasAdministracion(numeroAdministracion)}
-              ): la casa no ve el nombre real de Administración.
-            </p>
+            // Dentro de un .field: ocupa el lugar (y el espacio) de los campos que no se piden.
+            <div className="field">
+              <p className="hint">
+                Se va a llamar «{nombreAdministracion(numeroAdministracion)}» (
+                {siglasAdministracion(numeroAdministracion)}): la casa no ve el nombre real de Administración.
+              </p>
+            </div>
           ) : (
             <>
               <div className="field">

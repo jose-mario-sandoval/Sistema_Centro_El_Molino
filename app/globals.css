@@ -1523,6 +1523,12 @@ html[data-cal-oculta-n="3"] .zona-calendario:not([data-listo]) .aviso-filtros-zo
 .user-table td:first-child{border-radius:var(--r-sm) 0 0 var(--r-sm);}
 .user-table td:last-child{border-radius:0 var(--r-sm) var(--r-sm) 0;}
 .user-table tr.inactiva td{color:var(--tinta-tenue);}
+/* El rol se tiene que leer entero ("Administración"). */
+.user-table td[data-et="Rol"]{min-width:12.5rem;}
+/* El usuario es un botón (elevado = tocable): tocarlo lo cambia. Un usuario largo parte, no desborda. */
+.boton-usuario{gap:.5rem;max-width:100%;text-align:left;font-weight:600;}
+.boton-usuario span{min-width:0;overflow-wrap:anywhere;}
+.boton-usuario .icono{flex:0 0 auto;width:1.1em;height:1.1em;color:var(--tinta-suave);}
 .user-table [aria-busy="true"],.modal-foot [aria-busy="true"]{opacity:.7;cursor:progress;}
 .acciones-cuenta{display:flex;flex-wrap:wrap;gap:.5rem;justify-content:flex-end;}
 
