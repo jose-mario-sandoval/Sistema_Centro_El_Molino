@@ -18,7 +18,14 @@ export async function iniciarSesion(_previo: Resultado<null> | null, formData: F
   // Auth conoce cada cuenta por una dirección que nadie escribe: se busca con la llave secreta (el
   // único uso sin sesión: solo esta búsqueda, y nada de ella vuelve al navegador). Un usuario que no
   // existe recibe una dirección que no es de nadie y sigue el mismo camino.
-  const direccion = await direccionDeAcceso(crearClienteAdmin(), usuarioParaEntrar(entrada.data.usuario))
+  let direccion
+  try {
+    direccion = await direccionDeAcceso(crearClienteAdmin(), usuarioParaEntrar(entrada.data.usuario))
+  } catch (error) {
+    // Sin la llave secreta configurada no se puede buscar a nadie: se dice, en vez de romper la página.
+    console.error('iniciarSesion: no se pudo buscar la dirección de acceso', error)
+    return fallo('No se pudo iniciar sesión. Intentá de nuevo.')
+  }
   if (!direccion.ok) return fallo('No se pudo iniciar sesión. Intentá de nuevo.')
 
   const supabase = await crearClienteServidor()

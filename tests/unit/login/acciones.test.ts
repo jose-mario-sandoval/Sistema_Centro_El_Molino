@@ -90,6 +90,18 @@ describe('iniciarSesion: se entra con el usuario', () => {
     expect(sesion.auth.signInWithPassword).not.toHaveBeenCalled()
   })
 
+  it('sin la llave secreta configurada, lo dice en vez de romper la página', async () => {
+    vi.mocked(crearClienteAdmin).mockImplementation(() => {
+      throw new Error('Falta SUPABASE_SECRET_KEY')
+    })
+    const sesion = servidor(ENTRO)
+    expect(await iniciarSesion(null, formulario('r.flores'))).toEqual({
+      ok: false,
+      error: 'No se pudo iniciar sesión. Intentá de nuevo.',
+    })
+    expect(sesion.auth.signInWithPassword).not.toHaveBeenCalled()
+  })
+
   it('una cuenta desactivada lo dice', async () => {
     admin({ data: { id: ID }, error: null })
     servidor({ data: { user: null }, error: { code: 'user_banned' } })

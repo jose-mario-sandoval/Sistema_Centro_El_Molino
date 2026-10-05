@@ -165,27 +165,30 @@ arroba:
 2. se quita todo lo que no sea `a-z`, `0-9`, `.`, `_` o `-`;
 3. varios separadores seguidos quedan en el primero, y se quitan los de los extremos;
 4. se corta a 30 caracteres (y se vuelve a quitar un separador final);
-5. si quedan menos de 3: `cuenta.<lo que quedó>`, o `cuenta` si no quedó nada.
+5. si quedan menos de 3, o si empieza con `demo.` (ese prefijo es de las cuentas de demo, y
+   `limpiar-datos-demo` borraría una cuenta real que lo llevara): `cuenta.<lo que quedó>`, o `cuenta`
+   si no quedó nada, vuelto a cortar a 30.
 
 El prefijo `demo.` y los sufijos `.2`, `.3` cuentan dentro de los 30: si no entran, se recorta la
 base.
 
-**Quién recibe qué:**
+**Quién recibe qué**, en este orden (dentro de cada grupo, por antigüedad):
 
-- **Cuentas de demo** (correo `@demo.test`, de cualquier rol): `usuario` = `demo.<limpio>`. Van
-  primero, para que no le quiten el usuario a una cuenta real.
-- **Administración**, por antigüedad: `usuario` = `admin.N`, `nombre` = `Administración N`,
-  `siglas` = `AN` (las de demo conservan su `demo.…` y también toman el nombre genérico). El nombre
-  real se pierde en este paso.
-- **Casa** (Director, Residente): `usuario` = el limpio.
-- **Repetidos:** al más antiguo le queda el limpio; a los siguientes, `.2`, `.3`…
+- **Administración**: primero las cuentas reales y después las de demo, así las reales se numeran
+  desde 1. `nombre` = `Administración N`, `siglas` = `AN`; `usuario` = `admin.N` (las de demo,
+  `demo.<limpio>`, con su nombre genérico igual). El nombre real se pierde en este paso.
+- **Casa** (Director, Residente): primero las de demo (`demo.<limpio>`) y después las reales (el
+  limpio).
+- **Repetidos:** al que llegó antes le queda el limpio; a los siguientes, `.2`, `.3`…
 - `usuario` queda `not null` y único; `correo` pasa a admitir nulos (el código nuevo ya no lo
   escribe).
 - La migración termina con una consulta que lista, por cuenta, el correo de antes (para saber quién
-  es quién: las siglas de Administración ya son `A1`, `A2`), el rol, el usuario y una marca "avisar"
-  en las que no se deducen de su correo (Administración, repetidos, los de menos de 3). Al pegarla
-  en el SQL Editor, el resultado es la lista para repartir. El archivo no lleva ningún dato real (el
-  repo es público).
+  es quién: las siglas de Administración ya son `A1`, `A2`), el rol, el usuario y una marca
+  "AVISAR" en las cuentas cuyo usuario no es, tal cual, lo de antes de la arroba de su correo
+  (Administración, repetidos, y los correos con caracteres que el usuario no admite). Al pegarla en
+  el SQL Editor, el resultado es la lista para repartir; aplicada con `npm run db:aplicar` la lista
+  no se ve (después se puede sacar con `select rol, nombre, usuario from perfiles order by rol,
+  creado_en`). El archivo no lleva ningún dato real (el repo es público).
 - La contraseña y las sesiones abiertas de cada quien no cambian: nadie queda afuera.
 
 ### Borrar los correos (PR 3)
@@ -249,7 +252,12 @@ Sin código, salvo que algo falle. Después del PR 2:
   donde el PR 1 agrega casos y el PR 2 cambia cómo se entra (`tests/e2e/calendario.spec.ts`,
   `tests/e2e/comidas.spec.ts`): el segundo se rebasa y regenera los tipos.
 - Entre aplicar A y que Vercel termine el despliegue del PR 2 (minutos), "Nueva cuenta" del código
-  viejo falla porque no manda `usuario`. Todo lo demás sigue funcionando.
+  viejo falla porque no manda `usuario`, y una cuenta de Administración todavía podría volver a
+  escribir su nombre en "Mi cuenta". Todo lo demás sigue funcionando. Al revés —el código nuevo sin
+  la migración— no entra nadie: por eso A va primero.
+- El login nuevo usa la llave secreta del servidor (`SUPABASE_SECRET_KEY` en Vercel) por primera vez
+  sin sesión. Ya la usan "Nueva cuenta" y "Contraseña temporal": si esas funcionan en producción,
+  está puesta.
 - Hasta el PR 3, volver atrás es revertir el despliegue: los correos siguen en su lugar. Dos cosas
   no se deshacen así: el nombre de las cuentas de Administración (lo cambia A) y las cuentas creadas
   con el código nuevo, que no tienen correo y con el código viejo no podrían entrar.

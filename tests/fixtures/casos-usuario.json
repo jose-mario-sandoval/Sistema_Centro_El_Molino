@@ -14,6 +14,8 @@
     ["+++@x.org", "cuenta"],
     ["abcdefghijklmnopqrstuvwxyz0123456789@x.org", "abcdefghijklmnopqrstuvwxyz0123"],
     ["abcdefghijklmnopqrstuvwxyz012.456@x.org", "abcdefghijklmnopqrstuvwxyz012"],
-    ["ÑANDÚ@x.org", "nandu"]
+    ["ÑANDÚ@x.org", "nandu"],
+    ["demo.residente@gmail.com", "cuenta.demo.residente"],
+    ["demo.abcdefghijklmnopqrstuvwxyz@x.org", "cuenta.demo.abcdefghijklmnopqr"]
   ]
 }

@@ -32,8 +32,12 @@ as $$
     select regexp_replace(regexp_replace(t, '([._-])[._-]+', '\1', 'g'), '^[._-]+|[._-]+$', '', 'g') as t from paso2
   ), paso4 as (
     select regexp_replace(left(t, 30), '[._-]+$', '') as t from paso3
+  ), paso5 as (
+    -- Menos de 3 caracteres no es un usuario válido. Y `demo.` es de las cuentas de demo: una cuenta
+    -- real cuyo correo empiece así no puede quedar con ese prefijo (limpiar-datos-demo la borraría).
+    select case when length(t) < 3 or t like 'demo.%' then rtrim('cuenta.' || t, '.') else t end as t from paso4
   )
-  select case when length(t) >= 3 then t when t = '' then 'cuenta' else 'cuenta.' || t end from paso4
+  select regexp_replace(left(t, 30), '[._-]+$', '') from paso5
 $$;
 
 do $$
@@ -44,12 +48,17 @@ declare
   v_n integer;
   v_admin integer := 0;
 begin
-  -- Administración primero (sus admin.N no los toma nadie más) y, dentro de ella, las cuentas reales
-  -- antes que las de demo (así las reales se numeran desde 1); después la casa. Siempre por antigüedad.
+  -- Administración primero (sus admin.N no los toma nadie más): las reales y después las de demo, así
+  -- las reales se numeran desde 1. Después la casa: las de demo y después las reales. Siempre por
+  -- antigüedad dentro de cada grupo.
   for r in
     select p.id, p.correo, p.rol
     from public.perfiles p
-    order by (p.rol = 'administracion') desc, (p.correo like '%@demo.test'), p.creado_en, p.id
+    order by
+      (p.rol = 'administracion') desc,
+      ((p.correo like '%@demo.test') = (p.rol = 'administracion')),
+      p.creado_en,
+      p.id
   loop
     if r.rol = 'administracion' then
       v_admin := v_admin + 1;

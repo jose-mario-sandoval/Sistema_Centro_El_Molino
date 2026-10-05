@@ -46,8 +46,10 @@ export function usuarioDesdeCorreo(correo: string): string {
     .replace(/^[._-]+|[._-]+$/g, '')
     .slice(0, LARGO_MAXIMO_USUARIO)
     .replace(/[._-]+$/, '')
-  if (base.length >= LARGO_MINIMO_USUARIO) return base
-  return base ? `cuenta.${base}` : 'cuenta'
+  // Menos de 3 caracteres no es un usuario válido. Y `demo.` es de las cuentas de demo: una cuenta
+  // real cuyo correo empiece así no quedó con ese prefijo (limpiar-datos-demo la borraría).
+  if (base.length >= LARGO_MINIMO_USUARIO && !base.startsWith(PREFIJO_DEMO)) return base
+  return (base ? `cuenta.${base}` : 'cuenta').slice(0, LARGO_MAXIMO_USUARIO).replace(/[._-]+$/, '')
 }
 
 /** Lo que se escribió en el campo "Usuario" del login → el usuario a buscar. */

@@ -314,6 +314,19 @@ export function siguienteNumeroAdministracion(nombres: readonly string[]): numbe
 - Create: `supabase/migrations/20261005110000_usuarios.sql`
 - Modify: `lib/supabase/database.types.ts` (`perfiles`)
 
+> **Tras la revisión del plan y la prueba en el banco**, la migración que quedó en el repo difiere de
+> este bloque en tres puntos (manda el archivo `supabase/migrations/20261005110000_usuarios.sql`):
+> 1. **Orden:** Administración real, Administración demo, casa demo, casa real (así las cuentas
+>    reales de Administración se numeran desde 1 y las de demo se quedan con su `demo.…`).
+> 2. **AVISAR:** se marca cuando el usuario no es, tal cual, lo de antes de la arroba (incluye
+>    `cuenta.jp` y `juanalgo`).
+> 3. **Prefijo `demo.`:** una cuenta real cuya parte local empiece así queda como `cuenta.demo.…`
+>    (en `pg_temp.limpiar_usuario` y en `usuarioDesdeCorreo()`, con dos casos más en el fixture).
+>
+> También cambiaron respecto del plan: `tests/integration/cuentas.test.ts` no lee `perfiles.correo`;
+> el e2e de cambio de rol a Administración se reescribió (pide confirmación y la cuenta cambia de
+> nombre); `iniciarSesion` responde con un fallo si falta la llave secreta, en vez de romper.
+
 - [ ] **Step 1: Migración**
 
 ```sql
