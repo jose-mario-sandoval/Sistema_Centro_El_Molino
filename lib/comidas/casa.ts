@@ -1,5 +1,5 @@
 import { sumarDias, type FechaISO } from '@/lib/fechas'
-import { partesParaCocina, totalQueComen, type ResumenComida } from './resumen'
+import { partesParaCocina, textoParte, totalQueComen, type ResumenComida } from './resumen'
 import { diasDeSemana, etiquetaDia, tituloComida } from './semana'
 import { CANTIDAD_MAXIMA_EXTRA, ETIQUETA_TIEMPO, type ExtraManual, type TiempoComida } from './tipos'
 
@@ -82,7 +82,7 @@ export function etiquetaCeldaCasa(
 ): string {
   const comen = totalQueComen(resumen)
   const partes = [`${comen} ${comen === 1 ? 'come' : 'comen'}`]
-  const desglose = partesParaCocina(resumen).map((parte) => parte.texto)
+  const desglose = partesParaCocina(resumen).map(textoParte)
   if (desglose.length > 0) partes.push(desglose.join(', '))
   if (extra) partes.push(`+${extra} extra`)
   partes.push(...notas)

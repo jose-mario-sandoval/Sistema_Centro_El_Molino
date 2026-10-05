@@ -106,6 +106,16 @@ describe('etiquetaCeldaCasa: nombre accesible del botón de una celda', () => {
     )
   })
 
+  it('lo que puede comer quien está enfermo también se dice: es parte de lo que se ve en la celda', () => {
+    const conEnfermo = resumenComida([
+      { estado: 'si', nota: null, origen: 'plan' },
+      { estado: 'enfermo', nota: 'Sopa de pollo', origen: 'persona' },
+    ])
+    expect(etiquetaCeldaCasa('cena', 'Viernes', '25/9', conEnfermo)).toBe(
+      'Cena del viernes 25/9: 2 comen. 1 enfermo (Sopa de pollo), 1 sí. Ver quiénes',
+    )
+  })
+
   it('una sola persona: "come"; sin personas, lo dice', () => {
     expect(etiquetaCeldaCasa('cena', 'Viernes', '25/9', resumenComida([{ estado: 'si', nota: null, origen: 'plan' }]))).toBe(
       'Cena del viernes 25/9: 1 come. 1 sí. Ver quiénes',
