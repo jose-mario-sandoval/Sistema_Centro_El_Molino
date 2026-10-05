@@ -1,0 +1,242 @@
+# Etiquetas y nota de enfermo para Administración; entrar con usuario — diseño
+
+Tres pedidos del usuario (2026-10-05), en un solo spec y tres PR:
+
+| # | Pedido | PR |
+|---|---|---|
+| 1 | Administración ve la etiqueta de los eventos (San Rafael, San Gabriel, San Miguel, Otro) | 1 |
+| 2 | Cuando alguien marca "Enfermo", a Administración no le sale lo que puede comer | 1 |
+| 3 | Entrar con nombre de usuario en vez de correo; el Director no debe ver correos ni nombres de Administración | 2 y 3 |
+| 4 | Dejar la app lista para instalar en el teléfono y recibir notificaciones | prueba guiada, sin código |
+
+Hallazgos del análisis:
+
+- **La app nunca manda correos.** No hay recuperación de contraseña por correo (la contraseña
+  temporal la pone el Director): el correo solo es el identificador para entrar. Quitarlo no le saca
+  nada a nadie.
+- **Instalar y avisos ya están en producción** (PR #28). Comprobado desde afuera el 2026-10-05:
+  `/manifest.webmanifest` (`display: standalone`) y `/sw.js` responden, y la llave pública VAPID está
+  puesta (el script de `<head>` sale con `conAvisos = true`). Lo que no se ve desde afuera —
+  `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`, `CRON_SECRET` en Vercel y `url_app` / `cron_secret` en Vault—
+  solo se confirma con la prueba de §4.
+- **El desglose de la cocina descarta la nota de enfermo a propósito** (spec del 2026-09-26 §2:
+  "enfermo, solo cantidad, nunca la nota"). El pedido 2 revierte esa decisión.
+
+## Decisiones tomadas con el usuario
+
+1. Administración ve la etiqueta **solo en los eventos que ya ve** (los que piden algo a la cocina).
+   El título sigue oculto.
+2. Las cuentas que ya existen reciben su usuario **solas**: las de la casa, lo que va antes de la
+   arroba de su correo; las de Administración, `admin.1`, `admin.2`… El Director los cambia después.
+3. **La casa no ve el nombre real de Administración**: esas cuentas se llaman "Administración 1" /
+   "A1". Al crearlas no se pide nombre, y las que ya existen se renombran.
+4. El usuario lo pone y lo cambia **solo el Director**; cada persona lo ve en "Mi cuenta" sin poder
+   editarlo (es la llave para entrar: que nadie lo cambie y lo olvide).
+5. Enfoque del login: el usuario vive en `perfiles` y el servidor busca la cuenta al entrar (§3,
+   "Enfoque").
+
+## 1. Etiquetas de evento para Administración (PR 1)
+
+### Reglas
+
+1. `eventos_para_cocina(p_desde, p_hasta)` devuelve además `tipo`. Mismo filtro que hoy (casilla o
+   pedido libre), mismo `security definer`, nunca `titulo` ni `serie_id`. Cambia el `RETURNS TABLE`:
+   `drop function` + `create`, y se repiten `revoke` / `grant`.
+2. `EventoParaCocina` gana `tipo: TipoEvento`; `eventoParaAdministracion()` lo pasa al `Evento`
+   (`titulo` sigue siendo el texto del pedido).
+3. **Lo que Administración sigue sin ver:** el título, los eventos sin pedido, los filtros del
+   calendario y las ausencias.
+
+### Pantallas
+
+- **Mes y lista (agenda):** sus eventos llevan el color y la marca del tipo (SR / SG / SM / Otro),
+  con los mismos tokens `--ev-<tipo>` y `MARCA_TIPO` que la casa. En teléfono angosto queda la
+  inicial, igual que para la casa.
+- **Detalle del día:** la pastilla con el nombre completo ("San Gabriel"). No se repiten las
+  pastillas de pedido: para Administración el texto del evento ya es el pedido.
+- **Nombre accesible del día:** incluye el tipo, como para la casa.
+- **Sin filtros.** `conFiltros` sigue en `false` para Administración. Como ahora sus eventos llevan
+  `data-tipo`, los filtros que otra persona haya guardado en ese mismo dispositivo
+  (`html[data-cal-oculta]`, CSS previo a la hidratación) no deben ocultarle nada, ni un instante:
+  `.zona-calendario` sale con `data-listo` desde el servidor cuando no hay filtros.
+
+### Avisos push a la cocina
+
+- `paraCocina()` deja pasar también `tipo`. El texto lo nombra junto a la fecha:
+  "Jueves 1/10, 15:00 · San Gabriel: Merienda".
+- `cambioPedidoCocina()` no cambia: si solo cambia la categoría (o el título), no hay aviso nuevo.
+- `cargaSeriePedidos()`: nombra el tipo si todas las fechas lo comparten.
+
+## 2. Nota de enfermo en el desglose de la cocina (PR 1)
+
+1. `resumenComida()`: la parte de un estado con nota de texto (`INFO_ESTADO[estado].nota ===
+   'texto'`, hoy solo `enfermo`) lleva `notas: string[]`, una por persona que escribió algo, en el
+   orden de las personas y sin agrupar. Nunca nombres ni siglas.
+2. `CeldaResumen` las pinta debajo de la línea del estado, una por renglón, en letra normal (son
+   texto libre y pueden ser largas: el renglón parte, no se recorta).
+3. `textoResumen()` (texto corrido) las agrega entre paréntesis separadas por "; ":
+   "1 enfermo (sopa de pollo)".
+4. Plural: "2 enfermos".
+5. Sale igual donde se usa el mismo resumen: Semana y Plan de Administración, y "La casa" del
+   Director.
+
+## 3. Entrar con usuario (PR 2 y PR 3)
+
+### Enfoque
+
+Supabase Auth exige un correo para entrar con contraseña. Opciones:
+
+- **A. Correo derivado del usuario** (`r.flores@…`): el login no consulta nada, pero cambiar el
+  usuario obliga a cambiar Auth, y el día del cambio hay que reescribir todas las cuentas en el mismo
+  minuto del despliegue; mientras tanto nadie entra.
+- **B. Usuario en `perfiles` + búsqueda en el servidor (elegida).** El correo de Auth pasa a ser una
+  dirección interna que nadie ve ni escribe. Cambiar el usuario es actualizar una columna. Las
+  cuentas actuales siguen entrando sin tocar Auth, y sus correos reales se borran después, cuando ya
+  se comprobó que todo funciona.
+- **C. Autenticación propia:** descartada; todo el RLS depende de `auth.uid()`.
+
+### Reglas
+
+1. **`perfiles.usuario`**: texto, obligatorio y único. Se guarda normalizado. Formato: 3 a 30
+   caracteres, `^[a-z0-9]+([._-][a-z0-9]+)*$` (el mismo `check` en la base y en zod).
+2. **`normalizarUsuario()`** (`lib/cuentas/usuario.ts`): quita espacios de los extremos, pasa a
+   minúsculas y quita tildes y la virgulilla de la ñ. "R.Flores" = "r.flores"; "Muñoz" = "munoz".
+   Se usa al crear, al cambiar y al entrar.
+3. **Entrar** (`iniciarSesion`):
+   1. Normaliza lo escrito. Si trae "@" (costumbre, o el teléfono rellenó el correo guardado), se
+      queda con lo de antes.
+   2. Con la llave secreta: `perfiles` por `usuario` → `id` → `auth.admin.getUserById(id)` → la
+      dirección de Auth.
+   3. `signInWithPassword` con esa dirección. Si el usuario no existe, se intenta igual con una
+      dirección interna inexistente: mismo camino, mismo mensaje ("Usuario o contraseña
+      incorrectos."), para no revelar qué usuarios existen.
+   4. Lo demás no cambia: cuenta desactivada, cambio de contraseña obligatorio, redirección.
+4. **Dirección interna:** las cuentas nuevas se crean en Auth con
+   `<uuid aleatorio>@cuentas.molino.invalid` (constante `DOMINIO_INTERNO`; `.invalid` nunca recibe
+   correo). No depende del usuario: cambiarlo no toca Auth.
+5. **Nombre genérico de Administración:** una cuenta con rol `administracion` se llama
+   `Administración N` con siglas `AN`. N = 1 + el mayor número ya usado por otra cuenta de
+   Administración, activa o no (no se reutilizan: un mensaje viejo no cambia de dueño). Lo calcula el
+   servidor al crear la cuenta o al pasarla a ese rol.
+6. **Cambios de rol:**
+   - A Administración: la cuenta toma el nombre genérico que sigue. Pasa por la confirmación que ya
+     existe para el rol Director, diciendo cómo va a llamarse.
+   - Desde Administración a otro rol: conserva el nombre genérico hasta que la persona lo cambie en
+     "Mi cuenta", que para ella vuelve a ser editable.
+7. **Quién escribe qué** (siempre en el servidor, con `perfilParaAccion()`):
+   - `crearNuevaCuenta` (Director): `usuario`, `rol`, contraseña temporal; `nombre` y `siglas` solo
+     si el rol no es Administración.
+   - `cambiarUsuarioCuenta` (Director, cualquier cuenta, también la suya): nuevo `usuario`; repetido
+     → "Ya existe una cuenta con ese usuario."
+   - `guardarMiCuenta` (cada quien): solo `nombre` y `siglas`; rechaza a Administración. Desaparece
+     todo el manejo de correo y su reversión en Auth.
+   - `cambiarMiContrasena` no cambia: ya toma la dirección de `auth.getUser()`.
+
+### Pantallas
+
+- **Login:** campo "Usuario" (`autoComplete="username"`, sin mayúscula automática, sin corrector).
+- **Ajustes → Mi cuenta:** Nombre y Siglas (solo lectura para Administración, con la explicación),
+  Usuario (solo lectura: "Con este usuario iniciás sesión. Para cambiarlo, hablá con el Director."),
+  Rol.
+- **Ajustes → Gestión de usuarios (Director):** la columna "Correo" pasa a "Usuario"; cada fila
+  (también la propia) tiene "Cambiar usuario".
+- **Nueva cuenta:** primero el Rol. Con Administración no se piden nombre ni siglas (se muestra cómo
+  va a llamarse) y el usuario viene propuesto como `admin.N`, editable. Al crear, la pantalla de
+  entrega muestra usuario y contraseña temporal.
+
+### Cuentas que ya existen (migración A)
+
+- **Casa** (Director, Residente): `usuario` = lo de antes de la arroba, limpiado (minúsculas, sin
+  caracteres fuera del formato). Si no queda algo válido, `cuenta`. Repetidos: `.2`, `.3`… por
+  antigüedad.
+- **Administración**, por antigüedad: `usuario` = `admin.N`, `nombre` = `Administración N`,
+  `siglas` = `AN`. El nombre real se pierde en este paso.
+- `usuario` queda `not null` y único; `correo` pasa a admitir nulos (el código nuevo ya no lo
+  escribe).
+- La contraseña y las sesiones abiertas de cada quien no cambian: nadie queda afuera.
+
+### Borrar los correos (PR 3, migración B)
+
+Después de comprobar en producción que la gente entra:
+
+1. `alter table perfiles drop column correo`.
+2. `borrar_correos_de_acceso()` (`security definer`, solo `service_role`, idempotente): a toda cuenta
+   de Auth cuya dirección no sea interna le pone una interna nueva, en `auth.users.email` y en
+   `auth.identities.identity_data`. La migración la llama una vez; queda disponible por si alguien
+   crea una cuenta con correo real desde el panel de Supabase.
+
+Va en un PR aparte para que el CI del PR 2 corra contra el mismo esquema que tendrá producción entre
+los dos pasos (`correo` todavía presente), y para que no se pueda aplicar antes de tiempo.
+
+### Scripts y pruebas de apoyo
+
+- `npm run crear-director -- --nombre … --siglas … --usuario …`.
+- Los scripts de demo reconocen sus cuentas por el prefijo de usuario `demo.` en vez del dominio del
+  correo.
+- `tests/soporte/usuarios-prueba.ts`: cada cuenta de prueba gana `usuario`; su dirección de Auth
+  puede seguir siendo la de hoy (el login la busca).
+
+## 4. Instalar y notificaciones: prueba en un teléfono
+
+Sin código, salvo que algo falle. Después del PR 2:
+
+1. Abrir la app en el teléfono (Chrome en Android, o Safari en iPhone con iOS 16.4 o más) e
+   instalarla desde la franja "Instalar".
+2. Abrir la app instalada y entrar con el usuario.
+3. Ajustes → Notificaciones → "Activar notificaciones".
+4. Desde otra cuenta, en otro dispositivo, publicar un mensaje: tiene que llegar el aviso. Si no
+   llega, faltan `VAPID_PRIVATE_KEY` o `VAPID_SUBJECT` en Vercel.
+5. Recordatorio de hora límite: la consulta de comprobación de
+   `supabase/snippets/configurar-vault.sql` debe dar 202. Un 401 o 404 es `cron_secret` o `url_app`
+   mal puestos en Vault.
+
+## Orden de entrega y migraciones
+
+| PR | Rama | Migración | Cuándo aplicarla |
+|---|---|---|---|
+| 1 | `claude/administracion-etiquetas-enfermo` | `20261005100000_eventos_cocina_tipo.sql` | Antes de mergear (el código viejo ignora la columna nueva) |
+| 2 | `claude/entrar-con-usuario` | `20261005110000_usuarios.sql` (A) | Justo antes de mergear |
+| 3 | `claude/borrar-correos` | `20261005120000_borrar_correos.sql` (B) | Después de comprobar el PR 2 en producción |
+
+- PR 1 y PR 2 no comparten archivos de código; los dos tocan `CLAUDE.md` (el segundo se rebasa).
+- Entre aplicar A y que Vercel termine el despliegue del PR 2 (minutos), "Nueva cuenta" del código
+  viejo falla porque no manda `usuario`. Todo lo demás sigue funcionando.
+- Hasta la migración B, volver atrás es revertir el despliegue: los correos siguen en su lugar. Lo
+  único que A no deja deshacer es el nombre de las cuentas de Administración.
+- Los tres PR regeneran `lib/supabase/database.types.ts` desde el artefacto del CI.
+- Documentación: `CLAUDE.md` (qué ve Administración de un evento, enfermo con nota, login por
+  usuario, nombres genéricos), `README.md` (script) y `DESIGN.md` (§ calendario: Administración
+  recibe el tipo, no los filtros).
+
+## Pruebas
+
+- **Unitarias:** `resumenComida` / `textoResumen` con notas de enfermo; `cargaPedidoCocina` y
+  `cargaSeriePedidos` con tipo, y que un cambio solo de categoría no avisa;
+  `eventoParaAdministracion` pasa el tipo y nunca un título; `normalizarUsuario` y el esquema;
+  `iniciarSesion` (usuario, con "@", inexistente); acciones de Ajustes (crear con usuario, cuenta de
+  Administración genérica, cambiar usuario, `guardarMiCuenta` sin correo y rechazada para
+  Administración, cambio de rol a Administración).
+- **Integración (CI):** `eventos_para_cocina()` devuelve `tipo` y no expone título; crear una cuenta
+  y entrar con su usuario de punta a punta; `borrar_correos_de_acceso()` reemplaza un correo real y
+  la cuenta sigue entrando (PR 3).
+- **E2E:** entrar con usuario; el Director crea una cuenta de Administración sin escribir nombre;
+  Administración ve la etiqueta en el calendario y la nota de enfermo en la semana.
+- **Banco SQL local:** el relleno de la migración A con correos raros, repetidos y cuentas de
+  Administración.
+
+## Riesgos
+
+- **`.invalid` en Supabase hospedado.** El validador de direcciones de Auth solo corre al enviar
+  correos, y la app no envía ninguno; el CI lo prueba con el mismo servidor de Auth. Si producción lo
+  rechazara, se cambia la constante `DOMINIO_INTERNO`. Se confirma creando una cuenta de prueba
+  apenas despliegue el PR 2.
+- **Reescribir `auth.users` por SQL** (migración B) no es una API pública de Supabase: por eso va
+  detrás de una función con prueba de integración contra el Auth real del CI, y al final, cuando el
+  login nuevo ya está comprobado.
+- **Usuarios repetidos al rellenar:** quien quede como `algo.2` no entra escribiendo su correo (se
+  recorta a `algo`). El Director le avisa su usuario.
+- **A Administración hay que avisarle** cuál usuario le tocó (`admin.N`): no lo puede deducir.
+- **La nota de enfermo es texto libre** y llega a la cocina: si alguien escribe un nombre, se ve. La
+  única protección es la ayuda del campo ("Qué puede comer").
+- **`perfiles` sigue legible por PostgREST** para cualquier cuenta activa (límite ya conocido): eso
+  incluye `usuario`. No se resuelve acá.
