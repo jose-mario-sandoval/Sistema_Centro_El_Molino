@@ -4,7 +4,7 @@ import { varsEstado } from './insignia-estado'
 
 /**
  * Lo que la cocina necesita de una comida: cuántos comen y cómo (temprano y a qué hora, tarde, en
- * bolsa…), sin nombres. Sin hooks ni 'use client', para poder usarse también dentro de una tabla
+ * bolsa, enfermo y qué puede comer…), sin nombres. Sin hooks ni 'use client', para poder usarse también dentro de una tabla
  * de cliente. `como='spans'` es para ir dentro de un <button>, que no admite listas.
  */
 export function CeldaResumen({
@@ -60,9 +60,17 @@ function Parte({ parte, Item }: { parte: ParteResumen; Item: 'li' | 'span' }) {
       </Item>
     )
   return (
-    <Item className="parte" style={varsEstado(parte.clave)}>
-      <Icono nombre={parte.clave} />
-      {parte.texto}
-    </Item>
+    <>
+      <Item className="parte" style={varsEstado(parte.clave)}>
+        <Icono nombre={parte.clave} />
+        {parte.texto}
+      </Item>
+      {/* Texto libre de cada persona (enfermo: qué puede comer). Sin nombre; el renglón parte, no se recorta. */}
+      {parte.notas?.map((nota, indice) => (
+        <Item key={indice} className="nota-parte">
+          {nota}
+        </Item>
+      ))}
+    </>
   )
 }

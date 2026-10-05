@@ -729,6 +729,9 @@ button.comida-tarjeta[aria-busy="true"]{cursor:progress;}
 .conteo-extra{margin-top:.5rem;font-weight:700;color:var(--tinta);}
 .notas-extra{display:flex;flex-direction:column;gap:.2rem;margin-top:.25rem;font-size:var(--t-sm);color:var(--tinta-suave);}
 .notas-extra > *{display:block;}
+/* Lo que escribió quien está enfermo (qué puede comer): debajo de su línea, en letra normal. Es texto
+   libre: ocupa el renglón entero y parte, no se recorta. */
+.nota-parte{display:block;width:100%;box-sizing:border-box;margin-top:-.15rem;padding:0 .6rem;font-size:var(--t-sm);font-weight:400;line-height:1.35;color:var(--tinta);text-align:left;overflow-wrap:anywhere;}
 
 /* Contraste alto sin relieve: cada fila (un día) lleva su borde, como toda superficie hundida.
    Apilada, el borde lo lleva la ficha entera (abajo se quitan los de las celdas). */
