@@ -2,7 +2,8 @@
  * Filtros del calendario (Director y Residente): qué tipos de evento se ven, si se marcan las propias
  * ausencias y si se ven solo los eventos que piden algo a la cocina. Se guarda en el dispositivo
  * (localStorage) como la lista de lo que está oculto: por defecto no se oculta nada, y un tipo nuevo
- * aparece solo. Administración no tiene filtros: sus eventos no traen tipo y nunca se filtran.
+ * aparece solo. Administración no tiene filtros: ve la categoría de sus eventos, pero nunca se le
+ * oculta nada (`useFiltrosCalendario(false)` no lee lo guardado en el dispositivo).
  */
 import { ETIQUETA_TIPO, TIPOS_EVENTO, tienePedido, type Evento, type TipoEvento } from '@/lib/calendario/tipos'
 
@@ -51,7 +52,7 @@ export function alternarFiltro(ocultos: readonly Filtro[], filtro: Filtro): Filt
 
 /**
  * Se ve si su tipo no está oculto y, con "Solo eventos con pedido a cocina", si pide algo. Un evento
- * sin tipo (el de Administración) nunca se filtra.
+ * sin tipo nunca se filtra.
  */
 export function eventoVisible(evento: Evento, ocultos: readonly Filtro[]): boolean {
   if (evento.tipo === null) return true
@@ -131,7 +132,7 @@ export function textoCantidadOcultos(cantidad: number): string {
 /**
  * Nombre accesible de un día de la cuadrícula: cuántos eventos y de qué tipo (los puntos del teléfono
  * no tienen texto), cuántos ocultan los filtros (para que el día no parezca vacío) y la ausencia.
- * Administración: cuántos pedidos para la cocina, sin tipos.
+ * Administración: cuántos pedidos para la cocina y de qué categoría.
  */
 export function etiquetaDiaCalendario({
   etiqueta,
@@ -148,12 +149,15 @@ export function etiquetaDiaCalendario({
 }): string {
   const partes = [etiqueta]
   const cantidad = visibles.length
-  if (paraCocina) {
-    if (cantidad > 0) partes.push(`${cantidad} ${cantidad === 1 ? 'pedido' : 'pedidos'} para la cocina`)
-  } else if (cantidad > 0) {
+  if (cantidad > 0) {
     const tipos = [...new Set(visibles.flatMap((e) => (e.tipo ? [ETIQUETA_TIPO[e.tipo]] : [])))]
     const deQue = tipos.length ? `: ${enumerar(tipos)}` : ''
-    partes.push(`${cantidad} ${cantidad === 1 ? 'evento' : 'eventos'}${deQue}`)
+    const que = paraCocina
+      ? `${cantidad === 1 ? 'pedido' : 'pedidos'} para la cocina`
+      : cantidad === 1
+        ? 'evento'
+        : 'eventos'
+    partes.push(`${cantidad} ${que}${deQue}`)
   }
   if (ocultos > 0) partes.push(`${ocultos} ${ocultos === 1 ? 'oculto' : 'ocultos'} por los filtros`)
   if (ausente) partes.push('ausente')

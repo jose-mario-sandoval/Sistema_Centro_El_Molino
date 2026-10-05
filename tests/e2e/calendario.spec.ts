@@ -193,7 +193,7 @@ test('sin elegir el tipo el evento no se guarda', async ({ page }) => {
   expect(data).toEqual([])
 })
 
-test('Administración ve lo que la cocina debe preparar, sin título ni tipo', async ({ page }) => {
+test('Administración ve lo que la cocina debe preparar con la categoría del evento, sin título', async ({ page }) => {
   const ids = await asegurarUsuariosPrueba()
   const hoy = fechaISOEn(new Date())
   const { error } = await clienteAdminPrueba()
@@ -205,31 +205,42 @@ test('Administración ve lo que la cocina debe preparar, sin título ni tipo', a
   expect(error).toBeNull()
 
   await iniciarSesion(page, 'administracion')
-  // Aunque el dispositivo tenga filtros guardados (lo usó antes alguien de la casa), a la cocina no le aplican.
+  // Aunque el dispositivo tenga filtros guardados (lo usó antes alguien de la casa), a la cocina no le aplican…
   await page.evaluate(() => localStorage.setItem('molino-calendario', '{"ocultos":["san_rafael","sin_pedido"]}'))
+  // …ni un instante: el HTML del servidor ya sale "listo", así el CSS previo a la hidratación no esconde nada.
+  const respuesta = await page.request.get('/calendario')
+  expect(await respuesta.text()).toMatch(/class="zona-calendario" data-listo=""/)
   await page.goto('/calendario')
   await expect(page.getByText('Lo que la casa necesita de la cocina')).toBeVisible()
 
-  // Sin filtros ni nada que delate la categoría: ni chips, ni marcas, ni colores por tipo.
+  // Sin filtros: ni chips ni aviso de ocultos.
   await expect(page.getByRole('region', { name: 'Filtros' })).toHaveCount(0)
   await expect(page.getByRole('switch')).toHaveCount(0)
-  await expect(page.locator('[data-tipo], [data-marca], .marca-tipo, .chip-filtro, .aviso-filtros')).toHaveCount(0)
+  await expect(page.locator('.chip-filtro, .aviso-filtros')).toHaveCount(0)
+
+  // El pedido, con el color y la marca escrita de su categoría.
   const celdaHoy = page.locator(`.cal-day[data-fecha="${hoy}"]`)
-  await expect(celdaHoy.locator('.cal-event')).toHaveText(['16:00 Merienda y comida'])
-  await expect(celdaHoy).toHaveAttribute('aria-label', /, 1 pedido para la cocina$/)
+  const evento = celdaHoy.locator('.cal-event')
+  await expect(evento).toHaveText(['16:00 Merienda y comida'])
+  await expect(evento).toBeVisible()
+  await expect(evento).toHaveAttribute('data-tipo', 'san_rafael')
+  await expect(evento).toHaveAttribute('data-marca', 'SR')
+  await expect(celdaHoy).toHaveAttribute('aria-label', /, 1 pedido para la cocina: San Rafael$/)
 
   await celdaHoy.click()
   const modal = page.getByRole('dialog')
   await expect(modal.getByText('Merienda y comida')).toBeVisible()
   await expect(modal.getByText('16:00')).toBeVisible()
+  await expect(modal.locator('.pastilla-tipo')).toHaveText('San Rafael')
+  // El pedido ya es el texto del evento: no se repite en pastillas.
+  await expect(modal.locator('.pastilla-cocina')).toHaveCount(0)
   // El evento que no pide nada a la cocina no aparece, ni su hora.
   await expect(modal.getByText('09:00')).toHaveCount(0)
   await expect(modal.getByText(/ocultos? por los filtros/)).toHaveCount(0)
 
-  // Ni el título ni el tipo llegan al navegador, ni en pantalla ni en los datos de la página.
+  // Ni los títulos ni la categoría del evento sin pedido llegan al navegador, ni en pantalla ni en los datos.
   const html = await page.content()
-  // (Las claves que este mismo dispositivo guardó arriba no cuentan: no vienen del servidor.)
-  for (const secreto of ['Retiro secreto', 'Reunión privada', 'San Rafael', 'San Gabriel', 'San Miguel', 'Estás ocultando']) {
+  for (const secreto of ['Retiro secreto', 'Reunión privada', 'San Gabriel', 'San Miguel', 'Estás ocultando']) {
     expect(html, `"${secreto}" no debería llegar a Administración`).not.toContain(secreto)
   }
   await expect(modal.getByLabel('Título del evento')).toHaveCount(0)

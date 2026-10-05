@@ -13,13 +13,21 @@ import { MarcaTipo } from './marca-tipo'
 const ICONO: Record<RequerimientoCocina, NombreIcono> = { merienda: 'merienda', comida: 'comidas', materiales: 'materiales' }
 
 /**
- * De qué tipo es el evento (en su color, con su marca) y qué le pide a la cocina. Administración no
- * conoce el tipo (llega null): a ella su título ya es el resumen de lo que debe preparar, así que aquí
- * no se repite. `oculto`: el evento está oculto por los filtros y se ve porque se pidió en el día.
+ * De qué tipo es el evento (en su color, con su marca) y qué le pide a la cocina. `soloTipo`
+ * (Administración): su título ya es el resumen de lo que debe preparar, así que el pedido no se
+ * repite en pastillas. `oculto`: el evento está oculto por los filtros y se ve porque se pidió en el día.
  */
-export function InsigniasEvento({ evento, oculto = false }: { evento: Evento; oculto?: boolean }) {
+export function InsigniasEvento({
+  evento,
+  oculto = false,
+  soloTipo = false,
+}: {
+  evento: Evento
+  oculto?: boolean
+  soloTipo?: boolean
+}) {
   if (evento.tipo === null) return null
-  const pedidos = REQUERIMIENTOS_COCINA.filter((r) => evento.requiere_cocina.includes(r))
+  const pedidos = soloTipo ? [] : REQUERIMIENTOS_COCINA.filter((r) => evento.requiere_cocina.includes(r))
 
   return (
     <span className="insignias-evento">

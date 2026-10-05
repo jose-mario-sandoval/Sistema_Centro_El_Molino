@@ -19,7 +19,7 @@ function textoEvento(evento: Evento): string {
 
 /**
  * Color, marca y datos para el CSS previo a la hidratación (`data-tipo`, `data-pedido`). Solo si el
- * evento trae tipo: los de Administración no lo traen y se pintan como siempre, sin nada de esto.
+ * evento trae tipo: uno sin tipo se pinta sin nada de esto.
  */
 function atributosEvento(evento: Evento) {
   if (evento.tipo === null) return {}
@@ -51,8 +51,8 @@ function OcultosDelDia({ cantidad }: { cantidad: number }) {
  * cuadrícula (DESIGN.md §4, excepción documentada).
  *
  * Con `conFiltros` (Director y Residente), arriba van los filtros por tipo, "Mis ausencias" y "Solo
- * eventos con pedido a cocina", y el aviso de lo que está oculto. Administración no los tiene: sus
- * eventos no traen tipo (ni color, ni marca).
+ * eventos con pedido a cocina", y el aviso de lo que está oculto. Administración no los tiene (ve
+ * todo lo que le piden), pero sus eventos sí llevan el color y la marca de su categoría.
  */
 export function CalendarioMes({
   cabecera,
@@ -70,7 +70,7 @@ export function CalendarioMes({
   eventosPorFecha: Record<FechaISO, Evento[]>
   hoy: FechaISO
   puedeEditar: boolean
-  /** Administración: solo ve lo que debe preparar la cocina (sin título ni tipo). */
+  /** Administración: solo ve lo que debe preparar la cocina, con su categoría y sin título. */
   paraCocina?: boolean
   /** Ausencias propias (Director y Residente): sus días se marcan en la cuadrícula. */
   ausencias?: readonly RangoAusencia[]
@@ -94,7 +94,9 @@ export function CalendarioMes({
 
   return (
     // data-listo: ya hidratado con los filtros de este dispositivo (antes, el CSS esconde lo guardado).
-    <div className="zona-calendario" data-listo={listo ? '' : undefined}>
+    // Sin filtros (Administración) sale listo desde el servidor: lo que otra persona haya ocultado en
+    // este dispositivo no le esconde nada, ni un instante.
+    <div className="zona-calendario" data-listo={listo || !conFiltros ? '' : undefined}>
       {conFiltros && <FiltrosCalendario ocultos={ocultos} alAlternar={alternar} alMostrarTodo={mostrarTodo} />}
       <div className="card">
         {cabecera}
@@ -141,7 +143,7 @@ export function CalendarioMes({
                         {visibles.map((evento) => (
                           <span key={evento.id} className="agenda-evento" {...atributosEvento(evento)}>
                             {textoEvento(evento)}
-                            <InsigniasEvento evento={evento} />
+                            <InsigniasEvento evento={evento} soloTipo={paraCocina} />
                           </span>
                         ))}
                         {ocultosDia > 0 && (

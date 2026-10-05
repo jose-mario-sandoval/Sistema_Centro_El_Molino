@@ -19,6 +19,7 @@ function FilaEvento({
   ocultoPor,
   alMostrarFiltro,
   puedeEditar,
+  soloTipo,
   alEditar,
   enfocarDialogo,
 }: {
@@ -31,6 +32,8 @@ function FilaEvento({
   /** Vuelve a mostrar en el calendario lo que esconde ese filtro. */
   alMostrarFiltro?: (filtro: Filtro) => void
   puedeEditar: boolean
+  /** Administración: el pedido ya es el texto del evento; solo se agrega la pastilla de su categoría. */
+  soloTipo: boolean
   alEditar: () => void
   enfocarDialogo: () => void
 }) {
@@ -90,7 +93,7 @@ function FilaEvento({
     <div className="cal-evento-fila">
       <div className="cal-evento-texto">
         {evento.hora && <b>{horaHHMM(evento.hora)}</b>} <span>{evento.titulo}</span>
-        <InsigniasEvento evento={evento} oculto={ocultoPor !== null} />
+        <InsigniasEvento evento={evento} oculto={ocultoPor !== null} soloTipo={soloTipo} />
         {ocultoPor !== null && alMostrarFiltro && (
           <button
             type="button"
@@ -277,6 +280,7 @@ export function ModalDia({
                 ocultoPor={filtroQueOculta(evento, ocultos)}
                 alMostrarFiltro={alMostrarFiltro}
                 puedeEditar={puedeEditar}
+                soloTipo={paraCocina}
                 alEditar={() => setEditandoId(evento.id)}
                 enfocarDialogo={enfocarDialogo}
               />

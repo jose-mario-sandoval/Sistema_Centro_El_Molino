@@ -1263,7 +1263,8 @@ button.comida-tarjeta[aria-busy="true"]{cursor:progress;}
 /* ---------- 8b. Tipos de evento y filtros del calendario -----------------
    Cada tipo tiene su color (--ev / --ev-bg, de varsTipo) y SIEMPRE su marca con la sigla (SR, SG, SM;
    "Otro" es el cuadrito gris sin letras junto a su nombre). Tinte + marca, nunca una franja lateral
-   (DESIGN.md §8). Administración no recibe el tipo: sus eventos se pintan como antes. */
+   (DESIGN.md §8). Administración ve el tipo de los eventos que le piden algo, igual pintado; no tiene
+   filtros. */
 
 /* La marca: el color de relleno con la sigla en pergamino (≥4.5:1, ≥7:1 en alto; prueba en
    tests/unit/calendario/colores-evento.test.ts). La sigla va por CSS: no forma parte del texto. */

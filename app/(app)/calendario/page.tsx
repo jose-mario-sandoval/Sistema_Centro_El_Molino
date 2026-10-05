@@ -76,7 +76,7 @@ export default async function PaginaCalendario({
         puedeEditar={puedeEditar}
         paraCocina={perfil.rol === 'administracion'}
         ausencias={ausencias}
-        // Administración no filtra por tipo: nunca conoce el tipo de un evento.
+        // Administración no tiene filtros: ve todo lo que le piden, con su categoría.
         conFiltros={conAusencias}
       />
       {/* Debajo del calendario, compacta. `hoy` va del servidor: el navegador nunca calcula "hoy". */}
