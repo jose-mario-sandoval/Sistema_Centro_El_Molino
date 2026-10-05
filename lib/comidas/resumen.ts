@@ -1,7 +1,13 @@
 import { ESTADOS_COMIDA, INFO_ESTADO, type EstadoComida, type SeleccionGuardada, type ValorEfectivo } from './tipos'
 
 export type ClaveResumen = EstadoComida | 'sin_definir'
-export type ParteResumen = { clave: ClaveResumen; cantidad: number; texto: string }
+export type ParteResumen = {
+  clave: ClaveResumen
+  cantidad: number
+  texto: string
+  /** Lo que escribió cada persona en un estado con nota libre (enfermo: qué puede comer). Nunca nombres. */
+  notas?: string[]
+}
 export type ResumenComida = { total: number; partes: ParteResumen[] }
 
 const ETIQUETA_CORTA: Record<EstadoComida, (cantidad: number) => string> = {
@@ -11,7 +17,7 @@ const ETIQUETA_CORTA: Record<EstadoComida, (cantidad: number) => string> = {
   temprano: () => 'temprano',
   tarde: () => 'tarde',
   bolsa: () => 'en bolsa',
-  enfermo: () => 'enfermo',
+  enfermo: (cantidad) => (cantidad === 1 ? 'enfermo' : 'enfermos'),
 }
 
 /**
@@ -31,7 +37,10 @@ function horasAgrupadas(notas: (string | null)[]): string[] {
     .map(([hora, cantidad]) => (cantidad > 1 ? `${hora} ×${cantidad}` : hora))
 }
 
-/** Conteo de una comida para el resumen de Administración (spec §6.5). null = "Sin definir". */
+/**
+ * Conteo de una comida para el resumen de Administración (spec §6.5). null = "Sin definir". Las horas
+ * van en el texto, agrupadas; las notas de texto (enfermo) van en `notas`, una por persona y sin nombre.
+ */
 export function resumenComida(valores: ValorEfectivo[]): ResumenComida {
   const partes: ParteResumen[] = []
 
@@ -43,7 +52,15 @@ export function resumenComida(valores: ValorEfectivo[]): ResumenComida {
       const horas = horasAgrupadas(delEstado.map((valor) => valor.nota))
       if (horas.length > 0) texto += ` (${horas.join(', ')})`
     }
-    partes.push({ clave: estado, cantidad: delEstado.length, texto })
+    const parte: ParteResumen = { clave: estado, cantidad: delEstado.length, texto }
+    if (INFO_ESTADO[estado].nota === 'texto') {
+      const notas = delEstado.flatMap((valor) => {
+        const nota = valor.nota?.trim()
+        return nota ? [nota] : []
+      })
+      if (notas.length > 0) parte.notas = notas
+    }
+    partes.push(parte)
   }
 
   const sinDefinir = valores.filter((valor) => valor === null).length
@@ -52,9 +69,14 @@ export function resumenComida(valores: ValorEfectivo[]): ResumenComida {
   return { total: valores.length, partes }
 }
 
+/** La parte en texto corrido, con sus notas: '1 enfermo (sopa de pollo)' · '2 enfermos (sopa; dieta blanda)'. */
+export function textoParte(parte: ParteResumen): string {
+  return parte.notas?.length ? `${parte.texto} (${parte.notas.join('; ')})` : parte.texto
+}
+
 export function textoResumen(resumen: ResumenComida): string {
   if (resumen.partes.length === 0) return 'Sin personas'
-  return resumen.partes.map((parte) => parte.texto).join(' · ')
+  return resumen.partes.map(textoParte).join(' · ')
 }
 
 /** Cuántos de un resumen efectivamente comen: descuenta "no" y "sin definir". */

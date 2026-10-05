@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { ORDEN_COCINA, partesParaCocina, resumenComida, textoResumen, totalQueComen } from '@/lib/comidas/resumen'
+import { ORDEN_COCINA, partesParaCocina, resumenComida, textoParte, textoResumen, totalQueComen } from '@/lib/comidas/resumen'
 import { ESTADOS_COMIDA, type EstadoComida, type ValorEfectivo } from '@/lib/comidas/tipos'
 
 function v(estado: EstadoComida, nota: string | null = null, origen: 'plan' | 'persona' = 'plan'): ValorEfectivo {
@@ -36,9 +36,32 @@ describe('resumenComida', () => {
     expect(resumen.partes).toEqual([{ clave: 'si', cantidad: 2, texto: '2 sí' }])
   })
 
-  it('no muestra la nota de enfermo y nombra "en bolsa"', () => {
+  it('nombra "en bolsa" y deja aparte, en `notas`, lo que puede comer quien está enfermo', () => {
     const resumen = resumenComida([v('enfermo', 'Solo sopa'), v('bolsa')])
-    expect(resumen.partes.map((p) => p.texto)).toEqual(['1 en bolsa', '1 enfermo'])
+    expect(resumen.partes).toEqual([
+      { clave: 'bolsa', cantidad: 1, texto: '1 en bolsa' },
+      { clave: 'enfermo', cantidad: 1, texto: '1 enfermo', notas: ['Solo sopa'] },
+    ])
+  })
+
+  it('varios enfermos: plural, una nota por persona, en su orden y sin agrupar', () => {
+    const resumen = resumenComida([v('enfermo', 'Sopa'), v('si'), v('enfermo', 'Dieta blanda'), v('enfermo', 'Sopa')])
+    expect(resumen.partes.find((p) => p.clave === 'enfermo')).toEqual({
+      clave: 'enfermo',
+      cantidad: 3,
+      texto: '3 enfermos',
+      notas: ['Sopa', 'Dieta blanda', 'Sopa'],
+    })
+  })
+
+  it('un enfermo sin nota no agrega `notas` (ni una lista vacía)', () => {
+    const [parte] = resumenComida([v('enfermo'), v('enfermo', '   ')]).partes
+    expect(parte).toEqual({ clave: 'enfermo', cantidad: 2, texto: '2 enfermos' })
+    expect(parte).not.toHaveProperty('notas')
+  })
+
+  it('las horas no son notas: siguen en el texto', () => {
+    expect(resumenComida([v('tarde', '13:30')]).partes[0]).not.toHaveProperty('notas')
   })
 
   it('una hora sin nota no agrega paréntesis', () => {
@@ -99,9 +122,24 @@ describe('partesParaCocina', () => {
   })
 })
 
+describe('textoParte', () => {
+  it('sin notas, el texto corto', () => {
+    expect(textoParte({ clave: 'si', cantidad: 2, texto: '2 sí' })).toBe('2 sí')
+  })
+
+  it('con notas, entre paréntesis y separadas por punto y coma', () => {
+    const [parte] = resumenComida([v('enfermo', 'Sopa de pollo'), v('enfermo', 'Dieta blanda')]).partes
+    expect(textoParte(parte)).toBe('2 enfermos (Sopa de pollo; Dieta blanda)')
+  })
+})
+
 describe('textoResumen', () => {
   it('une las partes con un punto medio', () => {
     expect(textoResumen(resumenComida([v('si'), v('tarde', '13:30'), null]))).toBe('1 sí · 1 tarde (13:30) · 1 sin definir')
+  })
+
+  it('lleva las notas de enfermo', () => {
+    expect(textoResumen(resumenComida([v('si'), v('enfermo', 'Sopa')]))).toBe('1 sí · 1 enfermo (Sopa)')
   })
 })
 
