@@ -348,13 +348,14 @@ export type Database = {
           avisar_cocina: boolean
           avisar_hora_limite: boolean
           avisar_mensajes: boolean
-          correo: string
+          correo: string | null
           creado_en: string
           debe_cambiar_contrasena: boolean
           id: string
           nombre: string
           rol: Database["public"]["Enums"]["rol"]
           siglas: string
+          usuario: string
         }
         Insert: {
           activo?: boolean
@@ -365,13 +366,14 @@ export type Database = {
           avisar_cocina?: boolean
           avisar_hora_limite?: boolean
           avisar_mensajes?: boolean
-          correo: string
+          correo?: string | null
           creado_en?: string
           debe_cambiar_contrasena?: boolean
           id: string
           nombre: string
           rol: Database["public"]["Enums"]["rol"]
           siglas: string
+          usuario: string
         }
         Update: {
           activo?: boolean
@@ -382,13 +384,14 @@ export type Database = {
           avisar_cocina?: boolean
           avisar_hora_limite?: boolean
           avisar_mensajes?: boolean
-          correo?: string
+          correo?: string | null
           creado_en?: string
           debe_cambiar_contrasena?: boolean
           id?: string
           nombre?: string
           rol?: Database["public"]["Enums"]["rol"]
           siglas?: string
+          usuario?: string
         }
         Relationships: []
       }
