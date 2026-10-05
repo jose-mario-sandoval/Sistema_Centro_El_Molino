@@ -49,11 +49,12 @@ Hallazgos del análisis:
 
 ### Pantallas
 
-- **Mes y lista (agenda):** sus eventos llevan el color y la marca del tipo (SR / SG / SM / Otro),
-  con los mismos tokens `--ev-<tipo>` y `MARCA_TIPO` que la casa. En teléfono angosto queda la
-  inicial, igual que para la casa.
-- **Detalle del día:** la pastilla con el nombre completo ("San Gabriel"). No se repiten las
-  pastillas de pedido: para Administración el texto del evento ya es el pedido.
+- **Cuadrícula del mes:** sus eventos llevan el color y la marca del tipo (SR / SG / SM / Otro), con
+  los mismos tokens `--ev-<tipo>` y `MARCA_TIPO` que la casa. En teléfono angosto queda la inicial,
+  igual que para la casa.
+- **Lista (agenda) y detalle del día:** además del color, la pastilla con el nombre completo ("San
+  Gabriel"), como la ve la casa. No se repiten las pastillas de pedido: para Administración el texto
+  del evento ya es el pedido.
 - **Nombre accesible del día:** incluye el tipo, como para la casa.
 - **Sin filtros.** `conFiltros` sigue en `false` para Administración. Como ahora sus eventos llevan
   `data-tipo`, los filtros que otra persona haya guardado en ese mismo dispositivo
@@ -71,11 +72,14 @@ Hallazgos del análisis:
 
 1. `resumenComida()`: la parte de un estado con nota de texto (`INFO_ESTADO[estado].nota ===
    'texto'`, hoy solo `enfermo`) lleva `notas: string[]`, una por persona que escribió algo, en el
-   orden de las personas y sin agrupar. Nunca nombres ni siglas.
+   orden de las personas y sin agrupar. Nunca nombres ni siglas. `parte.texto` sigue siendo el corto
+   ("1 enfermo").
 2. `CeldaResumen` las pinta debajo de la línea del estado, una por renglón, en letra normal (son
    texto libre y pueden ser largas: el renglón parte, no se recorta).
-3. `textoResumen()` (texto corrido) las agrega entre paréntesis separadas por "; ":
-   "1 enfermo (sopa de pollo)".
+3. Un solo ayudante, `textoParte(parte)`, da el texto corrido con las notas entre paréntesis
+   separadas por "; ": "1 enfermo (sopa de pollo)". Lo usan los dos lugares que arman texto corrido:
+   `etiquetaCeldaCasa()` (`lib/comidas/casa.ts`, el nombre accesible del botón de cada celda de "La
+   casa": tiene que decir todo lo que se ve escrito) y `textoResumen()`.
 4. Plural: "2 enfermos".
 5. Sale igual donde se usa el mismo resumen: Semana y Plan de Administración, y "La casa" del
    Director.
@@ -98,13 +102,15 @@ Supabase Auth exige un correo para entrar con contraseña. Opciones:
 ### Reglas
 
 1. **`perfiles.usuario`**: texto, obligatorio y único. Se guarda normalizado. Formato: 3 a 30
-   caracteres, `^[a-z0-9]+([._-][a-z0-9]+)*$` (el mismo `check` en la base y en zod).
+   caracteres, `^[a-z0-9]+([._-][a-z0-9]+)*$` (el mismo `check` en la base y en zod). El prefijo
+   `demo.` queda reservado para los scripts de demo: los formularios lo rechazan.
 2. **`normalizarUsuario()`** (`lib/cuentas/usuario.ts`): quita espacios de los extremos, pasa a
    minúsculas y quita tildes y la virgulilla de la ñ. "R.Flores" = "r.flores"; "Muñoz" = "munoz".
    Se usa al crear, al cambiar y al entrar.
 3. **Entrar** (`iniciarSesion`):
    1. Normaliza lo escrito. Si trae "@" (costumbre, o el teléfono rellenó el correo guardado), se
-      queda con lo de antes.
+      le aplica `usuarioDesdeCorreo()`: la misma limpieza con la que la migración A armó los usuarios
+      (ver "Cuentas que ya existen"), para que el correo de siempre lleve al usuario que le tocó.
    2. Con la llave secreta: `perfiles` por `usuario` → `id` → `auth.admin.getUserById(id)` → la
       dirección de Auth.
    3. `signInWithPassword` con esa dirección. Si el usuario no existe, se intenta igual con una
@@ -115,9 +121,10 @@ Supabase Auth exige un correo para entrar con contraseña. Opciones:
    `<uuid aleatorio>@cuentas.molino.invalid` (constante `DOMINIO_INTERNO`; `.invalid` nunca recibe
    correo). No depende del usuario: cambiarlo no toca Auth.
 5. **Nombre genérico de Administración:** una cuenta con rol `administracion` se llama
-   `Administración N` con siglas `AN`. N = 1 + el mayor número ya usado por otra cuenta de
-   Administración, activa o no (no se reutilizan: un mensaje viejo no cambia de dueño). Lo calcula el
-   servidor al crear la cuenta o al pasarla a ese rol.
+   `Administración N` con siglas `AN`. N = 1 + el mayor número que aparezca en un `nombre` con la
+   forma `Administración <número>` en **cualquier** perfil (de cualquier rol, activo o no): así no se
+   repite un número que alguien todavía lleva, sin guardar un contador. Lo calcula el servidor al
+   crear la cuenta o al pasarla a ese rol.
 6. **Cambios de rol:**
    - A Administración: la cuenta toma el nombre genérico que sigue. Pasa por la confirmación que ya
      existe para el rol Director, diciendo cómo va a llamarse.
@@ -146,35 +153,64 @@ Supabase Auth exige un correo para entrar con contraseña. Opciones:
 
 ### Cuentas que ya existen (migración A)
 
-- **Casa** (Director, Residente): `usuario` = lo de antes de la arroba, limpiado (minúsculas, sin
-  caracteres fuera del formato). Si no queda algo válido, `cuenta`. Repetidos: `.2`, `.3`… por
-  antigüedad.
+**La limpieza** (una sola regla: en SQL dentro de la migración y en TS como `usuarioDesdeCorreo()`,
+con la misma tabla de casos en la prueba unitaria y en el banco SQL). De lo que va antes de la
+arroba:
+
+1. minúsculas, sin tildes ni virgulilla;
+2. se quita todo lo que no sea `a-z`, `0-9`, `.`, `_` o `-`;
+3. varios separadores seguidos quedan en el primero, y se quitan los de los extremos;
+4. se corta a 30 caracteres (y se vuelve a quitar un separador final);
+5. si quedan menos de 3: `cuenta.<lo que quedó>`, o `cuenta` si no quedó nada.
+
+**Quién recibe qué:**
+
+- **Cuentas de demo** (correo `@demo.test`, de cualquier rol): `usuario` = `demo.<limpio>`. Van
+  primero, para que no le quiten el usuario a una cuenta real.
 - **Administración**, por antigüedad: `usuario` = `admin.N`, `nombre` = `Administración N`,
-  `siglas` = `AN`. El nombre real se pierde en este paso.
+  `siglas` = `AN` (las de demo conservan su `demo.…` y también toman el nombre genérico). El nombre
+  real se pierde en este paso.
+- **Casa** (Director, Residente): `usuario` = el limpio.
+- **Repetidos:** al más antiguo le queda el limpio; a los siguientes, `.2`, `.3`…
 - `usuario` queda `not null` y único; `correo` pasa a admitir nulos (el código nuevo ya no lo
   escribe).
+- La migración termina con una consulta que lista siglas, rol, usuario y una marca "avisar" en las
+  cuentas cuyo usuario no se deduce de su correo (Administración, repetidos, los de menos de 3):
+  al pegarla en el SQL Editor, el resultado es la lista para repartir. El archivo no lleva ningún
+  dato real (el repo es público).
 - La contraseña y las sesiones abiertas de cada quien no cambian: nadie queda afuera.
 
-### Borrar los correos (PR 3, migración B)
+### Borrar los correos (PR 3)
 
-Después de comprobar en producción que la gente entra:
+Después de comprobar en producción que la gente entra, en este orden:
 
-1. `alter table perfiles drop column correo`.
-2. `borrar_correos_de_acceso()` (`security definer`, solo `service_role`, idempotente): a toda cuenta
-   de Auth cuya dirección no sea interna le pone una interna nueva, en `auth.users.email` y en
-   `auth.identities.identity_data`. La migración la llama una vez; queda disponible por si alguien
-   crea una cuenta con correo real desde el panel de Supabase.
+1. **Migración B:** `alter table perfiles drop column correo`.
+2. **`npm run borrar-correos -- --confirmar`** (script nuevo, con el patrón `exigirConfirmacion` de
+   los demás): a toda cuenta de Auth cuya dirección no sea interna le pone una interna nueva con
+   `auth.admin.updateUserById(id, { email, email_confirm: true })`, la misma llamada con la que hoy
+   se cambia un correo en "Mi cuenta". Idempotente; sin `--confirmar` solo dice cuántas cambiaría.
+   No se reescribe el esquema `auth` por SQL.
+
+"Borrar" abarca `perfiles.correo`, la dirección de la cuenta en Auth y su identidad de correo. Queda
+afuera el registro interno de Auth (`auth.audit_log_entries`), que solo ve quien entra al panel de
+Supabase.
 
 Va en un PR aparte para que el CI del PR 2 corra contra el mismo esquema que tendrá producción entre
 los dos pasos (`correo` todavía presente), y para que no se pueda aplicar antes de tiempo.
 
+**Invariante al cerrar el PR 2:** nada en la app, los scripts ni las pruebas lee o escribe
+`perfiles.correo`. Así el PR 3 es la migración, el script y los tipos regenerados.
+
 ### Scripts y pruebas de apoyo
 
 - `npm run crear-director -- --nombre … --siglas … --usuario …`.
-- Los scripts de demo reconocen sus cuentas por el prefijo de usuario `demo.` en vez del dominio del
-  correo.
+- Los scripts de demo crean y reconocen sus cuentas por el prefijo de usuario `demo.` en vez del
+  dominio del correo.
 - `tests/soporte/usuarios-prueba.ts`: cada cuenta de prueba gana `usuario`; su dirección de Auth
-  puede seguir siendo la de hoy (el login la busca).
+  puede seguir siendo la de hoy (el login la busca). Las pruebas que hoy buscan o limpian cuentas por
+  correo (login, instalar, mensajes, configuraciones) pasan a hacerlo por `usuario`.
+- La prueba del borrado usa una cuenta descartable, creada con un correo de verdad: no toca las
+  cuentas de prueba compartidas, que entran con su dirección fija.
 
 ## 4. Instalar y notificaciones: prueba en un teléfono
 
@@ -195,14 +231,17 @@ Sin código, salvo que algo falle. Después del PR 2:
 | PR | Rama | Migración | Cuándo aplicarla |
 |---|---|---|---|
 | 1 | `claude/administracion-etiquetas-enfermo` | `20261005100000_eventos_cocina_tipo.sql` | Antes de mergear (el código viejo ignora la columna nueva) |
-| 2 | `claude/entrar-con-usuario` | `20261005110000_usuarios.sql` (A) | Justo antes de mergear |
-| 3 | `claude/borrar-correos` | `20261005120000_borrar_correos.sql` (B) | Después de comprobar el PR 2 en producción |
+| 2 | `claude/entrar-con-usuario` | `20261005110000_usuarios.sql` (A) | Justo antes de mergear: sin ella, con el código nuevo no entra nadie |
+| 3 | `claude/borrar-correos` | `20261005120000_borrar_correos.sql` (B) + script | Después de comprobar el PR 2 en producción |
 
-- PR 1 y PR 2 no comparten archivos de código; los dos tocan `CLAUDE.md` (el segundo se rebasa).
+- PR 1 y PR 2 se cruzan en `CLAUDE.md`, en `lib/supabase/database.types.ts` y en las pruebas e2e
+  donde el PR 1 agrega casos y el PR 2 cambia cómo se entra (`tests/e2e/calendario.spec.ts`,
+  `tests/e2e/comidas.spec.ts`): el segundo se rebasa y regenera los tipos.
 - Entre aplicar A y que Vercel termine el despliegue del PR 2 (minutos), "Nueva cuenta" del código
   viejo falla porque no manda `usuario`. Todo lo demás sigue funcionando.
-- Hasta la migración B, volver atrás es revertir el despliegue: los correos siguen en su lugar. Lo
-  único que A no deja deshacer es el nombre de las cuentas de Administración.
+- Hasta el PR 3, volver atrás es revertir el despliegue: los correos siguen en su lugar. Dos cosas
+  no se deshacen así: el nombre de las cuentas de Administración (lo cambia A) y las cuentas creadas
+  con el código nuevo, que no tienen correo y con el código viejo no podrían entrar.
 - Los tres PR regeneran `lib/supabase/database.types.ts` desde el artefacto del CI.
 - Documentación: `CLAUDE.md` (qué ve Administración de un evento, enfermo con nota, login por
   usuario, nombres genéricos), `README.md` (script) y `DESIGN.md` (§ calendario: Administración
@@ -217,8 +256,8 @@ Sin código, salvo que algo falle. Después del PR 2:
   Administración genérica, cambiar usuario, `guardarMiCuenta` sin correo y rechazada para
   Administración, cambio de rol a Administración).
 - **Integración (CI):** `eventos_para_cocina()` devuelve `tipo` y no expone título; crear una cuenta
-  y entrar con su usuario de punta a punta; `borrar_correos_de_acceso()` reemplaza un correo real y
-  la cuenta sigue entrando (PR 3).
+  y entrar con su usuario de punta a punta; el borrado reemplaza el correo real de una cuenta
+  descartable, que sigue entrando con su usuario y ya no con el correo (PR 3).
 - **E2E:** entrar con usuario; el Director crea una cuenta de Administración sin escribir nombre;
   Administración ve la etiqueta en el calendario y la nota de enfermo en la semana.
 - **Banco SQL local:** el relleno de la migración A con correos raros, repetidos y cuentas de
@@ -230,12 +269,11 @@ Sin código, salvo que algo falle. Después del PR 2:
   correos, y la app no envía ninguno; el CI lo prueba con el mismo servidor de Auth. Si producción lo
   rechazara, se cambia la constante `DOMINIO_INTERNO`. Se confirma creando una cuenta de prueba
   apenas despliegue el PR 2.
-- **Reescribir `auth.users` por SQL** (migración B) no es una API pública de Supabase: por eso va
-  detrás de una función con prueba de integración contra el Auth real del CI, y al final, cuando el
-  login nuevo ya está comprobado.
-- **Usuarios repetidos al rellenar:** quien quede como `algo.2` no entra escribiendo su correo (se
-  recorta a `algo`). El Director le avisa su usuario.
-- **A Administración hay que avisarle** cuál usuario le tocó (`admin.N`): no lo puede deducir.
+- **El borrado de correos corre contra producción con la llave secreta** (`.env.local`): es un paso
+  manual, una sola vez, y no tiene vuelta atrás. Por eso va al final y pide `--confirmar`.
+- **Usuarios que no se deducen del correo:** Administración (`admin.N`), los repetidos (`algo.2`) y
+  los de menos de 3 caracteres. La consulta final de la migración A los marca para que el Director
+  les avise.
 - **La nota de enfermo es texto libre** y llega a la cocina: si alguien escribe un nombre, se ve. La
   única protección es la ayuda del campo ("Qué puede comer").
 - **`perfiles` sigue legible por PostgREST** para cualquier cuenta activa (límite ya conocido): eso
