@@ -8,7 +8,7 @@ import { clienteAdminPrueba, CONTRASENA_PRUEBA, USUARIOS_PRUEBA, type ClaveUsuar
 
 async function iniciarSesion(page: Page, clave: ClaveUsuario) {
   await page.goto('/login')
-  await page.getByLabel('Correo').fill(USUARIOS_PRUEBA[clave].correo)
+  await page.getByLabel('Usuario').fill(USUARIOS_PRUEBA[clave].usuario)
   await page.getByLabel('Contraseña').fill(CONTRASENA_PRUEBA)
   await page.getByRole('button', { name: 'Iniciar sesión' }).click()
   await expect(page).toHaveURL(/\/comidas\/semana$/)
@@ -169,7 +169,7 @@ test.describe('Ajustes: qué avisos recibir, según el rol', () => {
     await admin
       .from('perfiles')
       .update({ avisar_mensajes: true, avisar_hora_limite: true, avisar_cambios: true, avisar_cocina: true })
-      .in('correo', [USUARIOS_PRUEBA.residente.correo, USUARIOS_PRUEBA.administracion.correo])
+      .in('usuario', [USUARIOS_PRUEBA.residente.usuario, USUARIOS_PRUEBA.administracion.usuario])
   })
 
   test('Residente: los cambios del Director en sus comidas, y lo guardado persiste', async ({ page }) => {

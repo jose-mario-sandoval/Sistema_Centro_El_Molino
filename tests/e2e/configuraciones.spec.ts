@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test'
 import { HORAS_LIMITE_POR_DEFECTO } from '../../lib/comidas/tipos'
+import { direccionInterna, esDireccionInterna } from '../../lib/cuentas/usuario'
 import {
   asegurarUsuariosPrueba,
   clienteAdminPrueba,
@@ -8,38 +9,45 @@ import {
   type ClaveUsuario,
 } from '../soporte/usuarios-prueba'
 
-const CORREO_CUENTA_NUEVA = 'cuenta-nueva@prueba.test'
-const CORREO_DESECHABLE = 'correo-original@prueba.test'
-const CORREO_DESECHABLE_NUEVO = 'correo-cambiado@prueba.test'
+const USUARIO_CUENTA_NUEVA = 'cuenta.nueva'
+const USUARIO_DESECHABLE = 'cuenta.desechable'
+const USUARIO_DESECHABLE_NUEVO = 'cuenta.cambiada'
+const USUARIO_ADMIN_NUEVO = 'admin.e2e'
 const FORMATO_TEMPORAL = /^[a-hjkmnp-z2-9]{4}-[a-hjkmnp-z2-9]{4}-[a-hjkmnp-z2-9]{4}$/
 
-async function iniciarSesion(page: Page, correo: string, contrasena: string = CONTRASENA_PRUEBA) {
+async function iniciarSesion(page: Page, usuario: string, contrasena: string = CONTRASENA_PRUEBA) {
   await page.goto('/login')
-  await page.getByLabel('Correo').fill(correo)
+  await page.getByLabel('Usuario').fill(usuario)
   await page.getByLabel('Contraseña').fill(contrasena)
   await page.getByRole('button', { name: 'Iniciar sesión' }).click()
 }
 
 async function abrirConfiguracionesComo(page: Page, clave: ClaveUsuario) {
-  await iniciarSesion(page, USUARIOS_PRUEBA[clave].correo)
+  await iniciarSesion(page, USUARIOS_PRUEBA[clave].usuario)
   await expect(page).toHaveURL(/\/comidas\/semana$/)
   await page.goto('/configuraciones')
   await expect(page.getByRole('heading', { name: 'Ajustes', level: 1 })).toBeVisible()
 }
 
-/** Borra las cuentas con esos correos: por perfil y también usuarios de Auth sin perfil (pruebas cortadas a mitad). */
-async function borrarCuentas(correos: string[]) {
+/**
+ * Borra las cuentas con esos usuarios y, además, los usuarios de Auth con dirección interna que
+ * quedaron sin perfil (pruebas cortadas a mitad): las cuentas de prueba fijas no usan esas direcciones.
+ */
+async function borrarCuentas(usuarios: string[]) {
   const admin = clienteAdminPrueba()
   const ids = new Set<string>()
 
-  const { data: perfiles, error } = await admin.from('perfiles').select('id').in('correo', correos)
+  const { data: perfiles, error } = await admin.from('perfiles').select('id').in('usuario', usuarios)
   if (error) throw error
   for (const { id } of perfiles) ids.add(id)
 
-  const { data: usuarios, error: errorUsuarios } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 })
+  const { data: conPerfil, error: errorPerfiles } = await admin.from('perfiles').select('id')
+  if (errorPerfiles) throw errorPerfiles
+  const idsConPerfil = new Set(conPerfil.map(({ id }) => id))
+  const { data: deAuth, error: errorUsuarios } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 })
   if (errorUsuarios) throw errorUsuarios
-  for (const usuario of usuarios.users) {
-    if (usuario.email && correos.includes(usuario.email)) ids.add(usuario.id)
+  for (const cuenta of deAuth.users) {
+    if (esDireccionInterna(cuenta.email) && !idsConPerfil.has(cuenta.id)) ids.add(cuenta.id)
   }
 
   // Borrar el usuario de Auth borra su perfil (on delete cascade).
@@ -50,10 +58,10 @@ async function borrarCuentas(correos: string[]) {
 }
 
 /** Cuenta propia de una sola prueba, lista para entrar (sin cambio de contraseña pendiente). */
-async function crearCuentaDesechable(correo: string) {
+async function crearCuentaDesechable(usuario: string) {
   const admin = clienteAdminPrueba()
   const { data, error } = await admin.auth.admin.createUser({
-    email: correo,
+    email: direccionInterna(),
     password: CONTRASENA_PRUEBA,
     email_confirm: true,
   })
@@ -62,7 +70,7 @@ async function crearCuentaDesechable(correo: string) {
     id: data.user.id,
     nombre: 'Cuenta Desechable',
     siglas: 'CD',
-    correo,
+    usuario,
     rol: 'residente',
     debe_cambiar_contrasena: false,
   })
@@ -79,7 +87,7 @@ async function restaurarHorasLimite() {
 
 // Corre también si la prueba falla: un reintento de CI empieza limpio.
 test.afterEach(async () => {
-  await borrarCuentas([CORREO_CUENTA_NUEVA, CORREO_DESECHABLE, CORREO_DESECHABLE_NUEVO])
+  await borrarCuentas([USUARIO_CUENTA_NUEVA, USUARIO_DESECHABLE, USUARIO_DESECHABLE_NUEVO, USUARIO_ADMIN_NUEVO])
   await restaurarHorasLimite()
   await asegurarUsuariosPrueba()
 })
@@ -90,6 +98,11 @@ test('un residente ve Mi cuenta pero no Horas límite ni Gestión de usuarios', 
   await expect(page.getByRole('heading', { name: 'Horas límite' })).toHaveCount(0)
   await expect(page.getByRole('heading', { name: 'Gestión de usuarios' })).toHaveCount(0)
   await expect(page.getByLabel('Rol', { exact: true })).toBeDisabled()
+  // Ve su usuario, pero no lo cambia: es del Director.
+  const usuario = page.getByLabel('Usuario', { exact: true })
+  await expect(usuario).toHaveValue(USUARIOS_PRUEBA.residente.usuario)
+  await expect(usuario).toHaveAttribute('readonly', '')
+  await expect(page.getByLabel('Correo')).toHaveCount(0)
 })
 
 test('un residente cambia su nombre y lo ve en la barra lateral', async ({ page }) => {
@@ -105,7 +118,7 @@ test('un residente cambia su nombre y lo ve en la barra lateral', async ({ page 
 })
 
 test('la apariencia se guarda en la cuenta y llega a un dispositivo nuevo', async ({ page, browser, baseURL }) => {
-  const { correo } = USUARIOS_PRUEBA.residente
+  const { usuario } = USUARIOS_PRUEBA.residente
   await abrirConfiguracionesComo(page, 'residente')
 
   await page.getByRole('button', { name: 'Muy grande', exact: true }).click()
@@ -119,7 +132,7 @@ test('la apariencia se guarda en la cuenta y llega a un dispositivo nuevo', asyn
       const { data } = await clienteAdminPrueba()
         .from('perfiles')
         .select('apariencia_texto, apariencia_contraste, apariencia_tema')
-        .eq('correo', correo)
+        .eq('usuario', usuario)
         .single()
       return data
     })
@@ -129,7 +142,7 @@ test('la apariencia se guarda en la cuenta y llega a un dispositivo nuevo', asyn
   const dispositivoNuevo = await browser.newContext({ baseURL })
   try {
     const otra = await dispositivoNuevo.newPage()
-    await iniciarSesion(otra, correo)
+    await iniciarSesion(otra, usuario)
     await expect(otra).toHaveURL(/\/comidas\/semana$/)
     await expect(otra.locator('html')).toHaveAttribute('data-texto', 'enorme')
     await expect(otra.locator('html')).toHaveAttribute('data-contraste', 'alto')
@@ -138,27 +151,48 @@ test('la apariencia se guarda en la cuenta y llega a un dispositivo nuevo', asyn
   }
 })
 
-test('una persona cambia su propio correo y después entra solo con el nuevo', async ({ page }) => {
-  await crearCuentaDesechable(CORREO_DESECHABLE)
-  await iniciarSesion(page, CORREO_DESECHABLE)
-  await expect(page).toHaveURL(/\/comidas\/semana$/)
-  await page.goto('/configuraciones')
+test('el Director cambia el usuario de una cuenta y la persona entra solo con el nuevo', async ({ page }) => {
+  await crearCuentaDesechable(USUARIO_DESECHABLE)
+  await abrirConfiguracionesComo(page, 'director')
 
-  const correo = page.getByLabel('Correo', { exact: true })
-  await expect(correo).toHaveValue(CORREO_DESECHABLE)
-  await correo.fill('Correo-Cambiado@Prueba.TEST')
-  await page.getByRole('button', { name: 'Guardar cambios' }).click()
-  await expect(page.getByText('Cuenta actualizada.')).toBeVisible()
-  await expect(correo).toHaveValue(CORREO_DESECHABLE_NUEVO)
+  const fila = page.getByRole('row', { name: /Cuenta Desechable/ })
+  await expect(fila).toContainText(USUARIO_DESECHABLE)
+  await fila.getByRole('button', { name: 'Cambiar usuario de Cuenta Desechable' }).click()
+
+  const dialogo = page.getByRole('dialog', { name: 'Cambiar usuario' })
+  const campo = dialogo.getByLabel('Usuario de Cuenta Desechable')
+  await expect(campo).toHaveValue(USUARIO_DESECHABLE)
+
+  // Uno que ya tiene otra cuenta: lo dice junto al campo y no cierra.
+  await campo.fill(USUARIOS_PRUEBA.residente.usuario)
+  await dialogo.getByRole('button', { name: 'Guardar usuario' }).click()
+  await expect(dialogo.getByText('Ya existe una cuenta con ese usuario.')).toBeVisible()
+
+  // Con mayúsculas: se guarda normalizado.
+  await campo.fill('Cuenta.Cambiada')
+  await dialogo.getByRole('button', { name: 'Guardar usuario' }).click()
+  await expect(dialogo.getByRole('status')).toHaveText(`Cuenta Desechable ahora entra con el usuario ${USUARIO_DESECHABLE_NUEVO}.`)
+  const listo = dialogo.getByRole('button', { name: 'Listo' })
+  await expect(listo).toBeFocused()
+  await listo.click()
+  await expect(dialogo).toBeHidden()
+  await expect(fila).toContainText(USUARIO_DESECHABLE_NUEVO)
 
   await page.getByRole('button', { name: 'Cerrar sesión' }).click()
   await expect(page).toHaveURL(/\/login$/)
-  await iniciarSesion(page, CORREO_DESECHABLE)
-  await expect(page.getByText('Correo o contraseña incorrectos.')).toBeVisible()
+  await iniciarSesion(page, USUARIO_DESECHABLE)
+  await expect(page.getByText('Usuario o contraseña incorrectos.')).toBeVisible()
   await expect(page).toHaveURL(/\/login$/)
 
-  await iniciarSesion(page, CORREO_DESECHABLE_NUEVO)
+  // La contraseña no cambió.
+  await iniciarSesion(page, USUARIO_DESECHABLE_NUEVO)
   await expect(page).toHaveURL(/\/comidas\/semana$/)
+})
+
+test('el Director también cambia su propio usuario', async ({ page }) => {
+  await abrirConfiguracionesComo(page, 'director')
+  const propia = page.getByRole('row', { name: /Directora Prueba/ })
+  await expect(propia.getByRole('button', { name: 'Cambiar usuario de Directora Prueba' })).toBeVisible()
 })
 
 test('cambiar la propia contraseña pide la actual y no cierra la sesión', async ({ page }) => {
@@ -186,7 +220,7 @@ test('cambiar la propia contraseña pide la actual y no cierra la sesión', asyn
 
   await page.getByRole('button', { name: 'Cerrar sesión' }).click()
   await expect(page).toHaveURL(/\/login$/)
-  await iniciarSesion(page, USUARIOS_PRUEBA.residente.correo, nueva)
+  await iniciarSesion(page, USUARIOS_PRUEBA.residente.usuario, nueva)
   await expect(page).toHaveURL(/\/comidas\/semana$/)
 })
 
@@ -195,28 +229,77 @@ test('el Director crea una cuenta con contraseña temporal y la persona debe cam
   await page.getByRole('button', { name: '+ Nueva cuenta' }).click()
 
   const dialogo = page.getByRole('dialog', { name: 'Nueva cuenta' })
+  await dialogo.getByLabel('Rol').selectOption('residente')
+  // No se pide ningún correo: se entra con el usuario.
+  await expect(dialogo.getByLabel('Correo')).toHaveCount(0)
+  await dialogo.getByLabel('Usuario').fill('Cuenta.Nueva')
   await dialogo.getByLabel('Nombre completo').fill('Cuenta Nueva')
   await dialogo.getByLabel('Siglas').fill('cn')
-  await dialogo.getByLabel('Correo').fill(CORREO_CUENTA_NUEVA)
-  await dialogo.getByLabel('Rol').selectOption('residente')
   await dialogo.getByRole('button', { name: 'Generar' }).click()
   await expect(dialogo.getByLabel('Contraseña temporal')).toHaveValue(FORMATO_TEMPORAL)
   const temporal = await dialogo.getByLabel('Contraseña temporal').inputValue()
 
   await dialogo.getByRole('button', { name: 'Crear cuenta' }).click()
-  await expect(dialogo.getByRole('status')).toHaveText(`Cuenta creada para Cuenta Nueva (${CORREO_CUENTA_NUEVA}).`)
+  await expect(dialogo.getByRole('status')).toHaveText(`Cuenta creada: Cuenta Nueva. Usuario: ${USUARIO_CUENTA_NUEVA}.`)
   await expect(dialogo).toContainText(temporal)
   await dialogo.getByRole('button', { name: 'Listo' }).click()
   await expect(dialogo).toBeHidden()
 
   const fila = page.getByRole('row', { name: /Cuenta Nueva/ })
   await expect(fila).toContainText('CN')
+  await expect(fila).toContainText(USUARIO_CUENTA_NUEVA)
   await expect(fila).toContainText('Cambio de contraseña pendiente')
+
+  // Auth la conoce por una dirección interna: en ningún lado quedó un correo de la persona.
+  const admin = clienteAdminPrueba()
+  const { data: perfil } = await admin.from('perfiles').select('id').eq('usuario', USUARIO_CUENTA_NUEVA).single()
+  const { data: cuenta } = await admin.auth.admin.getUserById(perfil!.id)
+  expect(esDireccionInterna(cuenta.user?.email)).toBe(true)
 
   await page.getByRole('button', { name: 'Cerrar sesión' }).click()
   await expect(page).toHaveURL(/\/login$/)
-  await iniciarSesion(page, CORREO_CUENTA_NUEVA, temporal)
+  await iniciarSesion(page, USUARIO_CUENTA_NUEVA, temporal)
   await expect(page).toHaveURL(/\/cambiar-contrasena$/)
+})
+
+test('el Director crea una cuenta de Administración sin escribir ningún nombre', async ({ page }) => {
+  await abrirConfiguracionesComo(page, 'director')
+  await page.getByRole('button', { name: '+ Nueva cuenta' }).click()
+
+  const dialogo = page.getByRole('dialog', { name: 'Nueva cuenta' })
+  await dialogo.getByLabel('Rol').selectOption('administracion')
+  // La casa no ve el nombre real de Administración: no se pide, y se dice cómo se va a llamar.
+  await expect(dialogo.getByLabel('Nombre completo')).toHaveCount(0)
+  await expect(dialogo.getByLabel('Siglas')).toHaveCount(0)
+  await expect(dialogo).toContainText(/Se va a llamar «Administración \d+» \(A\d+\)/)
+  // El usuario viene propuesto y se puede cambiar.
+  await expect(dialogo.getByLabel('Usuario')).toHaveValue(/^admin\.\d+$/)
+  await dialogo.getByLabel('Usuario').fill(USUARIO_ADMIN_NUEVO)
+  await dialogo.getByRole('button', { name: 'Generar' }).click()
+  const temporal = await dialogo.getByLabel('Contraseña temporal').inputValue()
+  await dialogo.getByRole('button', { name: 'Crear cuenta' }).click()
+  await expect(dialogo.getByRole('status')).toHaveText(/^Cuenta creada: Administración \d+\. Usuario: admin\.e2e\.$/)
+  await dialogo.getByRole('button', { name: 'Listo' }).click()
+
+  const { data } = await clienteAdminPrueba().from('perfiles').select('nombre, siglas, rol').eq('usuario', USUARIO_ADMIN_NUEVO).single()
+  expect(data?.rol).toBe('administracion')
+  expect(data?.nombre).toMatch(/^Administración \d+$/)
+  expect(data?.siglas).toMatch(/^A\d+$/)
+  await expect(page.getByRole('row', { name: new RegExp(data!.nombre) })).toContainText(USUARIO_ADMIN_NUEVO)
+
+  // Esa cuenta entra con su usuario, y en Mi cuenta su nombre no se puede cambiar.
+  await page.getByRole('button', { name: 'Cerrar sesión' }).click()
+  await iniciarSesion(page, USUARIO_ADMIN_NUEVO, temporal)
+  await expect(page).toHaveURL(/\/cambiar-contrasena$/)
+  await page.getByLabel('Contraseña nueva').fill('clave-de-admin-456')
+  await page.getByLabel('Repetir contraseña').fill('clave-de-admin-456')
+  await page.getByRole('button', { name: 'Guardar contraseña' }).click()
+  await expect(page).toHaveURL(/\/comidas\/semana$/)
+  await page.goto('/configuraciones')
+  await expect(page.getByLabel('Nombre', { exact: true })).toHaveValue(data!.nombre)
+  await expect(page.getByLabel('Nombre', { exact: true })).toHaveAttribute('readonly', '')
+  await expect(page.getByLabel('Siglas', { exact: true })).toHaveAttribute('readonly', '')
+  await expect(page.getByRole('button', { name: 'Guardar cambios' })).toHaveCount(0)
 })
 
 test('el Director pone una contraseña temporal a una cuenta existente y la persona debe cambiarla', async ({
@@ -229,7 +312,7 @@ test('el Director pone una contraseña temporal a una cuenta existente y la pers
 
   const dialogo = page.getByRole('dialog', { name: 'Contraseña temporal' })
   const campo = dialogo.getByRole('textbox', { name: 'Contraseña temporal' })
-  await expect(dialogo).toContainText(`Residente Dos (${USUARIOS_PRUEBA.residente2.correo})`)
+  await expect(dialogo).toContainText(`Residente Dos (${USUARIOS_PRUEBA.residente2.usuario})`)
   await dialogo.getByRole('button', { name: 'Generar' }).click()
   await expect(campo).toHaveValue(FORMATO_TEMPORAL)
   const temporal = await campo.inputValue()
@@ -254,7 +337,7 @@ test('el Director pone una contraseña temporal a una cuenta existente y la pers
 
   await page.getByRole('button', { name: 'Cerrar sesión' }).click()
   await expect(page).toHaveURL(/\/login$/)
-  await iniciarSesion(page, USUARIOS_PRUEBA.residente2.correo, temporal)
+  await iniciarSesion(page, USUARIOS_PRUEBA.residente2.usuario, temporal)
   await expect(page).toHaveURL(/\/cambiar-contrasena$/)
 })
 
@@ -271,13 +354,13 @@ test('el Director desactiva una cuenta, que ya no puede entrar, y la reactiva', 
 
   const contexto = await browser.newContext({ baseURL: test.info().project.use.baseURL })
   const otra = await contexto.newPage()
-  await iniciarSesion(otra, USUARIOS_PRUEBA.residente2.correo)
+  await iniciarSesion(otra, USUARIOS_PRUEBA.residente2.usuario)
   await expect(otra.getByText('Tu cuenta está desactivada. Hablá con el Director.')).toBeVisible()
 
   await fila.getByRole('button', { name: 'Reactivar a Residente Dos' }).click()
   await expect(fila.getByText('Activa', { exact: true })).toBeVisible()
 
-  await iniciarSesion(otra, USUARIOS_PRUEBA.residente2.correo)
+  await iniciarSesion(otra, USUARIOS_PRUEBA.residente2.usuario)
   await expect(otra).toHaveURL(/\/comidas\/semana$/)
   await contexto.close()
 })
@@ -292,10 +375,28 @@ test('el Director cambia el rol de otra cuenta pero no el propio', async ({ page
   await expect(propia.getByRole('combobox', { name: 'Rol de Directora Prueba' })).toBeDisabled()
   await expect(propia.getByRole('button', { name: 'Desactivar a Directora Prueba' })).toHaveCount(0)
 
+  // Pasar a Administración cambia el nombre por uno genérico: pide confirmación y lo dice antes.
   await page.getByRole('combobox', { name: 'Rol de Residente Dos' }).selectOption('administracion')
-  await expect(page.getByText('Rol actualizado para Residente Dos.')).toBeVisible()
+  const dialogo = page.getByRole('dialog', { name: 'Cambiar rol' })
+  await expect(dialogo).toContainText('¿Pasar a Administración a Residente Dos?')
+  await expect(dialogo).toContainText(/Va a llamarse «Administración \d+» \(A\d+\)/)
+  await dialogo.getByRole('button', { name: 'Pasar a Administración' }).click()
+  await expect(dialogo).toBeHidden()
+  await expect(page.getByText('Residente Dos pasó a Administración.')).toBeVisible()
   await page.reload()
-  await expect(page.getByRole('combobox', { name: 'Rol de Residente Dos' })).toHaveValue('administracion')
+  await expect(page.getByRole('row', { name: /Residente Dos/ })).toHaveCount(0)
+  const { data } = await clienteAdminPrueba()
+    .from('perfiles')
+    .select('nombre, siglas, rol')
+    .eq('usuario', USUARIOS_PRUEBA.residente2.usuario)
+    .single()
+  expect(data?.rol).toBe('administracion')
+  expect(data?.nombre).toMatch(/^Administración \d+$/)
+  await expect(page.getByRole('combobox', { name: `Rol de ${data!.nombre}` })).toHaveValue('administracion')
+
+  // Al salir de Administración conserva el nombre genérico hasta que la persona ponga el suyo.
+  await page.getByRole('combobox', { name: `Rol de ${data!.nombre}` }).selectOption('residente')
+  await expect(page.getByText('Rol actualizado. Pedile que ponga su nombre en Ajustes → Mi cuenta.')).toBeVisible()
 })
 
 test('dar o quitar el rol Director pide confirmación', async ({ page }) => {

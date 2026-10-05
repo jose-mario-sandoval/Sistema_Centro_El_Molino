@@ -5,7 +5,7 @@ async function main() {
   exigirConfirmacion(`Borra todas las cuentas de usuario ${PREFIJO_DEMO}… y, en cascada, todo lo que crearon.`)
 
   const admin = crearClienteScript()
-  // `\\.`: en LIKE el punto es literal, pero `_` y `%` no; el prefijo no lleva ninguno de los dos.
+  // En LIKE el punto es literal (los comodines son `_` y `%`) y el prefijo no lleva ninguno.
   const { data: perfiles, error } = await admin.from('perfiles').select('id, usuario').like('usuario', `${PREFIJO_DEMO}%`)
   if (error) throw error
 

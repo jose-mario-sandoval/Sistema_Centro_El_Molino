@@ -1,9 +1,9 @@
 import { expect, test, type Page } from '@playwright/test'
 import { clienteAdminPrueba, CONTRASENA_PRUEBA, USUARIOS_PRUEBA } from '../soporte/usuarios-prueba'
 
-async function iniciarSesion(page: Page, correo: string) {
+async function iniciarSesion(page: Page, usuario: string) {
   await page.goto('/login')
-  await page.getByLabel('Correo').fill(correo)
+  await page.getByLabel('Usuario').fill(usuario)
   await page.getByLabel('Contraseña').fill(CONTRASENA_PRUEBA)
   await page.getByRole('button', { name: 'Iniciar sesión' }).click()
   await expect(page).toHaveURL(/\/comidas\/semana$/)
@@ -101,7 +101,7 @@ test.describe('/api/push', () => {
   })
 
   async function idDe(clave: 'residente' | 'residente2'): Promise<string> {
-    const { data } = await admin.from('perfiles').select('id').eq('correo', USUARIOS_PRUEBA[clave].correo).single()
+    const { data } = await admin.from('perfiles').select('id').eq('usuario', USUARIOS_PRUEBA[clave].usuario).single()
     expect(data, `falta el usuario de prueba ${clave}`).not.toBeNull()
     return data!.id
   }
@@ -127,7 +127,7 @@ test.describe('/api/push', () => {
   test('registra el dispositivo y lo reasigna a la cuenta con sesión', async ({ page }) => {
     const residente = await idDe('residente')
     const residente2 = await idDe('residente2')
-    await iniciarSesion(page, USUARIOS_PRUEBA.residente.correo)
+    await iniciarSesion(page, USUARIOS_PRUEBA.residente.usuario)
 
     const alta = await page.request.post('/api/push', {
       data: { endpoint: ENDPOINT_PROPIO, keys: LLAVES, expirationTime: null },
@@ -153,7 +153,7 @@ test.describe('/api/push', () => {
       { usuario_id: residente, endpoint: ENDPOINT_PROPIO, ...LLAVES },
       { usuario_id: residente2, endpoint: ENDPOINT_AJENO, ...LLAVES },
     ])
-    await iniciarSesion(page, USUARIOS_PRUEBA.residente.correo)
+    await iniciarSesion(page, USUARIOS_PRUEBA.residente.usuario)
 
     const ajena = await page.request.delete('/api/push', { data: { endpoint: ENDPOINT_AJENO }, maxRedirects: 0 })
     expect(ajena.status()).toBe(204)
@@ -165,7 +165,7 @@ test.describe('/api/push', () => {
   })
 
   test('rechaza endpoints que no son de un servicio push conocido', async ({ page }) => {
-    await iniciarSesion(page, USUARIOS_PRUEBA.residente.correo)
+    await iniciarSesion(page, USUARIOS_PRUEBA.residente.usuario)
 
     const respuesta = await page.request.post('/api/push', {
       data: { endpoint: ENDPOINT_DESCONOCIDO, keys: LLAVES },
@@ -179,9 +179,9 @@ test.describe('/api/push', () => {
 test.describe('Configuraciones', () => {
   test('muestra la sección de notificaciones y guarda las preferencias', async ({ page }) => {
     const admin = clienteAdminPrueba()
-    const correo = USUARIOS_PRUEBA.residente.correo
+    const usuario = USUARIOS_PRUEBA.residente.usuario
     try {
-      await iniciarSesion(page, correo)
+      await iniciarSesion(page, usuario)
       await page.goto('/configuraciones')
 
       await expect(page.getByRole('heading', { name: 'Notificaciones', exact: true })).toBeVisible()
@@ -196,7 +196,7 @@ test.describe('Configuraciones', () => {
       await page.reload()
       await expect(page.getByLabel('Mensajes nuevos')).not.toBeChecked()
     } finally {
-      await admin.from('perfiles').update({ avisar_mensajes: true, avisar_hora_limite: true }).eq('correo', correo)
+      await admin.from('perfiles').update({ avisar_mensajes: true, avisar_hora_limite: true }).eq('usuario', usuario)
     }
   })
 })
