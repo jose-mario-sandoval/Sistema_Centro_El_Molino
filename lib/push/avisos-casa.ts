@@ -136,7 +136,7 @@ export async function avisarExtraCocina(p: {
 /**
  * Un evento creado, editado o borrado: avisa a Administración solo si cambió algo para la cocina
  * (el pedido, la fecha o la hora). `antes`/`despues` pueden traer el evento entero: pasa por
- * `paraCocina()` y el título, la categoría o quien lo creó nunca llegan al texto.
+ * `paraCocina()` y el título o quien lo creó nunca llegan al texto.
  */
 export async function avisarPedidoCocina(p: {
   actorId: string

@@ -720,6 +720,7 @@ export type Database = {
           id: string
           requiere_cocina: Database["public"]["Enums"]["requerimiento_cocina"][]
           requiere_otro_texto: string
+          tipo: Database["public"]["Enums"]["tipo_evento"]
         }[]
       }
       extras_de_la_semana: {

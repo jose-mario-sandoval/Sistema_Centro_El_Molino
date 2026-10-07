@@ -39,7 +39,7 @@ export const INICIAL_TIPO: Record<TipoEvento, string> = {
 /**
  * Colores del tipo como variables --ev / --ev-bg, que globals.css usa para el tinte, el texto, el
  * borde y la marca. Los tokens --ev-<tipo> y --ev-<tipo>-bg se nombran por interpolación: no
- * renombrarlos. Solo para quien conoce el tipo: Administración nunca lo recibe.
+ * renombrarlos.
  */
 export function varsTipo(tipo: TipoEvento): CSSProperties {
   const token = `--ev-${tipo.replace('_', '-')}`
@@ -74,8 +74,8 @@ export const AYUDA_REQUERIMIENTO: Record<RequerimientoCocina, string> = {
  * Lo que muestran la cuadrícula y el modal del día.
  *
  * Administración no conoce de qué son los eventos (lib/calendario/consultas.ts): a ella `titulo` le
- * llega como el resumen de lo que debe preparar y `tipo` es null. Nunca hay un título real en un
- * evento de Administración.
+ * llega como el resumen de lo que debe preparar; sí recibe `tipo`. Nunca hay un título real en un
+ * evento de Administración. `tipo` es null solo en un formulario donde todavía no se eligió.
  */
 export type Evento = {
   id: string
@@ -88,11 +88,12 @@ export type Evento = {
   serie_id: string | null
 }
 
-/** Lo único que Administración ve de un evento: cuándo y qué preparar (`eventos_para_cocina`). */
+/** Lo único que Administración ve de un evento: cuándo, de qué categoría y qué preparar (`eventos_para_cocina`). */
 export type EventoParaCocina = {
   id: string
   fecha: FechaISO
   hora: string | null
+  tipo: TipoEvento
   requiere_cocina: RequerimientoCocina[]
   requiere_otro_texto: string | null
 }
@@ -126,14 +127,16 @@ export function textoPedido(requerimientos: readonly RequerimientoCocina[], otro
   return fijo ? `${fijo} · ${otroTexto}` : otroTexto
 }
 
-/** El evento tal como lo ve Administración: sin título ni tipo, con lo que debe preparar como texto. */
+/** El evento tal como lo ve Administración: sin título, con su categoría y lo que debe preparar como texto. */
 export function eventoParaAdministracion(e: EventoParaCocina): Evento {
   return {
     id: e.id,
     fecha: e.fecha,
     hora: e.hora,
     titulo: textoPedido(e.requiere_cocina, e.requiere_otro_texto),
-    tipo: null,
+    // `?? null`: si el código llega antes que la migración que agrega `tipo` a eventos_para_cocina(),
+    // el calendario de Administración se ve sin categoría (como antes) en vez de romperse.
+    tipo: e.tipo ?? null,
     requiere_cocina: e.requiere_cocina,
     requiere_otro_texto: e.requiere_otro_texto,
     serie_id: null,

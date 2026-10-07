@@ -8,8 +8,8 @@ import { crearClienteServidor } from '@/lib/supabase/servidor'
  * Eventos de los 42 días de la cuadrícula del mes: sin hora primero, luego por hora y título.
  *
  * Administración no conoce de qué son los eventos: la base no le deja leer `eventos`, y aquí lee
- * solo `eventos_para_cocina` (los que piden algo, sin título ni tipo). Por eso el rol decide qué
- * consulta se hace; la restricción real la pone la base de datos.
+ * solo `eventos_para_cocina` (los que piden algo, con su categoría y sin título). Por eso el rol
+ * decide qué consulta se hace; la restricción real la pone la base de datos.
  */
 export async function listarEventosDeCuadricula(mes: MesISO, rol: Rol): Promise<Evento[]> {
   const { desde, hasta } = rangoCuadricula(mes)

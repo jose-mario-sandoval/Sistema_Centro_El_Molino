@@ -729,6 +729,9 @@ button.comida-tarjeta[aria-busy="true"]{cursor:progress;}
 .conteo-extra{margin-top:.5rem;font-weight:700;color:var(--tinta);}
 .notas-extra{display:flex;flex-direction:column;gap:.2rem;margin-top:.25rem;font-size:var(--t-sm);color:var(--tinta-suave);}
 .notas-extra > *{display:block;}
+/* Lo que escribió quien está enfermo (qué puede comer): debajo de su línea, en letra normal. Es texto
+   libre: ocupa el renglón entero y parte, no se recorta. */
+.nota-parte{display:block;width:100%;box-sizing:border-box;margin-top:-.15rem;padding:0 .6rem;font-size:var(--t-sm);font-weight:400;line-height:1.35;color:var(--tinta);text-align:left;overflow-wrap:anywhere;}
 
 /* Contraste alto sin relieve: cada fila (un día) lleva su borde, como toda superficie hundida.
    Apilada, el borde lo lleva la ficha entera (abajo se quitan los de las celdas). */
@@ -1260,7 +1263,8 @@ button.comida-tarjeta[aria-busy="true"]{cursor:progress;}
 /* ---------- 8b. Tipos de evento y filtros del calendario -----------------
    Cada tipo tiene su color (--ev / --ev-bg, de varsTipo) y SIEMPRE su marca con la sigla (SR, SG, SM;
    "Otro" es el cuadrito gris sin letras junto a su nombre). Tinte + marca, nunca una franja lateral
-   (DESIGN.md §8). Administración no recibe el tipo: sus eventos se pintan como antes. */
+   (DESIGN.md §8). Administración ve el tipo de los eventos que le piden algo, igual pintado; no tiene
+   filtros. */
 
 /* La marca: el color de relleno con la sigla en pergamino (≥4.5:1, ≥7:1 en alto; prueba en
    tests/unit/calendario/colores-evento.test.ts). La sigla va por CSS: no forma parte del texto. */

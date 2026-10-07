@@ -117,7 +117,7 @@ describe('eventoVisible', () => {
     for (const e of [rafael, gabriel, miguel, otro]) expect(eventoVisible(e, ['ausencias'])).toBe(true)
   })
 
-  it('un evento sin tipo (el de Administración) nunca se filtra', () => {
+  it('un evento sin tipo nunca se filtra', () => {
     expect(eventoVisible(evento('a', null, { requiere_cocina: ['comida'] }), ['san_rafael', 'san_gabriel', 'san_miguel', 'otro'])).toBe(true)
   })
 })
@@ -191,10 +191,15 @@ describe('etiquetaDiaCalendario', () => {
     expect(etiquetaDiaCalendario({ ...base, visibles: [otro], ausente: true })).toBe(`${dia}, 1 evento: Otro, ausente`)
   })
 
-  it('Administración: pedidos para la cocina, sin tipos (nunca los conoce)', () => {
-    const pedido = evento('a', null, { requiere_cocina: ['merienda'] })
-    expect(etiquetaDiaCalendario({ ...base, visibles: [pedido], paraCocina: true })).toBe(`${dia}, 1 pedido para la cocina`)
-    expect(etiquetaDiaCalendario({ ...base, visibles: [pedido, pedido], paraCocina: true })).toBe(`${dia}, 2 pedidos para la cocina`)
+  it('Administración: cuántos pedidos para la cocina y de qué categoría', () => {
+    const pedido = evento('a', 'san_rafael', { requiere_cocina: ['merienda'] })
+    const otroPedido = evento('b', 'san_gabriel', { requiere_cocina: ['comida'] })
+    expect(etiquetaDiaCalendario({ ...base, visibles: [pedido], paraCocina: true })).toBe(
+      `${dia}, 1 pedido para la cocina: San Rafael`,
+    )
+    expect(etiquetaDiaCalendario({ ...base, visibles: [pedido, otroPedido, pedido], paraCocina: true })).toBe(
+      `${dia}, 3 pedidos para la cocina: San Rafael y San Gabriel`,
+    )
   })
 })
 
@@ -385,7 +390,7 @@ describe('filtroQueOculta', () => {
     expect(filtroQueOculta(otro, ['sin_pedido'])).toBe('sin_pedido')
   })
 
-  it('un evento sin tipo (Administración) nunca', () => {
+  it('un evento sin tipo, nunca', () => {
     expect(filtroQueOculta(evento('a', null), ['sin_pedido'])).toBeNull()
   })
 })

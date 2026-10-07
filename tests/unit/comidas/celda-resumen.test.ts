@@ -48,10 +48,17 @@ describe('CeldaResumen', () => {
     expect(markup).not.toContain('class="partes"')
   })
 
-  it('nunca muestra la nota de "enfermo", solo la cantidad', () => {
-    const markup = html({ resumen: resumenComida([v('enfermo', 'Solo sopa')]) })
-    expect(markup).toContain('1 enfermo')
-    expect(markup).not.toContain('Solo sopa')
+  it('lo que puede comer quien está enfermo va debajo de su línea, un renglón por persona', () => {
+    const markup = html({ resumen: resumenComida([v('enfermo', 'Solo sopa'), v('enfermo', 'Dieta blanda')]) })
+    expect(markup).toMatch(
+      /<li class="parte" style="[^"]*--st-enfermo[^"]*"><svg class="icono"[^]*?<\/svg>2 enfermos<\/li><li class="nota-parte">Solo sopa<\/li><li class="nota-parte">Dieta blanda<\/li>/,
+    )
+  })
+
+  it('las notas de enfermo también van como spans dentro de un botón', () => {
+    const markup = html({ resumen: resumenComida([v('enfermo', 'Solo sopa')]), como: 'spans' })
+    expect(markup).not.toMatch(/<(ul|li|div|p)/)
+    expect(markup).toContain('<span class="nota-parte">Solo sopa</span>')
   })
 
   it('los extras van aparte, debajo', () => {

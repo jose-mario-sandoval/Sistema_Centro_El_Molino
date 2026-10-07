@@ -53,28 +53,35 @@ describe('eventoParaAdministracion', () => {
     id: 'e1',
     fecha: '2026-10-07',
     hora: '16:00:00',
+    tipo: 'san_gabriel',
     requiere_cocina: ['merienda', 'comida'],
     requiere_otro_texto: null,
   }
 
-  it('deja fecha, hora y qué preparar; sin tipo, y el título combina lo fijo con lo libre', () => {
+  it('deja fecha, hora, categoría y qué preparar; el título combina lo fijo con lo libre', () => {
     expect(eventoParaAdministracion({ ...desdeLaBase, requiere_otro_texto: '20 sillas extra' })).toEqual({
       id: 'e1',
       fecha: '2026-10-07',
       hora: '16:00:00',
       titulo: 'Merienda y comida · 20 sillas extra',
-      tipo: null,
+      tipo: 'san_gabriel',
       requiere_cocina: ['merienda', 'comida'],
       requiere_otro_texto: '20 sillas extra',
       serie_id: null,
     })
   })
 
-  it('no arrastra ningún campo que la base no le dio', () => {
-    const conDatosDeMas = { ...desdeLaBase, titulo: 'Retiro secreto', tipo: 'retiro' } as EventoParaCocina
+  it('si la base todavía no manda la categoría (migración sin aplicar), queda sin tipo en vez de romper', () => {
+    const sinTipo: Partial<EventoParaCocina> = { ...desdeLaBase }
+    delete sinTipo.tipo
+    expect(eventoParaAdministracion(sinTipo as EventoParaCocina).tipo).toBeNull()
+  })
+
+  it('no arrastra ningún campo que la base no le dio: nunca un título real ni la serie', () => {
+    const conDatosDeMas = { ...desdeLaBase, titulo: 'Retiro secreto', serie_id: 's1' } as EventoParaCocina
     const resultado = eventoParaAdministracion(conDatosDeMas)
     expect(resultado.titulo).toBe('Merienda y comida')
-    expect(resultado.tipo).toBeNull()
+    expect(resultado.serie_id).toBeNull()
     expect(JSON.stringify(resultado)).not.toContain('secreto')
   })
 })
