@@ -1,5 +1,12 @@
 import { z } from 'zod'
 import type { HorasLimite } from '@/lib/comidas/tipos'
+import {
+  FORMATO_USUARIO,
+  LARGO_MAXIMO_USUARIO,
+  LARGO_MINIMO_USUARIO,
+  normalizarUsuario,
+  PREFIJO_DEMO,
+} from '@/lib/cuentas/usuario'
 import { ROLES } from '@/lib/perfiles/roles'
 import { esquemaContrasenaNueva, MENSAJE_MAXIMO_CONTRASENA, MENSAJE_MINIMO_CONTRASENA } from '@/lib/validacion/auth'
 
@@ -11,15 +18,29 @@ const siglas = z
   .min(1, 'Ingresá las siglas.')
   .max(6, 'Las siglas pueden tener hasta 6 caracteres.')
   .toUpperCase()
-const correo = z.string().trim().toLowerCase().email('Ingresá un correo válido.')
+const MENSAJE_FORMATO_USUARIO = 'Usá solo letras sin tilde, números, punto, guion o guion bajo. Ejemplo: r.flores'
+
+/** El usuario como lo escribe el Director: se normaliza y después se valida (mismo check que la base). */
+const usuario = z
+  .string()
+  .transform(normalizarUsuario)
+  .pipe(
+    z
+      .string()
+      .min(LARGO_MINIMO_USUARIO, `El usuario debe tener al menos ${LARGO_MINIMO_USUARIO} caracteres.`)
+      .max(LARGO_MAXIMO_USUARIO, `El usuario puede tener hasta ${LARGO_MAXIMO_USUARIO} caracteres.`)
+      .regex(FORMATO_USUARIO, MENSAJE_FORMATO_USUARIO)
+      // Solo en los formularios: los scripts de demo sí crean cuentas `demo.…`.
+      .refine((valor) => !valor.startsWith(PREFIJO_DEMO), 'Ese usuario está reservado. Elegí otro.'),
+  )
 const contrasenaTemporal = z.string().min(8, MENSAJE_MINIMO_CONTRASENA).max(72, MENSAJE_MAXIMO_CONTRASENA)
 const idCuenta = z.uuid('Cuenta inválida.')
 const rol = z.enum(ROLES, { error: 'Elegí un rol.' })
 
 // ---------- Mi cuenta ----------
 
-/** Nombre, siglas y correo de la propia cuenta (spec §4). */
-export const esquemaPerfilPropio = z.object({ nombre, siglas, correo })
+/** Nombre y siglas de la propia cuenta (spec §4). El usuario lo cambia el Director. */
+export const esquemaPerfilPropio = z.object({ nombre, siglas })
 
 /** Cambio de la propia contraseña: pide la actual (spec §4). */
 export const esquemaCambioContrasenaPropia = z
@@ -61,7 +82,17 @@ export const esquemaHorasLimite = z
 
 // ---------- Gestión de usuarios (Director) ----------
 
-export const esquemaNuevaCuenta = z.object({ nombre, siglas, correo, rol, contrasena: contrasenaTemporal })
+/** Cuenta nueva. Administración no lleva nombre ni siglas: los pone el servidor ("Administración N"). */
+export const esquemaNuevaCuenta = z.discriminatedUnion(
+  'rol',
+  [
+    z.object({ rol: z.literal('administracion'), usuario, contrasena: contrasenaTemporal }),
+    z.object({ rol: z.enum(['director', 'residente']), nombre, siglas, usuario, contrasena: contrasenaTemporal }),
+  ],
+  { error: 'Elegí un rol.' },
+)
+
+export const esquemaCambioUsuario = z.object({ id: idCuenta, usuario })
 
 export const esquemaContrasenaTemporal = z.object({ id: idCuenta, contrasena: contrasenaTemporal })
 

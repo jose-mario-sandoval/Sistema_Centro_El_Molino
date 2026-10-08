@@ -7,26 +7,28 @@ import { iniciarSesion } from './acciones'
 export function FormularioLogin() {
   const [estado, accion] = useActionState(iniciarSesion, null)
   // Controlado: React 19 reinicia los campos no controlados del formulario al terminar la acción,
-  // y tras un error el usuario perdería el correo que ya escribió.
-  const [correo, setCorreo] = useState('')
+  // y tras un error la persona perdería el usuario que ya escribió.
+  const [usuario, setUsuario] = useState('')
   const campos = estado && !estado.ok ? estado.campos : undefined
 
   return (
     <form action={accion} noValidate>
       {estado && !estado.ok && !campos && <div className="login-error" role="alert">{estado.error}</div>}
       <div className="field">
-        <label htmlFor="correo">Correo</label>
+        <label htmlFor="usuario">Usuario</label>
         <input
-          id="correo"
-          name="correo"
-          type="email"
+          id="usuario"
+          name="usuario"
+          type="text"
           autoComplete="username"
-          placeholder="tu@correo.org"
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
           required
-          value={correo}
-          onChange={(e) => setCorreo(e.target.value)}
+          value={usuario}
+          onChange={(e) => setUsuario(e.target.value)}
         />
-        {campos?.correo && <div className="campo-error">{campos.correo}</div>}
+        {campos?.usuario && <div className="campo-error">{campos.usuario}</div>}
       </div>
       <div className="field">
         <label htmlFor="contrasena">Contraseña</label>

@@ -15,7 +15,7 @@ Next.js 16 (App Router) + TypeScript · Supabase (Postgres, Auth, Realtime, pg_c
 1. Node 24 y `npm ci`.
 2. Copiar `.env.example` a `.env.local` y completar con los datos del proyecto de Supabase. `CONTRASENA_DEMO` es la contraseña de las cuentas demo: es **un solo valor para todo el equipo** (mínimo 12 caracteres; el comando para generarla está en `.env.example`), compartido por un gestor de contraseñas. Ejecutar `datos-demo` con otro valor la cambia para todos.
 3. `npm run datos-demo -- --confirmar` (solo antes del lanzamiento) y `npm run dev`.
-4. Entrar con `residente@demo.test` y la contraseña de `CONTRASENA_DEMO` (u otra cuenta demo: `director@`, `sacerdote@`, `numerario@`, `administracion@`).
+4. Entrar con el usuario `demo.residente` y la contraseña de `CONTRASENA_DEMO` (u otra cuenta demo: `demo.director`, `demo.sacerdote`, `demo.numerario`, `demo.administracion`).
 
 ## Scripts
 
@@ -26,8 +26,8 @@ Next.js 16 (App Router) + TypeScript · Supabase (Postgres, Auth, Realtime, pg_c
 | `npm run test:integracion` / `npm run test:e2e` | Solo en CI (abortan fuera de Supabase local) |
 | `npm run db:aplicar` | Aplica migraciones al proyecto por el Session pooler (`.env.local`) |
 | `npm run db:tipos` | Regenera tipos desde el proyecto (requiere CLI logueada; alternativa: artefacto `database-types` de CI) |
-| `npm run crear-director -- --nombre "…" --siglas XX --correo …` | Crea un Director con contraseña temporal |
-| `npm run datos-demo -- --confirmar` | Cuentas y datos demo (`@demo.test`) con la contraseña de `CONTRASENA_DEMO`; a las cuentas que ya existen se la actualiza (sirve para rotarla) |
+| `npm run crear-director -- --nombre "…" --siglas XX --usuario …` | Crea un Director con contraseña temporal (entra con ese usuario) |
+| `npm run datos-demo -- --confirmar` | Cuentas y datos demo (usuarios `demo.…`) con la contraseña de `CONTRASENA_DEMO`; a las cuentas que ya existen se la actualiza (sirve para rotarla) |
 | `npm run limpiar-datos-demo -- --confirmar` | Borra todo lo demo (checklist de lanzamiento) |
 
 ## Reglas de trabajo

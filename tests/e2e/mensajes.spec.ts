@@ -18,7 +18,7 @@ function textoUnico(descripcion: string) {
 
 async function iniciarSesion(page: Page, clave: ClaveUsuario) {
   await page.goto('/login')
-  await page.getByLabel('Correo').fill(USUARIOS_PRUEBA[clave].correo)
+  await page.getByLabel('Usuario').fill(USUARIOS_PRUEBA[clave].usuario)
   await page.getByLabel('Contraseña').fill(CONTRASENA_PRUEBA)
   await page.getByRole('button', { name: 'Iniciar sesión' }).click()
   await expect(page).toHaveURL(/\/comidas\/semana$/)
@@ -43,7 +43,7 @@ async function sembrarMensaje(clave: ClaveUsuario, texto: string) {
   const { data: perfil, error } = await admin
     .from('perfiles')
     .select('id')
-    .eq('correo', USUARIOS_PRUEBA[clave].correo)
+    .eq('usuario', USUARIOS_PRUEBA[clave].usuario)
     .single()
   if (error) throw error
   const { data: mensaje, error: errorMensaje } = await admin

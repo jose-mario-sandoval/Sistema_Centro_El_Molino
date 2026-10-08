@@ -1,7 +1,10 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { PREFIJO_DEMO } from '@/lib/cuentas/usuario'
 import type { Database } from '@/lib/supabase/database.types'
 
-export const DOMINIO_DEMO = 'demo.test'
+/** Las cuentas demo se reconocen por su usuario: `demo.director`, `demo.residente`… */
+export { PREFIJO_DEMO }
+export const usuarioDemo = (clave: ClaveDemo) => `${PREFIJO_DEMO}${clave}`
 
 const LARGO_MINIMO_CONTRASENA_DEMO = 12
 

@@ -7,18 +7,21 @@ import { TIEMPOS_COMIDA } from '@/lib/comidas/tipos'
 import {
   esErrorAuthDefinitivo,
   esErrorPerfilEsperado,
-  MENSAJE_CORREO_REPETIDO,
+  MENSAJE_USUARIO_REPETIDO,
   mensajeErrorPerfil,
 } from '@/lib/configuraciones/errores'
 import type { DatosMiCuenta } from '@/lib/configuraciones/tipos'
+import { nombreAdministracion, siglasAdministracion, siguienteNumeroAdministracion } from '@/lib/cuentas/administracion'
 import { crearCuenta } from '@/lib/cuentas/crear-cuenta'
 import { verificarContrasena } from '@/lib/cuentas/verificar-contrasena'
+import type { Rol } from '@/lib/perfiles/roles'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { camposConError } from '@/lib/validacion/auth'
 import {
   esquemaCambioContrasenaPropia,
   esquemaCambioRol,
+  esquemaCambioUsuario,
   esquemaContrasenaTemporal,
   esquemaEstadoCuenta,
   esquemaHorasLimite,
@@ -42,66 +45,26 @@ export async function guardarMiCuenta(
   const acceso = await perfilParaAccion()
   if (!acceso.ok) return acceso
   const { perfil } = acceso
+  // La casa no ve el nombre real de Administración: el suyo es genérico y no se edita.
+  if (perfil.rol === 'administracion') return fallo('En Administración el nombre lo pone la app.')
 
   const entrada = esquemaPerfilPropio.safeParse({
     nombre: formData.get('nombre'),
     siglas: formData.get('siglas'),
-    correo: formData.get('correo'),
   })
   if (!entrada.success) return fallo(MENSAJE_REVISAR, camposConError(entrada.error))
-  const { nombre, siglas, correo } = entrada.data
+  const { nombre, siglas } = entrada.data
 
-  const admin = crearClienteAdmin()
-  const cambiaCorreo = correo !== perfil.correo
-
-  // Spec §4: el correo se cambia por el servidor, sin confirmación, validando unicidad.
-  if (cambiaCorreo) {
-    const { data: otra, error: errorBusqueda } = await admin
-      .from('perfiles')
-      .select('id')
-      .eq('correo', correo)
-      .neq('id', perfil.id)
-      .maybeSingle()
-    if (errorBusqueda) {
-      console.error(`guardarMiCuenta: no se pudo validar el correo (usuario ${perfil.id})`, errorBusqueda)
-      return fallo('No se pudieron guardar los cambios. Intentá de nuevo.')
-    }
-    if (otra) return fallo(MENSAJE_REVISAR, { correo: MENSAJE_CORREO_REPETIDO })
-
-    const { error } = await admin.auth.admin.updateUserById(perfil.id, { email: correo, email_confirm: true })
-    if (error) {
-      if (error.code === 'email_exists') return fallo(MENSAJE_REVISAR, { correo: MENSAJE_CORREO_REPETIDO })
-      console.error(`guardarMiCuenta: Auth no cambió el correo (usuario ${perfil.id})`, error)
-      return fallo('No se pudo cambiar el correo. Intentá de nuevo.')
-    }
-  }
-
-  const { error } = await admin.from('perfiles').update({ nombre, siglas, correo }).eq('id', perfil.id)
+  // El usuario con el que se entra no se cambia desde acá: lo cambia el Director (cambiarUsuarioCuenta).
+  const { error } = await crearClienteAdmin().from('perfiles').update({ nombre, siglas }).eq('id', perfil.id)
   if (error) {
-    if (!esErrorPerfilEsperado(error)) {
-      console.error(`guardarMiCuenta: no se pudo actualizar el perfil (usuario ${perfil.id})`, error)
-    }
-    // Deja Auth como estaba para que el login y el perfil no queden con correos distintos.
-    if (cambiaCorreo) {
-      const { error: errorReversion } = await admin.auth.admin.updateUserById(perfil.id, {
-        email: perfil.correo,
-        email_confirm: true,
-      })
-      if (errorReversion) {
-        console.error(
-          `guardarMiCuenta: no se pudo devolver el correo de Auth al anterior (usuario ${perfil.id})`,
-          errorReversion,
-        )
-      }
-    }
-    const mensaje = mensajeErrorPerfil(error, 'No se pudieron guardar los cambios. Intentá de nuevo.')
-    if (mensaje === MENSAJE_CORREO_REPETIDO) return fallo(MENSAJE_REVISAR, { correo: mensaje })
-    return fallo(mensaje)
+    console.error(`guardarMiCuenta: no se pudo actualizar el perfil (usuario ${perfil.id})`, error)
+    return fallo('No se pudieron guardar los cambios. Intentá de nuevo.')
   }
 
   revalidatePath('/configuraciones')
   revalidatePath('/', 'layout') // la barra lateral muestra nombre y siglas
-  return exito({ nombre, siglas, correo })
+  return exito({ nombre, siglas })
 }
 
 export async function cambiarMiContrasena(
@@ -119,9 +82,9 @@ export async function cambiarMiContrasena(
   })
   if (!entrada.success) return fallo(MENSAJE_REVISAR, camposConError(entrada.error))
 
-  // El correo de inicio de sesión sale de Auth, no de `perfiles`: si alguna vez quedaran distintos,
-  // la verificación usa el que Auth acepta. `getUser()` y no `getClaims()`: el JWT conserva el correo
-  // anterior hasta renovarse si la persona acaba de cambiarlo.
+  // La dirección con la que Auth conoce a la cuenta sale de Auth: `perfiles` no la guarda (la persona
+  // entra con su usuario). `getUser()` y no `getClaims()`: el JWT conserva la dirección anterior hasta
+  // renovarse si acaba de cambiar.
   const supabase = await crearClienteServidor()
   const { data: sesion, error: errorSesion } = await supabase.auth.getUser()
   const correoSesion = sesion.user?.id === perfil.id ? sesion.user.email : undefined
@@ -194,44 +157,72 @@ export async function guardarHorasLimite(
 
 // ---------- Gestión de usuarios (Director) ----------
 
+/** Nombre y siglas genéricos para una cuenta que entra a Administración: el número que sigue. */
+async function identidadDeAdministracion(admin: ReturnType<typeof crearClienteAdmin>) {
+  const { data, error } = await admin.from('perfiles').select('nombre').like('nombre', 'Administración %')
+  if (error) return { error }
+  const numero = siguienteNumeroAdministracion(data.map((fila) => fila.nombre))
+  return { nombre: nombreAdministracion(numero), siglas: siglasAdministracion(numero) }
+}
+
 export async function crearNuevaCuenta(
-  _previo: Resultado<{ id: string }> | null,
+  _previo: Resultado<{ id: string; nombre: string; usuario: string }> | null,
   formData: FormData,
-): Promise<Resultado<{ id: string }>> {
+): Promise<Resultado<{ id: string; nombre: string; usuario: string }>> {
   const acceso = await perfilParaAccion('director')
   if (!acceso.ok) return acceso
 
   const entrada = esquemaNuevaCuenta.safeParse({
-    nombre: formData.get('nombre'),
-    siglas: formData.get('siglas'),
-    correo: formData.get('correo'),
+    // Con rol Administración el formulario no pinta nombre ni siglas: los pone el servidor.
+    nombre: formData.get('nombre') ?? undefined,
+    siglas: formData.get('siglas') ?? undefined,
+    usuario: formData.get('usuario'),
     rol: formData.get('rol'),
     contrasena: formData.get('contrasena'),
   })
   if (!entrada.success) return fallo(MENSAJE_REVISAR, camposConError(entrada.error))
+  const datos = entrada.data
 
   const admin = crearClienteAdmin()
   const { data: existente, error: errorBusqueda } = await admin
     .from('perfiles')
     .select('id')
-    .eq('correo', entrada.data.correo)
+    .eq('usuario', datos.usuario)
     .maybeSingle()
   if (errorBusqueda) {
-    console.error('crearNuevaCuenta: no se pudo validar el correo', errorBusqueda)
+    console.error('crearNuevaCuenta: no se pudo validar el usuario', errorBusqueda)
     return fallo('No se pudo crear la cuenta. Intentá de nuevo.')
   }
-  if (existente) return fallo(MENSAJE_REVISAR, { correo: MENSAJE_CORREO_REPETIDO })
+  if (existente) return fallo(MENSAJE_REVISAR, { usuario: MENSAJE_USUARIO_REPETIDO })
+
+  let identidad: { nombre: string; siglas: string }
+  if (datos.rol === 'administracion') {
+    const generica = await identidadDeAdministracion(admin)
+    if ('error' in generica) {
+      console.error('crearNuevaCuenta: no se pudieron leer los nombres de Administración', generica.error)
+      return fallo('No se pudo crear la cuenta. Intentá de nuevo.')
+    }
+    identidad = generica
+  } else {
+    identidad = { nombre: datos.nombre, siglas: datos.siglas }
+  }
 
   // crearCuenta registra el error y borra el usuario de Auth si falla el perfil (spec §4).
-  const resultado = await crearCuenta(admin, { ...entrada.data, debeCambiarContrasena: true })
+  const resultado = await crearCuenta(admin, {
+    ...identidad,
+    usuario: datos.usuario,
+    rol: datos.rol,
+    contrasena: datos.contrasena,
+    debeCambiarContrasena: true,
+  })
   if (!resultado.ok) {
-    // Auth detecta un correo repetido que `perfiles` no tenía (p. ej. un usuario de Auth sin perfil).
-    if (resultado.error === MENSAJE_CORREO_REPETIDO) return fallo(MENSAJE_REVISAR, { correo: resultado.error })
+    // Otra persona creó ese usuario entre la validación y el alta: lo rechaza la base.
+    if (resultado.error === MENSAJE_USUARIO_REPETIDO) return fallo(MENSAJE_REVISAR, { usuario: resultado.error })
     return fallo(resultado.error)
   }
 
   revalidatePath('/configuraciones')
-  return exito({ id: resultado.id })
+  return exito({ id: resultado.id, nombre: identidad.nombre, usuario: datos.usuario })
 }
 
 export async function cambiarRolCuenta(entrada: unknown): Promise<Resultado<null>> {
@@ -243,7 +234,28 @@ export async function cambiarRolCuenta(entrada: unknown): Promise<Resultado<null
   const { id, rol } = datos.data
   if (id === acceso.perfil.id) return fallo('No podés cambiar tu propio rol.')
 
-  const { data, error } = await crearClienteAdmin().from('perfiles').update({ rol }).eq('id', id).select('id')
+  const admin = crearClienteAdmin()
+  let cambios: { rol: Rol; nombre?: string; siglas?: string } = { rol }
+  if (rol === 'administracion') {
+    // Entrar a Administración cambia el nombre por uno genérico (la casa no ve su nombre real);
+    // quien ya estaba conserva el suyo.
+    const { data: actual, error: errorLectura } = await admin.from('perfiles').select('rol').eq('id', id).maybeSingle()
+    if (errorLectura) {
+      console.error(`cambiarRolCuenta: no se pudo leer la cuenta (usuario ${id})`, errorLectura)
+      return fallo('No se pudo cambiar el rol. Intentá de nuevo.')
+    }
+    if (!actual) return fallo('La cuenta no existe.')
+    if (actual.rol !== 'administracion') {
+      const generica = await identidadDeAdministracion(admin)
+      if ('error' in generica) {
+        console.error(`cambiarRolCuenta: no se pudieron leer los nombres de Administración (usuario ${id})`, generica.error)
+        return fallo('No se pudo cambiar el rol. Intentá de nuevo.')
+      }
+      cambios = { rol, ...generica }
+    }
+  }
+
+  const { data, error } = await admin.from('perfiles').update(cambios).eq('id', id).select('id')
   if (error) {
     if (!esErrorPerfilEsperado(error)) {
       console.error(`cambiarRolCuenta: no se pudo cambiar el rol (usuario ${id})`, error)
@@ -254,6 +266,31 @@ export async function cambiarRolCuenta(entrada: unknown): Promise<Resultado<null
 
   revalidatePath('/configuraciones')
   return exito(null)
+}
+
+/** El Director cambia el usuario con el que entra una cuenta (también la suya). */
+export async function cambiarUsuarioCuenta(
+  _previo: Resultado<{ usuario: string }> | null,
+  formData: FormData,
+): Promise<Resultado<{ usuario: string }>> {
+  const acceso = await perfilParaAccion('director')
+  if (!acceso.ok) return acceso
+
+  const entrada = esquemaCambioUsuario.safeParse({ id: formData.get('id'), usuario: formData.get('usuario') })
+  if (!entrada.success) return fallo(MENSAJE_REVISAR, camposConError(entrada.error))
+  const { id, usuario } = entrada.data
+
+  // Solo la columna: la dirección interna de Auth no depende del usuario.
+  const { data, error } = await crearClienteAdmin().from('perfiles').update({ usuario }).eq('id', id).select('id')
+  if (error) {
+    if (error.code === '23505') return fallo(MENSAJE_REVISAR, { usuario: MENSAJE_USUARIO_REPETIDO })
+    console.error(`cambiarUsuarioCuenta: no se pudo cambiar el usuario (usuario ${id})`, error)
+    return fallo('No se pudo cambiar el usuario. Intentá de nuevo.')
+  }
+  if (data.length === 0) return fallo('La cuenta no existe.')
+
+  revalidatePath('/configuraciones')
+  return exito({ usuario })
 }
 
 export async function ponerContrasenaTemporal(

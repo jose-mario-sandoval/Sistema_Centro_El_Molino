@@ -9,22 +9,22 @@ import { useAvisoDeResultado } from './usar-aviso-resultado'
 
 const guardarMiCuentaSegura = accionDeFormulario(guardarMiCuenta)
 
-export function FormularioMiCuenta(props: { nombre: string; siglas: string; correo: string; rol: Rol }) {
+export function FormularioMiCuenta(props: { nombre: string; siglas: string; usuario: string; rol: Rol }) {
   const [estado, accion] = useActionState(guardarMiCuentaSegura, null)
   const [nombre, setNombre] = useState(props.nombre)
   const [siglas, setSiglas] = useState(props.siglas)
-  const [correo, setCorreo] = useState(props.correo)
   const campos = estado && !estado.ok ? estado.campos : undefined
+  // La casa no ve el nombre real de Administración: el suyo es genérico y lo pone la app.
+  const nombreFijo = props.rol === 'administracion'
 
-  // Tras guardar, los campos muestran lo que quedó en la base (sin espacios, siglas en mayúsculas,
-  // correo en minúsculas). Se ajusta durante el render al llegar un resultado nuevo, sin efecto.
+  // Tras guardar, los campos muestran lo que quedó en la base (sin espacios, siglas en mayúsculas).
+  // Se ajusta durante el render al llegar un resultado nuevo, sin efecto.
   const [estadoAplicado, setEstadoAplicado] = useState(estado)
   if (estado !== estadoAplicado) {
     setEstadoAplicado(estado)
     if (estado?.ok) {
       setNombre(estado.data.nombre)
       setSiglas(estado.data.siglas)
-      setCorreo(estado.data.correo)
     }
   }
   useAvisoDeResultado(estado, 'Cuenta actualizada.')
@@ -39,9 +39,13 @@ export function FormularioMiCuenta(props: { nombre: string; siglas: string; corr
             name="nombre"
             autoComplete="name"
             required
+            readOnly={nombreFijo}
             value={nombre}
             onChange={(e) => setNombre(e.target.value)}
           />
+          {nombreFijo && (
+            <div className="hint">En Administración el nombre lo pone la app: la casa no ve nombres reales.</div>
+          )}
           {campos?.nombre && <div className="campo-error">{campos.nombre}</div>}
         </div>
         <div className="field">
@@ -51,24 +55,17 @@ export function FormularioMiCuenta(props: { nombre: string; siglas: string; corr
             name="siglas"
             maxLength={6}
             required
+            readOnly={nombreFijo}
             value={siglas}
             onChange={(e) => setSiglas(e.target.value)}
           />
           {campos?.siglas && <div className="campo-error">{campos.siglas}</div>}
         </div>
         <div className="field">
-          <label htmlFor="mi-correo">Correo</label>
-          <input
-            id="mi-correo"
-            name="correo"
-            type="email"
-            autoComplete="email"
-            required
-            value={correo}
-            onChange={(e) => setCorreo(e.target.value)}
-          />
-          <div className="hint">Es el correo con el que iniciás sesión.</div>
-          {campos?.correo && <div className="campo-error">{campos.correo}</div>}
+          <label htmlFor="mi-usuario">Usuario</label>
+          {/* Sin `name`: no viaja con el formulario. Lo cambia el Director desde Gestión de usuarios. */}
+          <input id="mi-usuario" value={props.usuario} readOnly autoComplete="username" />
+          <div className="hint">Con este usuario iniciás sesión. Para cambiarlo, hablá con el Director.</div>
         </div>
         <div className="field">
           <label htmlFor="mi-rol">Rol</label>
@@ -85,9 +82,11 @@ export function FormularioMiCuenta(props: { nombre: string; siglas: string; corr
           </div>
         </div>
       </div>
-      <div className="acciones-formulario">
-        <BotonEnvio>Guardar cambios</BotonEnvio>
-      </div>
+      {!nombreFijo && (
+        <div className="acciones-formulario">
+          <BotonEnvio>Guardar cambios</BotonEnvio>
+        </div>
+      )}
     </form>
   )
 }

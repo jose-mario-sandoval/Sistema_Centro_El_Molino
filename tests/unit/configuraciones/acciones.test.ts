@@ -4,13 +4,14 @@ import {
   cambiarEstadoCuenta,
   cambiarMiContrasena,
   cambiarRolCuenta,
+  cambiarUsuarioCuenta,
   crearNuevaCuenta,
   guardarHorasLimite,
   guardarMiCuenta,
   ponerContrasenaTemporal,
 } from '@/app/(app)/configuraciones/acciones'
 import { perfilParaAccion, type Perfil } from '@/lib/auth/sesion'
-import { MENSAJE_CORREO_REPETIDO } from '@/lib/configuraciones/errores'
+import { MENSAJE_USUARIO_REPETIDO } from '@/lib/configuraciones/errores'
 import { verificarContrasena } from '@/lib/cuentas/verificar-contrasena'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
@@ -32,7 +33,8 @@ const DIRECTOR: Perfil = {
   id: ID_DIRECTOR,
   nombre: 'Directora Prueba',
   siglas: 'DP',
-  correo: 'director@prueba.test',
+  usuario: 'director',
+  correo: null,
   rol: 'director',
   activo: true,
   debe_cambiar_contrasena: false,
@@ -54,13 +56,14 @@ const AUTH_OK: Respuesta = { data: { user: { id: ID_OTRA } }, error: null }
 
 /**
  * Cliente de Supabase falso: devuelve en orden las respuestas de lecturas, escrituras y Auth
- * (si se acaban, responde éxito) y registra los valores de cada `update`.
+ * (si se acaban, responde éxito) y registra los valores de cada `update` y de cada `insert`.
  */
 function clienteFalso(respuestas: { lecturas?: Respuesta[]; escrituras?: Respuesta[]; auth?: Respuesta[] } = {}) {
   const lecturas = [...(respuestas.lecturas ?? [])]
   const escrituras = [...(respuestas.escrituras ?? [])]
   const auth = [...(respuestas.auth ?? [])]
   const actualizaciones: Record<string, unknown>[] = []
+  const inserciones: Record<string, unknown>[] = []
 
   function consulta() {
     let escritura: Respuesta | null = null
@@ -68,6 +71,12 @@ function clienteFalso(respuestas: { lecturas?: Respuesta[]; escrituras?: Respues
       select: () => q,
       eq: () => q,
       neq: () => q,
+      like: () => q,
+      insert: (valores: Record<string, unknown>) => {
+        inserciones.push(valores)
+        escritura = escrituras.shift() ?? ESCRITURA_OK
+        return q
+      },
       update: (valores: Record<string, unknown>) => {
         actualizaciones.push(valores)
         escritura = escrituras.shift() ?? ESCRITURA_OK
@@ -84,12 +93,16 @@ function clienteFalso(respuestas: { lecturas?: Respuesta[]; escrituras?: Respues
   const cliente = {
     from: vi.fn(consulta),
     auth: {
-      admin: { updateUserById: vi.fn(respuestaAuth), createUser: vi.fn(respuestaAuth) },
+      admin: {
+        updateUserById: vi.fn(respuestaAuth),
+        createUser: vi.fn(respuestaAuth),
+        deleteUser: vi.fn(async () => ({ data: {}, error: null })),
+      },
       getUser: vi.fn(),
       updateUser: vi.fn(async () => ({ data: { user: {} }, error: null })),
     },
   }
-  return { cliente, actualizaciones }
+  return { cliente, actualizaciones, inserciones }
 }
 
 function usarAdmin(falso: ReturnType<typeof clienteFalso>) {
@@ -248,27 +261,148 @@ describe('cambiarEstadoCuenta', () => {
 })
 
 describe('crearNuevaCuenta', () => {
-  it('un correo que Auth ya tiene se muestra en el campo correo', async () => {
-    usarAdmin(clienteFalso({ auth: [rechazoDeAuth('email_exists')] }))
+  const casa = { nombre: 'Ana', siglas: 'at', usuario: ' A.Torres ', rol: 'residente', contrasena: CONTRASENA }
+
+  it('crea la cuenta con el usuario normalizado y una dirección interna, nunca un correo', async () => {
+    const falso = usarAdmin(clienteFalso())
+    const r = await crearNuevaCuenta(null, formulario(casa))
+    expect(r).toEqual({ ok: true, data: { id: ID_OTRA, nombre: 'Ana', usuario: 'a.torres' } })
+    expect(falso.cliente.auth.admin.createUser).toHaveBeenCalledWith({
+      email: expect.stringMatching(/^[0-9a-f-]{36}@cuentas\.molino\.invalid$/),
+      password: CONTRASENA,
+      email_confirm: true,
+    })
+    expect(falso.inserciones).toEqual([
+      { id: ID_OTRA, nombre: 'Ana', siglas: 'AT', usuario: 'a.torres', rol: 'residente', debe_cambiar_contrasena: true },
+    ])
+  })
+
+  it('un usuario que ya existe se muestra en el campo usuario, sin tocar Auth', async () => {
+    const falso = usarAdmin(clienteFalso({ lecturas: [{ data: { id: ID_DIRECTOR }, error: null }] }))
+    const r = await crearNuevaCuenta(null, formulario(casa))
+    expect(r).toEqual({ ok: false, error: 'Revisá los datos.', campos: { usuario: MENSAJE_USUARIO_REPETIDO } })
+    expect(falso.cliente.auth.admin.createUser).not.toHaveBeenCalled()
+  })
+
+  it('si dos personas lo crean a la vez, la base lo rechaza: va al campo y no queda una cuenta de Auth suelta', async () => {
+    const falso = usarAdmin(clienteFalso({ escrituras: [{ data: null, error: { code: '23505' } }] }))
+    const r = await crearNuevaCuenta(null, formulario(casa))
+    expect(r).toEqual({ ok: false, error: 'Revisá los datos.', campos: { usuario: MENSAJE_USUARIO_REPETIDO } })
+    expect(falso.cliente.auth.admin.deleteUser).toHaveBeenCalledWith(ID_OTRA)
+  })
+
+  it('una cuenta de Administración recibe el nombre genérico que sigue, no uno escrito', async () => {
+    const falso = usarAdmin(
+      clienteFalso({
+        // 1.ª lectura: ¿existe el usuario? 2.ª: los nombres genéricos en uso.
+        lecturas: [LECTURA_VACIA, { data: [{ nombre: 'Administración 1' }, { nombre: 'Administración 4' }], error: null }],
+      }),
+    )
     const r = await crearNuevaCuenta(
       null,
-      formulario({ nombre: 'Ana', siglas: 'AT', correo: 'ana@centro.org', rol: 'residente', contrasena: CONTRASENA }),
+      formulario({ rol: 'administracion', usuario: 'admin.5', contrasena: CONTRASENA, nombre: 'María Real', siglas: 'MR' }),
     )
-    expect(r).toEqual({ ok: false, error: 'Revisá los datos.', campos: { correo: MENSAJE_CORREO_REPETIDO } })
+    expect(r).toEqual({ ok: true, data: { id: ID_OTRA, nombre: 'Administración 5', usuario: 'admin.5' } })
+    expect(falso.inserciones[0]).toMatchObject({ nombre: 'Administración 5', siglas: 'A5', usuario: 'admin.5', rol: 'administracion' })
+    expect(JSON.stringify(falso.inserciones)).not.toContain('María')
+  })
+
+  it('el prefijo demo. es de los scripts: el formulario lo rechaza', async () => {
+    usarAdmin(clienteFalso())
+    expect(await crearNuevaCuenta(null, formulario({ ...casa, usuario: 'demo.intruso' }))).toEqual({
+      ok: false,
+      error: 'Revisá los datos.',
+      campos: { usuario: 'Ese usuario está reservado. Elegí otro.' },
+    })
+  })
+})
+
+describe('cambiarUsuarioCuenta', () => {
+  it('el Director cambia el usuario de una cuenta (también el propio), normalizado, sin tocar Auth', async () => {
+    const falso = usarAdmin(clienteFalso())
+    expect(await cambiarUsuarioCuenta(null, formulario({ id: ID_OTRA, usuario: ' R.Muñoz ' }))).toEqual({
+      ok: true,
+      data: { usuario: 'r.munoz' },
+    })
+    expect(falso.actualizaciones).toEqual([{ usuario: 'r.munoz' }])
+    expect(await cambiarUsuarioCuenta(null, formulario({ id: ID_DIRECTOR, usuario: 'directora' }))).toMatchObject({ ok: true })
+    // La dirección interna de Auth no depende del usuario.
+    expect(falso.cliente.auth.admin.updateUserById).not.toHaveBeenCalled()
+  })
+
+  it('un usuario repetido va al campo', async () => {
+    usarAdmin(clienteFalso({ escrituras: [{ data: null, error: { code: '23505' } }] }))
+    expect(await cambiarUsuarioCuenta(null, formulario({ id: ID_OTRA, usuario: 'r.flores' }))).toEqual({
+      ok: false,
+      error: 'Revisá los datos.',
+      campos: { usuario: MENSAJE_USUARIO_REPETIDO },
+    })
+  })
+
+  it('una cuenta que no existe lo dice', async () => {
+    usarAdmin(clienteFalso({ escrituras: [{ data: [], error: null }] }))
+    expect(await cambiarUsuarioCuenta(null, formulario({ id: ID_OTRA, usuario: 'r.flores' }))).toEqual({
+      ok: false,
+      error: 'La cuenta no existe.',
+    })
+  })
+
+  it('solo el Director', async () => {
+    vi.mocked(perfilParaAccion).mockResolvedValue({ ok: false, error: 'No tenés permiso para hacer esto.' })
+    expect(await cambiarUsuarioCuenta(null, formulario({ id: ID_OTRA, usuario: 'r.flores' }))).toMatchObject({ ok: false })
+    expect(crearClienteAdmin).not.toHaveBeenCalled()
+  })
+})
+
+describe('cambiarRolCuenta hacia Administración', () => {
+  it('la cuenta toma el nombre genérico que sigue', async () => {
+    const falso = usarAdmin(
+      clienteFalso({
+        // 1.ª lectura: el rol que tiene hoy. 2.ª: los nombres genéricos en uso.
+        lecturas: [{ data: { rol: 'residente' }, error: null }, { data: [{ nombre: 'Administración 2' }], error: null }],
+      }),
+    )
+    expect(await cambiarRolCuenta({ id: ID_OTRA, rol: 'administracion' })).toEqual({ ok: true, data: null })
+    expect(falso.actualizaciones).toEqual([{ rol: 'administracion', nombre: 'Administración 3', siglas: 'A3' }])
+  })
+
+  it('si ya era de Administración, conserva su nombre', async () => {
+    const falso = usarAdmin(clienteFalso({ lecturas: [{ data: { rol: 'administracion' }, error: null }] }))
+    expect(await cambiarRolCuenta({ id: ID_OTRA, rol: 'administracion' })).toEqual({ ok: true, data: null })
+    expect(falso.actualizaciones).toEqual([{ rol: 'administracion' }])
+  })
+
+  it('una cuenta que no existe lo dice, sin escribir', async () => {
+    const falso = usarAdmin(clienteFalso())
+    expect(await cambiarRolCuenta({ id: ID_OTRA, rol: 'administracion' })).toEqual({ ok: false, error: 'La cuenta no existe.' })
+    expect(falso.actualizaciones).toEqual([])
+  })
+
+  it('a otro rol no toca el nombre', async () => {
+    const falso = usarAdmin(clienteFalso())
+    expect(await cambiarRolCuenta({ id: ID_OTRA, rol: 'residente' })).toEqual({ ok: true, data: null })
+    expect(falso.actualizaciones).toEqual([{ rol: 'residente' }])
   })
 })
 
 describe('Mi cuenta', () => {
-  it('devuelve los datos normalizados que quedaron guardados', async () => {
-    usarAdmin(clienteFalso())
-    const r = await guardarMiCuenta(
-      null,
-      formulario({ nombre: '  Directora Renombrada ', siglas: ' dr ', correo: ' Nuevo@Prueba.TEST ' }),
-    )
-    expect(r).toEqual({
+  it('guarda nombre y siglas normalizados; ni correo ni usuario', async () => {
+    const falso = usarAdmin(clienteFalso())
+    const r = await guardarMiCuenta(null, formulario({ nombre: '  Directora Renombrada ', siglas: ' dr ', usuario: 'otro' }))
+    expect(r).toEqual({ ok: true, data: { nombre: 'Directora Renombrada', siglas: 'DR' } })
+    expect(falso.actualizaciones).toEqual([{ nombre: 'Directora Renombrada', siglas: 'DR' }])
+    expect(falso.cliente.auth.admin.updateUserById).not.toHaveBeenCalled()
+  })
+
+  it('Administración no cambia su nombre: lo pone la app', async () => {
+    vi.mocked(perfilParaAccion).mockResolvedValue({
       ok: true,
-      data: { nombre: 'Directora Renombrada', siglas: 'DR', correo: 'nuevo@prueba.test' },
+      perfil: { ...DIRECTOR, id: ID_OTRA, rol: 'administracion', nombre: 'Administración 1', siglas: 'A1' },
     })
+    const falso = usarAdmin(clienteFalso())
+    const r = await guardarMiCuenta(null, formulario({ nombre: 'María Real', siglas: 'MR' }))
+    expect(r).toEqual({ ok: false, error: 'En Administración el nombre lo pone la app.' })
+    expect(falso.actualizaciones).toEqual([])
   })
 
   it('verifica la contraseña actual con el correo de la sesión de Auth, no el del perfil', async () => {

@@ -2,7 +2,7 @@ import { crearClienteScript, exigirConfirmacion } from './cliente-script'
 import { sembrarCalendario } from './demo/calendario'
 import { sembrarComidas } from './demo/comidas'
 import { sembrarMensajes } from './demo/mensajes'
-import { DOMINIO_DEMO, type Sembrador } from './demo/tipos'
+import { PREFIJO_DEMO, type Sembrador } from './demo/tipos'
 import { asegurarUsuariosDemo } from './demo/usuarios'
 
 /** Cada pista agrega aquí su sembrador (spec §10, índice §4). */
@@ -13,7 +13,7 @@ const SEMBRADORES: { nombre: string; sembrar: Sembrador }[] = [
 ]
 
 async function main() {
-  exigirConfirmacion('Crea cuentas y datos de desarrollo con correos @' + DOMINIO_DEMO + '.')
+  exigirConfirmacion(`Crea cuentas y datos de desarrollo (usuarios ${PREFIJO_DEMO}…).`)
 
   const admin = crearClienteScript()
   console.log('Cuentas demo:')

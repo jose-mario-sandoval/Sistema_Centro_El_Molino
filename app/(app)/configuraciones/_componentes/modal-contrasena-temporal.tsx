@@ -34,7 +34,7 @@ function FormularioContrasenaTemporal({ cuenta, alCerrar }: { cuenta: Cuenta; al
       ) : (
         <form action={accion} noValidate>
           <p className="hint">
-            {cuenta.nombre} ({cuenta.correo}) deberá elegir una contraseña nueva la próxima vez que inicie sesión.
+            {cuenta.nombre} ({cuenta.usuario}) deberá elegir una contraseña nueva la próxima vez que inicie sesión.
           </p>
           <input type="hidden" name="id" value={cuenta.id} />
           <CampoContrasenaTemporal valor={contrasena} alCambiar={setContrasena} error={campos?.contrasena} />
