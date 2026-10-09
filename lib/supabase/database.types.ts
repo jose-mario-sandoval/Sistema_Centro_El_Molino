@@ -122,7 +122,7 @@ export type Database = {
       enlaces_confirmacion: {
         Row: {
           creado_en: string
-          creado_por: string
+          creado_por: string | null
           evento_id: string
           id: string
           tiempo_comida: Database["public"]["Enums"]["tiempo_comida"]
@@ -131,7 +131,7 @@ export type Database = {
         }
         Insert: {
           creado_en?: string
-          creado_por: string
+          creado_por?: string | null
           evento_id: string
           id?: string
           tiempo_comida: Database["public"]["Enums"]["tiempo_comida"]
@@ -140,7 +140,7 @@ export type Database = {
         }
         Update: {
           creado_en?: string
-          creado_por?: string
+          creado_por?: string | null
           evento_id?: string
           id?: string
           tiempo_comida?: Database["public"]["Enums"]["tiempo_comida"]
@@ -168,7 +168,7 @@ export type Database = {
         Row: {
           actualizado_en: string
           creado_en: string
-          creado_por: string
+          creado_por: string | null
           fecha: string
           hora: string | null
           id: string
@@ -181,7 +181,7 @@ export type Database = {
         Insert: {
           actualizado_en?: string
           creado_en?: string
-          creado_por: string
+          creado_por?: string | null
           fecha: string
           hora?: string | null
           id?: string
@@ -194,7 +194,7 @@ export type Database = {
         Update: {
           actualizado_en?: string
           creado_en?: string
-          creado_por?: string
+          creado_por?: string | null
           fecha?: string
           hora?: string | null
           id?: string
@@ -563,7 +563,7 @@ export type Database = {
       series_eventos: {
         Row: {
           creado_en: string
-          creado_por: string
+          creado_por: string | null
           dia_mes: number | null
           dia_semana: number | null
           fecha_fin: string
@@ -579,7 +579,7 @@ export type Database = {
         }
         Insert: {
           creado_en?: string
-          creado_por: string
+          creado_por?: string | null
           dia_mes?: number | null
           dia_semana?: number | null
           fecha_fin: string
@@ -595,7 +595,7 @@ export type Database = {
         }
         Update: {
           creado_en?: string
-          creado_por?: string
+          creado_por?: string | null
           dia_mes?: number | null
           dia_semana?: number | null
           fecha_fin?: string
@@ -794,6 +794,15 @@ export type Database = {
       requiere_cocina_valido: {
         Args: { p: Database["public"]["Enums"]["requerimiento_cocina"][] }
         Returns: boolean
+      }
+      resumen_para_eliminar_cuenta: {
+        Args: { p_usuario: string }
+        Returns: {
+          activo: boolean
+          eventos: number
+          mensajes: number
+          respuestas_de_otros: number
+        }[]
       }
       soy_activo: { Args: never; Returns: boolean }
       tiene_comidas: { Args: { p_usuario: string }; Returns: boolean }

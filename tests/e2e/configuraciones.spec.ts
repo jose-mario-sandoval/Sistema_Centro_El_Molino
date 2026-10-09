@@ -367,6 +367,44 @@ test('el Director desactiva una cuenta, que ya no puede entrar, y la reactiva', 
   await contexto.close()
 })
 
+test('el Director elimina para siempre una cuenta desactivada; una activa no ofrece eliminarla', async ({ page }) => {
+  await crearCuentaDesechable(USUARIO_DESECHABLE)
+  await abrirConfiguracionesComo(page, 'director')
+  const fila = page.getByRole('row', { name: /Cuenta Desechable/ })
+  const eliminar = fila.getByRole('button', { name: 'Eliminar a Cuenta Desechable' })
+
+  // Dos pasos a propósito: mientras está activa no hay "Eliminar".
+  await expect(eliminar).toHaveCount(0)
+  await fila.getByRole('button', { name: 'Desactivar a Cuenta Desechable' }).click()
+  await page.getByRole('dialog', { name: 'Desactivar cuenta' }).getByRole('button', { name: 'Desactivar' }).click()
+  await expect(fila).toContainText('Desactivada')
+
+  await eliminar.click()
+  const dialogo = page.getByRole('dialog', { name: 'Eliminar cuenta' })
+  await expect(dialogo).toContainText(`¿Eliminar definitivamente la cuenta de Cuenta Desechable (${USUARIO_DESECHABLE})?`)
+  // Antes de confirmar dice qué se pierde.
+  await expect(dialogo).toContainText('Se borra todo lo suyo: sus comidas, su plan, sus ausencias y sus avisos. No tiene mensajes.')
+  await expect(dialogo).toContainText('No se puede deshacer.')
+
+  // Cancelar no borra nada.
+  await dialogo.getByRole('button', { name: 'Cancelar' }).click()
+  await expect(dialogo).toBeHidden()
+  await expect(fila).toBeVisible()
+
+  await eliminar.click()
+  await dialogo.getByRole('button', { name: 'Eliminar definitivamente' }).click()
+  await expect(page.getByText('Cuenta eliminada: Cuenta Desechable.')).toBeVisible()
+  await expect(fila).toHaveCount(0)
+  const { data } = await clienteAdminPrueba().from('perfiles').select('id').eq('usuario', USUARIO_DESECHABLE)
+  expect(data).toEqual([])
+
+  // Ya no existe: ni entra, ni se distingue de un usuario que nunca existió.
+  await page.getByRole('button', { name: 'Cerrar sesión' }).click()
+  await expect(page).toHaveURL(/\/login$/)
+  await iniciarSesion(page, USUARIO_DESECHABLE)
+  await expect(page.getByText('Usuario o contraseña incorrectos.')).toBeVisible()
+})
+
 test('el Director cambia el rol de otra cuenta pero no el propio', async ({ page }) => {
   await abrirConfiguracionesComo(page, 'director')
   await expect(page.getByRole('heading', { name: 'Horas límite' })).toBeVisible()

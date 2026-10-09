@@ -6,9 +6,11 @@ import {
   cambiarRolCuenta,
   cambiarUsuarioCuenta,
   crearNuevaCuenta,
+  eliminarCuenta,
   guardarHorasLimite,
   guardarMiCuenta,
   ponerContrasenaTemporal,
+  resumenParaEliminarCuenta,
 } from '@/app/(app)/configuraciones/acciones'
 import { perfilParaAccion, type Perfil } from '@/lib/auth/sesion'
 import { MENSAJE_USUARIO_REPETIDO } from '@/lib/configuraciones/errores'
@@ -58,7 +60,9 @@ const AUTH_OK: Respuesta = { data: { user: { id: ID_OTRA } }, error: null }
  * Cliente de Supabase falso: devuelve en orden las respuestas de lecturas, escrituras y Auth
  * (si se acaban, responde éxito) y registra los valores de cada `update` y de cada `insert`.
  */
-function clienteFalso(respuestas: { lecturas?: Respuesta[]; escrituras?: Respuesta[]; auth?: Respuesta[] } = {}) {
+function clienteFalso(
+  respuestas: { lecturas?: Respuesta[]; escrituras?: Respuesta[]; auth?: Respuesta[]; rpc?: Respuesta[]; borrado?: Respuesta } = {},
+) {
   const lecturas = [...(respuestas.lecturas ?? [])]
   const escrituras = [...(respuestas.escrituras ?? [])]
   const auth = [...(respuestas.auth ?? [])]
@@ -90,13 +94,15 @@ function clienteFalso(respuestas: { lecturas?: Respuesta[]; escrituras?: Respues
   }
 
   const respuestaAuth = async () => auth.shift() ?? AUTH_OK
+  const rpcs = [...(respuestas.rpc ?? [])]
   const cliente = {
     from: vi.fn(consulta),
+    rpc: vi.fn(() => ({ maybeSingle: async () => rpcs.shift() ?? LECTURA_VACIA })),
     auth: {
       admin: {
         updateUserById: vi.fn(respuestaAuth),
         createUser: vi.fn(respuestaAuth),
-        deleteUser: vi.fn(async () => ({ data: {}, error: null })),
+        deleteUser: vi.fn(async () => respuestas.borrado ?? { data: {}, error: null }),
       },
       getUser: vi.fn(),
       updateUser: vi.fn(async () => ({ data: { user: {} }, error: null })),
@@ -444,5 +450,74 @@ describe('guardarHorasLimite', () => {
     expect(r).toMatchObject({ ok: false, error: 'No se pudieron guardar las horas límite. Intentá de nuevo.' })
     expect(revalidatePath).toHaveBeenCalledWith('/configuraciones')
     expect(errorConsola).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('eliminar una cuenta', () => {
+  const DESACTIVADA = { data: { activo: false, mensajes: 3, respuestas_de_otros: 1, eventos: 2 }, error: null }
+
+  it('el resumen dice lo que se perdería, leído con la función que llega con la migración', async () => {
+    const falso = usarAdmin(clienteFalso({ rpc: [DESACTIVADA] }))
+    expect(await resumenParaEliminarCuenta({ id: ID_OTRA })).toEqual({
+      ok: true,
+      data: { mensajes: 3, respuestasDeOtros: 1, eventos: 2 },
+    })
+    expect(falso.cliente.rpc).toHaveBeenCalledWith('resumen_para_eliminar_cuenta', { p_usuario: ID_OTRA })
+    expect(falso.cliente.auth.admin.deleteUser).not.toHaveBeenCalled()
+  })
+
+  it('borra el usuario de Auth de una cuenta desactivada (el perfil y lo suyo caen en cascada)', async () => {
+    const falso = usarAdmin(clienteFalso({ rpc: [DESACTIVADA] }))
+    expect(await eliminarCuenta({ id: ID_OTRA })).toEqual({ ok: true, data: null })
+    expect(falso.cliente.auth.admin.deleteUser).toHaveBeenCalledWith(ID_OTRA)
+    expect(revalidatePath).toHaveBeenCalledWith('/configuraciones')
+  })
+
+  it('una cuenta activa no se elimina: primero hay que desactivarla', async () => {
+    const falso = usarAdmin(clienteFalso({ rpc: [{ data: { ...DESACTIVADA.data, activo: true }, error: null }] }))
+    expect(await eliminarCuenta({ id: ID_OTRA })).toEqual({
+      ok: false,
+      error: 'Primero desactivá la cuenta. Solo se eliminan cuentas desactivadas.',
+    })
+    expect(falso.cliente.auth.admin.deleteUser).not.toHaveBeenCalled()
+  })
+
+  it('el Director no se elimina a sí mismo, y ni siquiera se consulta', async () => {
+    const falso = usarAdmin(clienteFalso({ rpc: [DESACTIVADA] }))
+    expect(await eliminarCuenta({ id: ID_DIRECTOR })).toEqual({ ok: false, error: 'No podés eliminar tu propia cuenta.' })
+    expect(await resumenParaEliminarCuenta({ id: ID_DIRECTOR })).toMatchObject({ ok: false })
+    expect(falso.cliente.rpc).not.toHaveBeenCalled()
+    expect(falso.cliente.auth.admin.deleteUser).not.toHaveBeenCalled()
+  })
+
+  it('una cuenta que no existe lo dice', async () => {
+    const falso = usarAdmin(clienteFalso())
+    expect(await eliminarCuenta({ id: ID_OTRA })).toEqual({ ok: false, error: 'La cuenta no existe.' })
+    expect(falso.cliente.auth.admin.deleteUser).not.toHaveBeenCalled()
+  })
+
+  it('sin la migración aplicada (la función no existe) no se borra nada: así nunca se pierden eventos', async () => {
+    const falso = usarAdmin(clienteFalso({ rpc: [{ data: null, error: { code: 'PGRST202' } }] }))
+    expect(await eliminarCuenta({ id: ID_OTRA })).toEqual({ ok: false, error: 'No se pudo eliminar la cuenta. Intentá de nuevo.' })
+    expect(falso.cliente.auth.admin.deleteUser).not.toHaveBeenCalled()
+  })
+
+  it('si Auth no la borra, lo dice y no da la cuenta por eliminada', async () => {
+    usarAdmin(clienteFalso({ rpc: [DESACTIVADA], borrado: errorDeServidor() }))
+    expect(await eliminarCuenta({ id: ID_OTRA })).toEqual({ ok: false, error: 'No se pudo eliminar la cuenta. Intentá de nuevo.' })
+    expect(revalidatePath).not.toHaveBeenCalled()
+  })
+
+  it('solo el Director', async () => {
+    vi.mocked(perfilParaAccion).mockResolvedValue({ ok: false, error: 'No tenés permiso para hacer esto.' })
+    expect(await eliminarCuenta({ id: ID_OTRA })).toMatchObject({ ok: false })
+    expect(await resumenParaEliminarCuenta({ id: ID_OTRA })).toMatchObject({ ok: false })
+    expect(crearClienteAdmin).not.toHaveBeenCalled()
+  })
+
+  it('un id que no es un uuid no llega a la base', async () => {
+    usarAdmin(clienteFalso())
+    expect(await eliminarCuenta({ id: 'x' })).toEqual({ ok: false, error: 'Datos inválidos.' })
+    expect(crearClienteAdmin).not.toHaveBeenCalled()
   })
 })

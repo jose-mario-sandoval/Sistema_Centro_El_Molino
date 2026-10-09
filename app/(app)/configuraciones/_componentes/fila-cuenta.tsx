@@ -14,6 +14,7 @@ export function FilaCuenta({
   alCambiarUsuario,
   alPonerContrasena,
   alDesactivar,
+  alEliminar,
   alConfirmarRol,
 }: {
   cuenta: Cuenta
@@ -21,6 +22,8 @@ export function FilaCuenta({
   alCambiarUsuario: () => void
   alPonerContrasena: () => void
   alDesactivar: () => void
+  /** Solo una cuenta desactivada se puede eliminar: son dos pasos a propósito. */
+  alEliminar: () => void
   /**
    * Dar o quitar el rol Director, o pasar a Administración (cambia el nombre por uno genérico), pasa
    * por una confirmación; el resto de los cambios de rol se aplica directo.
@@ -129,15 +132,26 @@ export function FilaCuenta({
                 Desactivar
               </button>
             ) : (
-              <button
-                type="button"
-                className="btn small"
-                aria-label={`Reactivar a ${cuenta.nombre}`}
-                aria-busy={pendiente}
-                onClick={siLibre(reactivar)}
-              >
-                Reactivar
-              </button>
+              <>
+                <button
+                  type="button"
+                  className="btn small"
+                  aria-label={`Reactivar a ${cuenta.nombre}`}
+                  aria-busy={pendiente}
+                  onClick={siLibre(reactivar)}
+                >
+                  Reactivar
+                </button>
+                <button
+                  type="button"
+                  className="btn danger small"
+                  aria-label={`Eliminar a ${cuenta.nombre}`}
+                  aria-busy={pendiente}
+                  onClick={siLibre(alEliminar)}
+                >
+                  Eliminar
+                </button>
+              </>
             )}
           </div>
         )}

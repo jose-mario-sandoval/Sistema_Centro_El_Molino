@@ -13,6 +13,7 @@ import {
 import type { DatosMiCuenta } from '@/lib/configuraciones/tipos'
 import { nombreAdministracion, siglasAdministracion, siguienteNumeroAdministracion } from '@/lib/cuentas/administracion'
 import { crearCuenta } from '@/lib/cuentas/crear-cuenta'
+import type { ResumenEliminacion } from '@/lib/cuentas/eliminar'
 import { verificarContrasena } from '@/lib/cuentas/verificar-contrasena'
 import type { Rol } from '@/lib/perfiles/roles'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
@@ -23,6 +24,7 @@ import {
   esquemaCambioRol,
   esquemaCambioUsuario,
   esquemaContrasenaTemporal,
+  esquemaEliminarCuenta,
   esquemaEstadoCuenta,
   esquemaHorasLimite,
   esquemaNuevaCuenta,
@@ -410,5 +412,73 @@ export async function cambiarEstadoCuenta(entrada: unknown): Promise<Resultado<n
   }
 
   revalidatePath('/configuraciones')
+  return exito(null)
+}
+
+// ---------- Eliminar una cuenta (Director; solo cuentas desactivadas) ----------
+
+const MENSAJE_NO_ELIMINADA = 'No se pudo eliminar la cuenta. Intentá de nuevo.'
+
+/**
+ * Comprueba que la cuenta se puede eliminar y devuelve lo que se perdería. Pasa siempre por
+ * `resumen_para_eliminar_cuenta()`: esa función llega con la migración que conserva los eventos de
+ * la casa (20261008100000), así que si la migración no está aplicada esto falla y no se borra nada.
+ */
+async function cuentaEliminable(
+  admin: ReturnType<typeof crearClienteAdmin>,
+  idPropio: string,
+  id: string,
+): Promise<Resultado<ResumenEliminacion>> {
+  if (id === idPropio) return fallo('No podés eliminar tu propia cuenta.')
+
+  const { data, error } = await admin.rpc('resumen_para_eliminar_cuenta', { p_usuario: id }).maybeSingle()
+  if (error) {
+    console.error(`cuentaEliminable: no se pudo leer la cuenta (usuario ${id})`, error)
+    return fallo(MENSAJE_NO_ELIMINADA)
+  }
+  if (!data) return fallo('La cuenta no existe.')
+  // Dos pasos a propósito: nadie borra por error una cuenta que se está usando.
+  if (data.activo) return fallo('Primero desactivá la cuenta. Solo se eliminan cuentas desactivadas.')
+
+  return exito({ mensajes: data.mensajes, respuestasDeOtros: data.respuestas_de_otros, eventos: data.eventos })
+}
+
+/** Lo que se perdería al eliminar la cuenta: el diálogo lo muestra antes de confirmar. */
+export async function resumenParaEliminarCuenta(entrada: unknown): Promise<Resultado<ResumenEliminacion>> {
+  const acceso = await perfilParaAccion('director')
+  if (!acceso.ok) return acceso
+
+  const datos = esquemaEliminarCuenta.safeParse(entrada)
+  if (!datos.success) return fallo('Datos inválidos.')
+
+  return cuentaEliminable(crearClienteAdmin(), acceso.perfil.id, datos.data.id)
+}
+
+/**
+ * Elimina la cuenta definitivamente: borra el usuario de Auth y, en cascada, su perfil y todo lo
+ * suyo (comidas, plan, ausencias, mensajes, avisos). Los eventos, series y enlaces de cena que cargó
+ * se conservan sin autor. No tiene vuelta atrás.
+ */
+export async function eliminarCuenta(entrada: unknown): Promise<Resultado<null>> {
+  const acceso = await perfilParaAccion('director')
+  if (!acceso.ok) return acceso
+
+  const datos = esquemaEliminarCuenta.safeParse(entrada)
+  if (!datos.success) return fallo('Datos inválidos.')
+  const { id } = datos.data
+
+  const admin = crearClienteAdmin()
+  const eliminable = await cuentaEliminable(admin, acceso.perfil.id, id)
+  if (!eliminable.ok) return eliminable
+
+  const { error } = await admin.auth.admin.deleteUser(id)
+  if (error) {
+    console.error(`eliminarCuenta: Auth no borró la cuenta (usuario ${id})`, error)
+    return fallo(MENSAJE_NO_ELIMINADA)
+  }
+
+  revalidatePath('/configuraciones')
+  // Sus mensajes y su lugar en las comidas ya no están: lo que se ve en el resto de la app cambia.
+  revalidatePath('/', 'layout')
   return exito(null)
 }
