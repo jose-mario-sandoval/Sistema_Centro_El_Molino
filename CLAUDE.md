@@ -110,7 +110,11 @@ opcionales:
   viejo pasa por `usuarioDesdeCorreo()`, espejo en TS de la limpieza de la migración
   `20261005110000` (casos compartidos en `tests/fixtures/casos-usuario.json`: si cambia una,
   cambia la otra). El prefijo `demo.` es de los scripts: lo rechazan solo los formularios del
-  Director. La app nunca manda correos.
+  Director. La app nunca manda correos, y `perfiles` no guarda ninguno (la columna `correo` se borró
+  en `20261005120000`). Si alguna cuenta quedara en Auth con un correo real (por ejemplo, creada a
+  mano desde el panel de Supabase), `npm run borrar-correos -- --confirmar` se lo reemplaza por una
+  dirección interna con la API de administración (`lib/cuentas/borrar-correo.ts`; sin `--confirmar`
+  solo cuenta); no cambia contraseñas ni cierra sesiones.
 - **Las cuentas de Administración se llaman "Administración N" / "AN"**
   (`lib/cuentas/administracion.ts`): la casa no ve su nombre real. El número sale de los nombres
   que ya existen (sin contador); el servidor lo pone al crear la cuenta o al pasarla a ese rol
