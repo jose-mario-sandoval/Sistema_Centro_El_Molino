@@ -1458,7 +1458,12 @@ html[data-cal-oculta-n="3"] .zona-calendario:not([data-listo]) .aviso-filtros-zo
 .pagina-publica{
   min-height:100vh;display:flex;align-items:center;justify-content:center;padding:var(--canal);
 }
-.pagina-publica .card{max-width:32rem;width:100%;}
+/* Todo centrado: quien abre el enlace ve una sola tarjeta suelta en la pantalla, sin la app alrededor.
+   Lo que se escribe en los campos también, para que no quede corrido respecto de su etiqueta. */
+.pagina-publica .card{max-width:32rem;width:100%;text-align:center;}
+.pagina-publica .field input{text-align:center;}
+/* Aire entre el encabezado (qué cena y cuándo) y lo que sigue: centrado, sin esto queda pegado. */
+.pagina-publica .card > h1 + p{margin:.5rem 0 1.5rem;}
 
 .aviso{
   padding:.9rem var(--marco);border-radius:var(--r-md);
