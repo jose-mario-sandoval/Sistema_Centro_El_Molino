@@ -99,3 +99,6 @@ export const esquemaContrasenaTemporal = z.object({ id: idCuenta, contrasena: co
 export const esquemaCambioRol = z.object({ id: idCuenta, rol })
 
 export const esquemaEstadoCuenta = z.object({ id: idCuenta, activo: z.boolean({ error: 'Estado inválido.' }) })
+
+/** Eliminar una cuenta, o pedir lo que se perdería al hacerlo. */
+export const esquemaEliminarCuenta = z.object({ id: idCuenta })

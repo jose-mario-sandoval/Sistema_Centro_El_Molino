@@ -115,6 +115,16 @@ opcionales:
   (`lib/cuentas/administracion.ts`): la casa no ve su nombre real. El número sale de los nombres
   que ya existen (sin contador); el servidor lo pone al crear la cuenta o al pasarla a ese rol
   (con confirmación), y esas cuentas no pueden editar su nombre en "Mi cuenta".
+- **Eliminar cuentas** (Director; solo una cuenta desactivada, nunca la propia: son dos pasos a
+  propósito). `eliminarCuenta` borra el usuario de Auth y cae en cascada todo lo **de la persona**:
+  comidas, plan, ausencias, mensajes (con las respuestas ajenas dentro de sus publicaciones), avisos y
+  su parte del registro de moderación. Lo que es **de la casa** se conserva: `creado_por` de
+  `eventos`, `series_eventos` y `enlaces_confirmacion` es `on delete set null`, y el trigger de
+  eventos deja vaciarlo pero nunca cambiarlo. La acción pasa siempre por
+  `resumen_para_eliminar_cuenta()` (solo `service_role`): da los números que el diálogo muestra antes
+  de confirmar y hace de seguro —sin la migración `20261008100000` la función no existe y no se borra
+  nada—. Una tabla nueva con clave a `perfiles` tiene que decidir a propósito si es de la persona
+  (`cascade`) o de la casa (`set null`). Ver `docs/superpowers/specs/2026-10-08-eliminar-cuentas-design.md`.
 - **Aprobación de mensajes** (`estado_mensaje`: pendiente/aprobado/rechazado): el estado lo fuerza el
   trigger `mensajes_forzar_estado` según el rol de *quien tiene la sesión* (`mi_rol()`), no según
   `autor_id` ni lo que mande el cliente. Residente → `pendiente`; **Director y Administración →

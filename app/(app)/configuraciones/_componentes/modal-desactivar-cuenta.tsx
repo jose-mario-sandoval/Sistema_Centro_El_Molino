@@ -30,7 +30,7 @@ export function ModalDesactivarCuenta({ cuenta, alCerrar }: { cuenta: Cuenta | n
           </p>
           <p className="hint">
             No podrá iniciar sesión, no aparecerá en las comidas ni recibirá avisos. Sus mensajes se conservan y podés
-            reactivarla cuando quieras.
+            reactivarla cuando quieras. Una vez desactivada, también la podés eliminar para siempre.
           </p>
           <div className="modal-foot">
             <button type="button" className="btn ghost" onClick={alCerrar} disabled={pendiente}>
