@@ -347,6 +347,7 @@ export type Database = {
           avisar_cambios: boolean
           avisar_cocina: boolean
           avisar_hora_limite: boolean
+          fuera_de_conteos: boolean
           avisar_mensajes: boolean
           correo: string | null
           creado_en: string
@@ -365,6 +366,7 @@ export type Database = {
           avisar_cambios?: boolean
           avisar_cocina?: boolean
           avisar_hora_limite?: boolean
+          fuera_de_conteos?: boolean
           avisar_mensajes?: boolean
           correo?: string | null
           creado_en?: string
@@ -383,6 +385,7 @@ export type Database = {
           avisar_cambios?: boolean
           avisar_cocina?: boolean
           avisar_hora_limite?: boolean
+          fuera_de_conteos?: boolean
           avisar_mensajes?: boolean
           correo?: string | null
           creado_en?: string

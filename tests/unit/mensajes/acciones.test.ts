@@ -46,6 +46,7 @@ function perfil(rol: Rol): Perfil {
     activo: true,
     debe_cambiar_contrasena: false,
     avisar_hora_limite: true,
+    fuera_de_conteos: false,
     avisar_cambios: true,
     avisar_cocina: true,
     avisar_mensajes: true,

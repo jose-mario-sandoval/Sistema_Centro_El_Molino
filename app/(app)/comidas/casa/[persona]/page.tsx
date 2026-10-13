@@ -11,7 +11,6 @@ import { diaParaMostrar } from '@/lib/comidas/vista'
 import type { Voz } from '@/lib/comidas/voz'
 import { fechaISOEn, sumarDias } from '@/lib/fechas'
 import { listarPerfiles } from '@/lib/perfiles/consultas'
-import { ROLES_CON_COMIDAS } from '@/lib/perfiles/roles'
 import { PanelAusencias } from '../../../calendario/_componentes/panel-ausencias'
 import { NavegacionSemana } from '../../_componentes/navegacion-semana'
 import { PlanEditable } from '../../_componentes/plan-editable'
@@ -39,7 +38,7 @@ export default async function PaginaPersonaDeLaCasa({
   const perfil = await exigirRol('director')
   const { persona: id } = await params
   if (!z.uuid().safeParse(id).success) notFound()
-  const personas = await listarPerfiles({ soloActivos: true, roles: ROLES_CON_COMIDAS })
+  const personas = await listarPerfiles({ conComidas: true })
   const persona = personas.find((p) => p.id === id)
   if (!persona) notFound()
 
