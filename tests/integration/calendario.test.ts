@@ -749,6 +749,58 @@ describe('series_eventos y crear_serie_eventos', () => {
     expect(error?.code).toBe('23514')
   })
 
+  async function crearAnual(director: Awaited<ReturnType<typeof clienteComo>>, fechas: string[], fin: string) {
+    return director.rpc('crear_serie_eventos', {
+      p_patron: 'anual',
+      p_dia_semana: null as unknown as number,
+      p_ordinal_semana: null as unknown as number,
+      p_dia_mes: null as unknown as number,
+      p_fecha_inicio: fechas[0],
+      p_fecha_fin: fin,
+      p_hora: '10:00',
+      p_titulo: 'Fiesta del Centro',
+      p_tipo: 'otro',
+      p_requiere_cocina: [],
+      p_requiere_otro_texto: null as unknown as string,
+      p_fechas: fechas,
+    })
+  }
+
+  it('una serie anual se crea con una ocurrencia por año y puede durar hasta 10 años', async () => {
+    const director = await clienteComo('director')
+    const { data: serieId, error } = await crearAnual(director, ['2026-10-12', '2027-10-12', '2028-10-12'], '2036-10-12')
+    expect(error).toBeNull()
+    const { data: serie } = await admin.from('series_eventos').select('patron').eq('id', serieId!).single()
+    expect(serie).toEqual({ patron: 'anual' })
+    const { data: ocurrencias } = await admin.from('eventos').select('fecha').eq('serie_id', serieId!).order('fecha')
+    expect(ocurrencias).toEqual([{ fecha: '2026-10-12' }, { fecha: '2027-10-12' }, { fecha: '2028-10-12' }])
+  })
+
+  it('una serie anual de más de 10 años se rechaza', async () => {
+    const director = await clienteComo('director')
+    const { error } = await crearAnual(director, ['2026-10-12'], '2036-10-25')
+    expect(error?.code).toBe('23514')
+  })
+
+  it('una serie anual no lleva día de la semana', async () => {
+    const director = await clienteComo('director')
+    const { error } = await director.rpc('crear_serie_eventos', {
+      p_patron: 'anual',
+      p_dia_semana: 6,
+      p_ordinal_semana: null as unknown as number,
+      p_dia_mes: null as unknown as number,
+      p_fecha_inicio: '2026-10-12',
+      p_fecha_fin: '2027-10-12',
+      p_hora: '10:00',
+      p_titulo: 'Fiesta',
+      p_tipo: 'otro',
+      p_requiere_cocina: [],
+      p_requiere_otro_texto: null as unknown as string,
+      p_fechas: ['2026-10-12'],
+    })
+    expect(error?.code).toBe('23514')
+  })
+
   it('rechaza una fecha generada fuera del rango de la serie (defensa además del cálculo en TS)', async () => {
     const director = await clienteComo('director')
     const { error } = await crearSerie(director, ['2026-11-01'], { fecha_inicio: '2026-10-10', fecha_fin: '2026-10-24' })

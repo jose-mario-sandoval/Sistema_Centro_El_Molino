@@ -79,6 +79,9 @@ export const esquemaConfirmarCena = z.object({
 
 export type DatosEvento = z.output<typeof esquemaEvento>
 
+/** Igual que el check de series_eventos: una serie anual puede durar hasta 10 años (las demás, 730 días). */
+const MAXIMO_DIAS_SERIE_ANUAL = 3660
+
 /**
  * Campos de una serie recurrente tal como llegan del formulario. Los campos numéricos
  * (`dia_semana`, `ordinal_semana`, `dia_mes`) llegan como texto y se convierten acá.
@@ -95,7 +98,7 @@ export const esquemaSerieEventos = z
       message: '"Utensilios y materiales" no se combina con merienda ni comida.',
     }),
     requiere_otro_texto: z.string().trim().max(200, 'El pedido puede tener hasta 200 caracteres.').transform((v) => (v === '' ? null : v)),
-    patron: z.enum(['semanal', 'mensual_dia_fijo', 'mensual_dia_semana'], { error: 'Elegí cómo se repite.' }),
+    patron: z.enum(['semanal', 'mensual_dia_fijo', 'mensual_dia_semana', 'anual'], { error: 'Elegí cómo se repite.' }),
     dia_semana: z.coerce.number('Elegí el día de la semana.').int().min(1).max(7).optional(),
     ordinal_semana: z.coerce.number('Elegí cuál.').int().refine((n) => [1, 2, 3, 4, -1].includes(n), 'Elegí una opción válida.').optional(),
     dia_mes: z.coerce.number('Elegí el día del mes.').int().min(1).max(31).optional(),
@@ -105,7 +108,9 @@ export const esquemaSerieEventos = z
   .superRefine((datos, ctx) => {
     if (datos.fecha_fin < datos.fecha_inicio) {
       ctx.addIssue({ code: 'custom', path: ['fecha_fin'], message: 'La fecha de fin no puede ser anterior al inicio.' })
-    } else if (diasEntre(datos.fecha_inicio, datos.fecha_fin) > 730) {
+    } else if (datos.patron === 'anual' && diasEntre(datos.fecha_inicio, datos.fecha_fin) > MAXIMO_DIAS_SERIE_ANUAL) {
+      ctx.addIssue({ code: 'custom', path: ['fecha_fin'], message: 'La serie anual no puede durar más de 10 años.' })
+    } else if (datos.patron !== 'anual' && diasEntre(datos.fecha_inicio, datos.fecha_fin) > 730) {
       ctx.addIssue({ code: 'custom', path: ['fecha_fin'], message: 'La serie no puede durar más de 730 días.' })
     }
     if (datos.patron === 'semanal' && datos.dia_semana === undefined) {

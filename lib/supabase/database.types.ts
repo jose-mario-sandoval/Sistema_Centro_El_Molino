@@ -825,7 +825,7 @@ export type Database = {
       estado_comida: "si" | "no" | "temprano" | "tarde" | "bolsa" | "lonchera" | "enfermo"
       estado_mensaje: "pendiente" | "aprobado" | "rechazado"
       origen_seleccion: "persona" | "plan" | "ausencia"
-      patron_recurrencia: "semanal" | "mensual_dia_fijo" | "mensual_dia_semana"
+      patron_recurrencia: "semanal" | "mensual_dia_fijo" | "mensual_dia_semana" | "anual"
       requerimiento_cocina: "merienda" | "comida" | "materiales"
       rol: "director" | "residente" | "administracion"
       tiempo_comida: "desayuno" | "almuerzo" | "cena"
@@ -960,7 +960,7 @@ export const Constants = {
       estado_comida: ["si", "no", "temprano", "tarde", "bolsa", "lonchera", "enfermo"],
       estado_mensaje: ["pendiente", "aprobado", "rechazado"],
       origen_seleccion: ["persona", "plan", "ausencia"],
-      patron_recurrencia: ["semanal", "mensual_dia_fijo", "mensual_dia_semana"],
+      patron_recurrencia: ["semanal", "mensual_dia_fijo", "mensual_dia_semana", "anual"],
       requerimiento_cocina: ["merienda", "comida", "materiales"],
       rol: ["director", "residente", "administracion"],
       tiempo_comida: ["desayuno", "almuerzo", "cena"],

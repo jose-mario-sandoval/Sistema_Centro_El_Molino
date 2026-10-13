@@ -42,6 +42,31 @@ describe('generarFechasSerie: mensual_dia_fijo', () => {
   })
 })
 
+describe('generarFechasSerie: anual', () => {
+  it('el mismo mes y día de cada año, desde la fecha de inicio', () => {
+    const fechas = generarFechasSerie({ patron: 'anual' }, '2026-10-12', '2029-12-31')
+    expect(fechas).toEqual(['2026-10-12', '2027-10-12', '2028-10-12', '2029-10-12'])
+  })
+
+  it('respeta el fin: no incluye un año cuya fecha queda después', () => {
+    const fechas = generarFechasSerie({ patron: 'anual' }, '2026-10-12', '2028-10-11')
+    expect(fechas).toEqual(['2026-10-12', '2027-10-12'])
+  })
+
+  it('un solo año si el rango no llega al siguiente aniversario', () => {
+    expect(generarFechasSerie({ patron: 'anual' }, '2026-10-12', '2027-03-01')).toEqual(['2026-10-12'])
+  })
+
+  it('el 29 de febrero solo cae en los años bisiestos', () => {
+    const fechas = generarFechasSerie({ patron: 'anual' }, '2028-02-29', '2037-12-31')
+    expect(fechas).toEqual(['2028-02-29', '2032-02-29', '2036-02-29'])
+  })
+
+  it('el 31 de diciembre no se corre de día', () => {
+    expect(generarFechasSerie({ patron: 'anual' }, '2026-12-31', '2028-12-31')).toEqual(['2026-12-31', '2027-12-31', '2028-12-31'])
+  })
+})
+
 describe('generarFechasSerie: mensual_dia_semana', () => {
   it('el primer lunes de cada mes', () => {
     const fechas = generarFechasSerie({ patron: 'mensual_dia_semana', diaSemana: 1, ordinalSemana: 1 }, '2026-10-01', '2027-01-31')
