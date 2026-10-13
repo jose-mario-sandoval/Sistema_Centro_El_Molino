@@ -9,6 +9,7 @@ import {
   destinatariosPublicacion,
   destinatariosRecordatorio,
   destinatariosRespuesta,
+  filtrarSoloDirector,
   separarPorVisibilidad,
   type PerfilAviso,
 } from './destinatarios'
@@ -51,6 +52,11 @@ export async function leerPerfiles(): Promise<PerfilConNombre[]> {
   return anteriores.data.map((perfil) => ({ ...perfil, avisar_cambios: true, avisar_cocina: true }))
 }
 
+/** Un mensaje "solo Director" se avisa únicamente a quienes lo pueden leer (lib/push/destinatarios.ts). */
+function soloQuienLoVe(ids: string[], perfiles: PerfilConNombre[], soloDirector: boolean): string[] {
+  return soloDirector ? filtrarSoloDirector(ids, perfiles) : ids
+}
+
 /**
  * Envía el aviso de un mensaje con el autor como cada grupo lo ve en la app: con nombre para
  * Directores y Residentes, con siglas para Administración (lib/perfiles/visibilidad.ts).
@@ -85,7 +91,7 @@ export async function avisarNuevaPublicacion(mensajeId: string, opciones: { excl
   try {
     const { data: mensaje, error } = await crearClienteAdmin()
       .from('mensajes')
-      .select('id, autor_id, padre_id, texto, estado')
+      .select('id, autor_id, padre_id, texto, estado, solo_director')
       .eq('id', mensajeId)
       .maybeSingle()
     if (error) throw error
@@ -93,7 +99,12 @@ export async function avisarNuevaPublicacion(mensajeId: string, opciones: { excl
 
     const perfiles = await leerPerfiles()
     // `excluir`: el Director que acaba de aprobarlo (nunca se avisa a quien hizo el cambio).
-    const ids = destinatariosPublicacion({ autorId: mensaje.autor_id, perfiles }).filter((id) => id !== opciones.excluir)
+    // "Solo Director": el aviso lleva el texto, así que va únicamente a quienes pueden leerlo.
+    const ids = soloQuienLoVe(
+      destinatariosPublicacion({ autorId: mensaje.autor_id, perfiles }).filter((id) => id !== opciones.excluir),
+      perfiles,
+      mensaje.solo_director,
+    )
     const resumen = await enviarConAutor(ids, perfiles, mensaje.autor_id, (autor) =>
       cargaNuevaPublicacion({ id: mensaje.id, autor, texto: mensaje.texto }),
     )
@@ -112,7 +123,7 @@ export async function avisarNuevaRespuesta(respuestaId: string, opciones: { excl
     const admin = crearClienteAdmin()
     const { data: respuesta, error } = await admin
       .from('mensajes')
-      .select('id, autor_id, padre_id, texto, estado')
+      .select('id, autor_id, padre_id, texto, estado, solo_director')
       .eq('id', respuestaId)
       .maybeSingle()
     if (error) throw error
@@ -127,12 +138,16 @@ export async function avisarNuevaRespuesta(respuestaId: string, opciones: { excl
     if (hilo.error) throw hilo.error
     if (!publicacion.data || publicacion.data.estado !== 'aprobado') return
 
-    const ids = destinatariosRespuesta({
-      autorPublicacionId: publicacion.data.autor_id,
-      autoresRespuestas: hilo.data.map((m) => m.autor_id),
-      quienRespondeId: respuesta.autor_id,
+    const ids = soloQuienLoVe(
+      destinatariosRespuesta({
+        autorPublicacionId: publicacion.data.autor_id,
+        autoresRespuestas: hilo.data.map((m) => m.autor_id),
+        quienRespondeId: respuesta.autor_id,
+        perfiles,
+      }).filter((id) => id !== opciones.excluir),
       perfiles,
-    }).filter((id) => id !== opciones.excluir)
+      respuesta.solo_director,
+    )
     const resumen = await enviarConAutor(ids, perfiles, respuesta.autor_id, (autor) =>
       cargaNuevaRespuesta({ id: respuesta.id, autor, texto: respuesta.texto }),
     )

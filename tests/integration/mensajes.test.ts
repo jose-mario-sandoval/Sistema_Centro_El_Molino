@@ -824,3 +824,67 @@ describe('una sola publicación (la que llega por tiempo real sin estar cargada)
     expect(await publicacionComo('residente', randomUUID())).toBeNull()
   })
 })
+
+describe('mensajes solo para el Director', () => {
+  /** Publica con la sesión de `clave` pidiendo solo_director = true; devuelve lo que la base guardó. */
+  async function publicarPrivado(clave: ClaveUsuario, padreId: string | null = null) {
+    const cliente = await clienteComo(clave)
+    const { data, error } = await cliente
+      .from('mensajes')
+      .insert({ autor_id: ids[clave], padre_id: padreId, texto: `Privado de ${clave}`, solo_director: true })
+      .select('id, solo_director')
+      .single()
+    if (error) throw error
+    return data
+  }
+
+  async function lasVe(clave: ClaveUsuario, id: string): Promise<boolean> {
+    const { data, error } = await (await clienteComo(clave)).from('mensajes').select('id').eq('id', id).maybeSingle()
+    if (error) throw error
+    return data !== null
+  }
+
+  it('solo Administración lo puede pedir: a los demás roles se les ignora', async () => {
+    expect((await publicarPrivado('administracion')).solo_director).toBe(true)
+    expect((await publicarPrivado('residente')).solo_director).toBe(false)
+    expect((await publicarPrivado('director')).solo_director).toBe(false)
+  })
+
+  it('lo ven el Director y Administración; un Residente no', async () => {
+    const { id } = await publicarPrivado('administracion')
+    expect(await lasVe('administracion', id)).toBe(true)
+    expect(await lasVe('director', id)).toBe(true)
+    expect(await lasVe('residente', id)).toBe(false)
+    expect(await lasVe('residente2', id)).toBe(false)
+  })
+
+  it('la respuesta hereda la visibilidad aunque quien responde pida otra', async () => {
+    const { id } = await publicarPrivado('administracion')
+    const director = await clienteComo('director')
+    const { data, error } = await director
+      .from('mensajes')
+      .insert({ autor_id: ids.director, padre_id: id, texto: 'Respuesta', solo_director: false })
+      .select('id, solo_director')
+      .single()
+    if (error) throw error
+    expect(data.solo_director).toBe(true)
+    expect(await lasVe('residente', data.id)).toBe(false)
+    expect(await lasVe('administracion', data.id)).toBe(true)
+  })
+
+  it('no se puede cambiar después de publicar', async () => {
+    const { id } = await publicarPrivado('administracion')
+    await admin.from('mensajes').update({ solo_director: false }).eq('id', id)
+    const { data } = await admin.from('mensajes').select('solo_director').eq('id', id).single()
+    expect(data?.solo_director).toBe(true)
+  })
+
+  it('el feed de un Residente no lo trae', async () => {
+    const privado = await publicarPrivado('administracion')
+    const publico = await publicar('administracion', 'Para todos')
+    const pagina = await consultarPaginaFeed(await clienteComo('residente'), null)
+    const vistos = pagina.publicaciones.map((p) => p.id)
+    expect(vistos).toContain(publico)
+    expect(vistos).not.toContain(privado.id)
+  })
+})

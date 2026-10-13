@@ -11,7 +11,12 @@ const texto = z
 const idMensaje = z.uuid({ error: 'Mensaje inválido.' })
 
 /** Formulario "Publicar". `id`: lo genera el navegador para que reintentar no duplique (lib/mensajes/envio.ts). */
-export const esquemaPublicacion = z.object({ id: idMensaje, texto })
+export const esquemaPublicacion = z.object({
+  id: idMensaje,
+  texto,
+  // "Solo el Director": casilla que llega como 'true' o ausente. Solo Administración lo puede usar (la base lo fuerza).
+  soloDirector: z.preprocess((valor) => valor === 'true' || valor === true, z.boolean()),
+})
 
 /** Formulario de respuesta bajo una publicación. `id`: igual que en la publicación. */
 export const esquemaRespuesta = z.object({ id: idMensaje, padreId: idMensaje, texto })

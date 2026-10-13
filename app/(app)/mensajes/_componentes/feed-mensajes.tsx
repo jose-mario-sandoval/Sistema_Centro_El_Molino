@@ -163,7 +163,7 @@ export function FeedMensajes({
 
   const conexion = useCanalMensajes({ alEvento, recargar: recargarTodo })
 
-  function agregarPropio(id: string, texto: string, padreId: string | null) {
+  function agregarPropio(id: string, texto: string, padreId: string | null, soloDirector = false) {
     const fila: MensajeFila = {
       id,
       autor_id: usuario.id,
@@ -174,6 +174,8 @@ export function FeedMensajes({
       // Fijarlo en 'aprobado' acá haría que un Residente vea su propio mensaje aprobado por un instante.
       estado: publicaDirecto(usuario.rol) ? 'aprobado' : 'pendiente',
       motivo_rechazo: null,
+      // Una respuesta hereda la visibilidad de su publicación; el servidor lo vuelve a decidir.
+      solo_director: padreId ? (publicaciones.find((p) => p.id === padreId)?.soloDirector ?? false) : soloDirector,
       fijado_en: null,
       fijado_hasta: null,
       fijado_por: null,
@@ -267,7 +269,10 @@ export function FeedMensajes({
 
   return (
     <div className="feed-mensajes" data-conexion={conexion}>
-      <FormularioPublicar alPublicar={(id, texto) => agregarPropio(id, texto, null)} />
+      <FormularioPublicar
+        puedeLimitar={usuario.rol === 'administracion'}
+        alPublicar={(id, texto, soloDirector) => agregarPropio(id, texto, null, soloDirector)}
+      />
 
       <div role="status" aria-live="polite" style={{ marginBottom: conexion === 'reconectando' ? 12 : 0 }}>
         {conexion === 'reconectando' && <span className="role-pill">Reconectando…</span>}

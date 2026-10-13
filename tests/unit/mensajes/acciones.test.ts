@@ -332,7 +332,7 @@ describe('desfijarPublicacion', () => {
 describe('cargarPublicacion', () => {
   it('trae una publicación con la sesión de quien pregunta (o null si no la puede ver)', async () => {
     como('residente')
-    const publicacion = { id: ID, autorId: 'x', texto: 'Hola', creadoEn: '2026-09-26T00:00:00Z', estado: 'aprobado' as const, motivoRechazo: null, reacciones: [], respuestas: [], fijadoEn: null, fijadoHasta: null, fijadoPor: null }
+    const publicacion = { id: ID, autorId: 'x', texto: 'Hola', creadoEn: '2026-09-26T00:00:00Z', estado: 'aprobado' as const, motivoRechazo: null, soloDirector: false, reacciones: [], respuestas: [], fijadoEn: null, fijadoHasta: null, fijadoPor: null }
     vi.mocked(obtenerPublicacion).mockResolvedValueOnce(publicacion).mockResolvedValueOnce(null)
     expect(await cargarPublicacion({ id: ID })).toEqual({ ok: true, data: publicacion })
     expect(await cargarPublicacion({ id: ID })).toEqual({ ok: true, data: null })

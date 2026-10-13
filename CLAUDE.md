@@ -127,6 +127,12 @@ opcionales:
   `leerEvento()` traduce también el `UPDATE` con `aplicarActualizacionMensaje()`; no reusar
   `aplicarInsercionMensaje()` (su idempotencia compara `creadoEn`, que un UPDATE no cambia). Una
   publicación que no está cargada se trae completa con `cargarPublicacion(id)`, no se inserta pelada.
+- **Mensajes "solo Director"** (`mensajes.solo_director`): solo Administración los pide al publicar (selector
+  "¿Quién puede leerlo?"); lo ven el Director y Administración, nunca un Residente. El trigger
+  `mensajes_forzar_estado` lo fuerza según el rol de *quien tiene la sesión*, las respuestas heredan el de
+  su publicación y no cambia después. RLS de `mensajes` y `reacciones` lo aplica; **todo aviso push de un
+  mensaje pasa por `soloQuienLoVe()` / `filtrarSoloDirector()`** (el aviso lleva el texto). Una consulta o
+  payload nuevo de mensajes no debe saltarse RLS (llave secreta) sin filtrar igual.
 - **Fijar publicaciones** (Director y Administración): columnas `fijado_en` / `fijado_hasta` (null =
   sin límite) / `fijado_por`, **sin** `grant update`: solo las escriben las RPC `fijar_mensaje` /
   `desfijar_mensaje` (`security definer`). Una fijada vigente se muestra solo en "Fijados"; quién

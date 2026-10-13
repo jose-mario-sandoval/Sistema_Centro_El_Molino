@@ -9,7 +9,7 @@ export const LARGO_MAXIMO_MENSAJE = 2000
 export type EstadoMensaje = 'pendiente' | 'aprobado' | 'rechazado'
 export type MensajeFila = Pick<
   Tabla<'mensajes'>,
-  'id' | 'autor_id' | 'padre_id' | 'texto' | 'creado_en' | 'estado' | 'motivo_rechazo' | 'fijado_en' | 'fijado_hasta' | 'fijado_por'
+  'id' | 'autor_id' | 'padre_id' | 'texto' | 'creado_en' | 'estado' | 'motivo_rechazo' | 'solo_director' | 'fijado_en' | 'fijado_hasta' | 'fijado_por'
 >
 export type ReaccionFila = Pick<Tabla<'reacciones'>, 'mensaje_id' | 'usuario_id'>
 /** Publicación tal como la devuelve la consulta del feed, con respuestas y reacciones embebidas. */
@@ -18,7 +18,16 @@ export type PublicacionFila = MensajeFila & {
   respuestas: MensajeFila[]
 }
 
-export type Respuesta = { id: string; autorId: string; texto: string; creadoEn: string; estado: EstadoMensaje; motivoRechazo: string | null }
+/** `soloDirector`: lo ven solo el Director y Administración (lo pone Administración al publicar). */
+export type Respuesta = {
+  id: string
+  autorId: string
+  texto: string
+  creadoEn: string
+  estado: EstadoMensaje
+  motivoRechazo: string | null
+  soloDirector: boolean
+}
 /**
  * Solo las publicaciones se fijan. `fijadoEn` nulo = no fijada; `fijadoHasta` nulo = hasta que la quiten;
  * `fijadoPor`: quién la fijó (en pantalla, solo su rol).
@@ -63,6 +72,7 @@ function aRespuesta(fila: MensajeFila): Respuesta {
     creadoEn: fila.creado_en,
     estado: fila.estado,
     motivoRechazo: fila.motivo_rechazo,
+    soloDirector: fila.solo_director,
   }
 }
 

@@ -56,7 +56,10 @@ function filaMensaje(datos: Record<string, unknown>): MensajeFila | null {
   const fijado_hasta = textoONulo(datos.fijado_hasta)
   const fijado_por = textoONulo(datos.fijado_por)
   if (fijado_en === undefined || fijado_hasta === undefined || fijado_por === undefined) return null
-  return { id, autor_id, padre_id, texto, creado_en, estado, motivo_rechazo, fijado_en, fijado_hasta, fijado_por }
+  // Ausente = false (la base todavía sin la migración de "solo Director"); otro tipo: fila inválida.
+  const solo_director = datos.solo_director ?? false
+  if (typeof solo_director !== 'boolean') return null
+  return { id, autor_id, padre_id, texto, creado_en, estado, motivo_rechazo, solo_director, fijado_en, fijado_hasta, fijado_por }
 }
 
 /**

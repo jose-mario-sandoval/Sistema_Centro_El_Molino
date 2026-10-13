@@ -37,7 +37,7 @@ export async function listarMensajesPendientes(): Promise<MensajeFila[]> {
   const supabase = await crearClienteServidor()
   const { data, error } = await supabase
     .from('mensajes')
-    .select('id, autor_id, padre_id, texto, creado_en, estado, motivo_rechazo, fijado_en, fijado_hasta, fijado_por')
+    .select('id, autor_id, padre_id, texto, creado_en, estado, motivo_rechazo, solo_director, fijado_en, fijado_hasta, fijado_por')
     .eq('estado', 'pendiente')
     .order('creado_en')
   if (error) throw error

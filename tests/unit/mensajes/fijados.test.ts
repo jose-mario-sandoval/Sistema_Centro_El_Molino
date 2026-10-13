@@ -20,6 +20,7 @@ function pub(id: string, fijado: { en: string; hasta?: string | null; por?: stri
     creadoEn: '2026-09-20T12:00:00.000000+00:00',
     estado: 'aprobado',
     motivoRechazo: null,
+    soloDirector: false,
     reacciones: [],
     respuestas: [],
     fijadoEn: fijado?.en ?? null,
