@@ -2,7 +2,6 @@ import 'server-only'
 import { obtenerPerfilActual } from '@/lib/auth/sesion'
 import { diaSemana, horaHHMM, sumarDias, type FechaISO } from '@/lib/fechas'
 import { listarPerfiles } from '@/lib/perfiles/consultas'
-import { ROLES_CON_COMIDAS } from '@/lib/perfiles/roles'
 import { exigirFilasCompletas } from '@/lib/supabase/filas-completas'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { diasDeSemana } from './semana'
@@ -90,7 +89,7 @@ export async function obtenerSemanaDe(usuarioId: string, lunes: FechaISO): Promi
 /** Plan semanal de cada Director/Residente activo (Administración, solo lectura). */
 export async function obtenerPlanesDeTodos(): Promise<PersonaConPlan[]> {
   const supabase = await crearClienteServidor()
-  const personas = await listarPerfiles({ soloActivos: true, roles: ROLES_CON_COMIDAS })
+  const personas = await listarPerfiles({ conComidas: true })
   if (personas.length === 0) return []
 
   // Acotamos a las personas activas ya listadas: evita traer filas de usuarios
@@ -114,7 +113,7 @@ export async function obtenerPlanesDeTodos(): Promise<PersonaConPlan[]> {
 export async function obtenerDiaParaAdministracion(fecha: FechaISO): Promise<DiaAdministracion> {
   const supabase = await crearClienteServidor()
   const [personas, planes, selecciones, cerradas, ausentes] = await Promise.all([
-    listarPerfiles({ soloActivos: true, roles: ROLES_CON_COMIDAS }),
+    listarPerfiles({ conComidas: true }),
     supabase
       .from('plan_semanal')
       .select('usuario_id, dia_semana, comida, estado, nota')
@@ -144,7 +143,7 @@ export async function obtenerSemanaParaAdministracion(lunes: FechaISO): Promise<
   const domingo = sumarDias(lunes, 6)
   const dias = diasDeSemana(lunes)
   const supabase = await crearClienteServidor()
-  const personas = await listarPerfiles({ soloActivos: true, roles: ROLES_CON_COMIDAS })
+  const personas = await listarPerfiles({ conComidas: true })
   const ids = personas.map((persona) => persona.id)
 
   const [planes, selecciones, cerradas, ausentesPorDia] = await Promise.all([
@@ -256,7 +255,7 @@ export async function obtenerSemanaDeLaCasa(lunes: FechaISO): Promise<DiaDeLaCas
 
   const domingo = sumarDias(lunes, 6)
   const supabase = await crearClienteServidor()
-  const personas = await listarPerfiles({ soloActivos: true, roles: ROLES_CON_COMIDAS })
+  const personas = await listarPerfiles({ conComidas: true })
   const ids = personas.map((persona) => persona.id)
 
   const [horas, planes, selecciones, cerradas, ausencias] = await Promise.all([

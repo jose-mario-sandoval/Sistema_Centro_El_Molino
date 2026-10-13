@@ -1,6 +1,6 @@
 import 'server-only'
 import { obtenerPerfilActual } from '@/lib/auth/sesion'
-import type { Rol } from '@/lib/perfiles/roles'
+import { ROLES_CON_COMIDAS, type Rol } from '@/lib/perfiles/roles'
 import { paraObservador, veSoloSiglas } from '@/lib/perfiles/visibilidad'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import type { Tabla } from '@/lib/supabase/tipos'
@@ -12,7 +12,15 @@ export type PerfilResumen = Pick<Tabla<'perfiles'>, 'id' | 'nombre' | 'siglas' |
  * (lib/perfiles/visibilidad.ts). Este es el único camino por el que los nombres llegan a las
  * pantallas de comidas y mensajes: cualquier pantalla nueva que lo use queda protegida.
  */
-export async function listarPerfiles(opciones: { soloActivos?: boolean; roles?: Rol[] } = {}): Promise<PerfilResumen[]> {
+export async function listarPerfiles(opciones: {
+    soloActivos?: boolean
+    roles?: Rol[]
+    /**
+     * Solo quienes comen en el Centro: Director o Residente activos y que no son una cuenta de
+     * desarrollo (`fuera_de_conteos`). Todo conteo y lista de comensales pasa por acá.
+     */
+    conComidas?: boolean
+  } = {}): Promise<PerfilResumen[]> {
   const observador = await obtenerPerfilActual()
   const soloSiglas = veSoloSiglas(observador?.rol)
 
@@ -22,6 +30,9 @@ export async function listarPerfiles(opciones: { soloActivos?: boolean; roles?: 
     .from('perfiles')
     .select('id, nombre, siglas, rol, activo')
     .order(soloSiglas ? 'siglas' : 'nombre')
+  if (opciones.conComidas) {
+    consulta = consulta.eq('activo', true).in('rol', ROLES_CON_COMIDAS).eq('fuera_de_conteos', false)
+  }
   if (opciones.soloActivos) consulta = consulta.eq('activo', true)
   if (opciones.roles?.length) consulta = consulta.in('rol', opciones.roles)
   const { data, error } = await consulta
