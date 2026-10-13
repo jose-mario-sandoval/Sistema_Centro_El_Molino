@@ -1694,6 +1694,11 @@ html[data-ofrecer-avisos="si"] .invitacion-avisos{display:block;}
   .topbar .escudo{height:44px;}
   .topbar .name{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--fuente-display);font-weight:600;}
   .topbar-acciones{display:flex;align-items:center;gap:.6rem;flex:0 0 auto;}
+  /* El panel de apariencia se ancla a la barra entera, no al botón "Aa": ese está a la izquierda del avatar
+     y un panel de 22rem pegado a su borde derecho se salía de la pantalla por la izquierda. */
+  .topbar{position:relative;}
+  .topbar .apariencia-rapida{position:static;}
+  .topbar .panel-apariencia{right:var(--canal);top:calc(100% + .25rem);}
   .topbar .avatar{width:44px;height:44px;font-size:15px;}
   .content{padding-block:1.25rem calc(6rem + env(safe-area-inset-bottom, 0px));}
   .solo-telefono{display:block;}
