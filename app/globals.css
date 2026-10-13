@@ -1558,6 +1558,8 @@ html[data-cal-oculta-n="3"] .zona-calendario:not([data-listo]) .aviso-filtros-zo
 }
 
 .estado-push{margin-bottom:1rem;}
+.prueba-push{margin-top:1rem;}
+.resultado-prueba{margin-top:.75rem;}
 .opcion-aviso{display:flex;align-items:flex-start;gap:.9rem;min-height:var(--toque);padding:.9rem 0;}
 .opcion-aviso + .opcion-aviso{border-top:2px solid var(--separador);}
 .opcion-aviso input[type="checkbox"]{width:1.6rem;height:1.6rem;margin:.1rem 0 0;flex:0 0 auto;accent-color:var(--acento);}

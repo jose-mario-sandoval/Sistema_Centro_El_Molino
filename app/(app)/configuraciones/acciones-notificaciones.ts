@@ -5,7 +5,9 @@ import { exito, fallo, type Resultado } from '@/lib/acciones/resultado'
 import { perfilParaAccion } from '@/lib/auth/sesion'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import type { Tabla } from '@/lib/supabase/tipos'
-import { esquemaPreferenciasAvisos } from '@/lib/validacion/push'
+import { enviarPrueba } from '@/lib/push/enviar'
+import { mensajeDePrueba, type MensajePrueba } from '@/lib/push/prueba'
+import { esquemaPreferenciasAvisos, esquemaPruebaPush } from '@/lib/validacion/push'
 
 type ColumnasAvisos = Partial<
   Pick<Tabla<'perfiles'>, 'avisar_hora_limite' | 'avisar_mensajes' | 'avisar_cambios' | 'avisar_cocina'>
@@ -35,4 +37,23 @@ export async function actualizarPreferenciasAvisos(entrada: unknown): Promise<Re
 
   revalidatePath('/configuraciones')
   return exito(null)
+}
+
+/**
+ * "Enviar aviso de prueba": manda una notificación a este dispositivo (o a los de la cuenta) y cuenta qué
+ * respondió el servicio de avisos. Solo a la propia cuenta, nunca a otra.
+ */
+export async function enviarAvisoDePrueba(entrada: unknown): Promise<Resultado<MensajePrueba>> {
+  const permiso = await perfilParaAccion()
+  if (!permiso.ok) return permiso
+
+  const datos = esquemaPruebaPush.safeParse(entrada)
+  if (!datos.success) return fallo('No se pudo identificar este dispositivo.')
+
+  try {
+    return exito(mensajeDePrueba(await enviarPrueba(permiso.perfil.id, datos.data.endpoint)))
+  } catch (error) {
+    console.error('enviarAvisoDePrueba', error)
+    return fallo('No se pudo enviar el aviso de prueba. Intentá de nuevo.')
+  }
 }

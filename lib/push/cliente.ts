@@ -53,6 +53,15 @@ async function enviarAlServidor(metodo: 'POST' | 'DELETE', cuerpo: unknown): Pro
   return respuesta.ok && !respuesta.redirected
 }
 
+/** Endpoint de la suscripción de este dispositivo, o null si no tiene (para el aviso de prueba). Nunca lanza. */
+export async function endpointDeEsteDispositivo(): Promise<string | null> {
+  try {
+    return (await suscripcionActual())?.endpoint ?? null
+  } catch {
+    return null
+  }
+}
+
 /** Estado de este dispositivo. Si ya tiene suscripción, la vuelve a asignar a la cuenta con sesión (spec §8.2). */
 export async function revisarEsteDispositivo(llavePublica: string): Promise<EstadoDispositivo> {
   if (!llavePublica) return 'sin-llave'

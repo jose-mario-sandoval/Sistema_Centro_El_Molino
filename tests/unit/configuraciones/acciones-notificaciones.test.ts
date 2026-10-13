@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { actualizarPreferenciasAvisos } from '@/app/(app)/configuraciones/acciones-notificaciones'
+import { actualizarPreferenciasAvisos, enviarAvisoDePrueba } from '@/app/(app)/configuraciones/acciones-notificaciones'
 import { fallo } from '@/lib/acciones/resultado'
 import { perfilParaAccion } from '@/lib/auth/sesion'
+import { enviarPrueba } from '@/lib/push/enviar'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { clienteSupabaseFalso, perfilDePrueba } from '@/tests/soporte/supabase-falso'
 
@@ -9,6 +10,8 @@ import { clienteSupabaseFalso, perfilDePrueba } from '@/tests/soporte/supabase-f
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
 vi.mock('@/lib/auth/sesion', () => ({ perfilParaAccion: vi.fn() }))
 vi.mock('@/lib/supabase/admin', () => ({ crearClienteAdmin: vi.fn() }))
+// El aviso de prueba usa el envío push (web-push y 'server-only'): no se ejerce acá.
+vi.mock('@/lib/push/enviar', () => ({ enviarPrueba: vi.fn() }))
 
 const RESIDENTE = perfilDePrueba('6f1c2a3b-4d5e-4f60-8a7b-9c0d1e2f3a4b', 'residente')
 const OTRA = '3c4d5e6f-7a8b-4c9d-8e0f-1a2b3c4d5e6f'
@@ -70,5 +73,32 @@ describe('actualizarPreferenciasAvisos', () => {
       error: 'Las preferencias no son válidas.',
     })
     expect(falso.operaciones).toEqual([])
+  })
+})
+
+describe('enviarAvisoDePrueba', () => {
+  it('prueba con la cuenta de la sesión y devuelve el mensaje', async () => {
+    vi.mocked(enviarPrueba).mockResolvedValue({ dispositivos: 1, enviadas: 1, fallos: [] })
+    const r = await enviarAvisoDePrueba({ endpoint: 'https://web.push.apple.com/abc' })
+    expect(r).toMatchObject({ ok: true, data: { llego: true } })
+    expect(enviarPrueba).toHaveBeenCalledWith(RESIDENTE.id, 'https://web.push.apple.com/abc')
+  })
+
+  it('un endpoint de un servicio desconocido se rechaza sin enviar nada', async () => {
+    const r = await enviarAvisoDePrueba({ endpoint: 'https://ejemplo.com/push' })
+    expect(r.ok).toBe(false)
+    expect(enviarPrueba).not.toHaveBeenCalled()
+  })
+
+  it('sin sesión no envía', async () => {
+    vi.mocked(perfilParaAccion).mockResolvedValue(fallo('No tenés permiso para hacer esto.'))
+    expect((await enviarAvisoDePrueba({})).ok).toBe(false)
+    expect(enviarPrueba).not.toHaveBeenCalled()
+  })
+
+  it('si el envío falla por dentro, avisa sin romper', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    vi.mocked(enviarPrueba).mockRejectedValue(new Error('base caída'))
+    expect(await enviarAvisoDePrueba({})).toMatchObject({ ok: false, error: expect.stringContaining('aviso de prueba') })
   })
 })
