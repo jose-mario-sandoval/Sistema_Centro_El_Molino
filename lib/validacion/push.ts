@@ -62,3 +62,6 @@ export const esquemaPreferenciasAvisos = z.object({
 })
 
 export type PreferenciasAvisos = z.output<typeof esquemaPreferenciasAvisos>
+
+/** Entrada de enviarAvisoDePrueba: el endpoint de este dispositivo (sin él, se prueba con todos los de la cuenta). */
+export const esquemaPruebaPush = z.object({ endpoint: endpoint.optional() })

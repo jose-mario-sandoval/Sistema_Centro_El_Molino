@@ -2,12 +2,15 @@
 
 import { useEffect, useState } from 'react'
 import { useAviso } from '@/components/ui/avisos'
+import { llamarAccion } from '@/lib/acciones/llamar'
 import {
   activarEsteDispositivo,
   desactivarEsteDispositivo,
+  endpointDeEsteDispositivo,
   revisarEsteDispositivo,
   type EstadoDispositivo,
 } from '@/lib/push/cliente'
+import { enviarAvisoDePrueba } from '../acciones-notificaciones'
 
 const LLAVE_PUBLICA = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? ''
 
@@ -27,6 +30,8 @@ export function DispositivoPush() {
   const aviso = useAviso()
   const [estado, setEstado] = useState<EstadoDispositivo | 'revisando'>('revisando')
   const [ocupado, setOcupado] = useState(false)
+  const [probando, setProbando] = useState(false)
+  const [resultadoPrueba, setResultadoPrueba] = useState<{ llego: boolean; texto: string } | null>(null)
 
   useEffect(() => {
     let cancelado = false
@@ -64,6 +69,15 @@ export function DispositivoPush() {
     setOcupado(false)
   }
 
+  async function probar() {
+    setProbando(true)
+    setResultadoPrueba(null)
+    const endpoint = (await endpointDeEsteDispositivo()) ?? undefined
+    const resultado = await llamarAccion(() => enviarAvisoDePrueba({ endpoint }))
+    setResultadoPrueba(resultado.ok ? resultado.data : { llego: false, texto: resultado.error })
+    setProbando(false)
+  }
+
   return (
     <div>
       <p className="estado-push" aria-live="polite">
@@ -83,6 +97,23 @@ export function DispositivoPush() {
         <button type="button" className="btn ghost" onClick={desactivar} disabled={ocupado} aria-busy={ocupado}>
           {ocupado ? 'Desactivando…' : 'Desactivar en este dispositivo'}
         </button>
+      )}
+
+      {/* Para saber si los avisos llegan de verdad a este teléfono, y si no, por qué. */}
+      {estado === 'activo' && (
+        <div className="prueba-push">
+          <button type="button" className="btn ghost" onClick={probar} disabled={probando} aria-busy={probando}>
+            {probando ? 'Enviando…' : 'Enviar aviso de prueba'}
+          </button>
+          <div role="status" aria-live="polite">
+            {resultadoPrueba && (
+              <p className="hint resultado-prueba">
+                <strong>{resultadoPrueba.llego ? 'Enviado. ' : 'No se pudo enviar. '}</strong>
+                {resultadoPrueba.texto}
+              </p>
+            )}
+          </div>
+        </div>
       )}
     </div>
   )
