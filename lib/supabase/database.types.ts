@@ -818,7 +818,7 @@ export type Database = {
       zona_horaria_app: { Args: never; Returns: string }
     }
     Enums: {
-      estado_comida: "si" | "no" | "temprano" | "tarde" | "bolsa" | "enfermo"
+      estado_comida: "si" | "no" | "temprano" | "tarde" | "bolsa" | "lonchera" | "enfermo"
       estado_mensaje: "pendiente" | "aprobado" | "rechazado"
       origen_seleccion: "persona" | "plan" | "ausencia"
       patron_recurrencia: "semanal" | "mensual_dia_fijo" | "mensual_dia_semana"
@@ -953,7 +953,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      estado_comida: ["si", "no", "temprano", "tarde", "bolsa", "enfermo"],
+      estado_comida: ["si", "no", "temprano", "tarde", "bolsa", "lonchera", "enfermo"],
       estado_mensaje: ["pendiente", "aprobado", "rechazado"],
       origen_seleccion: ["persona", "plan", "ausencia"],
       patron_recurrencia: ["semanal", "mensual_dia_fijo", "mensual_dia_semana"],

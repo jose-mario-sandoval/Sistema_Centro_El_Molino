@@ -36,6 +36,14 @@ describe('resumenComida', () => {
     expect(resumen.partes).toEqual([{ clave: 'si', cantidad: 2, texto: '2 sí' }])
   })
 
+  it('cuenta las loncheras aparte de las bolsas', () => {
+    const resumen = resumenComida([v('lonchera'), v('lonchera'), v('bolsa')])
+    expect(resumen.partes).toEqual([
+      { clave: 'bolsa', cantidad: 1, texto: '1 en bolsa' },
+      { clave: 'lonchera', cantidad: 2, texto: '2 loncheras' },
+    ])
+  })
+
   it('nombra "en bolsa" y deja aparte, en `notas`, lo que puede comer quien está enfermo', () => {
     const resumen = resumenComida([v('enfermo', 'Solo sopa'), v('bolsa')])
     expect(resumen.partes).toEqual([

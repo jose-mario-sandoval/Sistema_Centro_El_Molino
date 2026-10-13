@@ -17,6 +17,7 @@ const ETIQUETA_CORTA: Record<EstadoComida, (cantidad: number) => string> = {
   temprano: () => 'temprano',
   tarde: () => 'tarde',
   bolsa: () => 'en bolsa',
+  lonchera: (cantidad) => (cantidad === 1 ? 'lonchera' : 'loncheras'),
   enfermo: (cantidad) => (cantidad === 1 ? 'enfermo' : 'enfermos'),
 }
 
@@ -24,7 +25,7 @@ const ETIQUETA_CORTA: Record<EstadoComida, (cantidad: number) => string> = {
  * Orden de la cocina: primero lo que cambia la preparación, después cuántos comen normal y quién falta.
  * Tiene que nombrar todos los estados (hay una prueba): el que falte no se ve en el desglose.
  */
-export const ORDEN_COCINA: readonly ClaveResumen[] = ['temprano', 'tarde', 'bolsa', 'enfermo', 'si', 'no', 'sin_definir']
+export const ORDEN_COCINA: readonly ClaveResumen[] = ['temprano', 'tarde', 'bolsa', 'lonchera', 'enfermo', 'si', 'no', 'sin_definir']
 
 /** ['13:30', '14:00', '13:30'] → ['13:30 ×2', '14:00'] */
 function horasAgrupadas(notas: (string | null)[]): string[] {

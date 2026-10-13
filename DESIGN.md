@@ -71,7 +71,7 @@ Tres correcciones respecto de la paleta anterior, por incumplimiento medido:
   7:1 ya no hay margen para tres niveles de gris, y la jerarquía pasa a expresarse por tamaño y
   peso, no por claridad.
 
-### 2.2 Los seis estados de comida
+### 2.2 Los siete estados de comida
 
 Se conservan los nombres de token `--st-<estado>` y `--st-<estado>-bg`, porque
 `comidas/_componentes/insignia-estado.tsx` los construye por interpolación de cadena y tiene tres
@@ -84,6 +84,7 @@ llamadores. **Cambiar esos nombres rompe código.** Los valores sí cambian.
 | `temprano` | `#855F2F` | `#614522` | `#CBA063` | `#D5B180` | `#F1E4CF` | `#332A1B` |
 | `tarde` | `#7A5C3E` | `#5A442E` | `#B4906A` | `#C8AE92` | `#EBE0D2` | `#2E2619` |
 | `bolsa` | `#4B6988` | `#364C63` | `#8FB2D6` | `#9ABADA` | `#DEE6ED` | `#1F2C38` |
+| `lonchera` | `#6A5A93` | `#46386F` | `#B3A2DE` | `#C9BCEB` | `#E8E3F0` | `#2A2538` |
 | `enfermo` | `#8B4B63` | `#69384A` | `#CC93A9` | `#D4A4B6` | `#EEDCE2` | `#33212A` |
 
 Cada estado cumple dos gates: **texto sobre su propio fondo** (≥4.5 en suave, ≥7 en alto) y **borde
@@ -104,11 +105,12 @@ es el único portador:
 | `temprano` | Sol saliendo | Comer temprano |
 | `tarde` | Luna | Comer tarde |
 | `bolsa` | Bolsa | En bolsa |
+| `lonchera` | Caja con asa | Lonchera (empacada en recipientes que se pueden calentar) |
 | `enfermo` | Termómetro | Enfermo |
 
 Para `si` y `no` se descartó el plato con cubiertos (y el plato tachado) a favor del visto y la
 cruz: son los dos símbolos más universalmente leídos que existen, y el icono acá no tiene que
-explicar la comida, sino **distinguir las seis opciones entre sí**. La etiqueta de texto, que siempre
+explicar la comida, sino **distinguir las siete opciones entre sí**. La etiqueta de texto, que siempre
 lo acompaña, se encarga del resto.
 
 "Sin definir" usa una **campana**, el mismo signo que el aviso push que dispara cuando una comida
@@ -297,8 +299,8 @@ Y dos más que salieron de la cuadrícula del plan y las tarjetas de la semana:
    media query el `rem` es siempre 16px; en una container query sigue a la letra elegida. Así, con
    letra "Grande" o "Muy grande", la cuadrícula del plan pasa a una celda por fila (con el nombre de
    la comida escrito) y las tarjetas de la semana a una sola columna, en lugar de achicar la letra
-   para que entren. Lo mismo dentro de la burbuja: las seis opciones van 3×2 con el icono arriba si
-   hay lugar, 2×3 en el teléfono y, cuando cada opción tiene ancho para el icono al lado de su texto,
+   para que entren. Lo mismo dentro de la burbuja: las siete opciones van 3×3 (la última sola) con el icono arriba si
+   hay lugar, 2×4 en el teléfono y, cuando cada opción tiene ancho para el icono al lado de su texto,
    más bajitas (56px), para que la burbuja entre en la pantalla. Ojo: la consulta mide el ancho de
    *adentro* del contenedor, sin su relleno.
 5. **`--t-xs` es el piso también dentro de una celda.** Una celda puede dejar de crecer al llegar a
@@ -390,7 +392,7 @@ principal para que un lector de pantalla anuncie dónde quedó la persona.
   ella.** Plan semanal, Semana y La casa del Director responden a "¿qué hacés con esta comida?" y
   por lo tanto se usan igual y con **exactamente las mismas piezas**: el botón de la comida (la celda
   del plan, la comida en la tarjeta del día, el nombre de la persona), la `Burbuja` que abre junto a
-  él y, adentro, `PanelOpciones` (la bandeja de las seis opciones) y `EditorNota` (el campo de hora
+  él y, adentro, `PanelOpciones` (la bandeja de las siete opciones) y `EditorNota` (el campo de hora
   o de nota cuando el estado lo pide). Quien aprende una pantalla ya sabe las otras. Es la decisión
   de mayor impacto de todo el rediseño.
 - **La nota se comporta igual en todas partes, y lo escrito nunca se pierde en silencio.** Un estado
@@ -649,7 +651,7 @@ El diseño ya está en la app Next.js. Dónde vive cada pieza:
 | Lateral, barra superior y barra inferior | `components/app/estructura.tsx`, `components/app/navegacion.tsx` |
 | Marca: el escudo de El Molino (lateral, barra superior, inicio de sesión) | `components/app/escudo.tsx` con `components/app/marca/escudo.png`; íconos de la app (teléfono, Apple) en `components/app/monograma.tsx`; pestaña del navegador `app/icon.png` |
 | La burbuja (junto a lo que se tocó: portal, posición, foco, cierre) | `components/ui/burbuja.tsx`; dónde va y cuánto desplazar, puro y con pruebas, en `lib/burbuja.ts` |
-| La interacción única de comidas | `app/(app)/comidas/_componentes/panel-opciones.tsx` (seis opciones) y `editor-nota.tsx` (hora o nota); `contenido-comida.tsx` las compone dentro de la burbuja de una comida de un día (Semana y La casa), con el guardado optimista de `usar-comida-del-dia.ts` |
+| La interacción única de comidas | `app/(app)/comidas/_componentes/panel-opciones.tsx` (siete opciones) y `editor-nota.tsx` (hora o nota); `contenido-comida.tsx` las compone dentro de la burbuja de una comida de un día (Semana y La casa), con el guardado optimista de `usar-comida-del-dia.ts` |
 | Plan semanal: la cuadrícula editable | `plan-editable.tsx`; guardado por celda en `usar-plan-editable.ts`; claves, títulos y nombres accesibles en `lib/comidas/plan.ts` |
 | Semana: tarjetas por día | `semana-persona.tsx`; textos cortos, día cerrado, nombre de cada comida y qué tarjeta se trae a la vista al entrar en `lib/comidas/vista.ts` (`textoCorto`, `diaCerrado`, `etiquetaComidaTarjeta`, `diaParaMostrar`) |
 | Traer a la vista lo que se abrió debajo (la tarjeta de hoy al entrar, quiénes comen) | `app/(app)/comidas/_componentes/revelar.ts` (la burbuja se revela sola) |
