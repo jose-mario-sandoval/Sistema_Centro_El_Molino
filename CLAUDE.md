@@ -43,8 +43,10 @@ opcionales:
 ## Modelo de datos y reglas de negocio
 
 - Roles: `director`, `residente`, `administracion`. `ROLES_CON_COMIDAS = [director, residente]`;
-  Administración no tiene comidas propias y **no debe conocer nombres** (solo siglas) ni títulos de
-  eventos, en ninguna interfaz — pantallas, HTML, notificaciones push. El único punto de entrada de
+  Administración no tiene comidas propias y **no debe conocer nombres** (solo siglas), en ninguna
+  interfaz — pantallas, HTML, notificaciones push. Del calendario sí ve el título, la hora, la categoría
+  y el pedido de los eventos que le piden algo (`eventos_para_cocina()`), pero **no** los demás eventos
+  ni quién los creó; los avisos push para la cocina siguen sin título (`paraCocina()`). El único punto de entrada de
   nombres es `listarPerfiles()` (`lib/perfiles/consultas.ts`) + `lib/perfiles/visibilidad.ts`;
   cualquier pantalla o payload nuevo para Administración debe pasar por ahí, no leer `nombre`
   directo. Tampoco ve la comida persona por persona: su semana es agregada (`agregarSemana()` en
@@ -52,8 +54,8 @@ opcionales:
   "2 temprano (06:30 ×2)", en bolsa, enfermo con lo que puede comer —la nota en `parte.notas`, nunca
   quién; `textoParte()` la lleva a los textos corridos—) y los extras como cifra + nota
   (`extras_de_la_semana()` suma enlace público + manuales; `extras_manuales_de_la_semana()` da las
-  notas sin autor), sin nombres ni lista de invitados. De un evento ve la categoría (color y marca),
-  nunca el título; no tiene filtros en el calendario (`.zona-calendario` le sale `data-listo` desde el
+  notas sin autor), sin nombres ni lista de invitados. De un evento con pedido ve el título, la hora y la categoría
+  (color y marca); no tiene filtros en el calendario (`.zona-calendario` le sale `data-listo` desde el
   servidor: lo que otro ocultó en ese dispositivo no le esconde nada) ni lee ausencias (solo
   `ausentes_en()`).
 - Valor efectivo de una comida, en cascada: **selección de la persona → ausencia → plan semanal →
@@ -87,7 +89,7 @@ opcionales:
   la app no se lo permite en pantalla, pero no hay una barrera de RLS que lo impida a nivel de fila.
 - Eventos: `tipo_evento` = `san_rafael | san_gabriel | san_miguel | otro`; `requiere_otro_texto` es
   el pedido libre a Administración (`eventos_para_cocina()` también devuelve el evento si solo pide
-  texto). Administración ve el pedido y la categoría, nunca el título.
+  texto). Administración ve el título, el pedido y la categoría solo de los eventos con pedido.
 - **Series de eventos**: `series_eventos` + `eventos.serie_id`; cada ocurrencia es un evento normal
   (se edita/borra sola). `crear_serie_eventos()` NO es `security definer`: corre como quien llama,
   así RLS aplica fila a fila y la creación de serie + ocurrencias es atómica. Las fechas las calcula

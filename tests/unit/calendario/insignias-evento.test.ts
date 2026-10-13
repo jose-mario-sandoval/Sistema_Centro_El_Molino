@@ -28,11 +28,11 @@ describe('InsigniasEvento', () => {
     expect(markup.match(/class="pastilla-cocina"/g)).toHaveLength(2)
   })
 
-  it('soloTipo (Administración): la categoría sí; el pedido no se repite, ya es el texto del evento', () => {
-    const markup = html({ evento, soloTipo: true })
-    expect(markup).toContain('San Gabriel')
-    expect(markup).toContain('data-marca="SG"')
-    expect(markup).not.toContain('pastilla-cocina')
+  it('Administración (conPedidoLibre) ve además el pedido escrito a mano', () => {
+    const conTexto = { ...evento, requiere_otro_texto: '20 sillas extra' }
+    expect(html({ evento: conTexto, conPedidoLibre: true })).toContain('Pedido: 20 sillas extra')
+    // Sin esa opción (la casa) el pedido libre no se repite en pastillas.
+    expect(html({ evento: conTexto })).not.toContain('20 sillas extra')
   })
 
   it('un evento sin tipo no pinta nada', () => {

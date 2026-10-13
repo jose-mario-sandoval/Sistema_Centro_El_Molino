@@ -144,7 +144,7 @@ export function cargaExtraCocina(p: {
 }
 
 /** Lo que la cocina sabe de un evento (`eventos_para_cocina()` sin el id): cuándo, de qué categoría y qué preparar. */
-export type PedidoCocina = Omit<EventoParaCocina, 'id'>
+export type PedidoCocina = Omit<EventoParaCocina, 'id' | 'titulo'>
 
 function textoLibre(texto: string | null): string | null {
   const limpio = texto?.trim() ?? ''

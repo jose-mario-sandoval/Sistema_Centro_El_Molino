@@ -88,9 +88,13 @@ export type Evento = {
   serie_id: string | null
 }
 
-/** Lo único que Administración ve de un evento: cuándo, de qué categoría y qué preparar (`eventos_para_cocina`). */
+/**
+ * Lo único que Administración ve de un evento: su título, cuándo, de qué categoría y qué preparar
+ * (`eventos_para_cocina`). Solo los que piden algo a la cocina.
+ */
 export type EventoParaCocina = {
   id: string
+  titulo: string
   fecha: FechaISO
   hora: string | null
   tipo: TipoEvento
@@ -127,13 +131,15 @@ export function textoPedido(requerimientos: readonly RequerimientoCocina[], otro
   return fijo ? `${fijo} · ${otroTexto}` : otroTexto
 }
 
-/** El evento tal como lo ve Administración: sin título, con su categoría y lo que debe preparar como texto. */
+/** El evento tal como lo ve Administración: con su título, su categoría y lo que debe preparar. Nunca la serie. */
 export function eventoParaAdministracion(e: EventoParaCocina): Evento {
   return {
     id: e.id,
     fecha: e.fecha,
     hora: e.hora,
-    titulo: textoPedido(e.requiere_cocina, e.requiere_otro_texto),
+    // `??`: si el código llega antes que la migración que agrega `titulo` a eventos_para_cocina(), se muestra
+    // el pedido como título (como antes) en vez de romper.
+    titulo: e.titulo ?? textoPedido(e.requiere_cocina, e.requiere_otro_texto),
     // `?? null`: si el código llega antes que la migración que agrega `tipo` a eventos_para_cocina(),
     // el calendario de Administración se ve sin categoría (como antes) en vez de romperse.
     tipo: e.tipo ?? null,

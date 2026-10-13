@@ -193,7 +193,7 @@ test('sin elegir el tipo el evento no se guarda', async ({ page }) => {
   expect(data).toEqual([])
 })
 
-test('Administración ve lo que la cocina debe preparar con la categoría del evento, sin título', async ({ page }) => {
+test('Administración ve lo que la cocina debe preparar con el título y la categoría del evento', async ({ page }) => {
   const ids = await asegurarUsuariosPrueba()
   const hoy = fechaISOEn(new Date())
   const { error } = await clienteAdminPrueba()
@@ -221,7 +221,7 @@ test('Administración ve lo que la cocina debe preparar con la categoría del ev
   // El pedido, con el color y la marca escrita de su categoría.
   const celdaHoy = page.locator(`.cal-day[data-fecha="${hoy}"]`)
   const evento = celdaHoy.locator('.cal-event')
-  await expect(evento).toHaveText(['16:00 Merienda y comida'])
+  await expect(evento).toHaveText(['16:00 Retiro secreto'])
   await expect(evento).toBeVisible()
   await expect(evento).toHaveAttribute('data-tipo', 'san_rafael')
   await expect(evento).toHaveAttribute('data-marca', 'SR')
@@ -229,18 +229,18 @@ test('Administración ve lo que la cocina debe preparar con la categoría del ev
 
   await celdaHoy.click()
   const modal = page.getByRole('dialog')
-  await expect(modal.getByText('Merienda y comida')).toBeVisible()
+  await expect(modal.getByText('Retiro secreto')).toBeVisible()
   await expect(modal.getByText('16:00')).toBeVisible()
   await expect(modal.locator('.pastilla-tipo')).toHaveText('San Rafael')
-  // El pedido ya es el texto del evento: no se repite en pastillas.
-  await expect(modal.locator('.pastilla-cocina')).toHaveCount(0)
+  // Lo que hay que preparar, en pastillas.
+  await expect(modal.locator('.pastilla-cocina')).toHaveText(['Merienda', 'Comida'])
   // El evento que no pide nada a la cocina no aparece, ni su hora.
   await expect(modal.getByText('09:00')).toHaveCount(0)
   await expect(modal.getByText(/ocultos? por los filtros/)).toHaveCount(0)
 
-  // Ni los títulos ni la categoría del evento sin pedido llegan al navegador, ni en pantalla ni en los datos.
+  // El título y la categoría del evento sin pedido no llegan al navegador, ni en pantalla ni en los datos.
   const html = await page.content()
-  for (const secreto of ['Retiro secreto', 'Reunión privada', 'San Gabriel', 'San Miguel', 'Estás ocultando']) {
+  for (const secreto of ['Reunión privada', 'San Gabriel', 'San Miguel', 'Estás ocultando']) {
     expect(html, `"${secreto}" no debería llegar a Administración`).not.toContain(secreto)
   }
   await expect(modal.getByLabel('Título del evento')).toHaveCount(0)
@@ -266,10 +266,8 @@ test('Administración ve el pedido libre aunque el evento no pida nada de la lis
   await page.goto('/calendario')
   await page.locator(`.cal-day[data-fecha="${hoy}"]`).click()
   const modal = page.getByRole('dialog')
-  await expect(modal.getByText('20 sillas extra')).toBeVisible()
-
-  const html = await page.content()
-  expect(html, '"Visita con pedido especial" no debería llegar a Administración').not.toContain('Visita con pedido especial')
+  await expect(modal.getByText('Visita con pedido especial')).toBeVisible()
+  await expect(modal.getByText('Pedido: 20 sillas extra')).toBeVisible()
 })
 
 test('el Director genera un enlace, alguien sin sesión confirma, y el Director lo ve y lo revoca', async ({ page, context }) => {

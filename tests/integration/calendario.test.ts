@@ -346,7 +346,7 @@ describe('eventos_para_cocina: lo único que Administración ve de los eventos',
     if (error) throw error
   }
 
-  it('devuelve solo los eventos que piden algo, con fecha, hora, categoría y qué preparar; nunca el título', async () => {
+  it('devuelve solo los eventos que piden algo, con título, fecha, hora, categoría y qué preparar', async () => {
     await sembrar()
     const cocina = await clienteComo('administracion')
     const { data, error } = await cocina.rpc('eventos_para_cocina', { p_desde: FECHA, p_hasta: FECHA })
@@ -354,6 +354,7 @@ describe('eventos_para_cocina: lo único que Administración ve de los eventos',
     expect(data).toEqual([
       {
         id: expect.any(String),
+        titulo: 'Retiro secreto',
         fecha: FECHA,
         hora: '16:00:00',
         tipo: 'san_rafael',
@@ -361,8 +362,8 @@ describe('eventos_para_cocina: lo único que Administración ve de los eventos',
         requiere_otro_texto: null,
       },
     ])
-    // Ni títulos, ni la categoría del evento que no pide nada (san_gabriel).
-    expect(JSON.stringify(data)).not.toMatch(/secreto|privada|retiro|reunion|san_gabriel/i)
+    // Nada del evento que no pide nada a la cocina (su título ni su categoría).
+    expect(JSON.stringify(data)).not.toMatch(/privada|reunion|san_gabriel/i)
   })
 
   it('respeta el rango de fechas y ordena por fecha y hora', async () => {
