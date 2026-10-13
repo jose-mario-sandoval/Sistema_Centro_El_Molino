@@ -8,6 +8,7 @@ import { ModalCambiarRol, type CambioDeRol } from './modal-cambiar-rol'
 import { ModalCambiarUsuario } from './modal-cambiar-usuario'
 import { ModalContrasenaTemporal } from './modal-contrasena-temporal'
 import { ModalDesactivarCuenta } from './modal-desactivar-cuenta'
+import { ModalEliminarCuenta } from './modal-eliminar-cuenta'
 import { ModalNuevaCuenta } from './modal-nueva-cuenta'
 
 export function SeccionGestionUsuarios({ cuentas, idPropio }: { cuentas: Cuenta[]; idPropio: string }) {
@@ -15,6 +16,7 @@ export function SeccionGestionUsuarios({ cuentas, idPropio }: { cuentas: Cuenta[
   const [conUsuario, setConUsuario] = useState<Cuenta | null>(null)
   const [conContrasena, setConContrasena] = useState<Cuenta | null>(null)
   const [aDesactivar, setADesactivar] = useState<Cuenta | null>(null)
+  const [aEliminar, setAEliminar] = useState<Cuenta | null>(null)
   const [cambioDeRol, setCambioDeRol] = useState<CambioDeRol | null>(null)
 
   // El número que llevaría la próxima cuenta de Administración ("Administración N"): el servidor
@@ -25,13 +27,14 @@ export function SeccionGestionUsuarios({ cuentas, idPropio }: { cuentas: Cuenta[
   const cerrarUsuario = useCallback(() => setConUsuario(null), [])
   const cerrarContrasena = useCallback(() => setConContrasena(null), [])
   const cerrarDesactivacion = useCallback(() => setADesactivar(null), [])
+  const cerrarEliminacion = useCallback(() => setAEliminar(null), [])
   const cerrarCambioDeRol = useCallback(() => setCambioDeRol(null), [])
 
   return (
     <section className="settings-section" aria-labelledby="titulo-gestion-usuarios">
       <h2 id="titulo-gestion-usuarios">Gestión de usuarios</h2>
       <div className="desc">
-        Creá cuentas, asigná roles, poné contraseñas temporales y desactivá o reactivá cuentas. Cada persona edita su
+        Creá cuentas, asigná roles, poné contraseñas temporales y desactivá, reactivá o eliminá cuentas. Cada persona edita su
         propio nombre y siglas; el usuario con el que entra lo ponés vos: tocalo para cambiarlo.
       </div>
       <div className="card">
@@ -55,6 +58,7 @@ export function SeccionGestionUsuarios({ cuentas, idPropio }: { cuentas: Cuenta[
                   alCambiarUsuario={() => setConUsuario(cuenta)}
                   alPonerContrasena={() => setConContrasena(cuenta)}
                   alDesactivar={() => setADesactivar(cuenta)}
+                  alEliminar={() => setAEliminar(cuenta)}
                   alConfirmarRol={(rol) => setCambioDeRol({ cuenta, rol })}
                 />
               ))}
@@ -71,6 +75,7 @@ export function SeccionGestionUsuarios({ cuentas, idPropio }: { cuentas: Cuenta[
       <ModalCambiarUsuario cuenta={conUsuario} alCerrar={cerrarUsuario} />
       <ModalContrasenaTemporal cuenta={conContrasena} alCerrar={cerrarContrasena} />
       <ModalDesactivarCuenta cuenta={aDesactivar} alCerrar={cerrarDesactivacion} />
+      <ModalEliminarCuenta cuenta={aEliminar} alCerrar={cerrarEliminacion} />
       <ModalCambiarRol cambio={cambioDeRol} alCerrar={cerrarCambioDeRol} numeroAdministracion={numeroAdministracion} />
     </section>
   )

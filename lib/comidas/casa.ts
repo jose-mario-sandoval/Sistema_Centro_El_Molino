@@ -1,7 +1,7 @@
 import { sumarDias, type FechaISO } from '@/lib/fechas'
 import { partesParaCocina, textoParte, totalQueComen, type ResumenComida } from './resumen'
 import { diasDeSemana, etiquetaDia, tituloComida } from './semana'
-import { CANTIDAD_MAXIMA_EXTRA, ETIQUETA_TIEMPO, type ExtraManual, type TiempoComida } from './tipos'
+import { CANTIDAD_MAXIMA_EXTRA, ETIQUETA_TIEMPO, type ConfirmacionExtra, type ExtraManual, type TiempoComida } from './tipos'
 
 /*
  * Textos y cálculos de "La casa" del Director (/comidas/casa). Puros: se prueban sin navegador.
@@ -116,7 +116,7 @@ export function textoCantidadExtra(cantidad: number): string {
 }
 
 /** 'Miércoles 23/9 · Cena · 3 personas' */
-export function textoExtra(extra: ExtraManual): string {
+export function textoExtra(extra: Pick<ExtraManual, 'fecha' | 'comida' | 'cantidad'> & Partial<ExtraManual>): string {
   return `${etiquetaDia(extra.fecha)} · ${ETIQUETA_TIEMPO[extra.comida]} · ${textoCantidadExtra(extra.cantidad)}`
 }
 
@@ -129,6 +129,15 @@ export function etiquetaAgregarExtra(comida: TiempoComida, nombreDia: string, fe
 /** 'Extras para el almuerzo del miércoles 30/9': el título de la burbuja del "+ Extra". */
 export function tituloExtras(comida: TiempoComida, nombreDia: string, fechaCorta: string): string {
   return `Extras para ${laComidaDel(comida, nombreDia, fechaCorta)}`
+}
+
+/** Las confirmaciones del enlace público de una comida. */
+export function confirmacionesDeComida(
+  confirmaciones: readonly ConfirmacionExtra[],
+  fecha: FechaISO,
+  comida: TiempoComida,
+): ConfirmacionExtra[] {
+  return confirmaciones.filter((c) => c.fecha === fecha && c.comida === comida)
 }
 
 /** Los extras manuales de una comida (su burbuja los lista, con "Quitar" mientras no cerró). */

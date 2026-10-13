@@ -55,6 +55,18 @@ export function EnlaceCenaExtra({ eventoId }: { eventoId: string }) {
     })
   }
 
+  async function copiar(token: string) {
+    const url = `${window.location.origin}/confirmar-cena/${token}`
+    try {
+      await navigator.clipboard.writeText(url)
+      aviso('Enlace copiado.')
+    } catch {
+      // Sin permiso de portapapeles (o sin HTTPS): se deja el enlace seleccionado para copiarlo a mano.
+      document.querySelector<HTMLInputElement>(`input[data-token="${token}"]`)?.select()
+      aviso('No se pudo copiar solo. Quedó seleccionado: copialo con el menú del teléfono.')
+    }
+  }
+
   function revocar(id: string) {
     iniciar(async () => {
       const resultado = await llamarAccion(() => revocarEnlaceConfirmacion({ id }))
@@ -85,7 +97,15 @@ export function EnlaceCenaExtra({ eventoId }: { eventoId: string }) {
             <div>
               {ETIQUETA_TIEMPO[e.tiempoComida as TiempoComida]} · {vencido ? 'vencido' : `vence ${new Date(e.venceEn).toLocaleString('es-SV')}`}
             </div>
-            <input readOnly value={typeof window !== 'undefined' ? `${window.location.origin}/confirmar-cena/${e.token}` : ''} />
+            <input
+              readOnly
+              data-token={e.token}
+              aria-label="Enlace de la cena extra"
+              value={typeof window !== 'undefined' ? `${window.location.origin}/confirmar-cena/${e.token}` : ''}
+            />
+            <button type="button" className="btn ghost small" onClick={() => copiar(e.token)}>
+              Copiar enlace
+            </button>
             <div>
               {total} {total === 1 ? 'persona confirmada' : 'personas confirmadas'}
             </div>

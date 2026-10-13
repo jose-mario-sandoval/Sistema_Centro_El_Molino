@@ -6,15 +6,32 @@ import { Burbuja, devolverFoco, type MotivoCierre } from '@/components/ui/burbuj
 import { Icono } from '@/components/ui/iconos'
 import { fallo, type Resultado } from '@/lib/acciones/resultado'
 import { ajustarCantidad, extraSinGuardar, textoCantidadExtra, textoExtra, tituloExtras } from '@/lib/comidas/casa'
-import { CANTIDAD_MAXIMA_EXTRA, LARGO_MAXIMO_NOTA_EXTRA, type ExtraManual, type TiempoComida } from '@/lib/comidas/tipos'
+import {
+  CANTIDAD_MAXIMA_EXTRA,
+  LARGO_MAXIMO_NOTA_EXTRA,
+  type ConfirmacionExtra,
+  type ExtraManual,
+  type TiempoComida,
+} from '@/lib/comidas/tipos'
 import type { FechaISO } from '@/lib/fechas'
 import { useAvisarAlGrupo } from '../../_componentes/borradores-del-grupo'
-import { agregarExtra, quitarExtra } from '../acciones'
+import { agregarExtra, quitarConfirmacionExtra, quitarExtra } from '../acciones'
 
 const AVISO_CERRADA = 'Esa comida ya cerró: la cocina puede no verlo a tiempo.'
 
 /** Un extra ya agregado: cuántas personas y la nota; "Quitar" (con confirmación) mientras la comida no cerró. */
-function FilaExtra({ extra, cerrada, alQuitar }: { extra: ExtraManual; cerrada: boolean; alQuitar: () => void }) {
+function FilaExtra({
+  extra,
+  cerrada,
+  alQuitar,
+}: {
+  extra: ExtraManual | ConfirmacionExtra
+  cerrada: boolean
+  alQuitar: () => void
+}) {
+  // Una confirmación del enlace público trae el nombre de quien la hizo (el Director sí lo ve).
+  const delEnlace = 'nombre' in extra
+  const nota = 'nota' in extra ? extra.nota : null
   const aviso = useAviso()
   const [confirmando, setConfirmando] = useState(false)
   const [pendiente, iniciar] = useTransition()
@@ -37,7 +54,7 @@ function FilaExtra({ extra, cerrada, alQuitar }: { extra: ExtraManual; cerrada: 
     iniciar(async () => {
       let resultado: Resultado<null>
       try {
-        resultado = await quitarExtra({ id: extra.id })
+        resultado = await (delEnlace ? quitarConfirmacionExtra : quitarExtra)({ id: extra.id })
       } catch {
         resultado = fallo('No se pudo quitar el extra. Revisá tu conexión e intentá de nuevo.')
       }
@@ -56,7 +73,8 @@ function FilaExtra({ extra, cerrada, alQuitar }: { extra: ExtraManual; cerrada: 
     <li className="fila-extra">
       <span className="extra-texto">
         <span className="extra-cuanto">{textoCantidadExtra(extra.cantidad)}</span>
-        {extra.nota && <span className="extra-nota">Nota: {extra.nota}</span>}
+        {delEnlace && <span className="extra-nota">Confirmó por el enlace: {extra.nombre}</span>}
+        {nota && <span className="extra-nota">Nota: {nota}</span>}
       </span>
       {cerrada ? (
         // Después del cierre la cocina ya pudo contarlo: se ve, pero ya no se quita.
@@ -96,7 +114,7 @@ function FilaExtra({ extra, cerrada, alQuitar }: { extra: ExtraManual; cerrada: 
           type="button"
           className="btn ghost small"
           onClick={() => setConfirmando(true)}
-          aria-label={`Quitar el extra: ${textoExtra(extra)}`}
+          aria-label={`Quitar el extra: ${textoExtra(extra)}${delEnlace ? ` (${extra.nombre})` : ''}`}
         >
           Quitar
         </button>
@@ -123,6 +141,7 @@ export function BurbujaExtra({
   fechaCorta,
   sinCerrar,
   extras,
+  confirmaciones,
   alCerrar,
 }: {
   id: string
@@ -137,6 +156,8 @@ export function BurbujaExtra({
   sinCerrar: boolean
   /** Los extras manuales de esta comida. */
   extras: readonly ExtraManual[]
+  /** Lo confirmado por el enlace público para esta comida: también se puede quitar. */
+  confirmaciones: readonly ConfirmacionExtra[]
   alCerrar: () => void
 }) {
   const aviso = useAviso()
@@ -378,19 +399,21 @@ export function BurbujaExtra({
         )}
       </form>
 
-      {extras.length > 0 && (
+      {extras.length + confirmaciones.length > 0 && (
         <section className="extras-de-comida" aria-labelledby={idLista}>
           <h3 id={idLista} ref={tituloLista} tabIndex={-1} className="burbuja-subtitulo">
             Ya agregados para esta comida
           </h3>
           <ul className="lista-ausencias">
-            {extras.map((extra) => (
+            {[...extras, ...confirmaciones].map((extra) => (
               <FilaExtra
                 key={extra.id}
                 extra={extra}
                 cerrada={!sinCerrar}
                 // Si quedan otros, el foco va al título de la lista; si era el único, al de la burbuja.
-                alQuitar={() => (extras.length > 1 ? tituloLista.current : titulo.current)?.focus()}
+                alQuitar={() =>
+                  (extras.length + confirmaciones.length > 1 ? tituloLista.current : titulo.current)?.focus()
+                }
               />
             ))}
           </ul>
