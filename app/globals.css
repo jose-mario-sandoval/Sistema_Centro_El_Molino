@@ -1100,6 +1100,15 @@ button.comida-tarjeta[aria-busy="true"]{cursor:progress;}
 .cal-head{display:flex;align-items:center;flex-wrap:wrap;gap:.75rem;margin-bottom:1.25rem;}
 .cal-head .month-label{flex:1;min-width:0;font-family:var(--fuente-display);font-size:var(--t-lg);font-weight:600;}
 .cal-nav-btns{display:flex;align-items:center;gap:.6rem;}
+/* "Elegir mes y año": un <details> sin JavaScript. El resumen es un botón; la flecha del navegador no se usa. */
+.elegir-mes{margin-bottom:1.25rem;}
+.elegir-mes > summary{list-style:none;cursor:pointer;display:inline-flex;align-items:center;}
+.elegir-mes > summary::-webkit-details-marker{display:none;}
+.elegir-mes[open] > summary{box-shadow:var(--hundido);color:var(--acento);}
+.elegir-mes > summary:focus-visible{outline:3px solid var(--acento);outline-offset:3px;}
+.elegir-mes-fila{display:flex;flex-wrap:wrap;align-items:flex-end;gap:.75rem;margin-top:1rem;}
+.elegir-mes-fila .field{flex:1 1 9rem;margin:0;min-width:0;}
+.elegir-mes-fila .btn{flex:0 0 auto;}
 
 .cal-alternar{display:none;margin-bottom:1rem;}
 .agenda{display:none;}

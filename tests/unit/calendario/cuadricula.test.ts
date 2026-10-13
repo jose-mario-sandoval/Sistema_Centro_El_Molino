@@ -1,16 +1,51 @@
 import { describe, expect, it } from 'vitest'
 import {
   agruparPorFecha,
+  aniosParaElegir,
   cuadriculaMes,
   esMesISO,
   etiquetaDia,
   etiquetaMes,
   mesAnterior,
   mesDe,
+  mesDesdeSeleccion,
   mesSiguiente,
   rangoCuadricula,
 } from '@/lib/calendario/cuadricula'
 import { diaSemana, sumarDias } from '@/lib/fechas'
+
+describe('mesDesdeSeleccion', () => {
+  it('junta año y mes del selector, con el mes de una o dos cifras', () => {
+    expect(mesDesdeSeleccion('2027', '3')).toBe('2027-03')
+    expect(mesDesdeSeleccion('2027', '03')).toBe('2027-03')
+    expect(mesDesdeSeleccion('2026', '12')).toBe('2026-12')
+  })
+
+  it('null si falta algo o no es válido: el calendario se queda en el mes de hoy', () => {
+    for (const [anio, mes] of [[undefined, '3'], ['2027', undefined], ['2027', '0'], ['2027', '13'], ['1999', '5'], ['2100', '5'], ['abc', '5'], ['2027', 'x'], [['2027'], '3']]) {
+      expect(mesDesdeSeleccion(anio, mes), `${String(anio)}-${String(mes)}`).toBeNull()
+    }
+  })
+})
+
+describe('aniosParaElegir', () => {
+  it('de 10 años antes a 15 después de hoy', () => {
+    const anios = aniosParaElegir('2026-10', '2026-10-13')
+    expect(anios[0]).toBe(2016)
+    expect(anios.at(-1)).toBe(2041)
+  })
+
+  it('siempre incluye el año que se está viendo, aunque quede lejos', () => {
+    expect(aniosParaElegir('2005-03', '2026-10-13')[0]).toBe(2005)
+    expect(aniosParaElegir('2060-03', '2026-10-13').at(-1)).toBe(2060)
+  })
+
+  it('nunca sale de 2000–2099', () => {
+    const anios = aniosParaElegir('2095-01', '2095-06-01')
+    expect(anios.at(-1)).toBe(2099)
+    expect(aniosParaElegir('2003-01', '2003-06-01')[0]).toBe(2000)
+  })
+})
 
 describe('cuadriculaMes', () => {
   it.each(['2026-06', '2026-02', '2026-09', '2027-01', '2028-02'])(

@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { redirect } from 'next/navigation'
 import { Icono } from '@/components/ui/iconos'
 import { exigirPerfil } from '@/lib/auth/sesion'
 import { listarEventosDeCuadricula } from '@/lib/calendario/consultas'
@@ -10,12 +11,14 @@ import {
   etiquetaMes,
   mesAnterior,
   mesDe,
+  mesDesdeSeleccion,
   mesSiguiente,
 } from '@/lib/calendario/cuadricula'
 import { fechaISOEn } from '@/lib/fechas'
 import { listarAusenciasDe } from '@/lib/ausencias/consultas'
 import { CalendarioMes } from './_componentes/calendario-mes'
 import { PanelAusencias } from './_componentes/panel-ausencias'
+import { SelectorMes } from './_componentes/selector-mes'
 
 export default async function PaginaCalendario({
   searchParams,
@@ -23,7 +26,11 @@ export default async function PaginaCalendario({
   searchParams: Promise<{ [clave: string]: string | string[] | undefined }>
 }) {
   const perfil = await exigirPerfil()
-  const { mes: mesPedido } = await searchParams
+  const { mes: mesPedido, anio, m } = await searchParams
+
+  // "Elegir mes y año" es un formulario GET: acá se lo lleva a la dirección de siempre (?mes=AAAA-MM).
+  const elegido = mesDesdeSeleccion(anio, m)
+  if (elegido) redirect(`/calendario?mes=${elegido}`)
 
   const hoy = fechaISOEn(new Date())
   const mesDeHoy = mesDe(hoy)
@@ -53,6 +60,7 @@ export default async function PaginaCalendario({
       {/* Los filtros (Director y Residente) van arriba de la tarjeta; el mes y sus flechas, dentro. */}
       <CalendarioMes
         cabecera={
+          <>
           <div className="cal-head">
             <div className="month-label">{etiquetaMes(mes)}</div>
             <div className="cal-nav-btns">
@@ -69,6 +77,8 @@ export default async function PaginaCalendario({
               </Link>
             </div>
           </div>
+          <SelectorMes mes={mes} hoy={hoy} />
+          </>
         }
         dias={dias}
         eventosPorFecha={agruparPorFecha(eventos)}
