@@ -10,6 +10,7 @@ import { clienteSupabaseFalso, perfilDePrueba } from '@/tests/soporte/supabase-f
 // Las acciones se prueban sin base: sesión, cliente de Supabase y caché de Next se reemplazan.
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
 vi.mock('@/lib/auth/sesion', () => ({ perfilParaAccion: vi.fn() }))
+vi.mock('@/lib/supabase/admin', () => ({ crearClienteAdmin: vi.fn() }))
 vi.mock('@/lib/supabase/servidor', () => ({ crearClienteServidor: vi.fn() }))
 vi.mock('@/lib/comidas/consultas', () => ({ obtenerHorasLimite: vi.fn() }))
 vi.mock('next/server', () => ({ after: vi.fn() }))

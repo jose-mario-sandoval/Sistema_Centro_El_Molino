@@ -6,7 +6,7 @@ import { ROLES_CON_COMIDAS } from '@/lib/perfiles/roles'
 import { exigirFilasCompletas } from '@/lib/supabase/filas-completas'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { diasDeSemana } from './semana'
-import { TIEMPOS_COMIDA, type ExtraManual, type HorasLimite, type TiempoComida } from './tipos'
+import { TIEMPOS_COMIDA, type ConfirmacionExtra, type ExtraManual, type HorasLimite, type TiempoComida } from './tipos'
 import {
   agregarSemana,
   armarDiaAdministracion,
@@ -197,6 +197,28 @@ export async function obtenerExtrasDeLaSemana(lunes: FechaISO): Promise<Record<s
     porDia[fila.tiempo_comida] = fila.total
   }
   return extras
+}
+
+/**
+ * Cada confirmación del enlace público de cena extra de la semana, con el nombre de quien confirmó.
+ * Solo el Director (RLS: nadie más lee `confirmaciones_extra`); Administración solo ve la cifra sumada.
+ */
+export async function obtenerConfirmacionesExtra(lunes: FechaISO): Promise<ConfirmacionExtra[]> {
+  const supabase = await crearClienteServidor()
+  const { data, error } = await supabase
+    .from('confirmaciones_extra')
+    .select('id, nombre, cantidad_personas, enlaces_confirmacion!inner(tiempo_comida, eventos!inner(fecha))')
+    .gte('enlaces_confirmacion.eventos.fecha', lunes)
+    .lte('enlaces_confirmacion.eventos.fecha', sumarDias(lunes, 6))
+    .order('creado_en')
+  if (error) throw error
+  return data.map((fila) => ({
+    id: fila.id,
+    fecha: fila.enlaces_confirmacion.eventos.fecha,
+    comida: fila.enlaces_confirmacion.tiempo_comida,
+    nombre: fila.nombre,
+    cantidad: fila.cantidad_personas,
+  }))
 }
 
 /** Plan habitual agregado, para Administración (nunca por persona). */

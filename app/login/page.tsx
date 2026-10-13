@@ -18,8 +18,8 @@ export default async function PaginaLogin() {
       <div className="login-wrap">
         <div className="login-intro">
           <Escudo />
-          <h1>Centro El Molino</h1>
-          <p>Comida, mensajes y calendario, coordinados entre las dos partes de la casa.</p>
+          {/* El escudo ya identifica al Centro: el nombre queda solo para lectores de pantalla. */}
+          <h1 className="sr-only">Centro El Molino</h1>
         </div>
         <div className="login-card">
           <p className="login-indicacion">Iniciá sesión con tu cuenta para continuar.</p>

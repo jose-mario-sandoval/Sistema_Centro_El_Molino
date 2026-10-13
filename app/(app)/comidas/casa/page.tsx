@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation'
 import { z } from 'zod'
 import { exigirRol } from '@/lib/auth/sesion'
 import { diasParaExtra } from '@/lib/comidas/casa'
-import { obtenerExtrasDeLaSemana, obtenerNotasExtras, obtenerSemanaDeLaCasa } from '@/lib/comidas/consultas'
+import { obtenerConfirmacionesExtra, obtenerExtrasDeLaSemana, obtenerNotasExtras, obtenerSemanaDeLaCasa } from '@/lib/comidas/consultas'
 import { semanaPedida } from '@/lib/comidas/semana'
 import { fechaISOEn } from '@/lib/fechas'
 import { NavegacionSemana } from '../_componentes/navegacion-semana'
@@ -29,10 +29,11 @@ export default async function PaginaLaCasa({
   // "Ver la semana de:" es un formulario GET (funciona sin JavaScript): acá se lo lleva a su página.
   if (esUuid(persona)) redirect(`/comidas/casa/${persona}?semana=${lunes}`)
 
-  const [dias, extras, extrasManuales] = await Promise.all([
+  const [dias, extras, extrasManuales, confirmaciones] = await Promise.all([
     obtenerSemanaDeLaCasa(lunes),
     obtenerExtrasDeLaSemana(lunes),
     obtenerNotasExtras(lunes),
+    obtenerConfirmacionesExtra(lunes),
   ])
   const personas = dias[0]?.comidas[0]?.personas.map(({ id, nombre }) => ({ id, nombre })) ?? []
 
@@ -73,6 +74,7 @@ export default async function PaginaLaCasa({
         dias={dias}
         extras={extras}
         extrasManuales={extrasManuales}
+        confirmaciones={confirmaciones}
         diasExtra={diasParaExtra(lunes, hoy)}
         yo={perfil.id}
       />

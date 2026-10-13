@@ -8,12 +8,13 @@ import {
   etiquetaAgregarExtra,
   etiquetaCeldaCasa,
   etiquetaGrupo,
+  confirmacionesDeComida,
   extrasDeComida,
   notasPorComida,
   tituloComidaDePersona,
 } from '@/lib/comidas/casa'
 import { etiquetaDia, tituloComida } from '@/lib/comidas/semana'
-import { ETIQUETA_TIEMPO, TIEMPOS_COMIDA, type ExtraManual, type TiempoComida } from '@/lib/comidas/tipos'
+import { ETIQUETA_TIEMPO, TIEMPOS_COMIDA, type ConfirmacionExtra, type ExtraManual, type TiempoComida } from '@/lib/comidas/tipos'
 import { agruparPorEstado, type ComidaDeLaCasa, type DiaDeLaCasa, type PersonaEnComida } from '@/lib/comidas/vista'
 import type { FechaISO } from '@/lib/fechas'
 import { ContextoBorradores, useBorradoresDelGrupo } from '../../_componentes/borradores-del-grupo'
@@ -48,6 +49,7 @@ export function TablaCasa({
   dias,
   extras,
   extrasManuales,
+  confirmaciones,
   diasExtra,
   yo,
 }: {
@@ -57,6 +59,8 @@ export function TablaCasa({
   extras: Record<string, Partial<Record<TiempoComida, number>>>
   /** Los extras manuales de la semana, con su nota y sin autor. */
   extrasManuales: ExtraManual[]
+  /** Lo confirmado por el enlace público de cena extra, con el nombre (el Director puede quitarlo). */
+  confirmaciones: ConfirmacionExtra[]
   /** Días en que todavía se puede agregar un extra (desde hoy). */
   diasExtra: FechaISO[]
   /** El Director que mira: su propia comida va en segunda persona ("¿Vas a almorzar…?"). */
@@ -314,6 +318,7 @@ export function TablaCasa({
             fechaCorta={diaExtra.fechaCorta}
             sinCerrar={comidaExtra.sinCerrar}
             extras={extrasDeComida(extrasManuales, diaExtra.fecha, comidaExtra.comida)}
+            confirmaciones={confirmacionesDeComida(confirmaciones, diaExtra.fecha, comidaExtra.comida)}
             alCerrar={() => setExtraAbierto(null)}
           />
         )}

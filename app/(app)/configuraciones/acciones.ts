@@ -7,6 +7,7 @@ import { TIEMPOS_COMIDA } from '@/lib/comidas/tipos'
 import {
   esErrorAuthDefinitivo,
   esErrorPerfilEsperado,
+  MENSAJE_DIRECTOR_MINIMO,
   MENSAJE_USUARIO_REPETIDO,
   mensajeErrorPerfil,
 } from '@/lib/configuraciones/errores'
@@ -23,6 +24,7 @@ import {
   esquemaCambioRol,
   esquemaCambioUsuario,
   esquemaContrasenaTemporal,
+  esquemaEliminarCuenta,
   esquemaEstadoCuenta,
   esquemaHorasLimite,
   esquemaNuevaCuenta,
@@ -407,6 +409,57 @@ export async function cambiarEstadoCuenta(entrada: unknown): Promise<Resultado<n
       return fallo('La cuenta quedó desactivada, pero no se confirmó el bloqueo. Reactivala y volvé a desactivarla.')
     }
     return fallo(`No se pudo ${verbo} la cuenta. Intentá de nuevo.`)
+  }
+
+  revalidatePath('/configuraciones')
+  return exito(null)
+}
+
+/**
+ * Borra la cuenta para siempre (activa o desactivada), nunca la propia ni el último Director activo
+ * (el trigger MOL02 solo vigila los `update`, no los `delete`).
+ * Borrar el usuario de Auth arrastra su perfil y, por `on delete cascade`, lo que esa persona creó
+ * (mensajes, eventos, ausencias, selecciones de comida, avisos).
+ */
+export async function eliminarCuenta(entrada: unknown): Promise<Resultado<null>> {
+  const acceso = await perfilParaAccion('director')
+  if (!acceso.ok) return acceso
+
+  const datos = esquemaEliminarCuenta.safeParse(entrada)
+  if (!datos.success) return fallo('Datos inválidos.')
+  const { id } = datos.data
+  if (id === acceso.perfil.id) return fallo('No podés eliminar tu propia cuenta.')
+
+  const admin = crearClienteAdmin()
+  const { data: cuenta, error: errorLectura } = await admin
+    .from('perfiles')
+    .select('activo, rol')
+    .eq('id', id)
+    .maybeSingle()
+  if (errorLectura) {
+    console.error(`eliminarCuenta: no se pudo leer el perfil (usuario ${id})`, errorLectura)
+    return fallo('No se pudo eliminar la cuenta. Intentá de nuevo.')
+  }
+  if (!cuenta) return fallo('La cuenta no existe.')
+  if (cuenta.activo && cuenta.rol === 'director') {
+    const { count, error: errorConteo } = await admin
+      .from('perfiles')
+      .select('id', { count: 'exact', head: true })
+      .eq('rol', 'director')
+      .eq('activo', true)
+      .neq('id', id)
+    if (errorConteo) {
+      console.error(`eliminarCuenta: no se pudo contar Directores (usuario ${id})`, errorConteo)
+      return fallo('No se pudo eliminar la cuenta. Intentá de nuevo.')
+    }
+    if (!count) return fallo(MENSAJE_DIRECTOR_MINIMO)
+  }
+
+  const { error } = await admin.auth.admin.deleteUser(id)
+  if (error) {
+    console.error(`eliminarCuenta: Auth no pudo borrar el usuario (usuario ${id})`, error)
+    revalidatePath('/configuraciones')
+    return fallo('No se pudo eliminar la cuenta. Intentá de nuevo.')
   }
 
   revalidatePath('/configuraciones')
