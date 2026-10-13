@@ -51,6 +51,7 @@ describe('textoPedido', () => {
 describe('eventoParaAdministracion', () => {
   const desdeLaBase: EventoParaCocina = {
     id: 'e1',
+    titulo: 'Retiro de silencio',
     fecha: '2026-10-07',
     hora: '16:00:00',
     tipo: 'san_gabriel',
@@ -58,12 +59,12 @@ describe('eventoParaAdministracion', () => {
     requiere_otro_texto: null,
   }
 
-  it('deja fecha, hora, categoría y qué preparar; el título combina lo fijo con lo libre', () => {
+  it('deja título, fecha, hora, categoría y qué preparar', () => {
     expect(eventoParaAdministracion({ ...desdeLaBase, requiere_otro_texto: '20 sillas extra' })).toEqual({
       id: 'e1',
       fecha: '2026-10-07',
       hora: '16:00:00',
-      titulo: 'Merienda y comida · 20 sillas extra',
+      titulo: 'Retiro de silencio',
       tipo: 'san_gabriel',
       requiere_cocina: ['merienda', 'comida'],
       requiere_otro_texto: '20 sillas extra',
@@ -77,12 +78,15 @@ describe('eventoParaAdministracion', () => {
     expect(eventoParaAdministracion(sinTipo as EventoParaCocina).tipo).toBeNull()
   })
 
-  it('no arrastra ningún campo que la base no le dio: nunca un título real ni la serie', () => {
-    const conDatosDeMas = { ...desdeLaBase, titulo: 'Retiro secreto', serie_id: 's1' } as EventoParaCocina
-    const resultado = eventoParaAdministracion(conDatosDeMas)
-    expect(resultado.titulo).toBe('Merienda y comida')
-    expect(resultado.serie_id).toBeNull()
-    expect(JSON.stringify(resultado)).not.toContain('secreto')
+  it('si la base todavía no manda el título (migración sin aplicar), muestra el pedido como título', () => {
+    const sinTitulo: Partial<EventoParaCocina> = { ...desdeLaBase }
+    delete sinTitulo.titulo
+    expect(eventoParaAdministracion(sinTitulo as EventoParaCocina).titulo).toBe('Merienda y comida')
+  })
+
+  it('no arrastra ningún campo que la base no le dio: nunca la serie', () => {
+    const conDatosDeMas = { ...desdeLaBase, serie_id: 's1' } as EventoParaCocina
+    expect(eventoParaAdministracion(conDatosDeMas).serie_id).toBeNull()
   })
 })
 

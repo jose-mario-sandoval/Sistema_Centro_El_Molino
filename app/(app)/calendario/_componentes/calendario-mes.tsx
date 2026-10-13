@@ -70,7 +70,7 @@ export function CalendarioMes({
   eventosPorFecha: Record<FechaISO, Evento[]>
   hoy: FechaISO
   puedeEditar: boolean
-  /** Administración: solo ve lo que debe preparar la cocina, con su categoría y sin título. */
+  /** Administración: solo ve lo que debe preparar la cocina, con su título, categoría y pedido. */
   paraCocina?: boolean
   /** Ausencias propias (Director y Residente): sus días se marcan en la cuadrícula. */
   ausencias?: readonly RangoAusencia[]
@@ -143,7 +143,7 @@ export function CalendarioMes({
                         {visibles.map((evento) => (
                           <span key={evento.id} className="agenda-evento" {...atributosEvento(evento)}>
                             {textoEvento(evento)}
-                            <InsigniasEvento evento={evento} soloTipo={paraCocina} />
+                            <InsigniasEvento evento={evento} conPedidoLibre={paraCocina} />
                           </span>
                         ))}
                         {ocultosDia > 0 && (

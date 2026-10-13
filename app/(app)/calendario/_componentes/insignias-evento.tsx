@@ -20,14 +20,15 @@ const ICONO: Record<RequerimientoCocina, NombreIcono> = { merienda: 'merienda', 
 export function InsigniasEvento({
   evento,
   oculto = false,
-  soloTipo = false,
+  conPedidoLibre = false,
 }: {
   evento: Evento
   oculto?: boolean
-  soloTipo?: boolean
+  /** Administración: además de las casillas, el pedido escrito a mano ("20 sillas extra"). */
+  conPedidoLibre?: boolean
 }) {
   if (evento.tipo === null) return null
-  const pedidos = soloTipo ? [] : REQUERIMIENTOS_COCINA.filter((r) => evento.requiere_cocina.includes(r))
+  const pedidos = REQUERIMIENTOS_COCINA.filter((r) => evento.requiere_cocina.includes(r))
 
   return (
     <span className="insignias-evento">
@@ -41,6 +42,9 @@ export function InsigniasEvento({
           {ETIQUETA_REQUERIMIENTO[pedido]}
         </span>
       ))}
+      {conPedidoLibre && evento.requiere_otro_texto && (
+        <span className="pastilla-cocina">Pedido: {evento.requiere_otro_texto}</span>
+      )}
       {oculto && (
         <span className="pastilla-oculto">
           <Icono nombre="oculto" />
