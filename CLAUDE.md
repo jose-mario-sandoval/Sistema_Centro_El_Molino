@@ -18,7 +18,7 @@ opcionales:
   `data-texto` (grande/enorme) son atributos en `<html>`; el driver está en `lib/apariencia.ts` +
   `components/ui/apariencia.tsx`. Se guardan en `localStorage` y, si hay sesión, también en la
   cuenta (columnas `apariencia_*` de `perfiles`) para que sigan a la persona entre dispositivos.
-- Los seis tokens de estado de comida (`--st-<estado>` / `--st-<estado>-bg`) son un contrato: los
+- Los siete tokens de estado de comida (`--st-<estado>` / `--st-<estado>-bg`) son un contrato: los
   interpola `varsEstado()` en `comidas/_componentes/insignia-estado.tsx`. No renombrarlos. Igual los
   de tipo de evento (`--ev-<tipo>` / `-bg`, `varsTipo()` y `MARCA_TIPO` SR/SG/SM/Otro en
   `lib/calendario/tipos.ts`): el color siempre va con su marca escrita.

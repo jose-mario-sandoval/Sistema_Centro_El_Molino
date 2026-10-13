@@ -346,7 +346,7 @@ export function armarSemanaDeLaCasa(p: {
 }
 
 /** "Sin definir" primero (es lo que falta resolver); después, el orden en que lee la cocina. */
-const ORDEN_GRUPOS: readonly ClaveResumen[] = ['sin_definir', 'temprano', 'tarde', 'bolsa', 'enfermo', 'si', 'no']
+const ORDEN_GRUPOS: readonly ClaveResumen[] = ['sin_definir', 'temprano', 'tarde', 'bolsa', 'lonchera', 'enfermo', 'si', 'no']
 
 export type GrupoPorEstado = { clave: ClaveResumen; etiqueta: string; personas: PersonaEnComida[] }
 

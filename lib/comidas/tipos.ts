@@ -7,7 +7,7 @@ export const ETIQUETA_TIEMPO: Record<TiempoComida, string> = {
   cena: 'Cena',
 }
 
-export const ESTADOS_COMIDA = ['si', 'no', 'temprano', 'tarde', 'bolsa', 'enfermo'] as const
+export const ESTADOS_COMIDA = ['si', 'no', 'temprano', 'tarde', 'bolsa', 'lonchera', 'enfermo'] as const
 export type EstadoComida = (typeof ESTADOS_COMIDA)[number]
 
 /** 'hora' = nota obligatoria HH:MM; 'texto' = nota obligatoria libre; null = sin nota. */
@@ -19,6 +19,8 @@ export const INFO_ESTADO: Record<EstadoComida, { etiqueta: string; nota: TipoNot
   temprano: { etiqueta: 'Comer temprano', nota: 'hora', ayudaNota: 'Hora a la que comerá' },
   tarde: { etiqueta: 'Comer tarde', nota: 'hora', ayudaNota: 'Hora a la que comerá' },
   bolsa: { etiqueta: 'En bolsa', nota: null },
+  // Empacada en recipientes que se pueden calentar (a diferencia de la bolsa).
+  lonchera: { etiqueta: 'Lonchera', nota: null },
   enfermo: { etiqueta: 'Enfermo', nota: 'texto', ayudaNota: 'Qué puede comer' },
 }
 
@@ -32,6 +34,7 @@ export const ETIQUETA_CORTA_ESTADO: Record<EstadoComida, string> = {
   temprano: 'Temprano',
   tarde: 'Tarde',
   bolsa: 'Bolsa',
+  lonchera: 'Lonchera',
   enfermo: 'Enfermo',
 }
 

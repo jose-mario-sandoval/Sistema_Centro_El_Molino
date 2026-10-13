@@ -22,12 +22,13 @@
   --dorado:#8C6432;
   --peligro:#B4483A;
 
-  /* Los seis estados. Estos NOMBRES son contrato: insignia-estado.tsx los arma por interpolación. */
+  /* Los siete estados. Estos NOMBRES son contrato: insignia-estado.tsx los arma por interpolación. */
   --st-si:#3F5D46;        --st-si-bg:#E1E8DE;
   --st-no:#AB4437;        --st-no-bg:#F5DFDB;
   --st-temprano:#855F2F;  --st-temprano-bg:#F1E4CF;
   --st-tarde:#7A5C3E;     --st-tarde-bg:#EBE0D2;
   --st-bolsa:#4B6988;     --st-bolsa-bg:#DEE6ED;
+  --st-lonchera:#6A5A93;  --st-lonchera-bg:#E8E3F0;
   --st-enfermo:#8B4B63;   --st-enfermo-bg:#EEDCE2;
 
   /* Tipos de evento (DESIGN.md §2.4): el color va en el texto, el borde y la marca con la sigla; el
@@ -93,6 +94,7 @@
     --st-temprano:#CBA063;  --st-temprano-bg:#332A1B;
     --st-tarde:#B4906A;     --st-tarde-bg:#2E2619;
     --st-bolsa:#8FB2D6;     --st-bolsa-bg:#1F2C38;
+    --st-lonchera:#B3A2DE;  --st-lonchera-bg:#2A2538;
     --st-enfermo:#CC93A9;   --st-enfermo-bg:#33212A;
     --ev-san-rafael:#BFF2CA;   --ev-san-rafael-bg:#293E2E;
     --ev-san-gabriel:#98B0EA;  --ev-san-gabriel-bg:#2E3243;
@@ -110,6 +112,7 @@
   --st-temprano:#CBA063;  --st-temprano-bg:#332A1B;
   --st-tarde:#B4906A;     --st-tarde-bg:#2E2619;
   --st-bolsa:#8FB2D6;     --st-bolsa-bg:#1F2C38;
+  --st-lonchera:#B3A2DE;  --st-lonchera-bg:#2A2538;
   --st-enfermo:#CC93A9;   --st-enfermo-bg:#33212A;
   --ev-san-rafael:#BFF2CA;   --ev-san-rafael-bg:#293E2E;
   --ev-san-gabriel:#98B0EA;  --ev-san-gabriel-bg:#2E3243;
@@ -123,7 +126,7 @@
   --tinta-suave:#554E42; --tinta-tenue:#554E42;
   --acento:#3A5540; --dorado:#664924; --peligro:#86352B;
   --st-si:#36503C; --st-no:#7C3228; --st-temprano:#614522;
-  --st-tarde:#5A442E; --st-bolsa:#364C63; --st-enfermo:#69384A;
+  --st-tarde:#5A442E; --st-bolsa:#364C63; --st-lonchera:#46386F; --st-enfermo:#69384A;
   --ev-san-rafael:#0E3319; --ev-san-gabriel:#1E3F8A; --ev-san-miguel:#960033; --ev-otro:#4B463D;
   --luz:transparent; --sombra:transparent;
   --borde-elevado:var(--tinta);
@@ -135,7 +138,7 @@
     --tinta-suave:#B5AC97; --tinta-tenue:#B3AC9E;
     --acento:#94B49B; --dorado:#CEA66C; --peligro:#DE9C90;
     --st-si:#AAC3AF; --st-no:#E2A89E; --st-temprano:#D5B180;
-    --st-tarde:#C8AE92; --st-bolsa:#9ABADA; --st-enfermo:#D4A4B6;
+    --st-tarde:#C8AE92; --st-bolsa:#9ABADA; --st-lonchera:#C9BCEB; --st-enfermo:#D4A4B6;
     --ev-san-rafael:#C4F4CE; --ev-san-gabriel:#B4C6F6; --ev-san-miguel:#FFA3B4; --ev-otro:#D7D1C6;
   }
 }
@@ -143,7 +146,7 @@
   --tinta-suave:#B5AC97; --tinta-tenue:#B3AC9E;
   --acento:#94B49B; --dorado:#CEA66C; --peligro:#DE9C90;
   --st-si:#AAC3AF; --st-no:#E2A89E; --st-temprano:#D5B180;
-  --st-tarde:#C8AE92; --st-bolsa:#9ABADA; --st-enfermo:#D4A4B6;
+  --st-tarde:#C8AE92; --st-bolsa:#9ABADA; --st-lonchera:#C9BCEB; --st-enfermo:#D4A4B6;
   --ev-san-rafael:#C4F4CE; --ev-san-gabriel:#B4C6F6; --ev-san-miguel:#FFA3B4; --ev-otro:#D7D1C6;
 }
 

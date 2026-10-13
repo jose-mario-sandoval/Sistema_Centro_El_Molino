@@ -16,6 +16,14 @@ const TRAZOS = {
       <path d="M8.5 8V6a3.5 3.5 0 0 1 7 0v2" />
     </>
   ),
+  // Lonchera: caja con asa y broche, de las que se llevan y se calientan.
+  lonchera: (
+    <>
+      <rect x="3" y="8" width="18" height="12" rx="2" />
+      <path d="M8.5 8V6.2A1.2 1.2 0 0 1 9.7 5h4.6a1.2 1.2 0 0 1 1.2 1.2V8" />
+      <path d="M3 13h18M11 11.5h2v3h-2z" />
+    </>
+  ),
   enfermo: (
     <>
       <path d="M12 3a2 2 0 0 1 2 2v9.2a4 4 0 1 1-4 0V5a2 2 0 0 1 2-2z" />
