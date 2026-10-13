@@ -52,13 +52,19 @@ export async function publicarMensaje(_previo: ResultadoId | null, formData: For
   const sesion = await perfilParaAccion()
   if (!sesion.ok) return sesion
 
-  const entrada = esquemaPublicacion.safeParse({ id: formData.get('id'), texto: formData.get('texto') })
+  const entrada = esquemaPublicacion.safeParse({
+    id: formData.get('id'),
+    texto: formData.get('texto'),
+    soloDirector: formData.get('soloDirector'),
+  })
   if (!entrada.success) return fallo('Revisá el mensaje.', camposConError(entrada.error))
   const { id, texto } = entrada.data
   const autorId = sesion.perfil.id
+  // Solo Administración puede limitar quién lo ve; la base lo vuelve a forzar según el rol de la sesión.
+  const soloDirector = entrada.data.soloDirector && sesion.perfil.rol === 'administracion'
 
   const supabase = await crearClienteServidor()
-  const { error } = await supabase.from('mensajes').insert({ id, autor_id: autorId, texto })
+  const { error } = await supabase.from('mensajes').insert({ id, autor_id: autorId, texto, solo_director: soloDirector })
   if (error) {
     // Reintento de un envío ya guardado: éxito sin duplicar. No se revalida ni se avisa de nuevo; eso ya
     // lo hizo el envío que guardó el mensaje.

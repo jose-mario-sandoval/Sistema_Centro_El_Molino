@@ -3,6 +3,7 @@ import {
   destinatarioCambio,
   destinatarioModeracion,
   destinatariosCocina,
+  filtrarSoloDirector,
   destinatariosPendiente,
   destinatariosPublicacion,
   destinatariosRecordatorio,
@@ -159,6 +160,13 @@ describe('destinatarioCambio: el Director cambió algo tuyo', () => {
 
   it('Administración no tiene comidas: nunca', () => {
     expect(destinatarioCambio({ personaId: 'adm', actorId: 'dir', perfiles: casa })).toEqual([])
+  })
+})
+
+describe('filtrarSoloDirector: mensajes que no lee toda la casa', () => {
+  it('deja solo a Directores y Administración; los Residentes y los desconocidos quedan fuera', () => {
+    const todos = ['dir', 'r1', 'adm', 'nadie']
+    expect(filtrarSoloDirector(todos, casa)).toEqual(['dir', 'adm'])
   })
 })
 

@@ -35,7 +35,7 @@ export const MAXIMO_FIJADAS = 20
 // Un solo string literal (sin concatenar con `+`): supabase-js infiere el tipo de fila leyendo
 // el literal exacto, y `+` lo ampliaría a `string` genérico, perdiendo esa inferencia.
 const COLUMNAS_FEED =
-  'id, autor_id, padre_id, texto, creado_en, estado, motivo_rechazo, fijado_en, fijado_hasta, fijado_por, reacciones(usuario_id), respuestas:mensajes!padre_id(id, autor_id, padre_id, texto, creado_en, estado, motivo_rechazo, fijado_en, fijado_hasta, fijado_por)'
+  'id, autor_id, padre_id, texto, creado_en, estado, motivo_rechazo, solo_director, fijado_en, fijado_hasta, fijado_por, reacciones(usuario_id), respuestas:mensajes!padre_id(id, autor_id, padre_id, texto, creado_en, estado, motivo_rechazo, solo_director, fijado_en, fijado_hasta, fijado_por)'
 
 type Cliente = SupabaseClient<Database>
 
@@ -48,7 +48,7 @@ async function todasLasRespuestas(supabase: Cliente, padreId: string): Promise<M
   for (;;) {
     let consulta = supabase
       .from('mensajes')
-      .select('id, autor_id, padre_id, texto, creado_en, estado, motivo_rechazo, fijado_en, fijado_hasta, fijado_por')
+      .select('id, autor_id, padre_id, texto, creado_en, estado, motivo_rechazo, solo_director, fijado_en, fijado_hasta, fijado_por')
       .eq('padre_id', padreId)
     const ultima = respuestas.at(-1)
     if (ultima) consulta = consulta.gt('id', ultima.id)

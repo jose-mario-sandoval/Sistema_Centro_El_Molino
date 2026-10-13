@@ -32,6 +32,18 @@ export function destinatariosPublicacion(p: { autorId: string; perfiles: PerfilA
   return filtrar(p.perfiles, todos, 'avisar_mensajes', p.autorId)
 }
 
+/**
+ * Los que pueden leer un mensaje "solo Director": Directores y Administración. Un id sin perfil conocido
+ * queda fuera: ante la duda, no se avisa.
+ */
+export function filtrarSoloDirector(ids: string[], perfiles: { id: string; rol: Rol }[]): string[] {
+  const rolDe = new Map(perfiles.map((p) => [p.id, p.rol]))
+  return ids.filter((id) => {
+    const rol = rolDe.get(id)
+    return rol === 'director' || rol === 'administracion'
+  })
+}
+
 /** Nueva respuesta: autor de la publicación y quienes ya respondieron, menos quien responde (spec §8.2). */
 export function destinatariosRespuesta(p: {
   autorPublicacionId: string

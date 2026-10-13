@@ -288,6 +288,7 @@ export type Database = {
           id: string
           motivo_rechazo: string | null
           padre_id: string | null
+          solo_director: boolean
           texto: string
         }
         Insert: {
@@ -300,6 +301,7 @@ export type Database = {
           id?: string
           motivo_rechazo?: string | null
           padre_id?: string | null
+          solo_director?: boolean
           texto: string
         }
         Update: {
@@ -312,6 +314,7 @@ export type Database = {
           id?: string
           motivo_rechazo?: string | null
           padre_id?: string | null
+          solo_director?: boolean
           texto?: string
         }
         Relationships: [

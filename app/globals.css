@@ -1064,6 +1064,15 @@ button.comida-tarjeta[aria-busy="true"]{cursor:progress;}
 }
 .insignia-fijado .icono{width:1.15em;height:1.15em;}
 [data-contraste="alto"] .insignia-fijado{border-color:var(--dorado);}
+/* Publicación que solo leen el Director y Administración: candado + texto, hundida como una nota. */
+.insignia-privado{
+  display:inline-flex;align-items:center;gap:.4rem;justify-self:start;max-width:100%;margin-bottom:.4rem;
+  padding:.2rem .75rem;border-radius:var(--r-md);
+  border:2px solid var(--borde-hundido);box-shadow:var(--hundido-suave);
+  color:var(--acento);font-size:var(--t-xs);font-weight:700;line-height:1.35;
+}
+.insignia-privado .icono{width:1.15em;height:1.15em;}
+[data-contraste="alto"] .insignia-privado{border-color:var(--acento);}
 /* Por cuánto tiempo fijarla: bandeja hundida en la tarjeta, con opciones en pastilla (sin modal). */
 .panel-fijar{
   margin-top:1rem;padding:1rem min(1rem, 3vw);border-radius:var(--r-md);

@@ -1,15 +1,28 @@
 'use client'
 
-import { startTransition, useActionState, useRef } from 'react'
+import { startTransition, useActionState, useId, useRef, useState } from 'react'
 import { useAviso } from '@/components/ui/avisos'
+import { Icono } from '@/components/ui/iconos'
 import { llamarAccion } from '@/lib/acciones/llamar'
 import type { Resultado } from '@/lib/acciones/resultado'
 import { LARGO_MAXIMO_MENSAJE } from '@/lib/mensajes/feed'
 import { publicarMensaje } from '../acciones'
 import { useIdEnvio } from './use-id-envio'
 
-export function FormularioPublicar({ alPublicar }: { alPublicar: (id: string, texto: string) => void }) {
+/**
+ * `puedeLimitar`: solo Administración elige quién lo ve (todos, o solo el Director). Para el resto el
+ * formulario no cambia: lo que escriben lo ve toda la casa, y la base lo vuelve a forzar.
+ */
+export function FormularioPublicar({
+  alPublicar,
+  puedeLimitar = false,
+}: {
+  alPublicar: (id: string, texto: string, soloDirector: boolean) => void
+  puedeLimitar?: boolean
+}) {
   const aviso = useAviso()
+  const idVisibilidad = useId()
+  const [soloDirector, setSoloDirector] = useState(false)
   const formulario = useRef<HTMLFormElement>(null)
   const idEnvio = useIdEnvio()
   const [estado, accion, pendiente] = useActionState(
@@ -19,8 +32,9 @@ export function FormularioPublicar({ alPublicar }: { alPublicar: (id: string, te
       const resultado = await llamarAccion(() => publicarMensaje(previo, formData))
       if (resultado.ok) {
         idEnvio.confirmar(resultado.data.id)
-        alPublicar(resultado.data.id, String(formData.get('texto')).trim())
+        alPublicar(resultado.data.id, String(formData.get('texto')).trim(), puedeLimitar && formData.get('soloDirector') === 'true')
         formulario.current?.reset()
+        setSoloDirector(false)
       } else if (!resultado.campos?.texto) {
         aviso(resultado.error)
       }
@@ -50,6 +64,38 @@ export function FormularioPublicar({ alPublicar }: { alPublicar: (id: string, te
         aria-invalid={errorTexto ? true : undefined}
       />
       {errorTexto && <div className="campo-error">{errorTexto}</div>}
+      {puedeLimitar && (
+        <fieldset className="grupo-campo">
+          <legend>¿Quién puede leerlo?</legend>
+          <div className="opciones-pastilla">
+            <label className="opcion-pastilla">
+              <input
+                type="radio"
+                name={`visibilidad-${idVisibilidad}`}
+                checked={!soloDirector}
+                onChange={() => setSoloDirector(false)}
+              />
+              <span>
+                <Icono nombre="mensajes" />
+                Toda la casa
+              </span>
+            </label>
+            <label className="opcion-pastilla">
+              <input
+                type="radio"
+                name={`visibilidad-${idVisibilidad}`}
+                checked={soloDirector}
+                onChange={() => setSoloDirector(true)}
+              />
+              <span>
+                <Icono nombre="candado" />
+                Solo el Director
+              </span>
+            </label>
+          </div>
+          <input type="hidden" name="soloDirector" value={soloDirector ? 'true' : 'false'} />
+        </fieldset>
+      )}
       <div className="compose-foot">
         <button type="submit" className="btn" disabled={pendiente} aria-busy={pendiente}>
           {pendiente ? 'Publicando…' : 'Publicar'}

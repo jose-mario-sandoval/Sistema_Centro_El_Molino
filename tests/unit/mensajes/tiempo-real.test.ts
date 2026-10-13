@@ -18,6 +18,7 @@ function mensaje(id: string, creadoEn: string, padreId: string | null = null, au
     fijado_en: null,
     fijado_hasta: null,
     fijado_por: null,
+    solo_director: false,
   }
 }
 
@@ -97,6 +98,7 @@ describe('leerEvento: UPDATE de mensajes', () => {
     fijado_en: null,
     fijado_hasta: null,
     fijado_por: null,
+    solo_director: false,
   }
 
   /** La publicación m1 ya cargada, sin fijar y pendiente. */

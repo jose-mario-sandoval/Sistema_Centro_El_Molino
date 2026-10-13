@@ -18,7 +18,13 @@ describe('esquemaPublicacion', () => {
   const id = randomUUID()
 
   it('recorta espacios', () => {
-    expect(esquemaPublicacion.parse({ id, texto: '  Hola casa \n' })).toEqual({ id, texto: 'Hola casa' })
+    expect(esquemaPublicacion.parse({ id, texto: '  Hola casa \n' })).toEqual({ id, texto: 'Hola casa', soloDirector: false })
+  })
+
+  it('"solo Director" llega como casilla: solo la cadena true lo activa', () => {
+    expect(esquemaPublicacion.parse({ id, texto: 'Hola', soloDirector: 'true' }).soloDirector).toBe(true)
+    expect(esquemaPublicacion.parse({ id, texto: 'Hola', soloDirector: 'false' }).soloDirector).toBe(false)
+    expect(esquemaPublicacion.parse({ id, texto: 'Hola', soloDirector: null }).soloDirector).toBe(false)
   })
 
   it('rechaza vacío, solo espacios (incluidos saltos de línea y tabs) o ausente con un mensaje junto al campo', () => {

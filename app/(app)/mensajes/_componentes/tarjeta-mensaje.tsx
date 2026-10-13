@@ -26,6 +26,16 @@ function InsigniaEstado({ estado, motivoRechazo }: { estado: EstadoMensaje; moti
   return <span className="badge rechazado">Rechazado{motivoRechazo ? `: ${motivoRechazo}` : ''}</span>
 }
 
+/** Quién puede leer una publicación limitada: texto + candado, nunca solo un color. */
+function InsigniaSoloDirector() {
+  return (
+    <div className="insignia-privado">
+      <Icono nombre="candado" />
+      <span>Solo el Director y Administración pueden leer esto</span>
+    </div>
+  )
+}
+
 function Tiempo({ creadoEn, ahora }: { creadoEn: string; ahora: Date }) {
   return (
     <time className="time" dateTime={creadoEn} title={fechaHoraLocal(creadoEn)}>
@@ -143,6 +153,7 @@ export function TarjetaMensaje({
             <Tiempo creadoEn={publicacion.creadoEn} ahora={ahora} />
           </div>
           <InsigniaEstado estado={publicacion.estado} motivoRechazo={publicacion.motivoRechazo} />
+          {publicacion.soloDirector && <InsigniaSoloDirector />}
           {fijada && (
             <div className="insignia-fijado">
               <Icono nombre="fijar" />
