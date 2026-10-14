@@ -234,7 +234,9 @@ export async function crearSerieEventos(
       ? { patron: 'semanal', diaSemana: datos.dia_semana! }
       : datos.patron === 'mensual_dia_fijo'
         ? { patron: 'mensual_dia_fijo', diaMes: datos.dia_mes! }
-        : { patron: 'mensual_dia_semana', diaSemana: datos.dia_semana!, ordinalSemana: datos.ordinal_semana as 1 | 2 | 3 | 4 | -1 }
+        : datos.patron === 'anual'
+          ? { patron: 'anual' }
+          : { patron: 'mensual_dia_semana', diaSemana: datos.dia_semana!, ordinalSemana: datos.ordinal_semana as 1 | 2 | 3 | 4 | -1 }
   const fechas = generarFechasSerie(parametros, datos.fecha_inicio, datos.fecha_fin)
   if (fechas.length === 0) {
     return fallo('Ese patrón no genera ninguna fecha en el rango elegido.', { fecha_fin: 'Ajustá el rango o el patrón.' })

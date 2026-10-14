@@ -4,6 +4,7 @@ export type ParametrosSerie =
   | { patron: 'semanal'; diaSemana: number }
   | { patron: 'mensual_dia_fijo'; diaMes: number }
   | { patron: 'mensual_dia_semana'; diaSemana: number; ordinalSemana: 1 | 2 | 3 | 4 | -1 }
+  | { patron: 'anual' }
 
 function aNumeros(fecha: FechaISO): [number, number, number] {
   const [a, m, d] = fecha.split('-').map(Number)
@@ -83,9 +84,26 @@ function mensualDiaSemana(dia: number, ordinal: 1 | 2 | 3 | 4 | -1, fechaInicio:
   )
 }
 
+/**
+ * Cada año, el mismo mes y día que la fecha de inicio. Un 29 de febrero solo cae en los años bisiestos
+ * (los demás se saltan, como un día 31 en un mes de 30).
+ */
+function anual(fechaInicio: FechaISO, fechaFin: FechaISO): FechaISO[] {
+  const [anioInicio, mes, dia] = aNumeros(fechaInicio)
+  const [anioFin] = aNumeros(fechaFin)
+  const fechas: FechaISO[] = []
+  for (let anio = anioInicio; anio <= anioFin; anio++) {
+    if (dia > diasEnElMes(anio, mes)) continue
+    const fecha = fechaDesdeUTC(anio, mes, dia)
+    if (fecha >= fechaInicio && fecha <= fechaFin) fechas.push(fecha)
+  }
+  return fechas
+}
+
 /** Genera las fechas de una serie entre fechaInicio y fechaFin (ambas incluidas), según el patrón. */
 export function generarFechasSerie(parametros: ParametrosSerie, fechaInicio: FechaISO, fechaFin: FechaISO): FechaISO[] {
   if (parametros.patron === 'semanal') return semanal(parametros.diaSemana, fechaInicio, fechaFin)
   if (parametros.patron === 'mensual_dia_fijo') return mensualDiaFijo(parametros.diaMes, fechaInicio, fechaFin)
+  if (parametros.patron === 'anual') return anual(fechaInicio, fechaFin)
   return mensualDiaSemana(parametros.diaSemana, parametros.ordinalSemana, fechaInicio, fechaFin)
 }

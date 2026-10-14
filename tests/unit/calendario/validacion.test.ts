@@ -166,6 +166,19 @@ describe('esquemaSerieEventos', () => {
     expect(camposInvalidos(esquemaSerieEventos, { ...SEMANAL, fecha_inicio: '2026-01-01', fecha_fin: '2028-06-01' })).toEqual(['fecha_fin'])
   })
 
+  it('anual no pide día de la semana ni del mes, y llega hasta 10 años', () => {
+    const anual = { ...SEMANAL, patron: 'anual', fecha_inicio: '2026-10-12', fecha_fin: '2036-10-12' }
+    delete (anual as Partial<typeof SEMANAL>).dia_semana
+    expect(camposInvalidos(esquemaSerieEventos, anual)).toEqual([])
+  })
+
+  it('anual rechaza más de 10 años; las demás siguen en 730 días', () => {
+    const anual = { ...SEMANAL, patron: 'anual', fecha_inicio: '2026-10-12', fecha_fin: '2036-10-25' }
+    delete (anual as Partial<typeof SEMANAL>).dia_semana
+    expect(camposInvalidos(esquemaSerieEventos, anual)).toEqual(['fecha_fin'])
+    expect(camposInvalidos(esquemaSerieEventos, { ...SEMANAL, fecha_inicio: '2026-10-12', fecha_fin: '2030-10-12' })).toEqual(['fecha_fin'])
+  })
+
   it('semanal exige dia_semana', () => {
     const { dia_semana: _omitido, ...sinDia } = SEMANAL
     void _omitido

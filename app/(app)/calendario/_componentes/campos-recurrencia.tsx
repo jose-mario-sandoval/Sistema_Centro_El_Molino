@@ -6,7 +6,7 @@ import type { FechaISO } from '@/lib/fechas'
 const ETIQUETA_DIA_SEMANA = ['', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
 const ETIQUETA_ORDINAL: Record<string, string> = { '1': 'Primer', '2': 'Segundo', '3': 'Tercer', '4': 'Cuarto', '-1': 'Último' }
 
-export type Patron = 'semanal' | 'mensual_dia_fijo' | 'mensual_dia_semana'
+export type Patron = 'semanal' | 'mensual_dia_fijo' | 'mensual_dia_semana' | 'anual'
 
 function ErrorCampo({ mensaje }: { mensaje?: string }) {
   return mensaje ? <div className="campo-error">{mensaje}</div> : null
@@ -48,10 +48,11 @@ export function CamposRecurrencia({
           <option value="semanal">Cada semana, el mismo día</option>
           <option value="mensual_dia_fijo">Cada mes, el mismo día del mes</option>
           <option value="mensual_dia_semana">Cada mes, el mismo día de la semana (ej. el primer lunes)</option>
+          <option value="anual">Cada año, el mismo día (ej. un cumpleaños o una fiesta)</option>
         </select>
       </div>
 
-      {patron !== 'mensual_dia_fijo' && (
+      {(patron === 'semanal' || patron === 'mensual_dia_semana') && (
         <div className="field">
           <label htmlFor={`${id}-dia-semana`}>Día de la semana</label>
           <select id={`${id}-dia-semana`} name="dia_semana" value={diaSemana} onChange={(e) => alCambiarDiaSemana(e.target.value)}>
@@ -92,6 +93,9 @@ export function CamposRecurrencia({
       <div className="field">
         <label htmlFor={`${id}-fecha-fin`}>Repetir hasta</label>
         <input id={`${id}-fecha-fin`} name="fecha_fin" type="date" required value={fechaFin} onChange={(e) => alCambiarFechaFin(e.target.value)} />
+        {patron === 'anual' && (
+          <div className="hint">Se repite el mismo día de cada año, desde la fecha del evento. Hasta 10 años.</div>
+        )}
         <ErrorCampo mensaje={errores?.fecha_fin} />
       </div>
     </fieldset>
