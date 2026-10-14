@@ -60,8 +60,8 @@ export async function publicarMensaje(_previo: ResultadoId | null, formData: For
   if (!entrada.success) return fallo('Revisá el mensaje.', camposConError(entrada.error))
   const { id, texto } = entrada.data
   const autorId = sesion.perfil.id
-  // Solo Administración puede limitar quién lo ve; la base lo vuelve a forzar según el rol de la sesión.
-  const soloDirector = entrada.data.soloDirector && sesion.perfil.rol === 'administracion'
+  // Cualquier rol puede pedir que sea privado (lo leen solo el Director y Administración); la base lo vuelve a forzar.
+  const soloDirector = entrada.data.soloDirector
 
   const supabase = await crearClienteServidor()
   const { error } = await supabase.from('mensajes').insert({ id, autor_id: autorId, texto, solo_director: soloDirector })

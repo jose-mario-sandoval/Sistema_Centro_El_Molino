@@ -26,12 +26,12 @@ function InsigniaEstado({ estado, motivoRechazo }: { estado: EstadoMensaje; moti
   return <span className="badge rechazado">Rechazado{motivoRechazo ? `: ${motivoRechazo}` : ''}</span>
 }
 
-/** Quién puede leer una publicación limitada: texto + candado, nunca solo un color. */
+/** Una publicación privada: quién la puede leer, con texto + candado, nunca solo un color. */
 function InsigniaSoloDirector() {
   return (
     <div className="insignia-privado">
       <Icono nombre="candado" />
-      <span>Solo el Director y Administración pueden leer esto</span>
+      <span>Privado: solo Administración y el Director pueden leerlo</span>
     </div>
   )
 }

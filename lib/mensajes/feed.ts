@@ -18,7 +18,7 @@ export type PublicacionFila = MensajeFila & {
   respuestas: MensajeFila[]
 }
 
-/** `soloDirector`: lo ven solo el Director y Administración (lo pone Administración al publicar). */
+/** `soloDirector`: privado; lo leen solo quien lo escribió, el Director y Administración (lo pide quien publica). */
 export type Respuesta = {
   id: string
   autorId: string

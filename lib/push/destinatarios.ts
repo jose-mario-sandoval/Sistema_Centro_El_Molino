@@ -33,14 +33,19 @@ export function destinatariosPublicacion(p: { autorId: string; perfiles: PerfilA
 }
 
 /**
- * Los que pueden leer un mensaje "solo Director": Directores y Administración. Un id sin perfil conocido
- * queda fuera: ante la duda, no se avisa.
+ * Los que pueden leer un mensaje privado: Directores y Administración, y quien lo escribió (`tambien`: un
+ * Residente que le escribe a Administración y recibe la respuesta). Un id sin perfil conocido queda fuera:
+ * ante la duda, no se avisa.
  */
-export function filtrarSoloDirector(ids: string[], perfiles: { id: string; rol: Rol }[]): string[] {
+export function filtrarSoloDirector(
+  ids: string[],
+  perfiles: { id: string; rol: Rol }[],
+  tambien: readonly string[] = [],
+): string[] {
   const rolDe = new Map(perfiles.map((p) => [p.id, p.rol]))
   return ids.filter((id) => {
     const rol = rolDe.get(id)
-    return rol === 'director' || rol === 'administracion'
+    return rol === 'director' || rol === 'administracion' || (rol !== undefined && tambien.includes(id))
   })
 }
 

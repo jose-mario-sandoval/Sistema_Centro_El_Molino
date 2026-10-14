@@ -270,7 +270,7 @@ export function FeedMensajes({
   return (
     <div className="feed-mensajes" data-conexion={conexion}>
       <FormularioPublicar
-        puedeLimitar={usuario.rol === 'administracion'}
+        requiereAprobacion={!publicaDirecto(usuario.rol)}
         alPublicar={(id, texto, soloDirector) => agregarPropio(id, texto, null, soloDirector)}
       />
 

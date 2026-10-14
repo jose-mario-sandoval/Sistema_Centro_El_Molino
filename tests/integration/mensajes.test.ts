@@ -844,10 +844,31 @@ describe('mensajes solo para el Director', () => {
     return data !== null
   }
 
-  it('solo Administración lo puede pedir: a los demás roles se les ignora', async () => {
-    expect((await publicarPrivado('administracion')).solo_director).toBe(true)
-    expect((await publicarPrivado('residente')).solo_director).toBe(false)
-    expect((await publicarPrivado('director')).solo_director).toBe(false)
+  it('cualquier rol lo puede pedir', async () => {
+    for (const clave of ['administracion', 'residente', 'director'] as const) {
+      expect((await publicarPrivado(clave)).solo_director, clave).toBe(true)
+    }
+  })
+
+  it('el privado de un Residente: Administración no lo ve hasta que el Director lo aprueba; otro Residente nunca', async () => {
+    const { id } = await publicarPrivado('residente')
+    expect(await lasVe('residente', id)).toBe(true)
+    expect(await lasVe('director', id)).toBe(true)
+    expect(await lasVe('administracion', id)).toBe(false)
+    expect(await lasVe('residente2', id)).toBe(false)
+
+    const director = await clienteComo('director')
+    const { error } = await director.from('mensajes').update({ estado: 'aprobado' }).eq('id', id)
+    expect(error).toBeNull()
+    expect(await lasVe('administracion', id)).toBe(true)
+    expect(await lasVe('residente2', id)).toBe(false)
+  })
+
+  it('el privado del Director lo ven Administración y él; ningún Residente', async () => {
+    const { id } = await publicarPrivado('director')
+    expect(await lasVe('administracion', id)).toBe(true)
+    expect(await lasVe('director', id)).toBe(true)
+    expect(await lasVe('residente', id)).toBe(false)
   })
 
   it('lo ven el Director y Administración; un Residente no', async () => {
