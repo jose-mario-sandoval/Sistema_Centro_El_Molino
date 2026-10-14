@@ -55,6 +55,17 @@ export const esquemaDesfijar = z.object({ id: idMensaje })
 /** Traer una sola publicación completa (una que llegó por tiempo real y no estaba cargada). */
 export const esquemaCargarPublicacion = z.object({ id: idMensaje })
 
+/** Registro: fecha e id exactos de la última fila cargada; se validan antes de armar el filtro de PostgREST. */
+export const esquemaPaginaRegistro = z.object({
+  antesDe: z
+    .object({
+      eliminadoEn: z.iso.datetime({ offset: true, error: 'Fecha inválida.' }),
+      id: idMensaje,
+    })
+    .nullable()
+    .default(null),
+})
+
 /** "Ver anteriores": `antesDe` es el creado_en de la publicación más antigua cargada; null = primera página. */
 export const esquemaPaginaMensajes = z.object({
   antesDe: z.iso.datetime({ offset: true, error: 'Fecha inválida.' }).nullable().default(null),

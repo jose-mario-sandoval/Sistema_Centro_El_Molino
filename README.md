@@ -33,10 +33,43 @@ Next.js 16 (App Router) + TypeScript · Supabase (Postgres, Auth, Realtime, pg_c
 ## Reglas de trabajo
 
 - Ramas `feat/...` desde `master`, PR con revisión y CI en verde.
-- Migraciones con `npx supabase migration new <nombre>`; se aplican al mergear el PR de esquema (Action de migraciones o `npm run db:aplicar`, índice §5).
+- Migraciones con `npx supabase migration new <nombre>`; comprobar que se aplicaron con la Action de migraciones o `npm run db:aplicar`. El workflow de producción solo corre si está definida la variable `SUPABASE_PROJECT_REF` y están configurados sus secretos (ver `CLAUDE.md`).
 - Funcionalidades con tablas nuevas: primero un PR de esquema, después el PR de pantallas (ver el índice de planes).
 - Despliegue: Vercel (integración con Git) publica cada push a `master`.
 - El repo debe seguir siendo **público** (requisito de Vercel Hobby).
+
+## Activar la limpieza del registro de moderación
+
+La migración `20261014130000_registro_moderacion_retencion.sql` limita la lectura al Director y
+programa la limpieza diaria con pg_cron, ya habilitado por la migración de comidas. Cada entrada
+vence tres meses calendario después de `eliminado_en`, calculados en UTC (por ejemplo, 31 de enero
+→ 30 de abril); RLS la oculta desde ese instante y el job la borra en su siguiente ejecución.
+La migración también elimina inmediatamente las entradas que ya vencieron.
+
+Antes o junto con el merge, desde la rama que contiene la migración y con `.env.local` configurado
+para el proyecto correcto:
+
+1. Ejecutar `npm run db:aplicar -- --dry-run` y revisar **todas** las migraciones pendientes.
+2. Ejecutar `npm run db:aplicar` para aplicarlas y registrarlas en el historial de Supabase.
+3. Comprobar en el SQL Editor que existe un único job activo:
+
+```sql
+select jobid, jobname, schedule, command, username, database, active
+from cron.job
+where jobname = 'limpiar-registro-moderacion';
+```
+
+Debe mostrar `30 3 * * *`, `CALL public.limpiar_registro_moderacion()` y `active = true`.
+Con pg_cron en UTC, se ejecuta a las 21:30 de El Salvador. Después de su primera ejecución,
+comprobar el resultado:
+
+```sql
+select status, return_message, start_time, end_time
+from cron.job_run_details
+where jobid in (select jobid from cron.job where jobname = 'limpiar-registro-moderacion')
+order by start_time desc
+limit 5;
+```
 
 ## Reglas de negocio principales
 

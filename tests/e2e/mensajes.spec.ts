@@ -377,3 +377,43 @@ test('el Director ve cuántos mensajes esperan aprobación y, en la cola, el nom
   await expect(pestana).toHaveAccessibleName(conPendientes('Pendientes', antes), { timeout: 10_000 })
   await expect(page.getByRole('link', { name: conPendientes('Mensajes', antes) })).toBeVisible()
 })
+
+test('el registro carga de a 20, conserva lo leído si falla la red y excluye lo vencido', async ({ page, context }) => {
+  const ids = await asegurarUsuariosPrueba()
+  const admin = clienteAdminPrueba()
+  const texto = textoUnico('paginación registro')
+  const ahora = Date.now()
+  const filas = Array.from({ length: 41 }, (_, i) => ({
+    moderador_id: ids.director,
+    autor_id: ids.residente,
+    texto_eliminado: `${texto} ${i}`,
+    era_respuesta: false,
+    eliminado_en: new Date(ahora - i * 1000).toISOString(),
+  }))
+  const vencido = `${texto} vencido`
+  const { error } = await admin.from('registro_moderacion').insert([
+    ...filas,
+    { ...filas[0], texto_eliminado: vencido, eliminado_en: '2000-01-01T00:00:00Z' },
+  ])
+  if (error) throw error
+
+  await iniciarSesion(page, 'director')
+  await page.goto('/mensajes?vista=registro')
+  const registros = page.locator('tbody tr')
+  await expect(registros).toHaveCount(20)
+  await expect(page.getByRole('status', { name: 'Mensajes mostrados' })).toContainText('Mostrando 20')
+
+  await context.setOffline(true)
+  await page.getByRole('button', { name: 'Cargar más mensajes' }).click()
+  await expect(page.locator('.toast')).toContainText('No se pudo conectar')
+  await expect(registros).toHaveCount(20)
+  await context.setOffline(false)
+
+  await page.getByRole('button', { name: 'Cargar más mensajes' }).click()
+  await expect(registros).toHaveCount(40)
+  await page.getByRole('button', { name: 'Cargar más mensajes' }).click()
+  await expect(registros).toHaveCount(41)
+  await expect(page.getByRole('button', { name: 'Cargar más mensajes' })).toHaveCount(0)
+  await expect(page.getByRole('status', { name: 'Mensajes mostrados' })).toBeFocused()
+  await expect(page.getByText(vencido, { exact: true })).toHaveCount(0)
+})

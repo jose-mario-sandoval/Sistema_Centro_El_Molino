@@ -2,13 +2,10 @@ import 'server-only'
 import { consultarPaginaFeed, consultarPublicacion, type PaginaFeed } from '@/lib/mensajes/consulta-feed'
 import type { MensajeFila, Publicacion } from '@/lib/mensajes/feed'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
-import type { Tabla } from '@/lib/supabase/tipos'
+import { consultarRegistroModeracion, type CursorRegistro, type PaginaRegistro } from '@/lib/mensajes/consulta-registro'
 
 export type { PaginaFeed }
-export type EntradaRegistro = Tabla<'registro_moderacion'>
-
-/** Entradas del registro de moderación que se muestran (las más recientes). */
-export const LIMITE_REGISTRO = 100
+export { LIMITE_REGISTRO, type EntradaRegistro, type PaginaRegistro } from '@/lib/mensajes/consulta-registro'
 
 /** Página del feed con la sesión del usuario (RLS aplica); ver consultarPaginaFeed. */
 export async function listarPublicaciones(antesDe: string | null = null): Promise<PaginaFeed> {
@@ -21,15 +18,8 @@ export async function obtenerPublicacion(id: string): Promise<Publicacion | null
 }
 
 /** Solo devuelve filas al Director (RLS); la página además verifica el rol. */
-export async function listarRegistroModeracion(): Promise<EntradaRegistro[]> {
-  const supabase = await crearClienteServidor()
-  const { data, error } = await supabase
-    .from('registro_moderacion')
-    .select('id, moderador_id, autor_id, texto_eliminado, era_respuesta, eliminado_en')
-    .order('eliminado_en', { ascending: false })
-    .limit(LIMITE_REGISTRO)
-  if (error) throw error
-  return data
+export async function listarRegistroModeracion(antesDe: CursorRegistro | null = null): Promise<PaginaRegistro> {
+  return consultarRegistroModeracion(await crearClienteServidor(), antesDe)
 }
 
 /** Cola de moderación del Director: los mensajes que esperan aprobación, más viejos primero. */

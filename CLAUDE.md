@@ -138,6 +138,10 @@ opcionales:
   `reacciones` lo aplica; **todo aviso push de un mensaje pasa por `soloQuienLoVe()` /
   `filtrarSoloDirector()`** (el aviso lleva el texto; el autor Residente recibe las respuestas a lo suyo).
   Una consulta o payload nuevo de mensajes no debe saltarse RLS (llave secreta) sin filtrar igual.
+- **Registro de moderación**: solo el Director, de a 20 con cursor compuesto `eliminado_en + id`
+  (`lib/mensajes/consulta-registro.ts`). Cada entrada vence al sumar tres meses calendario a su
+  eliminación en UTC (fin de mes incluido): RLS oculta lo vencido y `limpiar_registro_moderacion()`
+  lo borra a diario por pg_cron. La migración debe aplicarse para activar esa limpieza.
 - **Fijar publicaciones** (Director y Administración): columnas `fijado_en` / `fijado_hasta` (null =
   sin límite) / `fijado_por`, **sin** `grant update`: solo las escriben las RPC `fijar_mensaje` /
   `desfijar_mensaje` (`security definer`). Una fijada vigente se muestra solo en "Fijados"; quién
