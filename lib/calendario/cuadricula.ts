@@ -31,6 +31,29 @@ export function esMesISO(valor: unknown): valor is MesISO {
   return typeof valor === 'string' && PATRON_MES.test(valor)
 }
 
+/**
+ * 'YYYY-MM' a partir del año y el mes (1–12) que llegan del selector "Elegir mes y año", o null si alguno
+ * no es válido (el calendario sigue en el mes de hoy). Años 2000–2099, como `esMesISO`.
+ */
+export function mesDesdeSeleccion(anio: unknown, mes: unknown): MesISO | null {
+  if (typeof anio !== 'string' || typeof mes !== 'string') return null
+  if (!/^\d{4}$/.test(anio) || !/^\d{1,2}$/.test(mes)) return null
+  const candidato = `${anio}-${mes.padStart(2, '0')}`
+  return esMesISO(candidato) ? candidato : null
+}
+
+/**
+ * Años que ofrece el selector: de 10 antes a 15 después de hoy, y siempre el del mes que se está viendo
+ * (aunque quede fuera de ese rango). Siempre dentro de 2000–2099.
+ */
+export function aniosParaElegir(mes: MesISO, hoy: FechaISO): number[] {
+  const anioHoy = Number(hoy.slice(0, 4))
+  const anioMes = Number(mes.slice(0, 4))
+  const desde = Math.max(2000, Math.min(anioHoy - 10, anioMes))
+  const hasta = Math.min(2099, Math.max(anioHoy + 15, anioMes))
+  return Array.from({ length: hasta - desde + 1 }, (_, i) => desde + i)
+}
+
 export function mesDe(fecha: FechaISO): MesISO {
   return fecha.slice(0, 7)
 }

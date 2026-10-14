@@ -706,3 +706,14 @@ test.describe('en un teléfono de 375px', () => {
     await esperarSinScrollLateral(page)
   })
 })
+
+test('"Elegir mes y año" lleva al mes elegido', async ({ page }) => {
+  await iniciarSesion(page, 'residente')
+  await page.goto('/calendario')
+  await page.getByText('Elegir mes y año').click()
+  await page.getByLabel('Mes', { exact: true }).selectOption({ label: 'Marzo' })
+  await page.getByLabel('Año', { exact: true }).selectOption('2027')
+  await page.getByRole('button', { name: 'Ver', exact: true }).click()
+  await expect(page).toHaveURL(/\/calendario\?mes=2027-03$/)
+  await expect(page.locator('.month-label')).toHaveText('Marzo de 2027')
+})
