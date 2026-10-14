@@ -27,8 +27,8 @@ async function SeccionFeed({ perfil }: { perfil: Perfil }) {
 }
 
 async function SeccionRegistro() {
-  const [entradas, perfiles] = await Promise.all([listarRegistroModeracion(), listarPerfiles()])
-  return <TablaRegistro entradas={entradas} perfiles={perfiles} />
+  const [pagina, perfiles] = await Promise.all([listarRegistroModeracion(), listarPerfiles()])
+  return <TablaRegistro key={pagina.entradas.map((e) => e.id).join(',')} inicial={pagina} perfiles={perfiles} />
 }
 
 async function SeccionPendientes() {

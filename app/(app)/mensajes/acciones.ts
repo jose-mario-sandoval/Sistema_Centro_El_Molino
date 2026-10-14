@@ -5,7 +5,8 @@ import { after } from 'next/server'
 import { exito, fallo, type Resultado } from '@/lib/acciones/resultado'
 import { perfilParaAccion } from '@/lib/auth/sesion'
 import { fechaISOEn } from '@/lib/fechas'
-import { listarPublicaciones, obtenerPublicacion, type PaginaFeed } from '@/lib/mensajes/consultas'
+import { listarPublicaciones, listarRegistroModeracion, obtenerPublicacion, type PaginaFeed } from '@/lib/mensajes/consultas'
+import type { PaginaRegistro } from '@/lib/mensajes/consulta-registro'
 import { publicaDirecto, type DatosFijado, type Publicacion } from '@/lib/mensajes/feed'
 import { fijadoHasta } from '@/lib/mensajes/fijados'
 import { listarPerfiles, type PerfilResumen } from '@/lib/perfiles/consultas'
@@ -20,6 +21,7 @@ import {
   esquemaFijar,
   esquemaModeracion,
   esquemaPaginaMensajes,
+  esquemaPaginaRegistro,
   esquemaPublicacion,
   esquemaReaccion,
   esquemaRespuesta,
@@ -174,6 +176,22 @@ export async function borrarMensaje(entrada: unknown): Promise<ResultadoId> {
 
   revalidatePath('/mensajes')
   return exito({ id: datos.data.id })
+}
+
+/** Solo el Director: los siguientes 20 mensajes eliminados, sin saltar los de la misma fecha. */
+export async function cargarRegistroModeracion(entrada: unknown): Promise<Resultado<PaginaRegistro>> {
+  const sesion = await perfilParaAccion('director')
+  if (!sesion.ok) return sesion
+
+  const datos = esquemaPaginaRegistro.safeParse(entrada)
+  if (!datos.success) return fallo('No se pudo cargar el registro.')
+
+  try {
+    return exito(await listarRegistroModeracion(datos.data.antesDe))
+  } catch (error) {
+    console.error('cargarRegistroModeracion', error)
+    return fallo('No se pudo cargar el registro. Revisá tu conexión e intentá de nuevo.')
+  }
 }
 
 /** Primera página (`antesDe: null`) o "Ver anteriores". */

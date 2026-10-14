@@ -1,0 +1,588 @@
+diff --git a/lib/mensajes/consulta-registro.ts b/lib/mensajes/consulta-registro.ts
+new file mode 100644
+--- /dev/null
++++ b/lib/mensajes/consulta-registro.ts
+@@ -0,0 +1,41 @@
++import type { SupabaseClient } from '@supabase/supabase-js'
++import type { Database } from '@/lib/supabase/database.types'
++import type { Tabla } from '@/lib/supabase/tipos'
++
++export const LIMITE_REGISTRO = 20
++export type EntradaRegistro = Tabla<'registro_moderacion'>
++export type CursorRegistro = { eliminadoEn: string; id: string }
++export type PaginaRegistro = { entradas: EntradaRegistro[]; hayMas: boolean; cursor: CursorRegistro | null }
++
++/**
++ * Fecha e id juntos: varias eliminaciones pueden tener el mismo instante. Se conserva la fecha
++ * exacta de Postgres (con microsegundos), sin pasar por Date ni usar offsets que cambian al borrar filas.
++ * RLS limita la lectura al Director y excluye las entradas que ya cumplieron tres meses.
++ */
++export async function consultarRegistroModeracion(
++  supabase: SupabaseClient<Database>,
++  antesDe: CursorRegistro | null = null,
++): Promise<PaginaRegistro> {
++  let consulta = supabase
++    .from('registro_moderacion')
++    .select('id, moderador_id, autor_id, texto_eliminado, era_respuesta, eliminado_en')
++  if (antesDe) {
++    consulta = consulta.or(
++      `eliminado_en.lt.${antesDe.eliminadoEn},and(eliminado_en.eq.${antesDe.eliminadoEn},id.lt.${antesDe.id})`,
++    )
++  }
++  const { data, error } = await consulta
++    .order('eliminado_en', { ascending: false })
++    .order('id', { ascending: false })
++    .limit(LIMITE_REGISTRO + 1)
++  if (error) throw error
++
++  const entradas = data.slice(0, LIMITE_REGISTRO)
++  const hayMas = data.length > LIMITE_REGISTRO
++  const ultima = entradas.at(-1)
++  return {
++    entradas,
++    hayMas,
++    cursor: hayMas && ultima ? { eliminadoEn: ultima.eliminado_en, id: ultima.id } : null,
++  }
++}
+diff --git a/lib/mensajes/consultas.ts b/lib/mensajes/consultas.ts
+--- a/lib/mensajes/consultas.ts
++++ b/lib/mensajes/consultas.ts
+@@ -2,13 +2,10 @@
+ import { consultarPaginaFeed, consultarPublicacion, type PaginaFeed } from '@/lib/mensajes/consulta-feed'
+ import type { MensajeFila, Publicacion } from '@/lib/mensajes/feed'
+ import { crearClienteServidor } from '@/lib/supabase/servidor'
+-import type { Tabla } from '@/lib/supabase/tipos'
++import { consultarRegistroModeracion, type CursorRegistro, type PaginaRegistro } from '@/lib/mensajes/consulta-registro'
+ 
+ export type { PaginaFeed }
+-export type EntradaRegistro = Tabla<'registro_moderacion'>
+-
+-/** Entradas del registro de moderación que se muestran (las más recientes). */
+-export const LIMITE_REGISTRO = 100
++export { LIMITE_REGISTRO, type EntradaRegistro, type PaginaRegistro } from '@/lib/mensajes/consulta-registro'
+ 
+ /** Página del feed con la sesión del usuario (RLS aplica); ver consultarPaginaFeed. */
+ export async function listarPublicaciones(antesDe: string | null = null): Promise<PaginaFeed> {
+@@ -21,15 +18,8 @@
+ }
+ 
+ /** Solo devuelve filas al Director (RLS); la página además verifica el rol. */
+-export async function listarRegistroModeracion(): Promise<EntradaRegistro[]> {
+-  const supabase = await crearClienteServidor()
+-  const { data, error } = await supabase
+-    .from('registro_moderacion')
+-    .select('id, moderador_id, autor_id, texto_eliminado, era_respuesta, eliminado_en')
+-    .order('eliminado_en', { ascending: false })
+-    .limit(LIMITE_REGISTRO)
+-  if (error) throw error
+-  return data
++export async function listarRegistroModeracion(antesDe: CursorRegistro | null = null): Promise<PaginaRegistro> {
++  return consultarRegistroModeracion(await crearClienteServidor(), antesDe)
+ }
+ 
+ /** Cola de moderación del Director: los mensajes que esperan aprobación, más viejos primero. */
+diff --git a/lib/validacion/mensajes.ts b/lib/validacion/mensajes.ts
+--- a/lib/validacion/mensajes.ts
++++ b/lib/validacion/mensajes.ts
+@@ -55,6 +55,17 @@
+ /** Traer una sola publicación completa (una que llegó por tiempo real y no estaba cargada). */
+ export const esquemaCargarPublicacion = z.object({ id: idMensaje })
+ 
++/** Registro: fecha e id exactos de la última fila cargada; se validan antes de armar el filtro de PostgREST. */
++export const esquemaPaginaRegistro = z.object({
++  antesDe: z
++    .object({
++      eliminadoEn: z.iso.datetime({ offset: true, error: 'Fecha inválida.' }),
++      id: idMensaje,
++    })
++    .nullable()
++    .default(null),
++})
++
+ /** "Ver anteriores": `antesDe` es el creado_en de la publicación más antigua cargada; null = primera página. */
+ export const esquemaPaginaMensajes = z.object({
+   antesDe: z.iso.datetime({ offset: true, error: 'Fecha inválida.' }).nullable().default(null),
+diff --git a/app/(app)/mensajes/acciones.ts b/app/(app)/mensajes/acciones.ts
+--- a/app/(app)/mensajes/acciones.ts
++++ b/app/(app)/mensajes/acciones.ts
+@@ -5,7 +5,8 @@
+ import { exito, fallo, type Resultado } from '@/lib/acciones/resultado'
+ import { perfilParaAccion } from '@/lib/auth/sesion'
+ import { fechaISOEn } from '@/lib/fechas'
+-import { listarPublicaciones, obtenerPublicacion, type PaginaFeed } from '@/lib/mensajes/consultas'
++import { listarPublicaciones, listarRegistroModeracion, obtenerPublicacion, type PaginaFeed } from '@/lib/mensajes/consultas'
++import type { PaginaRegistro } from '@/lib/mensajes/consulta-registro'
+ import { publicaDirecto, type DatosFijado, type Publicacion } from '@/lib/mensajes/feed'
+ import { fijadoHasta } from '@/lib/mensajes/fijados'
+ import { listarPerfiles, type PerfilResumen } from '@/lib/perfiles/consultas'
+@@ -20,6 +21,7 @@
+   esquemaFijar,
+   esquemaModeracion,
+   esquemaPaginaMensajes,
++  esquemaPaginaRegistro,
+   esquemaPublicacion,
+   esquemaReaccion,
+   esquemaRespuesta,
+@@ -176,6 +178,22 @@
+   return exito({ id: datos.data.id })
+ }
+ 
++/** Solo el Director: los siguientes 20 mensajes eliminados, sin saltar los de la misma fecha. */
++export async function cargarRegistroModeracion(entrada: unknown): Promise<Resultado<PaginaRegistro>> {
++  const sesion = await perfilParaAccion('director')
++  if (!sesion.ok) return sesion
++
++  const datos = esquemaPaginaRegistro.safeParse(entrada)
++  if (!datos.success) return fallo('No se pudo cargar el registro.')
++
++  try {
++    return exito(await listarRegistroModeracion(datos.data.antesDe))
++  } catch (error) {
++    console.error('cargarRegistroModeracion', error)
++    return fallo('No se pudo cargar el registro. Revisá tu conexión e intentá de nuevo.')
++  }
++}
++
+ /** Primera página (`antesDe: null`) o "Ver anteriores". */
+ export async function cargarMensajes(entrada: unknown): Promise<Resultado<PaginaFeed>> {
+   const sesion = await perfilParaAccion()
+diff --git a/app/(app)/mensajes/page.tsx b/app/(app)/mensajes/page.tsx
+--- a/app/(app)/mensajes/page.tsx
++++ b/app/(app)/mensajes/page.tsx
+@@ -27,8 +27,8 @@
+ }
+ 
+ async function SeccionRegistro() {
+-  const [entradas, perfiles] = await Promise.all([listarRegistroModeracion(), listarPerfiles()])
+-  return <TablaRegistro entradas={entradas} perfiles={perfiles} />
++  const [pagina, perfiles] = await Promise.all([listarRegistroModeracion(), listarPerfiles()])
++  return <TablaRegistro key={pagina.entradas.map((e) => e.id).join(',')} inicial={pagina} perfiles={perfiles} />
+ }
+ 
+ async function SeccionPendientes() {
+diff --git a/app/(app)/mensajes/_componentes/tabla-registro.tsx b/app/(app)/mensajes/_componentes/tabla-registro.tsx
+--- a/app/(app)/mensajes/_componentes/tabla-registro.tsx
++++ b/app/(app)/mensajes/_componentes/tabla-registro.tsx
+@@ -1,14 +1,58 @@
+-import { LIMITE_REGISTRO, type EntradaRegistro } from '@/lib/mensajes/consultas'
++'use client'
++
++import { useEffect, useRef, useState, useTransition } from 'react'
++import { useAviso } from '@/components/ui/avisos'
++import { llamarAccion } from '@/lib/acciones/llamar'
++import { LIMITE_REGISTRO, type PaginaRegistro } from '@/lib/mensajes/consulta-registro'
+ import { fechaHoraLocal } from '@/lib/mensajes/tiempo'
+ import type { PerfilResumen } from '@/lib/perfiles/consultas'
++import { cargarRegistroModeracion } from '../acciones'
+ 
+-export function TablaRegistro({ entradas, perfiles }: { entradas: EntradaRegistro[]; perfiles: PerfilResumen[] }) {
++export function TablaRegistro({ inicial, perfiles }: { inicial: PaginaRegistro; perfiles: PerfilResumen[] }) {
++  const [pagina, setPagina] = useState(inicial)
++  const [pendiente, iniciar] = useTransition()
++  const enCurso = useRef(false)
++  const enfocarEstado = useRef(false)
++  const estado = useRef<HTMLParagraphElement>(null)
++  const aviso = useAviso()
+   const nombres = new Map(perfiles.map((p) => [p.id, p.nombre]))
+ 
+-  if (entradas.length === 0) {
++  // El botón desaparece al llegar al final: el foco queda en la cuenta anunciada, no en la nada.
++  useEffect(() => {
++    if (!enfocarEstado.current) return
++    enfocarEstado.current = false
++    estado.current?.focus({ preventScroll: true })
++  }, [pagina])
++
++  function cargarMas() {
++    if (!pagina.cursor || !pagina.hayMas || enCurso.current) return
++    enCurso.current = true
++    const antesDe = pagina.cursor
++    iniciar(async () => {
++      try {
++        const resultado = await llamarAccion(() => cargarRegistroModeracion({ antesDe }))
++        if (!resultado.ok) {
++          aviso(resultado.error)
++          return
++        }
++        enfocarEstado.current = true
++        setPagina((anterior) => {
++          const ids = new Set(anterior.entradas.map((e) => e.id))
++          return {
++            ...resultado.data,
++            entradas: [...anterior.entradas, ...resultado.data.entradas.filter((e) => !ids.has(e.id))],
++          }
++        })
++      } finally {
++        enCurso.current = false
++      }
++    })
++  }
++
++  if (pagina.entradas.length === 0) {
+     return (
+       <div className="card">
+-        <div className="empty-state">Todavía no se eliminó ningún mensaje de otra persona.</div>
++        <div className="empty-state">No hay mensajes eliminados en los últimos tres meses.</div>
+       </div>
+     )
+   }
+@@ -16,9 +60,10 @@
+   return (
+     <div className="card">
+       <p className="desc" style={{ marginBottom: 12 }}>
+-        Mensajes de otras personas eliminados por un Director (últimos {LIMITE_REGISTRO}).
++        Mensajes de otras personas eliminados por un Director en los últimos tres meses.
++        {' '}Se muestran de {LIMITE_REGISTRO} en {LIMITE_REGISTRO}.
+       </p>
+-      <div className="admin-table-scroll">
++      <div className="admin-table-scroll" aria-busy={pendiente || undefined}>
+         <table className="user-table">
+           <thead>
+             <tr>
+@@ -30,7 +75,7 @@
+             </tr>
+           </thead>
+           <tbody>
+-            {entradas.map((e) => (
++            {pagina.entradas.map((e) => (
+               <tr key={e.id}>
+                 <td data-et="Fecha" style={{ whiteSpace: 'nowrap' }}>{fechaHoraLocal(e.eliminado_en)}</td>
+                 <td data-et="Eliminado por">{nombres.get(e.moderador_id) ?? '—'}</td>
+@@ -42,6 +87,14 @@
+           </tbody>
+         </table>
+       </div>
++      <p ref={estado} role="status" aria-label="Mensajes mostrados" tabIndex={-1} className="desc">
++        Mostrando {pagina.entradas.length} {pagina.entradas.length === 1 ? 'mensaje eliminado' : 'mensajes eliminados'}.
++      </p>
++      {pagina.hayMas && (
++        <button type="button" className="btn ghost" onClick={cargarMas} aria-disabled={pendiente || undefined}>
++          {pendiente ? 'Cargando…' : 'Cargar más mensajes'}
++        </button>
++      )}
+     </div>
+   )
+ }
+diff --git a/supabase/migrations/20261014120000_registro_moderacion_retencion.sql b/supabase/migrations/20261014120000_registro_moderacion_retencion.sql
+new file mode 100644
+--- /dev/null
++++ b/supabase/migrations/20261014120000_registro_moderacion_retencion.sql
+@@ -0,0 +1,39 @@
++-- Registro de moderación: tres meses calendario desde eliminado_en, no 90 días.
++-- El cutoff usa UTC explícito para coincidir entre las conexiones de la API y el job.
++alter policy "registro_moderacion: lectura solo del Director"
++  on public.registro_moderacion
++  using (
++    (select public.mi_rol()) = 'director'
++    and eliminado_en > (select ((now() at time zone 'UTC') - interval '3 months') at time zone 'UTC')
++  );
++
++-- Desempate por id para cargar de a 20 sin perder entradas eliminadas en el mismo instante.
++drop index public.registro_moderacion_eliminado_en_idx;
++create index registro_moderacion_eliminado_en_idx
++  on public.registro_moderacion (eliminado_en desc, id desc);
++
++-- Solo la conexión privilegiada/pg_cron la ejecuta. Sin security definer ni acceso desde la API.
++create or replace procedure public.limpiar_registro_moderacion(p_ahora timestamptz default now())
++language sql
++set search_path = ''
++as $$
++  delete from public.registro_moderacion
++  where eliminado_en <= ((p_ahora at time zone 'UTC') - interval '3 months') at time zone 'UTC';
++$$;
++
++revoke execute on procedure public.limpiar_registro_moderacion(timestamptz)
++  from public, anon, authenticated, service_role;
++
++comment on table public.registro_moderacion is
++  'Mensajes ajenos eliminados por el Director. Se conservan tres meses desde eliminado_en; limpieza diaria por pg_cron.';
++
++-- Limpia también lo vencido que ya existía antes de activar la retención.
++call public.limpiar_registro_moderacion();
++
++-- pg_cron ya está habilitado por las migraciones de comidas/push.
++-- 03:30 UTC = 21:30 en El Salvador. RLS oculta lo vencido entre una limpieza y la siguiente.
++select cron.schedule(
++  'limpiar-registro-moderacion',
++  '30 3 * * *',
++  'CALL public.limpiar_registro_moderacion()'
++);
+diff --git a/CLAUDE.md b/CLAUDE.md
+--- a/CLAUDE.md
++++ b/CLAUDE.md
+@@ -135,6 +135,9 @@
+   su publicación y no cambia después. RLS de `mensajes` y `reacciones` lo aplica; **todo aviso push de un
+   mensaje pasa por `soloQuienLoVe()` / `filtrarSoloDirector()`** (el aviso lleva el texto). Una consulta o
+   payload nuevo de mensajes no debe saltarse RLS (llave secreta) sin filtrar igual.
++- **Registro de moderación**: solo el Director, de a 20 con cursor compuesto `eliminado_en + id`
++  (`lib/mensajes/consulta-registro.ts`). Se retiene por tres meses calendario desde la eliminación:
++  RLS oculta lo vencido y `limpiar_registro_moderacion()` lo borra a diario por pg_cron.
+ - **Fijar publicaciones** (Director y Administración): columnas `fijado_en` / `fijado_hasta` (null =
+   sin límite) / `fijado_por`, **sin** `grant update`: solo las escriben las RPC `fijar_mensaje` /
+   `desfijar_mensaje` (`security definer`). Una fijada vigente se muestra solo en "Fijados"; quién
+diff --git a/tests/unit/mensajes/registro-acciones.test.ts b/tests/unit/mensajes/registro-acciones.test.ts
+new file mode 100644
+--- /dev/null
++++ b/tests/unit/mensajes/registro-acciones.test.ts
+@@ -0,0 +1,69 @@
++import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
++import { cargarRegistroModeracion } from '@/app/(app)/mensajes/acciones'
++import { perfilParaAccion } from '@/lib/auth/sesion'
++import { listarRegistroModeracion } from '@/lib/mensajes/consultas'
++import { perfilDePrueba } from '@/tests/soporte/supabase-falso'
++
++vi.mock('server-only', () => ({}))
++vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
++vi.mock('next/server', () => ({ after: vi.fn() }))
++vi.mock('@/lib/auth/sesion', () => ({ perfilParaAccion: vi.fn() }))
++vi.mock('@/lib/supabase/servidor', () => ({ crearClienteServidor: vi.fn() }))
++vi.mock('@/lib/mensajes/consultas', () => ({
++  listarPublicaciones: vi.fn(),
++  obtenerPublicacion: vi.fn(),
++  listarRegistroModeracion: vi.fn(),
++}))
++vi.mock('@/lib/perfiles/consultas', () => ({ listarPerfiles: vi.fn() }))
++vi.mock('@/lib/push/avisos', () => ({
++  avisarNuevaPublicacion: vi.fn(),
++  avisarNuevaRespuesta: vi.fn(),
++  avisarMensajePendiente: vi.fn(),
++  avisarModeracion: vi.fn(),
++}))
++
++const cursor = { eliminadoEn: '2026-10-13T16:05:00.123456+00:00', id: '3f1c2a9e-8b7d-4c6e-9a5b-1d2e3f4a5b6c' }
++
++beforeEach(() => {
++  vi.clearAllMocks()
++  vi.mocked(perfilParaAccion).mockResolvedValue({ ok: true, perfil: perfilDePrueba(cursor.id, 'director') })
++  vi.spyOn(console, 'error').mockImplementation(() => {})
++})
++
++afterEach(() => vi.restoreAllMocks())
++
++describe('cargarRegistroModeracion', () => {
++  it('exige sesión de Director antes de consultar', async () => {
++    const denegado = { ok: false as const, error: 'No tenés permiso.' }
++    vi.mocked(perfilParaAccion).mockResolvedValue(denegado)
++    expect(await cargarRegistroModeracion({ antesDe: cursor })).toEqual(denegado)
++    expect(perfilParaAccion).toHaveBeenCalledWith('director')
++    expect(listarRegistroModeracion).not.toHaveBeenCalled()
++  })
++
++  it('conserva el cursor con microsegundos y devuelve la página', async () => {
++    const pagina = { entradas: [], hayMas: false, cursor: null }
++    vi.mocked(listarRegistroModeracion).mockResolvedValue(pagina)
++    expect(await cargarRegistroModeracion({ antesDe: cursor })).toEqual({ ok: true, data: pagina })
++    expect(listarRegistroModeracion).toHaveBeenCalledWith(cursor)
++  })
++
++  it('rechaza cursores incompletos o filtros inyectados antes de consultar', async () => {
++    for (const antesDe of [
++      { eliminadoEn: cursor.eliminadoEn },
++      { ...cursor, id: 'id.gt.0)' },
++      { ...cursor, eliminadoEn: 'ayer,eliminado_en.gt.2000' },
++    ]) {
++      expect((await cargarRegistroModeracion({ antesDe })).ok).toBe(false)
++    }
++    expect(listarRegistroModeracion).not.toHaveBeenCalled()
++  })
++
++  it('una falla de la base vuelve como error que permite reintentar', async () => {
++    vi.mocked(listarRegistroModeracion).mockRejectedValue(new Error('Sin conexión'))
++    expect(await cargarRegistroModeracion({ antesDe: cursor })).toEqual({
++      ok: false,
++      error: 'No se pudo cargar el registro. Revisá tu conexión e intentá de nuevo.',
++    })
++  })
++})
+diff --git a/tests/integration/registro-moderacion.test.ts b/tests/integration/registro-moderacion.test.ts
+new file mode 100644
+--- /dev/null
++++ b/tests/integration/registro-moderacion.test.ts
+@@ -0,0 +1,140 @@
++import { randomUUID } from 'node:crypto'
++import type { SupabaseClient } from '@supabase/supabase-js'
++import { Client } from 'pg'
++import { afterEach, beforeAll, describe, expect, it } from 'vitest'
++import { consultarRegistroModeracion } from '@/lib/mensajes/consulta-registro'
++import type { Database } from '@/lib/supabase/database.types'
++import { exigirBaseLocal } from '../soporte/entorno-local'
++import { asegurarUsuariosPrueba, clienteAdminPrueba, clienteComo, type ClaveUsuario } from '../soporte/usuarios-prueba'
++
++const PREFIJO = 'integracion-registro-retencion'
++const admin = clienteAdminPrueba()
++let ids: Record<ClaveUsuario, string>
++
++beforeAll(async () => {
++  ids = await asegurarUsuariosPrueba()
++})
++
++afterEach(async () => {
++  const { error } = await admin.from('registro_moderacion').delete().like('texto_eliminado', `${PREFIJO}%`)
++  if (error) throw error
++})
++
++async function conPostgres<T>(fn: (cliente: Client) => Promise<T>): Promise<T> {
++  exigirBaseLocal()
++  const url = process.env.SUPABASE_DB_URL ?? ''
++  if (!/@(127\.0\.0\.1|localhost):\d+\//.test(url)) throw new Error('Solo se permite la base local de CI.')
++  const cliente = new Client({ connectionString: url })
++  await cliente.connect()
++  try {
++    return await fn(cliente)
++  } finally {
++    await cliente.end()
++  }
++}
++
++describe('registro: páginas de 20', () => {
++  it('carga 20, 20 y 3 sin saltar ni repetir eliminaciones con la misma fecha', async () => {
++    const instante = new Date().toISOString()
++    const filas = Array.from({ length: 43 }, (_, i) => ({
++      id: randomUUID(),
++      moderador_id: ids.director,
++      autor_id: ids.residente,
++      texto_eliminado: `${PREFIJO} página ${i}`,
++      era_respuesta: false,
++      eliminado_en: instante,
++    }))
++    const { error } = await admin.from('registro_moderacion').insert(filas)
++    expect(error).toBeNull()
++    const director = (await clienteComo('director')) as unknown as SupabaseClient<Database>
++    const primera = await consultarRegistroModeracion(director)
++    expect(primera.entradas).toHaveLength(20)
++    expect(primera.hayMas).toBe(true)
++    const segunda = await consultarRegistroModeracion(director, primera.cursor)
++    expect(segunda.entradas).toHaveLength(20)
++    expect(segunda.hayMas).toBe(true)
++    const tercera = await consultarRegistroModeracion(director, segunda.cursor)
++    expect(tercera.entradas).toHaveLength(3)
++    expect(tercera.hayMas).toBe(false)
++    expect(tercera.cursor).toBeNull()
++    const cargados = [...primera.entradas, ...segunda.entradas, ...tercera.entradas].map((e) => e.id)
++    expect(cargados).toEqual(filas.map((f) => f.id).sort().reverse())
++    for (const clave of ['residente', 'administracion'] as const) {
++      const cliente = (await clienteComo(clave)) as unknown as SupabaseClient<Database>
++      expect((await consultarRegistroModeracion(cliente)).entradas).toEqual([])
++    }
++  })
++})
++
++describe('registro: tres meses calendario', () => {
++  it('borra el límite exacto y lo anterior; conserva lo reciente y no toca mensajes activos', async () => {
++    await conPostgres(async (c) => {
++      await c.query('begin')
++      try {
++        await c.query(
++          `insert into public.registro_moderacion (moderador_id, autor_id, texto_eliminado, era_respuesta, eliminado_en)
++           values ($1, $2, $3 || '-anterior', false, '2030-01-30T11:59:59.999999Z'),
++                  ($1, $2, $3 || '-exacto', false, '2030-01-30T12:00:00Z'),
++                  ($1, $2, $3 || '-reciente', false, '2030-01-30T12:00:00.000001Z')`,
++          [ids.director, ids.residente, PREFIJO],
++        )
++        const mensajesAntes = await c.query('select id from public.mensajes order by id')
++        await c.query("call public.limpiar_registro_moderacion('2030-04-30T12:00:00Z')")
++        const { rows } = await c.query(
++          'select texto_eliminado from public.registro_moderacion where texto_eliminado like $1',
++          [`${PREFIJO}%`],
++        )
++        expect(rows).toEqual([{ texto_eliminado: `${PREFIJO}-reciente` }])
++        expect((await c.query('select id from public.mensajes order by id')).rows).toEqual(mensajesAntes.rows)
++      } finally {
++        await c.query('rollback')
++      }
++    })
++  })
++
++  it('RLS oculta lo que cumple tres meses aunque la limpieza diaria todavía no haya corrido', async () => {
++    await conPostgres(async (c) => {
++      await c.query('begin')
++      try {
++        await c.query(
++          `insert into public.registro_moderacion (moderador_id, autor_id, texto_eliminado, era_respuesta, eliminado_en)
++           values ($1, $2, $3 || '-exacto', false,
++                     ((now() at time zone 'UTC') - interval '3 months') at time zone 'UTC'),
++                  ($1, $2, $3 || '-reciente', false, now())`,
++          [ids.director, ids.residente, PREFIJO],
++        )
++        await c.query('set local role authenticated')
++        await c.query("select set_config('request.jwt.claims', $1, true)", [
++          JSON.stringify({ sub: ids.director, role: 'authenticated' }),
++        ])
++        const { rows } = await c.query(
++          'select texto_eliminado from public.registro_moderacion where texto_eliminado like $1',
++          [`${PREFIJO}%`],
++        )
++        expect(rows).toEqual([{ texto_eliminado: `${PREFIJO}-reciente` }])
++      } finally {
++        await c.query('rollback')
++      }
++    })
++  })
++
++  it('la limpieza está programada a diario y no se puede ejecutar con roles de la API', async () => {
++    await conPostgres(async (c) => {
++      const { rows } = await c.query(
++        "select schedule, command, active from cron.job where jobname = 'limpiar-registro-moderacion'",
++      )
++      expect(rows).toEqual([{
++        schedule: '30 3 * * *',
++        command: 'CALL public.limpiar_registro_moderacion()',
++        active: true,
++      }])
++      for (const rol of ['anon', 'authenticated', 'service_role']) {
++        const permiso = await c.query(
++          "select has_function_privilege($1, 'public.limpiar_registro_moderacion(timestamptz)', 'EXECUTE') as permitido",
++          [rol],
++        )
++        expect(permiso.rows[0].permitido).toBe(false)
++      }
++    })
++  })
++})
+diff --git a/tests/e2e/mensajes.spec.ts b/tests/e2e/mensajes.spec.ts
+--- a/tests/e2e/mensajes.spec.ts
++++ b/tests/e2e/mensajes.spec.ts
+@@ -377,3 +377,43 @@
+   await expect(pestana).toHaveAccessibleName(conPendientes('Pendientes', antes), { timeout: 10_000 })
+   await expect(page.getByRole('link', { name: conPendientes('Mensajes', antes) })).toBeVisible()
+ })
++
++test('el registro carga de a 20, conserva lo leído si falla la red y excluye lo vencido', async ({ page, context }) => {
++  const ids = await asegurarUsuariosPrueba()
++  const admin = clienteAdminPrueba()
++  const texto = textoUnico('paginación registro')
++  const ahora = Date.now()
++  const filas = Array.from({ length: 41 }, (_, i) => ({
++    moderador_id: ids.director,
++    autor_id: ids.residente,
++    texto_eliminado: `${texto} ${i}`,
++    era_respuesta: false,
++    eliminado_en: new Date(ahora - i * 1000).toISOString(),
++  }))
++  const vencido = `${texto} vencido`
++  const { error } = await admin.from('registro_moderacion').insert([
++    ...filas,
++    { ...filas[0], texto_eliminado: vencido, eliminado_en: '2000-01-01T00:00:00Z' },
++  ])
++  if (error) throw error
++
++  await iniciarSesion(page, 'director')
++  await page.goto('/mensajes?vista=registro')
++  const registros = page.locator('tbody tr')
++  await expect(registros).toHaveCount(20)
++  await expect(page.getByRole('status', { name: 'Mensajes mostrados' })).toContainText('Mostrando 20')
++
++  await context.setOffline(true)
++  await page.getByRole('button', { name: 'Cargar más mensajes' }).click()
++  await expect(page.locator('.toast')).toContainText('No se pudo conectar')
++  await expect(registros).toHaveCount(20)
++  await context.setOffline(false)
++
++  await page.getByRole('button', { name: 'Cargar más mensajes' }).click()
++  await expect(registros).toHaveCount(40)
++  await page.getByRole('button', { name: 'Cargar más mensajes' }).click()
++  await expect(registros).toHaveCount(41)
++  await expect(page.getByRole('button', { name: 'Cargar más mensajes' })).toHaveCount(0)
++  await expect(page.getByRole('status', { name: 'Mensajes mostrados' })).toBeFocused()
++  await expect(page.getByText(vencido, { exact: true })).toHaveCount(0)
++})
