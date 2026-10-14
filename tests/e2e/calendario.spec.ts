@@ -286,7 +286,7 @@ test('el Director genera un enlace, alguien sin sesión confirma, y el Director 
   await page.goto('/calendario')
   await page.locator(`.cal-day[data-fecha="${hoy}"]`).click()
   const modal = page.getByRole('dialog')
-  await modal.getByRole('button', { name: 'Cena extra' }).click()
+  await modal.getByRole('button', { name: 'Comida extra' }).click()
 
   const manana = fechaISOEn(new Date(Date.now() + 24 * 3_600_000))
   await modal.getByLabel('Vence el').fill(manana)
@@ -311,7 +311,7 @@ test('el Director genera un enlace, alguien sin sesión confirma, y el Director 
   await page.reload()
   await page.locator(`.cal-day[data-fecha="${hoy}"]`).click()
   const modal2 = page.getByRole('dialog')
-  await modal2.getByRole('button', { name: 'Cena extra' }).click()
+  await modal2.getByRole('button', { name: 'Comida extra' }).click()
   await expect(modal2.getByText('Familia Pérez (3)')).toBeVisible()
   await expect(modal2.getByText('3 personas confirmadas')).toBeVisible()
 

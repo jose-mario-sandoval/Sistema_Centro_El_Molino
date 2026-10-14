@@ -82,7 +82,7 @@ export function EnlaceCenaExtra({ eventoId }: { eventoId: string }) {
   if (!abierto) {
     return (
       <button type="button" className="link-btn" onClick={abrir}>
-        Cena extra
+        Comida extra
       </button>
     )
   }
@@ -100,7 +100,7 @@ export function EnlaceCenaExtra({ eventoId }: { eventoId: string }) {
             <input
               readOnly
               data-token={e.token}
-              aria-label="Enlace de la cena extra"
+              aria-label="Enlace de la comida extra"
               value={typeof window !== 'undefined' ? `${window.location.origin}/confirmar-cena/${e.token}` : ''}
             />
             <button type="button" className="btn ghost small" onClick={() => copiar(e.token)}>
