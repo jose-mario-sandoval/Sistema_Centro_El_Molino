@@ -168,6 +168,12 @@ describe('filtrarSoloDirector: mensajes que no lee toda la casa', () => {
     const todos = ['dir', 'r1', 'adm', 'nadie']
     expect(filtrarSoloDirector(todos, casa)).toEqual(['dir', 'adm'])
   })
+
+  it('quien lo escribió (`tambien`) también lo recibe, aunque sea Residente; otro Residente, no', () => {
+    expect(filtrarSoloDirector(['dir', 'r1', 'r-sin-mensajes', 'adm'], casa, ['r1'])).toEqual(['dir', 'r1', 'adm'])
+    // Un id sin perfil conocido sigue fuera aunque se lo pida.
+    expect(filtrarSoloDirector(['nadie'], casa, ['nadie'])).toEqual([])
+  })
 })
 
 describe('destinatariosCocina: cambios para la cocina', () => {

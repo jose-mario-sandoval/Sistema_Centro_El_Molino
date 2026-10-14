@@ -10,15 +10,16 @@ import { publicarMensaje } from '../acciones'
 import { useIdEnvio } from './use-id-envio'
 
 /**
- * `puedeLimitar`: solo Administración elige quién lo ve (todos, o solo el Director). Para el resto el
- * formulario no cambia: lo que escriben lo ve toda la casa, y la base lo vuelve a forzar.
+ * Cualquier rol elige quién lo puede leer: toda la casa, o solo Administración y el Director (algo personal,
+ * como preguntar por una prenda perdida). `requiereAprobacion`: el mensaje de un Residente lo revisa primero el
+ * Director, también el privado. La base vuelve a forzar la visibilidad según el rol de la sesión.
  */
 export function FormularioPublicar({
   alPublicar,
-  puedeLimitar = false,
+  requiereAprobacion = false,
 }: {
   alPublicar: (id: string, texto: string, soloDirector: boolean) => void
-  puedeLimitar?: boolean
+  requiereAprobacion?: boolean
 }) {
   const aviso = useAviso()
   const idVisibilidad = useId()
@@ -32,7 +33,7 @@ export function FormularioPublicar({
       const resultado = await llamarAccion(() => publicarMensaje(previo, formData))
       if (resultado.ok) {
         idEnvio.confirmar(resultado.data.id)
-        alPublicar(resultado.data.id, String(formData.get('texto')).trim(), puedeLimitar && formData.get('soloDirector') === 'true')
+        alPublicar(resultado.data.id, String(formData.get('texto')).trim(), formData.get('soloDirector') === 'true')
         formulario.current?.reset()
         setSoloDirector(false)
       } else if (!resultado.campos?.texto) {
@@ -64,38 +65,39 @@ export function FormularioPublicar({
         aria-invalid={errorTexto ? true : undefined}
       />
       {errorTexto && <div className="campo-error">{errorTexto}</div>}
-      {puedeLimitar && (
-        <fieldset className="grupo-campo">
-          <legend>¿Quién puede leerlo?</legend>
-          <div className="opciones-pastilla">
-            <label className="opcion-pastilla">
-              <input
-                type="radio"
-                name={`visibilidad-${idVisibilidad}`}
-                checked={!soloDirector}
-                onChange={() => setSoloDirector(false)}
-              />
-              <span>
-                <Icono nombre="mensajes" />
-                Toda la casa
-              </span>
-            </label>
-            <label className="opcion-pastilla">
-              <input
-                type="radio"
-                name={`visibilidad-${idVisibilidad}`}
-                checked={soloDirector}
-                onChange={() => setSoloDirector(true)}
-              />
-              <span>
-                <Icono nombre="candado" />
-                Solo el Director
-              </span>
-            </label>
-          </div>
-          <input type="hidden" name="soloDirector" value={soloDirector ? 'true' : 'false'} />
-        </fieldset>
-      )}
+      <fieldset className="grupo-campo">
+        <legend>¿Quién puede leerlo?</legend>
+        <div className="opciones-pastilla">
+          <label className="opcion-pastilla">
+            <input
+              type="radio"
+              name={`visibilidad-${idVisibilidad}`}
+              checked={!soloDirector}
+              onChange={() => setSoloDirector(false)}
+            />
+            <span>
+              <Icono nombre="mensajes" />
+              Toda la casa
+            </span>
+          </label>
+          <label className="opcion-pastilla">
+            <input
+              type="radio"
+              name={`visibilidad-${idVisibilidad}`}
+              checked={soloDirector}
+              onChange={() => setSoloDirector(true)}
+            />
+            <span>
+              <Icono nombre="candado" />
+              Solo Administración y el Director
+            </span>
+          </label>
+        </div>
+        <input type="hidden" name="soloDirector" value={soloDirector ? 'true' : 'false'} />
+        {soloDirector && requiereAprobacion && (
+          <div className="hint">Lo lee primero el Director y, si lo aprueba, Administración. Nadie más lo ve.</div>
+        )}
+      </fieldset>
       <div className="compose-foot">
         <button type="submit" className="btn" disabled={pendiente} aria-busy={pendiente}>
           {pendiente ? 'Publicando…' : 'Publicar'}

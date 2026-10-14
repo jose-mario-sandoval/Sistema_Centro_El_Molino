@@ -52,9 +52,12 @@ export async function leerPerfiles(): Promise<PerfilConNombre[]> {
   return anteriores.data.map((perfil) => ({ ...perfil, avisar_cambios: true, avisar_cocina: true }))
 }
 
-/** Un mensaje "solo Director" se avisa únicamente a quienes lo pueden leer (lib/push/destinatarios.ts). */
-function soloQuienLoVe(ids: string[], perfiles: PerfilConNombre[], soloDirector: boolean): string[] {
-  return soloDirector ? filtrarSoloDirector(ids, perfiles) : ids
+/**
+ * Un mensaje privado se avisa únicamente a quienes lo pueden leer (lib/push/destinatarios.ts): el Director,
+ * Administración y quien lo escribió (`autorPublicacionId`, para que reciba las respuestas).
+ */
+function soloQuienLoVe(ids: string[], perfiles: PerfilConNombre[], soloDirector: boolean, autorPublicacionId?: string): string[] {
+  return soloDirector ? filtrarSoloDirector(ids, perfiles, autorPublicacionId ? [autorPublicacionId] : []) : ids
 }
 
 /**
@@ -147,6 +150,7 @@ export async function avisarNuevaRespuesta(respuestaId: string, opciones: { excl
       }).filter((id) => id !== opciones.excluir),
       perfiles,
       respuesta.solo_director,
+      publicacion.data.autor_id,
     )
     const resumen = await enviarConAutor(ids, perfiles, respuesta.autor_id, (autor) =>
       cargaNuevaRespuesta({ id: respuesta.id, autor, texto: respuesta.texto }),

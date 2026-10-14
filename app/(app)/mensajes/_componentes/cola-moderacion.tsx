@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { useAviso } from '@/components/ui/avisos'
+import { Icono } from '@/components/ui/iconos'
 import { llamarAccion } from '@/lib/acciones/llamar'
 import type { MensajeFila } from '@/lib/mensajes/feed'
 import { fechaHoraLocal } from '@/lib/mensajes/tiempo'
@@ -44,6 +45,13 @@ function FilaPendiente({ mensaje, autor }: { mensaje: MensajeFila; autor: Perfil
         </time>
       </div>
       <div className="hint">{mensaje.padre_id ? 'Respuesta a una publicación' : 'Publicación'}</div>
+      {/* Al aprobarlo, solo Administración lo va a poder leer (además del Director). */}
+      {mensaje.solo_director && (
+        <div className="insignia-privado">
+          <Icono nombre="candado" />
+          <span>Privado: al aprobarlo, solo Administración y el Director pueden leerlo</span>
+        </div>
+      )}
       <textarea aria-label="Texto del mensaje" value={texto} onChange={(e) => setTexto(e.target.value)} rows={3} />
       <div className="field">
         <label htmlFor={`motivo-${mensaje.id}`}>Motivo del rechazo (opcional)</label>
