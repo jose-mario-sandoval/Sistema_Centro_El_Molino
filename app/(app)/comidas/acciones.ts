@@ -13,16 +13,39 @@ import type { FechaISO } from '@/lib/fechas'
 import { avisarCambioDelDirector, type CambioDelDirector } from '@/lib/push/avisos-casa'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { camposConError } from '@/lib/validacion/auth'
-import { esquemaPlan, esquemaSeleccion, esquemaVolverAPlan } from '@/lib/validacion/comidas'
+import { esquemaNotaDieta, esquemaPlan, esquemaSeleccion, esquemaVolverAPlan } from '@/lib/validacion/comidas'
 
 /*
- * Las tres acciones sirven para las comidas propias y, con `usuarioId`, para las de otra persona
- * (solo el Director: "La casa"). Siempre con los mismos cierres: la base aplica comida_editable()
- * y el permiso (puedo_gestionar_comidas_de) sea quien sea el objetivo.
+ * Las acciones sirven para la persona propia y, con `usuarioId`, para otra (solo el Director:
+ * "La casa"). Las comidas conservan los cierres y comida_editable(); las notas generales de dieta
+ * son independientes. Todas exigen el permiso puedo_gestionar_comidas_de para su objetivo.
  * revalidatePath('/comidas', 'layout') refresca todo /comidas, incluida La casa (/comidas/casa).
  */
 
 const ERROR_GENERAL = 'No se pudo guardar. Intentá de nuevo.'
+
+/** Indicaciones generales de dieta: vacías se eliminan; los cambios de comidas no las tocan. */
+export async function guardarNotaDieta(entrada: unknown): Promise<Resultado<null>> {
+  const permiso = await perfilParaAccion('director', 'residente')
+  if (!permiso.ok) return permiso
+  const datos = esquemaNotaDieta.safeParse(entrada)
+  if (!datos.success) return falloDeValidacion(datos.error)
+  const objetivo = usuarioObjetivo(permiso.perfil, datos.data.usuarioId)
+  if (!objetivo.ok) return fallo(objetivo.error)
+
+  const supabase = await crearClienteServidor()
+  const { error } = await supabase.rpc('guardar_nota_dieta_de', {
+    p_usuario: objetivo.usuarioId,
+    p_nota: datos.data.nota as string,
+  })
+  if (error) {
+    if (error.code === '42501') return fallo('No tenés permiso para hacer esto.')
+    console.error('Comidas: error al guardar nota de dieta', error)
+    return fallo(ERROR_GENERAL)
+  }
+  revalidatePath('/comidas', 'layout')
+  return exito(null)
+}
 
 /**
  * Si el Director cambió algo de otra persona, se le avisa a esa persona (plan 2026-09-29, aviso c),

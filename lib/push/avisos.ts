@@ -13,7 +13,7 @@ import {
   separarPorVisibilidad,
   type PerfilAviso,
 } from './destinatarios'
-import { enviarAUsuarios, type ResumenEnvio } from './enviar'
+import { enviarAUsuarios, type AvisoMensaje, type ResumenEnvio } from './enviar'
 import {
   cargaMensajePendiente,
   cargaModeracion,
@@ -69,13 +69,14 @@ async function enviarConAutor(
   perfiles: PerfilConNombre[],
   autorId: string,
   armar: (autor: string) => CargaPush,
+  avisoMensaje: AvisoMensaje,
 ): Promise<ResumenEnvio> {
   const autor = perfiles.find((p) => p.id === autorId)
   const { conNombre, soloSiglas } = separarPorVisibilidad(ids, perfiles)
   const nada: ResumenEnvio = { enviadas: 0, caducadas: 0, fallidas: 0, descartadas: 0 }
   const [a, b] = await Promise.all([
-    conNombre.length > 0 ? enviarAUsuarios(conNombre, armar(autor?.nombre ?? 'Alguien')) : nada,
-    soloSiglas.length > 0 ? enviarAUsuarios(soloSiglas, armar(autor?.siglas ?? 'Alguien')) : nada,
+    conNombre.length > 0 ? enviarAUsuarios(conNombre, armar(autor?.nombre ?? 'Alguien'), { avisoMensaje }) : nada,
+    soloSiglas.length > 0 ? enviarAUsuarios(soloSiglas, armar(autor?.siglas ?? 'Alguien'), { avisoMensaje }) : nada,
   ])
   return {
     enviadas: a.enviadas + b.enviadas,
@@ -94,7 +95,7 @@ export async function avisarNuevaPublicacion(mensajeId: string, opciones: { excl
   try {
     const { data: mensaje, error } = await crearClienteAdmin()
       .from('mensajes')
-      .select('id, autor_id, padre_id, texto, estado, solo_director')
+      .select('id, autor_id, padre_id, texto, estado, solo_director, aviso_revision')
       .eq('id', mensajeId)
       .maybeSingle()
     if (error) throw error
@@ -108,8 +109,10 @@ export async function avisarNuevaPublicacion(mensajeId: string, opciones: { excl
       perfiles,
       mensaje.solo_director,
     )
-    const resumen = await enviarConAutor(ids, perfiles, mensaje.autor_id, (autor) =>
-      cargaNuevaPublicacion({ id: mensaje.id, autor, texto: mensaje.texto }),
+    const resumen = await enviarConAutor(
+      ids, perfiles, mensaje.autor_id,
+      (autor) => cargaNuevaPublicacion({ id: mensaje.id, autor, texto: mensaje.texto }),
+      { mensajeId: mensaje.id, revision: mensaje.aviso_revision, tipo: 'publicacion' },
     )
     console.log('[push] nueva publicación', { mensajeId, destinatarios: ids.length, ...resumen })
   } catch (error) {
@@ -126,20 +129,20 @@ export async function avisarNuevaRespuesta(respuestaId: string, opciones: { excl
     const admin = crearClienteAdmin()
     const { data: respuesta, error } = await admin
       .from('mensajes')
-      .select('id, autor_id, padre_id, texto, estado, solo_director')
+      .select('id, autor_id, padre_id, texto, estado, solo_director, aviso_revision')
       .eq('id', respuestaId)
       .maybeSingle()
     if (error) throw error
     if (!respuesta?.padre_id || respuesta.estado !== 'aprobado') return
 
     const [publicacion, hilo, perfiles] = await Promise.all([
-      admin.from('mensajes').select('autor_id, estado').eq('id', respuesta.padre_id).maybeSingle(),
+      admin.from('mensajes').select('autor_id, padre_id, estado, solo_director').eq('id', respuesta.padre_id).maybeSingle(),
       admin.from('mensajes').select('autor_id').eq('padre_id', respuesta.padre_id),
       leerPerfiles(),
     ])
     if (publicacion.error) throw publicacion.error
     if (hilo.error) throw hilo.error
-    if (!publicacion.data || publicacion.data.estado !== 'aprobado') return
+    if (!publicacion.data || publicacion.data.padre_id !== null || publicacion.data.estado !== 'aprobado') return
 
     const ids = soloQuienLoVe(
       destinatariosRespuesta({
@@ -149,11 +152,14 @@ export async function avisarNuevaRespuesta(respuestaId: string, opciones: { excl
         perfiles,
       }).filter((id) => id !== opciones.excluir),
       perfiles,
-      respuesta.solo_director,
+      // La visibilidad del padre es la autoridad: no confiar en una respuesta antigua inconsistente.
+      publicacion.data.solo_director || respuesta.solo_director,
       publicacion.data.autor_id,
     )
-    const resumen = await enviarConAutor(ids, perfiles, respuesta.autor_id, (autor) =>
-      cargaNuevaRespuesta({ id: respuesta.id, autor, texto: respuesta.texto }),
+    const resumen = await enviarConAutor(
+      ids, perfiles, respuesta.autor_id,
+      (autor) => cargaNuevaRespuesta({ id: respuesta.id, padreId: respuesta.padre_id!, autor, texto: respuesta.texto }),
+      { mensajeId: respuesta.id, revision: respuesta.aviso_revision, tipo: 'respuesta' },
     )
     console.log('[push] nueva respuesta', { respuestaId, destinatarios: ids.length, ...resumen })
   } catch (error) {
@@ -171,7 +177,7 @@ export async function avisarMensajePendiente(mensajeId: string, opciones: { corr
     const admin = crearClienteAdmin()
     const { data: mensaje, error } = await admin
       .from('mensajes')
-      .select('id, autor_id, padre_id, estado')
+      .select('id, autor_id, padre_id, estado, aviso_revision')
       .eq('id', mensajeId)
       .maybeSingle()
     if (error) throw error
@@ -185,8 +191,10 @@ export async function avisarMensajePendiente(mensajeId: string, opciones: { corr
 
     const tipo: TipoPendiente = opciones.correccion ? 'correccion' : mensaje.padre_id === null ? 'publicacion' : 'respuesta'
     const ids = destinatariosPendiente({ autorId: mensaje.autor_id, perfiles })
-    const resumen = await enviarConAutor(ids, perfiles, mensaje.autor_id, (autor) =>
-      cargaMensajePendiente({ autor, tipo, pendientes: conteo.count ?? 1 }),
+    const resumen = await enviarConAutor(
+      ids, perfiles, mensaje.autor_id,
+      (autor) => cargaMensajePendiente({ autor, tipo, pendientes: conteo.count ?? 1 }),
+      { mensajeId: mensaje.id, revision: mensaje.aviso_revision, tipo: 'pendiente' },
     )
     console.log('[push] mensaje por aprobar', { mensajeId, destinatarios: ids.length, ...resumen })
   } catch (error) {
@@ -206,7 +214,7 @@ export async function avisarModeracion(
   try {
     const { data: mensaje, error } = await crearClienteAdmin()
       .from('mensajes')
-      .select('id, autor_id, padre_id, estado, motivo_rechazo')
+      .select('id, autor_id, padre_id, estado, motivo_rechazo, aviso_revision')
       .eq('id', mensajeId)
       .maybeSingle()
     if (error) throw error
@@ -216,7 +224,8 @@ export async function avisarModeracion(
     const ids = destinatarioModeracion({ autorId: mensaje.autor_id, moderadorId, perfiles })
     const resumen = await enviarAUsuarios(
       ids,
-      cargaModeracion({ id: mensaje.id, estado, esRespuesta: mensaje.padre_id !== null, motivo: mensaje.motivo_rechazo }),
+      cargaModeracion({ id: mensaje.id, padreId: mensaje.padre_id, estado, esRespuesta: mensaje.padre_id !== null, motivo: mensaje.motivo_rechazo }),
+      { avisoMensaje: { mensajeId: mensaje.id, revision: mensaje.aviso_revision, tipo: 'moderacion' } },
     )
     console.log('[push] moderación', { mensajeId, estado, destinatarios: ids.length, ...resumen })
   } catch (error) {

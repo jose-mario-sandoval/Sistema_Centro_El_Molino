@@ -8,7 +8,7 @@ import {
   USUARIOS_PRUEBA,
   type ClaveUsuario,
 } from '../soporte/usuarios-prueba'
-import { marcarAusencia } from './soporte/ausencias'
+import { abrirPanelAusencias, marcarAusencia, panelAusencias } from './soporte/ausencias'
 import {
   esperarAltoMinimo,
   esperarDentroDeLaPantalla,
@@ -101,7 +101,7 @@ async function limpiar(): Promise<Record<ClaveUsuario, string>> {
   const admin = clienteAdminPrueba()
   // Planes y ausencias antes que las selecciones: borrarlos congela lo vencido (triggers), y esas
   // filas tienen que irse con el resto.
-  for (const tabla of ['plan_semanal', 'ausencias'] as const) {
+  for (const tabla of ['plan_semanal', 'ausencias', 'notas_dieta'] as const) {
     const { error } = await admin.from(tabla).delete().in('usuario_id', Object.values(usuarios))
     if (error) throw error
   }
@@ -192,16 +192,23 @@ test('un residente cambia el almuerzo y Administración lo ve en Semana', async 
   await sinNombresAjenos(page, 'administracion')
 })
 
-test('Administración no ve ninguna sigla ni fila por persona en Semana ni en Plan semanal', async ({ page }) => {
+test('Administración consulta las siglas por comida y conserva la privacidad de nombres', async ({ page }) => {
+  const { lunesSiguiente, miercolesSiguiente } = fechas()
   await planAlmuerzoMiercoles()
   await iniciarSesion(page, 'administracion')
 
-  await page.goto('/comidas/semana')
+  await page.goto(`/comidas/semana?semana=${lunesSiguiente}`)
+  const semana = celdaSemana(page, miercolesSiguiente, 'almuerzo')
+  await semana.locator('summary').click()
+  await expect(semana.locator('.asistentes-grupo strong')).toHaveText(['RP'])
   await expect(page.getByRole('row', { name: /^RP\b/ })).toHaveCount(0)
   await expect(page.getByRole('row', { name: /^DP\b/ })).toHaveCount(0)
   await sinNombresAjenos(page, 'administracion')
 
   await page.goto('/comidas/plan')
+  const plan = page.locator('td[data-dia="3"][data-comida="almuerzo"]')
+  await plan.locator('summary').click()
+  await expect(plan.locator('.asistentes-grupo strong')).toHaveText(['RP'])
   await expect(page.getByRole('row', { name: /^RP\b/ })).toHaveCount(0)
   await sinNombresAjenos(page, 'administracion')
 })
@@ -301,6 +308,7 @@ test('una persona marca su ausencia: sus comidas se cancelan solas, puede reacti
 
   // Al quitar la ausencia vuelve a regir su plan semanal.
   await page.goto('/calendario')
+  await abrirPanelAusencias(panelAusencias(page))
   await page.getByRole('button', { name: /^Quitar la ausencia del / }).click()
   await page.getByRole('button', { name: 'Sí, quitar' }).click()
   await expect(page.getByText('Ausencia quitada.')).toBeVisible()
@@ -354,7 +362,7 @@ test('Administración ve en Plan semanal cuántos comen y cómo, sin nombres', a
   await sinNombresAjenos(page, 'administracion')
 })
 
-test('Administración ve qué puede comer quien está enfermo, sin saber quién es', async ({ page }) => {
+test('Administración ve la nota puntual de enfermo y consulta sus siglas', async ({ page }) => {
   const { error } = await clienteAdminPrueba()
     .from('plan_semanal')
     .insert([
@@ -633,3 +641,67 @@ for (const viewport of [
     })
   })
 }
+
+for (const ancho of [375, 1280]) {
+  test(`notas de dieta persisten y Administración las consulta por siglas a ${ancho}px`, async ({ page }) => {
+    await page.setViewportSize({ width: ancho, height: 850 })
+    await planAlmuerzoMiercoles()
+    await iniciarSesion(page, 'residente')
+    await page.goto('/comidas/plan')
+    const notas = page.getByRole('region', { name: 'Notas de dieta (opcional)' })
+    const campo = notas.getByLabel('Indicaciones generales de tu dieta')
+    await campo.fill('Indicación general\nSegunda indicación')
+    await notas.getByRole('button', { name: 'Guardar notas de dieta' }).click()
+    await expect(notas.getByRole('status')).toHaveText('Notas de dieta guardadas.')
+    await page.reload()
+    await expect(campo).toHaveValue('Indicación general\nSegunda indicación')
+    await esperarSinScrollLateral(page)
+
+    const { lunesSiguiente, miercolesSiguiente } = fechas()
+    await page.goto(`/comidas/semana?semana=${lunesSiguiente}`)
+    const burbuja = await abrirComida(page, miercolesSiguiente, 'almuerzo')
+    await burbuja.getByRole('button', { name: 'En bolsa', exact: true }).click()
+    await expect(comidaSemana(page, miercolesSiguiente, 'almuerzo')).toContainText('Bolsa')
+    await page.goto('/comidas/plan')
+    await expect(campo).toHaveValue('Indicación general\nSegunda indicación')
+
+    await page.context().clearCookies()
+    await iniciarSesion(page, 'administracion')
+    await page.goto(`/comidas/semana?semana=${lunesSiguiente}`)
+    const celda = celdaSemana(page, miercolesSiguiente, 'almuerzo')
+    await expect(celda.locator('.conteo-numero')).toHaveText('1')
+    const desplegar = celda.locator('summary')
+    await desplegar.focus()
+    await page.keyboard.press('Enter')
+    await expect(celda.locator('details')).toHaveAttribute('open', '')
+    await expect(celda.locator('.asistentes-grupo li')).toHaveCount(1)
+    await expect(celda.locator('.asistentes-grupo li')).toContainText('RP')
+    await expect(celda.locator('.asistente-nota')).toContainText('Indicación general')
+    await esperarAltoMinimo(desplegar)
+    await esperarSinScrollLateral(page)
+    await sinNombresAjenos(page, 'administracion')
+    await expect(page.locator('textarea')).toHaveCount(0)
+
+    await page.context().clearCookies()
+    await iniciarSesion(page, 'residente')
+    await page.goto('/comidas/plan')
+    await campo.fill('')
+    await notas.getByRole('button', { name: 'Guardar notas de dieta' }).click()
+    await expect(notas.getByRole('status')).toHaveText('Notas de dieta eliminadas.')
+    await page.reload()
+    await expect(campo).toHaveValue('')
+  })
+}
+
+test('el Director gestiona las notas de dieta en Su plan de La casa', async ({ page }) => {
+  await iniciarSesion(page, 'director')
+  await page.goto(`/comidas/casa/${ids.residente}?ver=plan`)
+  const notas = page.getByRole('region', { name: 'Notas de dieta (opcional)' })
+  await notas.getByLabel('Indicaciones generales de su dieta').fill('Indicación del Director')
+  await notas.getByRole('button', { name: 'Guardar notas de dieta' }).click()
+  await expect(notas.getByRole('status')).toHaveText('Notas de dieta guardadas.')
+  await page.context().clearCookies()
+  await iniciarSesion(page, 'residente')
+  await page.goto('/comidas/plan')
+  await expect(page.getByLabel('Indicaciones generales de tu dieta')).toHaveValue('Indicación del Director')
+})

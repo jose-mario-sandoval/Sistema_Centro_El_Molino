@@ -33,20 +33,20 @@ describe('recortar', () => {
 })
 
 describe('mensajes', () => {
-  it('nueva publicación abre Mensajes', () => {
+  it('nueva publicación abre su hilo', () => {
     expect(cargaNuevaPublicacion({ id: 'm1', autor: 'Juan Pérez', texto: 'Hola   a todos\n' })).toEqual({
       titulo: 'Juan Pérez publicó un mensaje',
       cuerpo: 'Hola a todos',
-      url: '/mensajes',
+      url: '/mensajes?hilo=m1',
       etiqueta: 'mensaje-m1',
     })
   })
 
-  it('nueva respuesta abre Mensajes', () => {
-    expect(cargaNuevaRespuesta({ id: 'r1', autor: 'Ana Torres', texto: 'De acuerdo' })).toEqual({
+  it('nueva respuesta abre su publicación, aunque la respuesta tenga otro id', () => {
+    expect(cargaNuevaRespuesta({ id: 'r1', padreId: 'p1', autor: 'Ana Torres', texto: 'De acuerdo' })).toEqual({
       titulo: 'Ana Torres respondió en un hilo',
       cuerpo: 'De acuerdo',
-      url: '/mensajes',
+      url: '/mensajes?hilo=p1',
       etiqueta: 'mensaje-r1',
     })
   })
@@ -109,13 +109,14 @@ describe('moderación (al autor)', () => {
   it('aprobado: publicación y respuesta', () => {
     expect(cargaModeracion({ id: 'm1', estado: 'aprobado', esRespuesta: false, motivo: null })).toEqual({
       titulo: 'Tu mensaje fue aprobado',
-      cuerpo: 'Ya lo pueden leer todos en Mensajes.',
-      url: '/mensajes',
+      cuerpo: 'Ya está disponible para quienes pueden leerlo.',
+      url: '/mensajes?hilo=m1',
       etiqueta: 'moderacion-m1',
     })
-    expect(cargaModeracion({ id: 'm2', estado: 'aprobado', esRespuesta: true, motivo: null })).toMatchObject({
+    expect(cargaModeracion({ id: 'm2', padreId: 'p1', estado: 'aprobado', esRespuesta: true, motivo: null })).toMatchObject({
       titulo: 'Tu respuesta fue aprobada',
-      cuerpo: 'Ya la pueden leer todos en el hilo.',
+      cuerpo: 'Ya está disponible para quienes pueden leer el hilo.',
+      url: '/mensajes?hilo=p1',
     })
   })
 
@@ -123,7 +124,7 @@ describe('moderación (al autor)', () => {
     expect(cargaModeracion({ id: 'm1', estado: 'rechazado', esRespuesta: false, motivo: 'Falta la fecha' })).toEqual({
       titulo: 'Tu mensaje no fue aprobado',
       cuerpo: 'Motivo: Falta la fecha. Podés corregirlo y volver a enviarlo desde Mensajes.',
-      url: '/mensajes',
+      url: '/mensajes?hilo=m1',
       etiqueta: 'moderacion-m1',
     })
     expect(cargaModeracion({ id: 'm1', estado: 'rechazado', esRespuesta: true, motivo: null })).toMatchObject({

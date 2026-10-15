@@ -50,7 +50,7 @@ function clienteFalso(filas: Fila[], errorLectura: unknown = null) {
     return q
   }
 
-  return { cliente: { from: vi.fn(consulta) }, leidos, borrados }
+  return { cliente: { from: vi.fn(consulta), rpc: vi.fn().mockResolvedValue({ data: [], error: null }) }, leidos, borrados }
 }
 
 function usarCliente(filas: Fila[], errorLectura: unknown = null) {
@@ -144,5 +144,39 @@ describe('enviarAUsuarios', () => {
     })
     expect(sendNotification).not.toHaveBeenCalled()
     expect(errorConsola).toHaveBeenCalledOnce()
+  })
+
+  it('solo envía a los dispositivos reservados atómicamente para ese evento', async () => {
+    const falso = usarCliente([fila('s1'), fila('s2')])
+    falso.cliente.rpc.mockResolvedValue({ data: ['s2'], error: null })
+    const avisoMensaje = { mensajeId: 'm1', revision: 3, tipo: 'respuesta' as const }
+    const resumen = await enviarAUsuarios(['u1'], CARGA, { avisoMensaje })
+    expect(falso.cliente.rpc).toHaveBeenCalledWith('reservar_avisos_mensaje', {
+      p_mensaje_id: 'm1', p_revision: 3, p_tipo: 'respuesta', p_suscripciones: ['s1', 's2'],
+    })
+    expect(resumen.enviadas).toBe(1)
+    expect(sendNotification).toHaveBeenCalledWith(
+      expect.objectContaining({ endpoint: fila('s2').endpoint }), JSON.stringify(CARGA), expect.anything(),
+    )
+  })
+
+  it('un evento ya reservado no vuelve a enviarse, aunque se invoque desde otro proceso', async () => {
+    const falso = usarCliente([fila('s1')])
+    falso.cliente.rpc
+      .mockResolvedValueOnce({ data: ['s1'], error: null })
+      .mockResolvedValueOnce({ data: [], error: null })
+    const opciones = { avisoMensaje: { mensajeId: 'm1', revision: 1, tipo: 'publicacion' as const } }
+    await Promise.all([enviarAUsuarios(['u1'], CARGA, opciones), enviarAUsuarios(['u1'], CARGA, opciones)])
+    expect(sendNotification).toHaveBeenCalledOnce()
+  })
+
+  it('si no se puede reservar, no envía el contenido sin protección', async () => {
+    const falso = usarCliente([fila('s1')])
+    const error = { code: '08006' }
+    falso.cliente.rpc.mockResolvedValue({ data: [], error })
+    await expect(enviarAUsuarios(['u1'], CARGA, {
+      avisoMensaje: { mensajeId: 'm1', revision: 1, tipo: 'publicacion' },
+    })).rejects.toBe(error)
+    expect(sendNotification).not.toHaveBeenCalled()
   })
 })

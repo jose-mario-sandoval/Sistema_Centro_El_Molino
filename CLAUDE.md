@@ -49,15 +49,24 @@ opcionales:
   ni quién los creó; los avisos push para la cocina siguen sin título (`paraCocina()`). El único punto de entrada de
   nombres es `listarPerfiles()` (`lib/perfiles/consultas.ts`) + `lib/perfiles/visibilidad.ts`;
   cualquier pantalla o payload nuevo para Administración debe pasar por ahí, no leer `nombre`
-  directo. Tampoco ve la comida persona por persona: su semana es agregada (`agregarSemana()` en
-  `lib/comidas/vista.ts`), con el desglose por estado y horas (`partesParaCocina()`, `CeldaResumen`:
-  "2 temprano (06:30 ×2)", en bolsa, enfermo con lo que puede comer —la nota en `parte.notas`, nunca
-  quién; `textoParte()` la lleva a los textos corridos—) y los extras como cifra + nota
+  directo. Su semana y plan habitual muestran cantidades con el desglose por estado y horas
+  (`partesParaCocina()`, `CeldaResumen`) y, en cada comida, un desplegable de asistentes identificado
+  exclusivamente por siglas (`AsistentesAdministracion`), con sus notas de dieta y notas puntuales
+  rotuladas por separado. `resumenConAsistentes()` usa los mismos valores efectivos para el total y
+  la lista, y `agregarSemana()` descarta las filas con IDs antes de enviarlas al navegador.
+  El plan habitual no incorpora cambios puntuales, ausencias ni cierres de una semana concreta.
+  Los extras siguen como cifra + nota
   (`extras_de_la_semana()` suma enlace público + manuales; `extras_manuales_de_la_semana()` da las
   notas sin autor), sin nombres ni lista de invitados. De un evento con pedido ve el título, la hora y la categoría
   (color y marca); no tiene filtros en el calendario (`.zona-calendario` le sale `data-listo` desde el
   servidor: lo que otro ocultó en ese dispositivo no le esconde nada) ni lee ausencias (solo
   `ausentes_en()`).
+- **Notas de dieta opcionales** (`notas_dieta`): independientes del plan, de las notas de cada
+  estado y de los cierres. Persisten hasta editarlas o eliminarlas; vacío elimina. Cada persona con
+  comidas puede gestionar las propias, y el Director las de otras personas activas, con
+  `usuarioObjetivo()` y `guardar_nota_dieta_de()` (`security invoker`, RLS mediante
+  `puedo_gestionar_comidas_de`). Se editan en Plan de comida o Su plan de La casa. Administración
+  solo consulta las de comensales activos, junto a sus siglas; otro Residente no puede leerlas.
 - Valor efectivo de una comida, en cascada: **selección de la persona → ausencia → plan semanal →
   "Sin definir"**. Ver `lib/comidas/reglas.ts` (`valorEfectivo`) y el espejo en SQL
   (`guardar_seleccion_de`, `cerrar_comidas_vencidas`, `comidas_sin_definir`). Si cambia una regla,
@@ -142,6 +151,10 @@ opcionales:
   (`lib/mensajes/consulta-registro.ts`). Cada entrada vence al sumar tres meses calendario a su
   eliminación en UTC (fin de mes incluido): RLS oculta lo vencido y `limpiar_registro_moderacion()`
   lo borra a diario por pg_cron. La migración debe aplicarse para activar esa limpieza.
+- **Reacciones en mensajes y respuestas**: una por persona y mensaje (PK compuesta), con el mismo
+  botón, optimismo y tiempo real. `puedo_leer_mensaje()` comprueba estado, privacidad y lectura del
+  padre sin recursión de RLS; insertar respuestas y leer/insertar/borrar reacciones exige ese permiso.
+  En un hilo privado, quien escribió la publicación también lee sus respuestas aprobadas.
 - **Fijar publicaciones** (Director y Administración): columnas `fijado_en` / `fijado_hasta` (null =
   sin límite) / `fijado_por`, **sin** `grant update`: solo las escriben las RPC `fijar_mensaje` /
   `desfijar_mensaje` (`security definer`). Una fijada vigente se muestra solo en "Fijados"; quién
@@ -154,6 +167,15 @@ opcionales:
   (`lib/push/cargas-casa.ts`)**: solo fecha, hora, categoría, cantidad y pedido. En producción dependen de las
   llaves VAPID y `CRON_SECRET` en Vercel y de `url_app` / `cron_secret` en Supabase Vault
   (`supabase/snippets/configurar-vault.sql`).
+- **Deduplicación de push de mensajes**: `mensajes.aviso_revision` cambia con contenido o moderación,
+  no al fijar. `reservar_avisos_mensaje()` vuelve a comprobar estado, acceso y preferencias y reserva
+  cada evento/dispositivo de forma atómica en `avisos_mensaje_push`, accesible solo al servidor.
+  Reservar antes del proveedor evita repetir un envío de resultado ambiguo; una falla de transporte
+  posterior a la reserva no se reintenta automáticamente. Los enlaces `/mensajes?hilo=...` cargan y
+  enfocan también publicaciones antiguas, siempre con RLS.
+- **Ausencias en Calendario**: la barra «Ausencias» va antes del calendario, cerrada por defecto.
+  `PanelAusencias` usa `plegable` solo en esa pantalla; La casa conserva el uso abierto. Al plegar
+  se conserva el borrador y se ocultan los controles al teclado. Administración no recibe ese panel.
 - **Filtros del calendario** (Director y Residente): por tipo, "Mis ausencias" y "solo con pedido a
   cocina"; en el cliente y por dispositivo (`lib/calendario/filtros.ts`). Lo oculto siempre deja
   rastro (aviso con "Mostrar todo", cuenta por día), y un evento recién guardado nunca desaparece.

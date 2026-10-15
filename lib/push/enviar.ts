@@ -8,6 +8,13 @@ import type { FalloEnvio, ResultadoPrueba } from './prueba'
 
 export type ResumenEnvio = { enviadas: number; caducadas: number; fallidas: number; descartadas: number }
 
+/** Identidad persistente del evento, distinta de la etiqueta visual que reemplaza avisos en el teléfono. */
+export type AvisoMensaje = {
+  mensajeId: string
+  revision: number
+  tipo: 'publicacion' | 'respuesta' | 'pendiente' | 'moderacion'
+}
+
 const DOCE_HORAS = 12 * 60 * 60
 
 /** Tiempo máximo de cada petición al servicio push: sin esto, after() puede quedarse colgado. */
@@ -47,7 +54,7 @@ function hostDe(endpoint: string): string {
 export async function enviarAUsuarios(
   usuarioIds: string[],
   carga: CargaPush,
-  opciones: { ttlSegundos?: number } = {},
+  opciones: { ttlSegundos?: number; avisoMensaje?: AvisoMensaje } = {},
 ): Promise<ResumenEnvio> {
   const resumen: ResumenEnvio = { enviadas: 0, caducadas: 0, fallidas: 0, descartadas: 0 }
   const ids = [...new Set(usuarioIds)]
@@ -65,12 +72,28 @@ export async function enviarAUsuarios(
   if (suscripciones.length === 0) return resumen
 
   configurarVapid()
+  // Reservar antes del envío es deliberado: si el proveedor aceptó el push pero se perdió su respuesta,
+  // volver a intentarlo produciría dos avisos. La clave única en PostgreSQL cubre también dos procesos.
+  // Un fallo de configuración o de lectura ocurre antes de reservar, y se puede reintentar sin pérdida.
+  let habilitadas: Set<string> | null = null
+  if (opciones.avisoMensaje) {
+    const { mensajeId, revision, tipo } = opciones.avisoMensaje
+    const { data, error: errorReserva } = await admin.rpc('reservar_avisos_mensaje', {
+      p_mensaje_id: mensajeId,
+      p_revision: revision,
+      p_tipo: tipo,
+      p_suscripciones: suscripciones.map((s) => s.id),
+    })
+    if (errorReserva) throw errorReserva
+    habilitadas = new Set(data)
+  }
   const cuerpo = JSON.stringify(carga)
   const caducadas: string[] = []
   const descartadas: string[] = []
 
   await Promise.all(
     suscripciones.map(async (s) => {
+      if (habilitadas && !habilitadas.has(s.id)) return
       // Segunda barrera después de la validación de /api/push: nunca se llama a un host desconocido.
       if (!esEndpointPushPermitido(s.endpoint)) {
         descartadas.push(s.id)

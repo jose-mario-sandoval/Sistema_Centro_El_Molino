@@ -2,10 +2,11 @@ import { etiquetaDia } from '@/lib/comidas/semana'
 import { ETIQUETA_TIEMPO, TIEMPOS_COMIDA, type TiempoComida } from '@/lib/comidas/tipos'
 import type { DiaAgregado } from '@/lib/comidas/vista'
 import { CeldaResumen } from './celda-resumen'
+import { AsistentesAdministracion } from './asistentes-administracion'
 
 /**
  * La hoja desde la que se cocina: cuánto preparar cada día y cómo (temprano, tarde, en bolsa…),
- * nunca para quién. Un día por fila: siete columnas angostas no admiten el desglose, y en el
+ * con asistentes identificados por sus siglas. Un día por fila: siete columnas angostas no admiten el desglose, y en el
  * teléfono cada fila pasa a ser la ficha de un día.
  */
 export function SemanaAgregadaAdministracion({
@@ -20,7 +21,7 @@ export function SemanaAgregadaAdministracion({
 }) {
   return (
     <div className="card admin-table-scroll">
-      <div className="section-title">Cantidades de la semana</div>
+      <div className="section-title">Comidas de la semana</div>
       <table className="admin-week-table">
         <thead>
           <tr>
@@ -46,6 +47,7 @@ export function SemanaAgregadaAdministracion({
                     extra={extras[dia.fecha]?.[comida]}
                     notas={notas[dia.fecha]?.[comida]}
                   />
+                  <AsistentesAdministracion asistentes={dia.resumen[comida].asistentes} />
                 </td>
               ))}
             </tr>

@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { aplicarInsercionMensaje, armarFeed, fijarReaccion, type MensajeFila, type Publicacion } from '@/lib/mensajes/feed'
+import { aplicarInsercionMensaje, armarFeed, fijarReaccion, type MensajeFila, type Publicacion, type RespuestaFila } from '@/lib/mensajes/feed'
 import { aplicarCambios, leerEvento, type CambioFeed, type EventoTiempoReal } from '@/lib/mensajes/tiempo-real'
 
 const T = (minuto: number) => `2026-09-16T16:${String(minuto).padStart(2, '0')}:00.000000+00:00`
 
 // Tipado explícito: sin él, `estado: 'aprobado'` se ampliaría a `string` (objeto literal sin
 // contexto) y dejaría de encajar en MensajeFila donde se use este helper.
-function mensaje(id: string, creadoEn: string, padreId: string | null = null, autorId = 'u1'): MensajeFila {
+function mensaje(id: string, creadoEn: string, padreId: string | null = null, autorId = 'u1'): RespuestaFila {
   return {
     id,
     autor_id: autorId,
@@ -19,6 +19,7 @@ function mensaje(id: string, creadoEn: string, padreId: string | null = null, au
     fijado_hasta: null,
     fijado_por: null,
     solo_director: false,
+    reacciones: [],
   }
 }
 
@@ -61,6 +62,15 @@ describe('leerEvento', () => {
     expect(puesta[0].reacciones).toEqual(['u2', 'u3'])
     const quitada = aplicar(puesta, evento({ table: 'reacciones', eventType: 'DELETE', old: { mensaje_id: 'p1', usuario_id: 'u2' } }))
     expect(quitada[0].reacciones).toEqual(['u3'])
+  })
+
+  it('INSERT y DELETE de reacción de respuesta se aplican una vez y conservan la publicación', () => {
+    const insertar = evento({ table: 'reacciones', eventType: 'INSERT', new: { mensaje_id: 'r1', usuario_id: 'u3' } })
+    const puesta = aplicar(aplicar(base(), insertar), insertar)
+    expect(puesta[0].respuestas[0].reacciones).toEqual(['u3'])
+    expect(puesta[0].reacciones).toEqual(['u2'])
+    const quitar = evento({ table: 'reacciones', eventType: 'DELETE', old: { mensaje_id: 'r1', usuario_id: 'u3' } })
+    expect(aplicar(aplicar(puesta, quitar), quitar)[0].respuestas[0].reacciones).toEqual([])
   })
 
   it('ignora eventos con errores (RLS sin sesión: "Error 401" y fila vacía)', () => {

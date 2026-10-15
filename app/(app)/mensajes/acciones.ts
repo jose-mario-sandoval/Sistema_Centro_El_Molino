@@ -10,6 +10,7 @@ import type { PaginaRegistro } from '@/lib/mensajes/consulta-registro'
 import { publicaDirecto, type DatosFijado, type Publicacion } from '@/lib/mensajes/feed'
 import { fijadoHasta } from '@/lib/mensajes/fijados'
 import { listarPerfiles, type PerfilResumen } from '@/lib/perfiles/consultas'
+import type { Rol } from '@/lib/perfiles/roles'
 import { avisarMensajePendiente, avisarModeracion, avisarNuevaPublicacion, avisarNuevaRespuesta } from '@/lib/push/avisos'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { camposConError } from '@/lib/validacion/auth'
@@ -29,6 +30,15 @@ import {
 
 type ResultadoId = Resultado<{ id: string }>
 type ClienteServidor = Awaited<ReturnType<typeof crearClienteServidor>>
+
+/** También se programa al reintentar un insert confirmado: la reserva durable del push evita duplicados. */
+function programarAvisoCreacion(id: string, padreId: string | null, rol: Rol) {
+  after(() =>
+    publicaDirecto(rol)
+      ? padreId === null ? avisarNuevaPublicacion(id) : avisarNuevaRespuesta(id)
+      : avisarMensajePendiente(id),
+  )
+}
 
 /**
  * 23505 al insertar con el id que generó el navegador: es un reintento de un envío que sí se guardó (se
@@ -68,9 +78,10 @@ export async function publicarMensaje(_previo: ResultadoId | null, formData: For
   const supabase = await crearClienteServidor()
   const { error } = await supabase.from('mensajes').insert({ id, autor_id: autorId, texto, solo_director: soloDirector })
   if (error) {
-    // Reintento de un envío ya guardado: éxito sin duplicar. No se revalida ni se avisa de nuevo; eso ya
-    // lo hizo el envío que guardó el mensaje.
+    // Si la primera petición se interrumpió antes de ejecutar after(), el reintento recupera el aviso.
+    // La reserva por evento y dispositivo en la base impide reenviarlo a quienes ya lo recibieron.
     if (error.code === '23505' && (await esReintentoGuardado(supabase, { id, autorId, padreId: null }))) {
+      programarAvisoCreacion(id, null, sesion.perfil.rol)
       return exito({ id })
     }
     console.error('publicarMensaje', error)
@@ -78,11 +89,8 @@ export async function publicarMensaje(_previo: ResultadoId | null, formData: For
   }
 
   revalidatePath('/mensajes')
-  // Pista 06: aviso push solo aquí (mensaje recién insertado), nunca en el reintento 23505 de arriba. Y solo
-  // si ya quedó aprobado: el de un Residente se avisa a todos cuando el Director lo aprueba (moderarMensaje);
-  // mientras tanto, solo a los Directores, que son quienes lo aprueban.
-  if (publicaDirecto(sesion.perfil.rol)) after(() => avisarNuevaPublicacion(id))
-  else after(() => avisarMensajePendiente(id))
+  // El pendiente solo se avisa a los Directores; el público se envía después de aprobarlo.
+  programarAvisoCreacion(id, null, sesion.perfil.rol)
   return exito({ id })
 }
 
@@ -105,6 +113,7 @@ export async function responderMensaje(_previo: ResultadoId | null, formData: Fo
   if (error) {
     // Ver publicarMensaje.
     if (error.code === '23505' && (await esReintentoGuardado(supabase, { id, autorId, padreId }))) {
+      programarAvisoCreacion(id, padreId, sesion.perfil.rol)
       return exito({ id })
     }
     if (error.code === 'MOL03') return fallo('Solo se puede responder a publicaciones.')
@@ -114,9 +123,7 @@ export async function responderMensaje(_previo: ResultadoId | null, formData: Fo
   }
 
   revalidatePath('/mensajes')
-  // Pista 06: ver publicarMensaje.
-  if (publicaDirecto(sesion.perfil.rol)) after(() => avisarNuevaRespuesta(id))
-  else after(() => avisarMensajePendiente(id))
+  programarAvisoCreacion(id, padreId, sesion.perfil.rol)
   return exito({ id })
 }
 
@@ -138,7 +145,7 @@ export async function alternarReaccion(entrada: unknown): Promise<Resultado<{ pr
     const { error } = await supabase.from('reacciones').insert({ mensaje_id: mensajeId, usuario_id: sesion.perfil.id })
     // 23505: ya estaba puesta (otra pestaña o doble clic); el estado final es el pedido.
     if (error && error.code !== '23505') {
-      if (error.code === 'MOL03') return fallo('Solo se puede reaccionar a publicaciones.')
+      if (error.code === '42501') return fallo('No podés reaccionar a un mensaje que no tenés permiso de leer.')
       if (error.code === '23503') return fallo('El mensaje ya no existe.')
       console.error('alternarReaccion', error)
       return fallo('No se pudo guardar tu reacción. Intentá de nuevo.')

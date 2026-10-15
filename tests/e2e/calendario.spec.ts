@@ -9,7 +9,7 @@ import {
   type ClaveUsuario,
 } from '../soporte/usuarios-prueba'
 import { esperarAltoMinimo, esperarSinScrollLateral } from '../soporte/medidas-e2e'
-import { irAlMesDe, panelAusencias } from './soporte/ausencias'
+import { abrirPanelAusencias, irAlMesDe, panelAusencias } from './soporte/ausencias'
 
 async function iniciarSesion(page: Page, clave: ClaveUsuario) {
   await page.goto('/login')
@@ -388,10 +388,17 @@ test('un Residente marca en el mini calendario una ausencia que cruza de mes, la
   await page.goto('/calendario')
   const panel = panelAusencias(page)
 
-  // El calendario va primero; las ausencias, debajo.
+  // Solo la barra se ve al entrar, antes del calendario; abrirla revela la gestión existente.
   const arribaCalendario = (await page.locator('.cal-head').boundingBox())!.y
   const arribaAusencias = (await panel.boundingBox())!.y
-  expect(arribaCalendario).toBeLessThan(arribaAusencias)
+  expect(arribaAusencias).toBeLessThan(arribaCalendario)
+  const barra = panel.getByRole('button', { name: 'Ausencias', exact: true })
+  await expect(barra).toHaveAttribute('aria-expanded', 'false')
+  await expect(panel.getByText('No tenés ausencias marcadas.')).toBeHidden()
+  await barra.focus()
+  await page.keyboard.press('Enter')
+  await expect(barra).toHaveAttribute('aria-expanded', 'true')
+  await expect(barra).toBeFocused()
   await expect(panel.getByText('No tenés ausencias marcadas.')).toBeVisible()
 
   const abrir = panel.getByRole('button', { name: 'Marcar una ausencia' })
@@ -406,6 +413,17 @@ test('un Residente marca en el mini calendario una ausencia que cruza de mes, la
   await irAlMesDe(mini, hasta)
   await mini.locator(`.mini-dia[data-fecha="${hasta}"]`).click()
   await expect(mini.locator(`td:has(> .mini-dia[data-fecha="${hasta}"])`)).toHaveAttribute('aria-selected', 'true')
+  await expect(panel.getByText(`Del ${rango} (3 días).`)).toBeVisible()
+
+  // Plegar conserva el rango todavía sin guardar y devuelve todo el espacio al calendario.
+  const antesDePlegar = (await panel.boundingBox())!.height
+  await barra.click()
+  await expect(barra).toHaveAttribute('aria-expanded', 'false')
+  await expect(mini).toBeHidden()
+  expect((await panel.boundingBox())!.height).toBeLessThan(antesDePlegar)
+  await barra.focus()
+  await page.keyboard.press('Space')
+  await expect(barra).toHaveAttribute('aria-expanded', 'true')
   await expect(panel.getByText(`Del ${rango} (3 días).`)).toBeVisible()
 
   await guardar.click()
@@ -447,6 +465,7 @@ test('en el mini calendario los días pasados no se tocan y el teclado no sale d
   await iniciarSesion(page, 'director')
   await page.goto('/calendario')
   const panel = panelAusencias(page)
+  await abrirPanelAusencias(panel)
   await panel.getByRole('button', { name: 'Marcar una ausencia' }).click()
   const mini = panel.locator('.mini-calendario')
 
@@ -490,6 +509,7 @@ test('Administración no tiene ausencias en el calendario: ni tarjeta, ni mini c
   await page.goto('/calendario')
   await expect(page.locator('.cal-head')).toBeVisible()
   await expect(page.getByText('Mis ausencias')).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Ausencias', exact: true })).toHaveCount(0)
   await expect(page.getByRole('button', { name: 'Marcar una ausencia' })).toHaveCount(0)
   await expect(page.locator('.mini-calendario')).toHaveCount(0)
   await expect(page.locator('.cal-day.ausente')).toHaveCount(0)
@@ -655,13 +675,38 @@ test('un Residente también filtra, y «Mis ausencias» quita las marcas de sus 
   await expect(celdaHoy).not.toHaveClass(/\bausente\b/)
   await expect(celdaHoy.locator('.cal-ausente-icono')).toHaveCount(0)
   await expect(page.getByText('Estás ocultando: Mis ausencias.')).toBeVisible()
-  // Los eventos siguen; y la tarjeta "Mis ausencias" de abajo no se toca.
+  // Los eventos siguen; y las ausencias siguen consultables desde su barra.
   await expect(celdaHoy.locator('.cal-event')).toHaveText(['19:00 Tertulia'])
+  await abrirPanelAusencias(panelAusencias(page))
   await expect(panelAusencias(page).getByRole('button', { name: /^Quitar la ausencia del / })).toHaveCount(1)
 })
 
 test.describe('en un teléfono de 375px', () => {
   test.use({ viewport: { width: 375, height: 812 } })
+
+  test('Ausencias empieza plegada, se abre con teclado y recupera el espacio al cerrarse', async ({ page }) => {
+    await iniciarSesion(page, 'residente')
+    await page.goto('/calendario')
+    const panel = panelAusencias(page)
+    const barra = panel.getByRole('button', { name: 'Ausencias', exact: true })
+    await expect(barra).toHaveAttribute('aria-expanded', 'false')
+    const alturaCerrada = (await panel.boundingBox())!.height
+    await esperarAltoMinimo(barra)
+    await barra.focus()
+    await page.keyboard.press('Space')
+    await expect(barra).toHaveAttribute('aria-expanded', 'true')
+    await panel.getByRole('button', { name: 'Marcar una ausencia' }).click()
+    await expect(panel.locator('.mini-calendario')).toBeVisible()
+    await esperarSinScrollLateral(page)
+    await barra.focus()
+    await page.keyboard.press('Enter')
+    await expect(barra).toHaveAttribute('aria-expanded', 'false')
+    await expect(barra).toBeFocused()
+    await expect(panel.locator('.mini-calendario')).toBeHidden()
+    expect((await panel.boundingBox())!.height).toBeCloseTo(alturaCerrada, 0)
+    await page.reload()
+    await expect(barra).toHaveAttribute('aria-expanded', 'false')
+  })
 
   test('los filtros van detrás de «Filtros», los chips bajan de línea sin scroll lateral, miden 56px y ninguna letra baja de --t-xs', async ({
     page,

@@ -148,12 +148,62 @@ describe('reacciones', () => {
     expect(error?.code).toBe('42501')
   })
 
-  it('rechaza reacciones en respuestas (MOL03)', async () => {
+  it('permite poner y quitar una única reacción por persona en respuestas', async () => {
     const publicacion = await publicar('director', 'Publicación')
-    const respuesta = await publicar('residente', 'Respuesta sin reacciones', publicacion)
+    const respuesta = await publicar('director', 'Respuesta con reacciones', publicacion)
     const residente2 = await clienteComo('residente2')
     const { error } = await residente2.from('reacciones').insert({ mensaje_id: respuesta, usuario_id: ids.residente2 })
-    expect(error?.code).toBe('MOL03')
+    expect(error).toBeNull()
+    const repetida = await residente2.from('reacciones').insert({ mensaje_id: respuesta, usuario_id: ids.residente2 })
+    expect(repetida.error?.code).toBe('23505')
+    expect(await contarReacciones(respuesta)).toBe(1)
+    expect(await contarReacciones(publicacion)).toBe(0)
+    const { data, error: errorQuitar } = await residente2.from('reacciones').delete().eq('mensaje_id', respuesta).select('usuario_id')
+    expect(errorQuitar).toBeNull()
+    expect(data).toEqual([{ usuario_id: ids.residente2 }])
+    expect(await contarReacciones(respuesta)).toBe(0)
+  })
+
+  it('no permite reaccionar a una respuesta pendiente ajena y expone sus reacciones solo tras aprobarla', async () => {
+    const publicacion = await publicar('director', 'Publicación moderada')
+    const respuesta = await publicar('residente', 'Respuesta pendiente', publicacion)
+    const residente2 = await clienteComo('residente2')
+    expect((await residente2.from('reacciones').insert({ mensaje_id: respuesta, usuario_id: ids.residente2 })).error?.code).toBe('42501')
+    const director = await clienteComo('director')
+    expect((await director.from('reacciones').insert({ mensaje_id: respuesta, usuario_id: ids.director })).error).toBeNull()
+    expect((await residente2.from('reacciones').select('usuario_id').eq('mensaje_id', respuesta)).data).toEqual([])
+    expect((await director.from('mensajes').update({ estado: 'aprobado' }).eq('id', respuesta)).error).toBeNull()
+    expect((await residente2.from('reacciones').select('usuario_id').eq('mensaje_id', respuesta)).data).toEqual([{ usuario_id: ids.director }])
+  })
+
+  it('al perder lectura del padre también oculta las respuestas y sus reacciones', async () => {
+    const publicacion = await publicar('director', 'Publicación que deja de estar aprobada')
+    const respuesta = await publicar('director', 'Respuesta aprobada', publicacion)
+    const residente = await clienteComo('residente')
+    expect((await residente.from('reacciones').insert({ mensaje_id: respuesta, usuario_id: ids.residente })).error).toBeNull()
+    const director = await clienteComo('director')
+    expect((await director.from('mensajes').update({ estado: 'rechazado' }).eq('id', publicacion)).error).toBeNull()
+    expect((await residente.from('mensajes').select('id').eq('id', respuesta)).data).toEqual([])
+    expect((await residente.from('reacciones').select('usuario_id').eq('mensaje_id', respuesta)).data).toEqual([])
+    const otro = await clienteComo('residente2')
+    expect((await otro.from('reacciones').insert({ mensaje_id: respuesta, usuario_id: ids.residente2 })).error?.code).toBe('42501')
+  })
+
+  it('el autor de un hilo privado puede leer y reaccionar a sus respuestas; otros Residentes no', async () => {
+    const residente = await clienteComo('residente')
+    const { data: hilo, error } = await residente.from('mensajes').insert({ autor_id: ids.residente, texto: 'Hilo privado', solo_director: true }).select('id').single()
+    expect(error).toBeNull()
+    const director = await clienteComo('director')
+    expect((await director.from('mensajes').update({ estado: 'aprobado' }).eq('id', hilo!.id)).error).toBeNull()
+    const respuesta = await publicar('administracion', 'Respuesta privada', hilo!.id)
+    expect((await residente.from('mensajes').select('id').eq('id', respuesta)).data).toEqual([{ id: respuesta }])
+    expect((await residente.from('reacciones').insert({ mensaje_id: respuesta, usuario_id: ids.residente })).error).toBeNull()
+    const otro = await clienteComo('residente2')
+    expect((await otro.from('mensajes').select('id').eq('id', respuesta)).data).toEqual([])
+    expect((await otro.from('reacciones').select('usuario_id').eq('mensaje_id', respuesta)).data).toEqual([])
+    expect((await otro.from('reacciones').insert({ mensaje_id: respuesta, usuario_id: ids.residente2 })).error?.code).toBe('42501')
+    expect((await otro.from('reacciones').insert({ mensaje_id: hilo!.id, usuario_id: ids.residente2 })).error?.code).toBe('42501')
+    expect((await otro.from('mensajes').insert({ autor_id: ids.residente2, padre_id: hilo!.id, texto: 'Respuesta sin permiso' })).error?.code).toBe('42501')
   })
 
   it('cada uno quita solo su propia reacción', async () => {
@@ -248,12 +298,13 @@ describe('borrado y registro de moderación', () => {
 
   it('borrar una publicación ajena borra respuestas y reacciones sin filas extra en el registro', async () => {
     const publicacion = await publicar('residente', 'Publicación en cascada')
+    const director = await clienteComo('director')
+    expect((await director.from('mensajes').update({ estado: 'aprobado' }).eq('id', publicacion)).error).toBeNull()
     const ajena = await publicar('residente2', 'Respuesta ajena en cascada', publicacion)
     const delDirector = await publicar('director', 'Respuesta del Director en cascada', publicacion)
     const administracion = await clienteComo('administracion')
     await administracion.from('reacciones').insert({ mensaje_id: publicacion, usuario_id: ids.administracion })
 
-    const director = await clienteComo('director')
     await director.from('mensajes').delete().eq('id', publicacion)
 
     expect(await existe(ajena)).toBe(false)
@@ -266,6 +317,8 @@ describe('borrado y registro de moderación', () => {
 
   it('el autor borra su publicación con respuestas ajenas sin generar registro', async () => {
     const publicacion = await publicar('residente', 'Propia con respuestas')
+    const director = await clienteComo('director')
+    expect((await director.from('mensajes').update({ estado: 'aprobado' }).eq('id', publicacion)).error).toBeNull()
     await publicar('residente2', 'Respuesta ajena que cae en cascada', publicacion)
     const residente = await clienteComo('residente')
     const { data } = await residente.from('mensajes').delete().eq('id', publicacion).select('id')
@@ -345,6 +398,7 @@ describe('consulta del feed', () => {
       const { error } = await cliente.from('reacciones').insert({ mensaje_id: conTodo, usuario_id: ids[clave] })
       expect(error).toBeNull()
     }
+    expect((await (await clienteComo('administracion')).from('reacciones').insert({ mensaje_id: segunda, usuario_id: ids.administracion })).error).toBeNull()
 
     const { publicaciones } = await paginaComo('residente')
     // Las respuestas no aparecen como publicaciones.
@@ -358,6 +412,7 @@ describe('consulta del feed', () => {
       [primera, ids.residente, 'Primera respuesta'],
       [segunda, ids.residente2, 'Segunda respuesta'],
     ])
+    expect(p.respuestas.find((r) => r.id === segunda)?.reacciones).toEqual([ids.administracion])
 
     const vacia = publicaciones.find((x) => x.id === sola)!
     expect(vacia.reacciones).toEqual([])

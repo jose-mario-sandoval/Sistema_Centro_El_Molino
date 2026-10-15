@@ -50,11 +50,13 @@ export function FeedMensajes({
   perfiles: perfilesIniciales,
   usuario,
   generadoEn,
+  hiloId = null,
 }: {
   inicial: PaginaFeed
   perfiles: PerfilResumen[]
   usuario: UsuarioFeed
   generadoEn: string
+  hiloId?: string | null
 }) {
   const aviso = useAviso()
   const [publicaciones, setPublicaciones] = useState(() => conFijadas(inicial))
@@ -65,6 +67,8 @@ export function FeedMensajes({
   const [pedidoBorrado, setPedidoBorrado] = useState<PedidoBorrado | null>(null)
   const [borrando, iniciarBorrado] = useTransition()
   const [cargandoAnteriores, iniciarCargaAnteriores] = useTransition()
+  const [reaccionesPendientes, setReaccionesPendientes] = useState<ReadonlySet<string>>(() => new Set())
+  const reaccionesEnCurso = useRef(new Set<string>())
   const recargandoPerfiles = useRef(false)
   /** Sube al empezar y al terminar cada recarga completa: invalida un "Ver anteriores" pedido sobre el feed viejo. */
   const generacion = useRef(0)
@@ -72,7 +76,7 @@ export function FeedMensajes({
   const cambiosEnRecarga = useRef<CambioFeed[] | null>(null)
   const avisoRecargaMostrado = useRef(false)
   /** Publicación que cambió de sección (fijar/quitar): recibe el foco al volver a pintar, para no perderlo. */
-  const enfocarDespues = useRef<string | null>(null)
+  const enfocarDespues = useRef<string | null>(hiloId)
   /** Último pedido de cada publicación que se está trayendo: la respuesta de uno anterior ya no vale. */
   const pedidosPublicacion = useRef(new Map<string, number>())
   const contadorPedidos = useRef(0)
@@ -110,9 +114,10 @@ export function FeedMensajes({
   async function recargarTodo(): Promise<ResultadoRecarga> {
     const esta = ++generacion.current
     cambiosEnRecarga.current ??= []
-    const [mensajes, listaPerfiles] = await Promise.all([
+    const [mensajes, listaPerfiles, hilo] = await Promise.all([
       llamarAccion(() => cargarMensajes({ antesDe: null })),
       llamarAccion(cargarPerfiles),
+      hiloId ? llamarAccion(() => cargarPublicacion({ id: hiloId })) : Promise.resolve(null),
     ])
     // Empezó otra recarga: esa se queda con los cambios acumulados y aplica sus datos, más nuevos.
     if (esta !== generacion.current) return 'descartada'
@@ -129,7 +134,9 @@ export function FeedMensajes({
     avisoRecargaMostrado.current = false
     generacion.current++
     // Los cambios son idempotentes: lo que la recarga ya trae no se duplica.
-    setPublicaciones(aplicarCambios(conFijadas(mensajes.data), cambios))
+    const recargadas = conFijadas(mensajes.data)
+    const conHilo = hilo?.ok && hilo.data ? agregarAnteriores(recargadas, [hilo.data]) : recargadas
+    setPublicaciones(aplicarCambios(conHilo, cambios))
     setHayMas(mensajes.data.hayMas)
     setCursor(mensajes.data.cursor)
     return 'ok'
@@ -184,14 +191,36 @@ export function FeedMensajes({
   }
 
   async function reaccionar(mensajeId: string) {
+    // Una sola escritura por mensaje en vuelo: dos clics seguidos no pueden resolver fuera de orden.
+    if (reaccionesEnCurso.current.has(mensajeId)) return
+    reaccionesEnCurso.current.add(mensajeId)
+    setReaccionesPendientes(new Set(reaccionesEnCurso.current))
     // Estado final fijo (no "alternar") para que el cambio sea idempotente si se vuelve a aplicar.
     const presente = !tieneReaccion(publicaciones, mensajeId, usuario.id)
     aplicar((feed) => fijarReaccion(feed, mensajeId, usuario.id, presente))
     const resultado = await llamarAccion(() => alternarReaccion({ mensajeId, presente }))
     if (!resultado.ok) {
+      // Solo se revierte la reacción propia; las de otras personas llegadas en vivo permanecen.
       aplicar((feed) => fijarReaccion(feed, mensajeId, usuario.id, !presente))
       aviso(resultado.error)
+      // La escritura pudo guardarse y perderse su respuesta, o cambiar la lectura por moderación.
+      // Si hay conexión, confirmamos el estado de la base sin reemplazar cambios ajenos del feed.
+      const padreId = publicaciones.find((p) => p.id === mensajeId || p.respuestas.some((r) => r.id === mensajeId))?.id
+      if (padreId) {
+        const guardado = await llamarAccion(() => cargarPublicacion({ id: padreId }))
+        if (guardado.ok) {
+          if (!guardado.data) aplicar((feed) => aplicarBorradoMensaje(feed, padreId))
+          else {
+            const publicacion = guardado.data
+            const visible = publicacion.id === mensajeId || publicacion.respuestas.some((r) => r.id === mensajeId)
+            if (!visible) aplicar((feed) => aplicarBorradoMensaje(feed, mensajeId))
+            else aplicar((feed) => fijarReaccion(feed, mensajeId, usuario.id, tieneReaccion([publicacion], mensajeId, usuario.id)))
+          }
+        }
+      }
     }
+    reaccionesEnCurso.current.delete(mensajeId)
+    setReaccionesPendientes(new Set(reaccionesEnCurso.current))
   }
 
   async function fijar(id: string, duracion: DuracionFijado, fecha?: string) {
@@ -264,6 +293,7 @@ export function FeedMensajes({
       alPedirBorrado={setPedidoBorrado}
       alFijar={fijar}
       alDesfijar={desfijar}
+      reaccionesPendientes={reaccionesPendientes}
     />
   )
 

@@ -1,7 +1,8 @@
 import { exigirPerfil } from '@/lib/auth/sesion'
-import { obtenerPlanDe, obtenerResumenPlanSemanal } from '@/lib/comidas/consultas'
+import { obtenerNotaDietaDe, obtenerPlanDe, obtenerResumenPlanSemanal } from '@/lib/comidas/consultas'
 import { PlanAgregadoAdministracion } from '../_componentes/plan-agregado-administracion'
 import { PlanEditable } from '../_componentes/plan-editable'
+import { NotasDieta } from '../_componentes/notas-dieta'
 
 export default async function PaginaPlanSemanal() {
   const perfil = await exigirPerfil()
@@ -11,7 +12,7 @@ export default async function PaginaPlanSemanal() {
     return <PlanAgregadoAdministracion resumenSemana={resumenSemana} />
   }
 
-  const plan = await obtenerPlanDe(perfil.id)
+  const [plan, notaDieta] = await Promise.all([obtenerPlanDe(perfil.id), obtenerNotaDietaDe(perfil.id)])
   return (
     <>
       <div className="locked-banner">
@@ -19,6 +20,7 @@ export default async function PaginaPlanSemanal() {
         comida para cambiarla: los cambios se guardan solos.
       </div>
       <PlanEditable plan={plan} />
+      <NotasDieta notaInicial={notaDieta} />
     </>
   )
 }

@@ -12,10 +12,11 @@ export type MensajeFila = Pick<
   'id' | 'autor_id' | 'padre_id' | 'texto' | 'creado_en' | 'estado' | 'motivo_rechazo' | 'solo_director' | 'fijado_en' | 'fijado_hasta' | 'fijado_por'
 >
 export type ReaccionFila = Pick<Tabla<'reacciones'>, 'mensaje_id' | 'usuario_id'>
+export type RespuestaFila = MensajeFila & { reacciones: Pick<ReaccionFila, 'usuario_id'>[] }
 /** Publicación tal como la devuelve la consulta del feed, con respuestas y reacciones embebidas. */
 export type PublicacionFila = MensajeFila & {
   reacciones: Pick<ReaccionFila, 'usuario_id'>[]
-  respuestas: MensajeFila[]
+  respuestas: RespuestaFila[]
 }
 
 /** `soloDirector`: privado; lo leen solo quien lo escribió, el Director y Administración (lo pide quien publica). */
@@ -27,6 +28,7 @@ export type Respuesta = {
   estado: EstadoMensaje
   motivoRechazo: string | null
   soloDirector: boolean
+  reacciones: string[]
 }
 /**
  * Solo las publicaciones se fijan. `fijadoEn` nulo = no fijada; `fijadoHasta` nulo = hasta que la quiten;
@@ -34,7 +36,7 @@ export type Respuesta = {
  */
 export type DatosFijado = { fijadoEn: string | null; fijadoHasta: string | null; fijadoPor: string | null }
 /** `reacciones`: ids de quienes reaccionaron. */
-export type Publicacion = Respuesta & DatosFijado & { reacciones: string[]; respuestas: Respuesta[] }
+export type Publicacion = Respuesta & DatosFijado & { respuestas: Respuesta[] }
 
 /** Espejo de mensajes_forzar_estado() en SQL: quién publica sin pasar por la aprobación del Director. */
 export function publicaDirecto(rol: Rol): boolean {
@@ -64,7 +66,7 @@ function compararRespuestas(a: Respuesta, b: Respuesta): number {
   return instante(a.creadoEn) - instante(b.creadoEn) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)
 }
 
-function aRespuesta(fila: MensajeFila): Respuesta {
+function datosMensaje(fila: MensajeFila): Omit<Respuesta, 'reacciones'> {
   return {
     id: fila.id,
     autorId: fila.autor_id,
@@ -74,6 +76,10 @@ function aRespuesta(fila: MensajeFila): Respuesta {
     motivoRechazo: fila.motivo_rechazo,
     soloDirector: fila.solo_director,
   }
+}
+
+function aRespuesta(fila: MensajeFila, reacciones: Pick<ReaccionFila, 'usuario_id'>[] = []): Respuesta {
+  return { ...datosMensaje(fila), reacciones: [...new Set(reacciones.map((r) => r.usuario_id))] }
 }
 
 function datosFijado(fila: MensajeFila): DatosFijado {
@@ -91,7 +97,7 @@ export function armarFeed(filas: PublicacionFila[]): Publicacion[] {
       ...aRespuesta(fila),
       ...datosFijado(fila),
       reacciones: [...new Set(fila.reacciones.map((r) => r.usuario_id))],
-      respuestas: fila.respuestas.map(aRespuesta).sort(compararRespuestas),
+      respuestas: fila.respuestas.map((r) => aRespuesta(r, r.reacciones)).sort(compararRespuestas),
     }))
     .sort(compararPublicaciones)
 }
@@ -127,15 +133,17 @@ export function aplicarInsercionMensaje(
     const existente = feed.find((p) => p.id === fila.id)
     if (yaEsta(existente)) return feed
     if (!existente) return [...feed, aPublicacion(fila)].sort(compararPublicaciones)
-    return feed.map((p) => (p.id === fila.id ? { ...p, ...aRespuesta(fila) } : p)).sort(compararPublicaciones)
+    return feed.map((p) => (p.id === fila.id ? { ...p, ...datosMensaje(fila) } : p)).sort(compararPublicaciones)
   }
   let cambio = false
   const siguiente = feed.map((p) => {
     if (p.id !== padreId) return p
     if (yaEsta(p.respuestas.find((r) => r.id === fila.id))) return p
     cambio = true
+    const existente = p.respuestas.find((r) => r.id === fila.id)
     const otras = p.respuestas.filter((r) => r.id !== fila.id)
-    return { ...p, respuestas: [...otras, aRespuesta(fila)].sort(compararRespuestas) }
+    const respuesta = existente ? { ...existente, ...datosMensaje(fila) } : aRespuesta(fila)
+    return { ...p, respuestas: [...otras, respuesta].sort(compararRespuestas) }
   })
   return cambio ? siguiente : feed
 }
@@ -154,14 +162,14 @@ export function aplicarActualizacionMensaje(feed: Publicacion[], fila: MensajeFi
   if (padreId === null) {
     if (!feed.some((p) => p.id === fila.id)) return feed
     return feed
-      .map((p) => (p.id === fila.id ? { ...p, ...aRespuesta(fila), ...datosFijado(fila) } : p))
+      .map((p) => (p.id === fila.id ? { ...p, ...datosMensaje(fila), ...datosFijado(fila) } : p))
       .sort(compararPublicaciones)
   }
   const padre = feed.find((p) => p.id === padreId)
   if (!padre) return feed
   const existeRespuesta = padre.respuestas.some((r) => r.id === fila.id)
   const respuestas = existeRespuesta
-    ? padre.respuestas.map((r) => (r.id === fila.id ? { ...r, ...aRespuesta(fila) } : r))
+    ? padre.respuestas.map((r) => (r.id === fila.id ? { ...r, ...datosMensaje(fila) } : r))
     : [...padre.respuestas, aRespuesta(fila)].sort(compararRespuestas)
   return feed.map((p) => (p.id === padreId ? { ...p, respuestas } : p))
 }
@@ -179,7 +187,11 @@ export function aplicarBorradoMensaje(feed: Publicacion[], id: string): Publicac
 }
 
 export function tieneReaccion(feed: Publicacion[], mensajeId: string, usuarioId: string): boolean {
-  return feed.find((p) => p.id === mensajeId)?.reacciones.includes(usuarioId) ?? false
+  for (const publicacion of feed) {
+    const mensaje = publicacion.id === mensajeId ? publicacion : publicacion.respuestas.find((r) => r.id === mensajeId)
+    if (mensaje) return mensaje.reacciones.includes(usuarioId)
+  }
+  return false
 }
 
 /**
@@ -187,14 +199,21 @@ export function tieneReaccion(feed: Publicacion[], mensajeId: string, usuarioId:
  * INSERT/DELETE de `reacciones` (clave mensaje_id + usuario_id), el cambio optimista al tocar 👍 y su reversión.
  */
 export function fijarReaccion(feed: Publicacion[], mensajeId: string, usuarioId: string, presente: boolean): Publicacion[] {
+  function reaccion<T extends Respuesta>(mensaje: T): T {
+    if (mensaje.id !== mensajeId || mensaje.reacciones.includes(usuarioId) === presente) return mensaje
+    return { ...mensaje, reacciones: presente ? [...mensaje.reacciones, usuarioId] : mensaje.reacciones.filter((u) => u !== usuarioId) }
+  }
   let cambio = false
   const siguiente = feed.map((p) => {
-    if (p.id !== mensajeId || p.reacciones.includes(usuarioId) === presente) return p
-    cambio = true
-    return {
-      ...p,
-      reacciones: presente ? [...p.reacciones, usuarioId] : p.reacciones.filter((u) => u !== usuarioId),
+    const publicacion = reaccion(p)
+    if (publicacion !== p) {
+      cambio = true
+      return publicacion
     }
+    const respuestas = p.respuestas.map(reaccion)
+    if (respuestas.every((r, i) => r === p.respuestas[i])) return p
+    cambio = true
+    return { ...p, respuestas }
   })
   return cambio ? siguiente : feed
 }

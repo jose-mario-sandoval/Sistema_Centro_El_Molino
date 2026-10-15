@@ -8,7 +8,23 @@ export type ParteResumen = {
   /** Lo que escribió cada persona en un estado con nota libre (enfermo: qué puede comer). Nunca nombres. */
   notas?: string[]
 }
-export type ResumenComida = { total: number; partes: ParteResumen[] }
+/** Consulta para cocina: exclusivamente siglas, nunca nombres ni identificadores. */
+export type AsistenteComida = { siglas: string; notaDieta: string | null; estado: EstadoComida; nota: string | null }
+export type ResumenComida = { total: number; partes: ParteResumen[]; asistentes?: AsistenteComida[] }
+
+/** El mismo conjunto de valores alimenta el conteo y la lista de quienes comen. */
+export function resumenConAsistentes(
+  personas: readonly { siglas: string; notaDieta?: string | null; valor: ValorEfectivo }[],
+): ResumenComida {
+  return {
+    ...resumenComida(personas.map(({ valor }) => valor)),
+    asistentes: personas.flatMap(({ siglas, notaDieta, valor }) =>
+      valor && valor.estado !== 'no'
+        ? [{ siglas, notaDieta: notaDieta ?? null, estado: valor.estado, nota: valor.nota }]
+        : [],
+    ),
+  }
+}
 
 const ETIQUETA_CORTA: Record<EstadoComida, (cantidad: number) => string> = {
   si: () => 'sí',

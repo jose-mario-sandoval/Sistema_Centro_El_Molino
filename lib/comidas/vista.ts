@@ -1,7 +1,7 @@
 import { estaAusente, type RangoAusencia } from '@/lib/ausencias/tipos'
 import { diaSemana, fechaISOEn, type FechaISO } from '@/lib/fechas'
 import { comidaSinCerrar, estaAbierta, VALOR_POR_AUSENCIA, valorEfectivo } from './reglas'
-import { resumenComida, type ClaveResumen, type ResumenComida } from './resumen'
+import { resumenComida, resumenConAsistentes, type ClaveResumen, type ResumenComida } from './resumen'
 import { diasDeSemana, fechaCorta, nombreDia, textoCierre, tituloComida } from './semana'
 import { CAMBIADA_POR_EL_DIRECTOR } from './voz'
 import {
@@ -63,8 +63,9 @@ export type DiaDeSemana = {
 
 /** Administración */
 export type Persona = { id: string; nombre: string }
-export type PersonaConPlan = Persona & { plan: PlanSemanal }
-export type FilaDiaAdministracion = Persona & { valores: Record<TiempoComida, ValorEfectivo> }
+export type PersonaAdministracion = { id: string; siglas: string; notaDieta?: string | null }
+export type PersonaConPlan = PersonaAdministracion & { plan: PlanSemanal }
+export type FilaDiaAdministracion = PersonaAdministracion & { valores: Record<TiempoComida, ValorEfectivo> }
 export type DiaAdministracion = {
   fecha: FechaISO
   filas: FilaDiaAdministracion[]
@@ -134,7 +135,7 @@ export function armarSemanaPersona(p: {
 
 export function armarDiaAdministracion(p: {
   fecha: FechaISO
-  personas: Persona[]
+  personas: PersonaAdministracion[]
   planes: (FilaPlan & { usuario_id: string })[]
   selecciones: (FilaSeleccion & { usuario_id: string })[]
   cerradas: FilaCerrada[]
@@ -160,11 +161,13 @@ export function armarDiaAdministracion(p: {
         ausente: (p.ausentes ?? []).includes(persona.id),
       })
     }
-    return { id: persona.id, nombre: persona.nombre, valores }
+    return { id: persona.id, siglas: persona.siglas, notaDieta: persona.notaDieta, valores }
   })
 
   const resumen = {} as Record<TiempoComida, ResumenComida>
-  for (const comida of TIEMPOS_COMIDA) resumen[comida] = resumenComida(filas.map((fila) => fila.valores[comida]))
+  for (const comida of TIEMPOS_COMIDA) {
+    resumen[comida] = resumenConAsistentes(filas.map((fila) => ({ ...fila, valor: fila.valores[comida] })))
+  }
 
   return { fecha: p.fecha, filas, resumen }
 }
@@ -245,7 +248,7 @@ export function diaParaMostrar(dias: readonly DiaDeSemana[]): FechaISO | null {
   return dias.slice(hoy).find((dia) => !diaCerrado(dia))?.fecha ?? null
 }
 
-/** Lo único que cruza al navegador de Administración: nunca `filas`. */
+/** Al navegador van los conteos y asistentes por siglas, nunca las filas con IDs. */
 export type DiaAgregado = { fecha: FechaISO; resumen: Record<TiempoComida, ResumenComida> }
 
 export function agregarSemana(dias: readonly DiaAdministracion[]): DiaAgregado[] {
@@ -253,7 +256,7 @@ export function agregarSemana(dias: readonly DiaAdministracion[]): DiaAgregado[]
 }
 
 /**
- * Plan habitual agregado por día de semana (1=lunes…7=domingo) y tiempo de comida, sin nombres.
+ * Plan habitual por día de semana (1=lunes…7=domingo) y comida, con asistentes por siglas.
  * `origen: 'plan'` es solo para reutilizar resumenComida (que ignora el campo, pero el tipo lo exige).
  */
 export function resumenPlanSemanal(personas: readonly PersonaConPlan[]): Record<number, Record<TiempoComida, ResumenComida>> {
@@ -261,11 +264,11 @@ export function resumenPlanSemanal(personas: readonly PersonaConPlan[]): Record<
   for (let dia = 1; dia <= 7; dia++) {
     semana[dia] = {} as Record<TiempoComida, ResumenComida>
     for (const comida of TIEMPOS_COMIDA) {
-      const valores: ValorEfectivo[] = personas.map((persona) => {
+      const valores = personas.map((persona) => {
         const valor = persona.plan[dia]?.[comida]
-        return valor ? { ...valor, origen: 'plan' } : null
+        return { siglas: persona.siglas, notaDieta: persona.notaDieta, valor: valor ? { ...valor, origen: 'plan' as const } : null }
       })
-      semana[dia][comida] = resumenComida(valores)
+      semana[dia][comida] = resumenConAsistentes(valores)
     }
   }
   return semana

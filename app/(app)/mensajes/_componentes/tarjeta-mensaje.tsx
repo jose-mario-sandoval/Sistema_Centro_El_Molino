@@ -44,6 +44,28 @@ function Tiempo({ creadoEn, ahora }: { creadoEn: string; ahora: Date }) {
   )
 }
 
+function BotonMeGusta({ mensaje, usuarioId, pendiente, alReaccionar }: {
+  mensaje: Respuesta
+  usuarioId: string
+  pendiente: boolean
+  alReaccionar: (id: string) => void
+}) {
+  const reaccione = mensaje.reacciones.includes(usuarioId)
+  return (
+    <button
+      type="button"
+      className={`msg-action${reaccione ? ' liked' : ''}`}
+      aria-pressed={reaccione}
+      aria-label={`Me gusta (${mensaje.reacciones.length})`}
+      aria-busy={pendiente}
+      aria-disabled={pendiente}
+      onClick={() => { if (!pendiente) alReaccionar(mensaje.id) }}
+    >
+      👍 <span>Me gusta ({mensaje.reacciones.length})</span>
+    </button>
+  )
+}
+
 /**
  * Administración ve siglas en lugar del nombre (lib/perfiles/visibilidad.ts): entonces `nombre` y
  * `siglas` son lo mismo, y repetirlas al lado del avatar sería ruido. El avatar ya las lleva.
@@ -61,6 +83,8 @@ function NodoRespuesta({
   puedeEliminar,
   ahora,
   alEliminar,
+  reaccionPendiente,
+  alReaccionar,
 }: {
   respuesta: Respuesta
   autor: PerfilResumen | undefined
@@ -68,9 +92,11 @@ function NodoRespuesta({
   puedeEliminar: boolean
   ahora: Date
   alEliminar: () => void
+  reaccionPendiente: boolean
+  alReaccionar: (id: string) => void
 }) {
   return (
-    <div className="msg-top">
+    <div className="msg-top" data-respuesta-id={respuesta.id}>
       <div className="avatar">
         {autor?.siglas ?? '…'}
       </div>
@@ -84,13 +110,14 @@ function NodoRespuesta({
         {respuesta.estado === 'rechazado' && respuesta.autorId === usuario.id && (
           <FormularioEditarPropio id={respuesta.id} textoActual={respuesta.texto} />
         )}
-        {puedeEliminar && (
-          <div className="msg-actions">
+        <div className="msg-actions">
+          <BotonMeGusta mensaje={respuesta} usuarioId={usuario.id} pendiente={reaccionPendiente} alReaccionar={alReaccionar} />
+          {puedeEliminar && (
             <button type="button" className="msg-action delete" onClick={alEliminar}>
               Eliminar
             </button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
   )
@@ -106,6 +133,7 @@ export function TarjetaMensaje({
   alPedirBorrado,
   alFijar,
   alDesfijar,
+  reaccionesPendientes,
 }: {
   publicacion: Publicacion
   perfiles: Record<string, PerfilResumen>
@@ -116,6 +144,7 @@ export function TarjetaMensaje({
   alPedirBorrado: (pedido: PedidoBorrado) => void
   alFijar: AlFijar
   alDesfijar: (id: string) => Promise<void>
+  reaccionesPendientes: ReadonlySet<string>
 }) {
   const [respondiendo, setRespondiendo] = useState(false)
   const [fijando, setFijando] = useState(false)
@@ -123,7 +152,6 @@ export function TarjetaMensaje({
   const botonFijar = useRef<HTMLButtonElement>(null)
   const idPanel = useId()
   const autor = perfiles[publicacion.autorId]
-  const reaccione = publicacion.reacciones.includes(usuario.id)
   const fijada = estaFijada(publicacion, ahora)
   // Solo publicaciones aprobadas; TarjetaMensaje es siempre una publicación (las respuestas son NodoRespuesta).
   const mostrarFijar = puedeFijar(usuario.rol) && publicacion.estado === 'aprobado'
@@ -165,15 +193,7 @@ export function TarjetaMensaje({
             <FormularioEditarPropio id={publicacion.id} textoActual={publicacion.texto} />
           )}
           <div className="msg-actions">
-            <button
-              type="button"
-              className={`msg-action${reaccione ? ' liked' : ''}`}
-              aria-pressed={reaccione}
-              aria-label={`Me gusta (${publicacion.reacciones.length})`}
-              onClick={() => alReaccionar(publicacion.id)}
-            >
-              👍 <span>{publicacion.reacciones.length}</span>
-            </button>
+            <BotonMeGusta mensaje={publicacion} usuarioId={usuario.id} pendiente={reaccionesPendientes.has(publicacion.id)} alReaccionar={alReaccionar} />
             <button
               type="button"
               className="msg-action"
@@ -245,6 +265,8 @@ export function TarjetaMensaje({
                   usuario={usuario}
                   puedeEliminar={puedeBorrar(r.autorId, usuario)}
                   ahora={ahora}
+                  reaccionPendiente={reaccionesPendientes.has(r.id)}
+                  alReaccionar={alReaccionar}
                   alEliminar={() => alPedirBorrado({ id: r.id, autorId: r.autorId, esRespuesta: true, respuestas: 0 })}
                 />
               ))}

@@ -463,9 +463,19 @@ principal para que un lector de pantalla anuncie dónde quedó la persona.
   ancho disponible (`min(var(--t-xs), 4.2vw)`), como hace iOS con su barra de pestañas: siempre van
   junto a su icono, y el contenido de la página sí escala entero. El ancho se reparte según lo que
   cada etiqueta necesita, no en cuartos iguales: "Calendario" necesita 79px y "Ajustes" 54.
-- **Una rejilla de solo iconos lleva leyenda escrita.** La matriz del plan en la vista de
-  Administración muestra solo icono y color, así que cada celda tiene nombre accesible y la pantalla
-  explica cada icono con su texto.
+- **La cocina identifica a los asistentes por siglas.** La semana concreta y el plan habitual
+  mantienen el total y el desglose escrito por estado. Cada comida ofrece *"Quiénes comen (N)"*,
+  desplegable por teclado, con las siglas agrupadas por estado y sus *"Notas de dieta"* si las hay.
+  Las notas puntuales llevan un rótulo distinto. Las siglas y la lista se calculan desde los mismos
+  valores que el total; el plan habitual se mantiene separado de los cambios de una semana.
+- **Las notas generales de dieta viven en el plan, fuera de las comidas.** La tarjeta
+  *"Notas de dieta (opcional)"* tiene un campo sin ejemplos y un botón para guardar. Vacío elimina;
+  cambiar cualquier estado no borra la nota. Administración puede consultarla junto a las siglas,
+  y el Director también puede gestionarla en *"Su plan"* de La casa.
+- **Ausencias empieza como una barra plegada encima del calendario.** El botón *"Ausencias"* abre
+  la lista, la opción de marcar y su formulario; al cerrar recupera todo el espacio y conserva el
+  rango todavía sin guardar. Expone su estado y funciona con Enter o Espacio, con foco visible.
+  Administración no recibe esta sección. El panel de otra persona en La casa sigue abierto.
 - **"La casa" del Director es la tabla de la cocina con nombres, no una pantalla nueva.** La misma
   tabla que ve Administración (un día por fila, una comida por columna, el mismo desglose y el mismo
   apilado en el teléfono), pero cada celda es un botón elevado dentro de su hueco. Tocarla abre,

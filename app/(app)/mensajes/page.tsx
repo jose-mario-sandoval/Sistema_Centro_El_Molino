@@ -1,27 +1,35 @@
 import Link from 'next/link'
 import { InsigniaPendientes } from '@/components/app/pendientes'
 import { exigirPerfil, type Perfil } from '@/lib/auth/sesion'
-import { listarMensajesPendientes, listarPublicaciones, listarRegistroModeracion } from '@/lib/mensajes/consultas'
+import { listarMensajesPendientes, listarPublicaciones, listarRegistroModeracion, obtenerPublicacion } from '@/lib/mensajes/consultas'
+import { agregarAnteriores } from '@/lib/mensajes/feed'
 import { listarPerfiles } from '@/lib/perfiles/consultas'
+import { esquemaCargarPublicacion } from '@/lib/validacion/mensajes'
 import { ColaModeracion } from './_componentes/cola-moderacion'
 import { FeedMensajes } from './_componentes/feed-mensajes'
 import { RefrescarColaAlCambiar } from './_componentes/refrescar-cola'
 import { TablaRegistro } from './_componentes/tabla-registro'
 
 /** Fuera de los componentes: la marca `generadoEn` no es una lectura pura de render. */
-async function datosFeed() {
-  const [pagina, perfiles] = await Promise.all([listarPublicaciones(), listarPerfiles()])
+async function datosFeed(hiloId: string | null) {
+  const [pagina, perfiles, hilo] = await Promise.all([
+    listarPublicaciones(), listarPerfiles(), hiloId ? obtenerPublicacion(hiloId) : Promise.resolve(null),
+  ])
+  // Un aviso puede enlazar a un hilo anterior a la primera página. La consulta conserva RLS y el cursor original.
+  if (hilo) pagina.publicaciones = agregarAnteriores(pagina.publicaciones, [hilo])
   return { pagina, perfiles, generadoEn: new Date().toISOString() }
 }
 
-async function SeccionFeed({ perfil }: { perfil: Perfil }) {
-  const { pagina, perfiles, generadoEn } = await datosFeed()
+async function SeccionFeed({ perfil, hiloId }: { perfil: Perfil; hiloId: string | null }) {
+  const { pagina, perfiles, generadoEn } = await datosFeed(hiloId)
   return (
     <FeedMensajes
+      key={hiloId}
       inicial={pagina}
       perfiles={perfiles}
       usuario={{ id: perfil.id, rol: perfil.rol }}
       generadoEn={generadoEn}
+      hiloId={hiloId}
     />
   )
 }
@@ -47,7 +55,9 @@ export default async function PaginaMensajes({
   searchParams: Promise<Record<string, string | string[] | undefined>>
 }) {
   const perfil = await exigirPerfil()
-  const { vista } = await searchParams
+  const { vista, hilo } = await searchParams
+  const enlace = esquemaCargarPublicacion.safeParse({ id: hilo })
+  const hiloId = enlace.success ? enlace.data.id : null
   const esDirector = perfil.rol === 'director'
   const verRegistro = esDirector && vista === 'registro'
   const verPendientes = esDirector && vista === 'pendientes'
@@ -87,7 +97,7 @@ export default async function PaginaMensajes({
         </nav>
       )}
 
-      {verRegistro ? <SeccionRegistro /> : verPendientes ? <SeccionPendientes /> : <SeccionFeed perfil={perfil} />}
+      {verRegistro ? <SeccionRegistro /> : verPendientes ? <SeccionPendientes /> : <SeccionFeed perfil={perfil} hiloId={hiloId} />}
     </>
   )
 }

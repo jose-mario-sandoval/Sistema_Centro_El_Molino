@@ -32,6 +32,10 @@ Next.js 16 (App Router) + TypeScript · Supabase (Postgres, Auth, Realtime, pg_c
 
 ## Reglas de trabajo
 
+Para los cambios de comidas, notas de dieta, avisos, reacciones en respuestas y ausencias del
+15 de octubre de 2026, ver [la guía de revisión local](docs/revision-local-2026-10-15.md): incluye
+las tres migraciones pendientes, comandos de aplicación, pruebas por rol y verificaciones realizadas.
+
 - Ramas `feat/...` desde `master`, PR con revisión y CI en verde.
 - Migraciones con `npx supabase migration new <nombre>`; comprobar que se aplicaron con la Action de migraciones o `npm run db:aplicar`. El workflow de producción solo corre si está definida la variable `SUPABASE_PROJECT_REF` y están configurados sus secretos (ver `CLAUDE.md`).
 - Funcionalidades con tablas nuevas: primero un PR de esquema, después el PR de pantallas (ver el índice de planes).

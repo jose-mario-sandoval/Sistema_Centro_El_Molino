@@ -57,6 +57,7 @@ export default async function PaginaCalendario({
               : 'Vista de solo lectura de los eventos de la casa. Tocá un día para ver sus eventos.'}
         </div>
       </div>
+      {conAusencias && <PanelAusencias ausencias={ausencias} hoy={hoy} plegable />}
       {/* Los filtros (Director y Residente) van arriba de la tarjeta; el mes y sus flechas, dentro. */}
       <CalendarioMes
         cabecera={
@@ -89,8 +90,6 @@ export default async function PaginaCalendario({
         // Administración no tiene filtros: ve todo lo que le piden, con su categoría.
         conFiltros={conAusencias}
       />
-      {/* Debajo del calendario, compacta. `hoy` va del servidor: el navegador nunca calcula "hoy". */}
-      {conAusencias && <PanelAusencias ausencias={ausencias} hoy={hoy} />}
     </>
   )
 }

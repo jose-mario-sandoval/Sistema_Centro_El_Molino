@@ -1,4 +1,5 @@
 import { Client } from 'pg'
+import { randomUUID } from 'node:crypto'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { exigirBaseLocal } from '../soporte/entorno-local'
 import { asegurarUsuariosPrueba, clienteAdminPrueba, clienteComo, type ClaveUsuario } from '../soporte/usuarios-prueba'
@@ -147,6 +148,105 @@ describe('avisos_enviados', () => {
     expect(primero.error).toBeNull()
     const segundo = await admin.from('avisos_enviados').insert({ fecha: '2026-09-16', comida: 'cena' })
     expect(segundo.error?.code).toBe('23505')
+  })
+})
+
+describe('avisos de mensajes: reserva durable por evento y dispositivo', () => {
+  const mensajesCreados: string[] = []
+
+  afterEach(async () => {
+    if (mensajesCreados.length > 0) await admin.from('mensajes').delete().in('id', mensajesCreados.splice(0))
+    const preferencias = await admin.from('perfiles').update({ avisar_mensajes: true }).eq('id', ids.administracion)
+    if (preferencias.error) throw preferencias.error
+  })
+
+  async function publicar(clave: ClaveUsuario, privado = false, padreId?: string) {
+    const id = randomUUID()
+    mensajesCreados.push(id)
+    const cliente = await clienteComo(clave)
+    const creado = await cliente.from('mensajes').insert({
+      id, autor_id: ids[clave], texto: 'Prueba de notificación', solo_director: privado,
+      padre_id: padreId ?? null, aviso_revision: 99,
+    })
+    expect(creado.error).toBeNull()
+    const director = await clienteComo('director')
+    const aprobado = await director.from('mensajes').update({ estado: 'aprobado' }).eq('id', id)
+    expect(aprobado.error).toBeNull()
+    const { data, error } = await admin.from('mensajes').select('aviso_revision').eq('id', id).single()
+    expect(error).toBeNull()
+    return { id, revision: data!.aviso_revision }
+  }
+
+  async function dispositivo(clave: ClaveUsuario, sufijo: string = clave) {
+    const { data, error } = await admin.from('suscripciones_push')
+      .insert(suscripcion(ids[clave], `mensaje-${sufijo}`)).select('id').single()
+    expect(error).toBeNull()
+    return data!.id
+  }
+
+  function reservar(mensaje: { id: string; revision: number }, dispositivos: string[], tipo = 'publicacion') {
+    return admin.rpc('reservar_avisos_mensaje', {
+      p_mensaje_id: mensaje.id, p_revision: mensaje.revision, p_tipo: tipo, p_suscripciones: dispositivos,
+    })
+  }
+
+  it('dos procesos concurrentes reservan el dispositivo una sola vez y no admiten repetir el evento', async () => {
+    const mensaje = await publicar('director')
+    expect(mensaje.revision).toBe(1) // la revisión enviada por el cliente no se acepta
+    const destino = await dispositivo('residente')
+    const resultados = await Promise.all([reservar(mensaje, [destino]), reservar(mensaje, [destino])])
+    for (const r of resultados) expect(r.error).toBeNull()
+    expect(resultados.flatMap((r) => r.data ?? [])).toEqual([destino])
+    expect((await reservar(mensaje, [destino])).data).toEqual([])
+  })
+
+  it('rechaza un evento viejo, conserva la deduplicación al fijar y permite una nueva revisión de contenido', async () => {
+    const mensaje = await publicar('director')
+    const destino = await dispositivo('residente')
+    expect((await reservar(mensaje, [destino])).data).toEqual([destino])
+    const director = await clienteComo('director')
+    expect((await director.rpc('fijar_mensaje', { p_id: mensaje.id, p_hasta: null as unknown as string })).error).toBeNull()
+    expect((await reservar(mensaje, [destino])).data).toEqual([])
+    expect((await director.from('mensajes').update({ texto: 'Contenido corregido' }).eq('id', mensaje.id)).error).toBeNull()
+    const { data } = await admin.from('mensajes').select('aviso_revision').eq('id', mensaje.id).single()
+    expect(data!.aviso_revision).toBe(mensaje.revision + 1)
+    expect((await reservar(mensaje, [destino])).data).toEqual([])
+    expect((await reservar({ id: mensaje.id, revision: data!.aviso_revision }, [destino])).data).toEqual([destino])
+  })
+
+  it('un privado excluye al autor, a Residentes ajenos y a quienes apagaron los avisos', async () => {
+    const mensaje = await publicar('residente', true)
+    const [propio, ajeno, director, cocina] = await Promise.all([
+      dispositivo('residente'), dispositivo('residente2'), dispositivo('director'), dispositivo('administracion'),
+    ])
+    expect((await admin.from('perfiles').update({ avisar_mensajes: false }).eq('id', ids.administracion)).error).toBeNull()
+    const resultado = await reservar(mensaje, [propio, ajeno, director, cocina])
+    expect(resultado.error).toBeNull()
+    expect(resultado.data).toEqual([director])
+  })
+
+  it('una respuesta privada llega al autor del hilo; el padre pendiente bloquea cualquier aviso público', async () => {
+    const padre = await publicar('residente', true)
+    const respuesta = await publicar('administracion', true, padre.id)
+    const [autorHilo, ajeno, autorRespuesta] = await Promise.all([
+      dispositivo('residente'), dispositivo('residente2'), dispositivo('administracion'),
+    ])
+    expect((await reservar(respuesta, [autorHilo, ajeno, autorRespuesta], 'respuesta')).data).toEqual([autorHilo])
+    const director = await clienteComo('director')
+    expect((await director.from('mensajes').update({ estado: 'pendiente' }).eq('id', padre.id)).error).toBeNull()
+    // Un dispositivo distinto demuestra que no es el registro previo el que bloquea el aviso tardío.
+    const nuevo = await dispositivo('residente', 'residente-nuevo')
+    expect((await reservar(respuesta, [nuevo], 'respuesta')).data).toEqual([])
+  })
+
+  it('solo el servidor puede leer las reservas y ejecutar su función', async () => {
+    const mensaje = await publicar('director')
+    const destino = await dispositivo('residente')
+    const residente = await clienteComo('residente')
+    expect((await residente.from('avisos_mensaje_push').select('mensaje_id')).error?.code).toBe('42501')
+    expect((await residente.rpc('reservar_avisos_mensaje', {
+      p_mensaje_id: mensaje.id, p_revision: mensaje.revision, p_tipo: 'publicacion', p_suscripciones: [destino],
+    })).error?.code).toBe('42501')
   })
 })
 

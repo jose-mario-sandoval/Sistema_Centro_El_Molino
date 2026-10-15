@@ -10,7 +10,7 @@ import {
   fijarReaccion,
   publicaDirecto,
   tieneReaccion,
-  type MensajeFila,
+  type RespuestaFila,
   type Publicacion,
   type PublicacionFila,
 } from '@/lib/mensajes/feed'
@@ -18,7 +18,7 @@ import {
 /** Marca como la devuelve PostgREST, en el minuto indicado. */
 const T = (minuto: number) => `2026-09-16T16:${String(minuto).padStart(2, '0')}:00.000000+00:00`
 
-function fila(id: string, creadoEn: string, padreId: string | null = null, autorId = 'u1'): MensajeFila {
+function fila(id: string, creadoEn: string, padreId: string | null = null, autorId = 'u1'): RespuestaFila {
   return {
     id,
     autor_id: autorId,
@@ -31,6 +31,7 @@ function fila(id: string, creadoEn: string, padreId: string | null = null, autor
     fijado_hasta: null,
     fijado_por: null,
     solo_director: false,
+    reacciones: [],
   }
 }
 
@@ -40,7 +41,7 @@ const SIN_FIJAR = { fijadoEn: null, fijadoHasta: null, fijadoPor: null }
 function pub(
   id: string,
   creadoEn: string,
-  { respuestas = [], reacciones = [], autorId = 'u1' }: { respuestas?: MensajeFila[]; reacciones?: string[]; autorId?: string } = {},
+  { respuestas = [], reacciones = [], autorId = 'u1' }: { respuestas?: RespuestaFila[]; reacciones?: string[]; autorId?: string } = {},
 ): PublicacionFila {
   return { ...fila(id, creadoEn, null, autorId), respuestas, reacciones: reacciones.map((usuario_id) => ({ usuario_id })) }
 }
@@ -69,7 +70,7 @@ describe('armarFeed', () => {
       motivoRechazo: null,
       soloDirector: false,
       reacciones: ['u2', 'u3'],
-      respuestas: [{ id: 'r1', autorId: 'otro', texto: 'texto r1', creadoEn: T(2), estado: 'aprobado', motivoRechazo: null, soloDirector: false }],
+      respuestas: [{ id: 'r1', autorId: 'otro', texto: 'texto r1', creadoEn: T(2), estado: 'aprobado', motivoRechazo: null, soloDirector: false, reacciones: [] }],
       ...SIN_FIJAR,
     })
   })
@@ -109,6 +110,13 @@ describe('armarFeed', () => {
 
   it('no repite a quien reaccionó', () => {
     expect(armarFeed([pub('p1', T(1), { reacciones: ['u2', 'u2'] })])[0].reacciones).toEqual(['u2'])
+  })
+
+  it('conserva las reacciones persistidas de cada respuesta sin duplicar personas', () => {
+    const respuesta = { ...fila('r1', T(2), 'p1'), reacciones: [{ usuario_id: 'u2' }, { usuario_id: 'u2' }, { usuario_id: 'u3' }] }
+    const [publicacion] = armarFeed([pub('p1', T(1), { respuestas: [respuesta] })])
+    expect(publicacion.respuestas[0].reacciones).toEqual(['u2', 'u3'])
+    expect(publicacion.reacciones).toEqual([])
   })
 })
 
@@ -219,6 +227,32 @@ describe('reacciones', () => {
     expect(tieneReaccion(optimista, 'p1', 'u3')).toBe(true)
     expect(fijarReaccion(optimista, 'p1', 'u3', !presente)).toEqual(antes)
   })
+
+  it('las respuestas ponen, quitan y revierten reacciones sin alterar la publicación', () => {
+    const antes = armarFeed([pub('p1', T(1), { reacciones: ['u2'], respuestas: [fila('r1', T(2), 'p1'), fila('r2', T(3), 'p1')] })])
+    const optimista = fijarReaccion(antes, 'r1', 'yo', true)
+    expect(tieneReaccion(optimista, 'r1', 'yo')).toBe(true)
+    expect(optimista[0].reacciones).toEqual(['u2'])
+    expect(optimista[0].respuestas[1]).toBe(antes[0].respuestas[1])
+    expect(fijarReaccion(optimista, 'r1', 'yo', true)).toBe(optimista)
+    expect(fijarReaccion(optimista, 'r1', 'yo', false)).toEqual(antes)
+  })
+
+  it('la reversión de un error conserva la reacción ajena que llegó durante el guardado', () => {
+    const antes = armarFeed([pub('p1', T(1), { respuestas: [fila('r1', T(2), 'p1')] })])
+    const optimista = fijarReaccion(antes, 'r1', 'yo', true)
+    const enVivo = fijarReaccion(optimista, 'r1', 'otra-persona', true)
+    const revertida = fijarReaccion(enVivo, 'r1', 'yo', false)
+    expect(revertida[0].respuestas[0].reacciones).toEqual(['otra-persona'])
+  })
+
+  it('un INSERT confirmado o un UPDATE de respuesta conserva sus reacciones', () => {
+    const respuesta = fila('r1', T(2), 'p1')
+    const antes = fijarReaccion(armarFeed([pub('p1', T(1), { respuestas: [respuesta] })]), 'r1', 'yo', true)
+    const confirmado = aplicarInsercionMensaje(antes, { ...respuesta, creado_en: T(3) }, { desdeEvento: true })
+    expect(confirmado[0].respuestas[0].reacciones).toEqual(['yo'])
+    expect(aplicarActualizacionMensaje(confirmado, { ...respuesta, texto: 'Corregida' })[0].respuestas[0].reacciones).toEqual(['yo'])
+  })
 })
 
 describe('aplicarActualizacionMensaje', () => {
@@ -260,9 +294,9 @@ describe('aplicarActualizacionMensaje', () => {
   })
 
   it('actualiza una respuesta que ya estaba cargada', () => {
-    const feed: Publicacion[] = [{ id: 'padre', autorId: 'u2', texto: 'Publicación', creadoEn: '2026-01-01T00:00:00.000000+00:00', estado: 'aprobado', motivoRechazo: null, soloDirector: false, reacciones: [], respuestas: [{ id: 'r1', autorId: 'u1', texto: 'Vieja', creadoEn: base.creado_en, estado: 'pendiente', motivoRechazo: null, soloDirector: false }], ...SIN_FIJAR }]
+    const feed: Publicacion[] = [{ id: 'padre', autorId: 'u2', texto: 'Publicación', creadoEn: '2026-01-01T00:00:00.000000+00:00', estado: 'aprobado', motivoRechazo: null, soloDirector: false, reacciones: [], respuestas: [{ id: 'r1', autorId: 'u1', texto: 'Vieja', creadoEn: base.creado_en, estado: 'pendiente', motivoRechazo: null, soloDirector: false, reacciones: [] }], ...SIN_FIJAR }]
     const siguiente = aplicarActualizacionMensaje(feed, { ...base, id: 'r1', padre_id: 'padre', texto: 'Corregida', estado: 'rechazado', motivo_rechazo: 'Ofensivo' })
-    expect(siguiente[0].respuestas[0]).toEqual({ id: 'r1', autorId: 'u1', texto: 'Corregida', creadoEn: base.creado_en, estado: 'rechazado', motivoRechazo: 'Ofensivo', soloDirector: false })
+    expect(siguiente[0].respuestas[0]).toEqual({ id: 'r1', autorId: 'u1', texto: 'Corregida', creadoEn: base.creado_en, estado: 'rechazado', motivoRechazo: 'Ofensivo', soloDirector: false, reacciones: [] })
   })
 
   it('lleva fijar y desfijar a una publicación cargada, sin perder reacciones ni respuestas', () => {
