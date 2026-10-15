@@ -7,6 +7,8 @@ import { perfilParaAccion } from '@/lib/auth/sesion'
 import { obtenerHorasLimite } from '@/lib/comidas/consultas'
 import { mensajeNota } from '@/lib/comidas/notas'
 import { usuarioObjetivo } from '@/lib/comidas/permisos'
+import { MENSAJE_FUERA_DE_PERIODO } from '@/lib/comidas/periodo'
+import { enVentanaEditable } from '@/lib/comidas/reglas'
 import { mensajeComidaCerrada } from '@/lib/comidas/semana'
 import type { EstadoComida, TiempoComida } from '@/lib/comidas/tipos'
 import type { FechaISO } from '@/lib/fechas'
@@ -133,7 +135,7 @@ export async function guardarPlan(entrada: unknown): Promise<Resultado<null>> {
   return exito(null)
 }
 
-/** Selección de una comida de la semana actual o la siguiente (spec §6.4), propia o de otra persona. */
+/** Selección de una comida dentro de los próximos tres meses calendario, propia o de otra persona. */
 export async function guardarSeleccion(entrada: unknown): Promise<Resultado<null>> {
   const permiso = await perfilParaAccion('director', 'residente')
   if (!permiso.ok) return permiso
@@ -145,6 +147,10 @@ export async function guardarSeleccion(entrada: unknown): Promise<Resultado<null
   if (!objetivo.ok) return fallo(objetivo.error)
 
   const { fecha, comida, estado, nota } = datos.data
+  if (!enVentanaEditable(fecha, new Date())) {
+    revalidatePath('/comidas', 'layout')
+    return fallo(MENSAJE_FUERA_DE_PERIODO)
+  }
   const supabase = await crearClienteServidor()
   const { error } = await supabase.rpc('guardar_seleccion_de', {
     p_usuario: objetivo.usuarioId,
@@ -185,6 +191,10 @@ export async function volverAPlan(entrada: unknown): Promise<Resultado<null>> {
   if (!objetivo.ok) return fallo(objetivo.error)
 
   const { fecha, comida } = datos.data
+  if (!enVentanaEditable(fecha, new Date())) {
+    revalidatePath('/comidas', 'layout')
+    return fallo(MENSAJE_FUERA_DE_PERIODO)
+  }
   const supabase = await crearClienteServidor()
   const { error } = await supabase.rpc('volver_a_plan_de', { p_usuario: objetivo.usuarioId, p_fecha: fecha, p_comida: comida })
   if (error) {

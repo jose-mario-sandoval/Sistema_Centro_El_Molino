@@ -3,7 +3,7 @@ import { Icono } from '@/components/ui/iconos'
 import { navegacionSemana, rangoSemana } from '@/lib/comidas/semana'
 import type { FechaISO } from '@/lib/fechas'
 
-const DESCRIPCION = { pasada: 'Semana pasada', actual: 'Esta semana', siguiente: 'Semana que viene' } as const
+const DESCRIPCION = { pasada: 'Semana pasada', actual: 'Esta semana', siguiente: 'Semana que viene', futura: 'Semana futura' } as const
 
 /** `ruta`: la página que se pagina (Semana, La casa o la semana de una persona en La casa). */
 export function NavegacionSemana({

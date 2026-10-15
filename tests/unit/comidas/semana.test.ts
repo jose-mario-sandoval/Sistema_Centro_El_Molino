@@ -64,7 +64,10 @@ describe('semanaPedida', () => {
     ['lunes de la semana siguiente', '2026-09-21', '2026-09-21'],
     ['jueves de la semana siguiente', '2026-09-24', '2026-09-21'],
     ['semana pasada', '2026-09-07', '2026-09-07'],
-    ['dentro de dos semanas', '2026-09-28', '2026-09-14'],
+    ['dentro de dos semanas', '2026-09-28', '2026-09-28'],
+    ['último día editable', '2026-12-16', '2026-12-14'],
+    ['día posterior al límite dentro de la última semana visible', '2026-12-20', '2026-12-14'],
+    ['semana posterior al período', '2026-12-21', '2026-09-14'],
     ['texto inválido', 'basura', '2026-09-14'],
     ['fecha inexistente', '2026-02-30', '2026-09-14'],
     ['parámetro repetido', ['2026-09-21', '2026-09-28'], '2026-09-14'],
@@ -74,7 +77,18 @@ describe('semanaPedida', () => {
 
   it('el domingo, la semana siguiente sigue siendo la del lunes de mañana', () => {
     expect(semanaPedida('2026-09-21', '2026-09-20')).toBe('2026-09-21')
-    expect(semanaPedida('2026-09-28', '2026-09-20')).toBe('2026-09-14')
+    expect(semanaPedida('2026-09-28', '2026-09-20')).toBe('2026-09-28')
+    expect(semanaPedida('2026-12-20', '2026-09-20')).toBe('2026-12-14')
+    expect(semanaPedida('2026-12-21', '2026-09-20')).toBe('2026-09-14')
+  })
+
+  it.each([
+    ['2026-10-31', '2027-01-31', '2027-01-25', '2027-02-01', '2026-10-26'],
+    ['2026-01-31', '2026-04-30', '2026-04-27', '2026-05-04', '2026-01-26'],
+    ['2027-11-30', '2028-02-29', '2028-02-28', '2028-03-06', '2027-11-29'],
+  ])('desde %s deja entrar en la última semana %s y rechaza la posterior', (hoy, ultimo, lunesFinal, lunesPosterior, lunesActual) => {
+    expect(semanaPedida(ultimo, hoy)).toBe(lunesFinal)
+    expect(semanaPedida(lunesPosterior, hoy)).toBe(lunesActual)
   })
 })
 
@@ -83,12 +97,25 @@ describe('tipoSemana y navegacionSemana', () => {
     expect(tipoSemana('2026-09-07', HOY)).toBe('pasada')
     expect(tipoSemana('2026-09-14', HOY)).toBe('actual')
     expect(tipoSemana('2026-09-21', HOY)).toBe('siguiente')
+    expect(tipoSemana('2026-09-28', HOY)).toBe('futura')
+    expect(tipoSemana('2026-12-14', HOY)).toBe('futura')
   })
 
-  it('no permite avanzar más allá de la semana siguiente', () => {
+  it('permite avanzar hasta la semana del último día editable', () => {
     expect(navegacionSemana('2026-08-31', HOY)).toEqual({ anterior: '2026-08-24', siguiente: '2026-09-07', tipo: 'pasada' })
     expect(navegacionSemana('2026-09-14', HOY)).toEqual({ anterior: '2026-09-07', siguiente: '2026-09-21', tipo: 'actual' })
-    expect(navegacionSemana('2026-09-21', HOY)).toEqual({ anterior: '2026-09-14', siguiente: null, tipo: 'siguiente' })
+    expect(navegacionSemana('2026-09-21', HOY)).toEqual({ anterior: '2026-09-14', siguiente: '2026-09-28', tipo: 'siguiente' })
+    expect(navegacionSemana('2026-09-28', HOY)).toEqual({ anterior: '2026-09-21', siguiente: '2026-10-05', tipo: 'futura' })
+    expect(navegacionSemana('2026-12-07', HOY)).toEqual({ anterior: '2026-11-30', siguiente: '2026-12-14', tipo: 'futura' })
+    expect(navegacionSemana('2026-12-14', HOY)).toEqual({ anterior: '2026-12-07', siguiente: null, tipo: 'futura' })
+  })
+
+  it.each([
+    ['2026-10-31', '2027-01-25'],
+    ['2026-01-31', '2026-04-27'],
+    ['2027-11-30', '2028-02-28'],
+  ])('detiene la navegación de %s en la semana %s aunque cruce de mes o año', (hoy, ultimaSemana) => {
+    expect(navegacionSemana(ultimaSemana, hoy).siguiente).toBeNull()
   })
 })
 
@@ -98,6 +125,7 @@ describe('diaPedido', () => {
     ['sin día en la semana siguiente → lunes', undefined, '2026-09-21', '2026-09-21'],
     ['sin día en la semana actual → hoy', undefined, '2026-09-14', '2026-09-16'],
     ['día de otra semana → lunes', '2026-09-30', '2026-09-21', '2026-09-21'],
+    ['sin día en una semana futura → lunes', undefined, '2026-12-14', '2026-12-14'],
     ['día inválido en la semana actual → hoy', 'basura', '2026-09-14', '2026-09-16'],
   ])('%s', (_caso, valor, lunes, esperado) => {
     expect(diaPedido(valor, lunes, HOY)).toBe(esperado)
@@ -140,8 +168,9 @@ describe('mensajeComidaCerrada', () => {
     ['2026-09-16T21:30:00-06:00', '2026-09-17', 'desayuno', 'El desayuno ya cerró a las 21:00 del día anterior.'],
     ['2026-09-16T16:30:00-06:00', '2026-09-16', 'cena', 'La cena ya cerró a las 16:00.'],
     ['2026-09-16T08:00:00-06:00', '2026-09-16', 'cena', 'La cena ya cerró.'],
-    ['2026-09-16T08:00:00-06:00', '2026-09-13', 'cena', 'Solo podés cambiar la semana actual y la siguiente.'],
-    ['2026-09-16T08:00:00-06:00', '2026-09-28', 'almuerzo', 'Solo podés cambiar la semana actual y la siguiente.'],
+    ['2026-09-16T08:00:00-06:00', '2026-09-13', 'cena', 'Solo podés cambiar comidas desde hoy hasta dentro de tres meses.'],
+    ['2026-09-16T08:00:00-06:00', '2026-12-17', 'almuerzo', 'Solo podés cambiar comidas desde hoy hasta dentro de tres meses.'],
+    ['2026-09-16T08:00:00-06:00', '2026-12-16', 'almuerzo', 'El almuerzo ya cerró.'],
   ])('%s, %s %s', (ahora, fecha, comida, esperado) => {
     expect(mensajeComidaCerrada({ fecha, comida: comida as TiempoComida, ahora: new Date(ahora), horas })).toBe(esperado)
   })

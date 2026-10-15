@@ -1,5 +1,6 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
 import { fechaISOEn, lunesDe, sumarDias } from '../../lib/fechas'
+import { periodoEditable } from '../../lib/comidas/periodo'
 import {
   esperarAltoMinimo,
   esperarDentroDeLaPantalla,
@@ -109,6 +110,58 @@ test.beforeEach(async () => {
 
 test.afterEach(async () => {
   await limpiar()
+})
+
+test('el Director edita el último día desde La casa y desde la semana de la persona', async ({ page }) => {
+  const ultimo = periodoEditable(fechaISOEn(new Date())).hasta
+  const lunes = lunesDe(ultimo)
+  await iniciarSesion(page, 'director')
+  await page.goto(`/comidas/casa?semana=${lunes}`)
+  await expect(page.getByRole('link', { name: 'Semana siguiente', exact: true })).toHaveCount(0)
+  await celdaCasa(page, ultimo, 'almuerzo').click()
+  await panelCasa(page).getByRole('button', { name: 'Residente Prueba', exact: true }).click()
+  const enBolsa = page.getByRole('dialog').getByRole('button', { name: 'En bolsa', exact: true })
+  await enBolsa.click()
+  await expect(page.getByRole('dialog').getByText('la cambió el Director', { exact: true })).toBeVisible()
+  await expect(enBolsa).not.toHaveAttribute('aria-disabled', 'true')
+  await expect.poll(async () => {
+    const { data, error } = await clienteAdminPrueba().from('selecciones_comida').select('estado, modificado_por')
+      .eq('usuario_id', ids.residente).eq('fecha', ultimo).eq('comida', 'almuerzo')
+    if (error) throw error
+    return data
+  }).toEqual([{ estado: 'bolsa', modificado_por: ids.director }])
+
+  await page.goto(`/comidas/casa/${ids.residente}?semana=${lunes}`)
+  await expect(page.getByRole('link', { name: 'Semana siguiente', exact: true })).toHaveCount(0)
+  const almuerzo = page.locator(`.tarjetas-semana button.comida-tarjeta[data-fecha="${ultimo}"][data-comida="almuerzo"]`)
+  await expect(almuerzo).toContainText('Bolsa')
+  await almuerzo.click()
+  await page.getByRole('dialog').getByRole('button', { name: 'No comer', exact: true }).click()
+  await expect(almuerzo).toContainText('No')
+  await expect(almuerzo).not.toHaveAttribute('aria-busy', 'true')
+  await expect.poll(async () => {
+    const { data, error } = await clienteAdminPrueba().from('selecciones_comida').select('estado, modificado_por')
+      .eq('usuario_id', ids.residente).eq('fecha', ultimo).eq('comida', 'almuerzo')
+    if (error) throw error
+    return data
+  }).toEqual([{ estado: 'no', modificado_por: ids.director }])
+  await page.reload()
+  await expect(almuerzo).toContainText('No')
+
+  const posterior = sumarDias(ultimo, 1)
+  if (posterior <= sumarDias(lunes, 6)) {
+    await expect(page.locator(`.tarjetas-semana .comida-tarjeta[data-fecha="${posterior}"]`)).toHaveCount(3)
+    await expect(page.locator(`.tarjetas-semana button.comida-tarjeta[data-fecha="${posterior}"]`)).toHaveCount(0)
+    await page.goto(`/comidas/casa?semana=${lunes}`)
+    const fuera = celdaCasa(page, posterior, 'almuerzo')
+    await expect(fuera).toHaveAccessibleName(/\. Cerrada\. Ver quiénes$/)
+    await fuera.click()
+    await panelCasa(page).getByRole('button', { name: 'Residente Prueba', exact: true }).click()
+    const cerrada = page.getByRole('dialog')
+    await expect(cerrada.getByText('Cerrada: ya no se puede cambiar.', { exact: true })).toBeVisible()
+    await expect(cerrada.locator('.status-chip')).toHaveCount(0)
+    await expect(cerrada.getByRole('button', { name: 'Listo', exact: true })).toBeVisible()
+  }
 })
 
 test('el Director cambia la comida de un residente desde La casa y el residente ve que fue él', async ({ page }) => {

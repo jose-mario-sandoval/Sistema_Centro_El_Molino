@@ -7,8 +7,9 @@ import {
   obtenerSemanaParaAdministracion,
 } from '@/lib/comidas/consultas'
 import { semanaPedida, tipoSemana } from '@/lib/comidas/semana'
+import { periodoEditable } from '@/lib/comidas/periodo'
 import { diaParaMostrar } from '@/lib/comidas/vista'
-import { fechaISOEn, sumarDias } from '@/lib/fechas'
+import { fechaISOEn, instanteEnZona, sumarDias } from '@/lib/fechas'
 import { NavegacionSemana } from '../_componentes/navegacion-semana'
 import { RefrescarAlVolver } from '../_componentes/refrescar-al-volver'
 import { SemanaAgregadaAdministracion } from '../_componentes/semana-agregada-administracion'
@@ -22,7 +23,9 @@ export default async function PaginaSemana({
   const perfil = await exigirPerfil()
   const { semana } = await searchParams
 
-  const hoy = fechaISOEn(new Date())
+  const ahora = new Date()
+  const hoy = fechaISOEn(ahora)
+  const refrescarEnMs = instanteEnZona(sumarDias(hoy, 1), '00:00').getTime() - ahora.getTime()
   const lunes = semanaPedida(semana, hoy)
 
   if (perfil.rol === 'administracion') {
@@ -35,7 +38,7 @@ export default async function PaginaSemana({
       <>
         {/* La vieja SemanaAdministracion la traía adentro: sin esto, Administración no ve los cierres
             del job de cada 5 minutos hasta que recargue a mano. */}
-        <RefrescarAlVolver />
+        <RefrescarAlVolver refrescarEnMs={refrescarEnMs} />
         <NavegacionSemana lunes={lunes} hoy={hoy} />
         {/* Las notas de los extras del Director, sin quién los agregó: la cocina no conoce nombres. */}
         <SemanaAgregadaAdministracion dias={dias} extras={extras} notas={notasPorComida(extrasManuales)} />
@@ -43,18 +46,19 @@ export default async function PaginaSemana({
     )
   }
 
-  const dias = await obtenerSemanaDe(perfil.id, lunes)
+  const dias = await obtenerSemanaDe(perfil.id, lunes, ahora)
   const tipo = tipoSemana(lunes, hoy)
   return (
     <>
       {/* Al volver a la pestaña, trae cierres y cambios hechos mientras tanto. */}
-      <RefrescarAlVolver />
+      <RefrescarAlVolver refrescarEnMs={refrescarEnMs} />
       <NavegacionSemana lunes={lunes} hoy={hoy} />
       {/* key: al cambiar de semana, la burbuja abierta se cierra y la página empieza en el día que corresponde. */}
       <SemanaPersona
         key={lunes}
         dias={dias}
         tipo={tipo}
+        hastaEditable={periodoEditable(hoy).hasta}
         diaAlEntrar={tipo === 'actual' ? diaParaMostrar(dias) : null}
         hrefSiguienteSemana={tipo === 'actual' ? `/comidas/semana?semana=${sumarDias(lunes, 7)}` : null}
       />

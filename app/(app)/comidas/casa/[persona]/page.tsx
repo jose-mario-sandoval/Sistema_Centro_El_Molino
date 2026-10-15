@@ -7,9 +7,10 @@ import { exigirRol } from '@/lib/auth/sesion'
 import { pestanasPersona, type VistaPersona } from '@/lib/comidas/casa'
 import { obtenerNotaDietaDe, obtenerPlanDe, obtenerSemanaDe } from '@/lib/comidas/consultas'
 import { semanaPedida, tipoSemana } from '@/lib/comidas/semana'
+import { periodoEditable } from '@/lib/comidas/periodo'
 import { diaParaMostrar } from '@/lib/comidas/vista'
 import type { Voz } from '@/lib/comidas/voz'
-import { fechaISOEn, sumarDias } from '@/lib/fechas'
+import { fechaISOEn, instanteEnZona, sumarDias } from '@/lib/fechas'
 import { listarPerfiles } from '@/lib/perfiles/consultas'
 import { PanelAusencias } from '../../../calendario/_componentes/panel-ausencias'
 import { NavegacionSemana } from '../../_componentes/navegacion-semana'
@@ -45,7 +46,9 @@ export default async function PaginaPersonaDeLaCasa({
 
   const { semana, ver } = await searchParams
   const vista = vistaPedida(ver)
-  const hoy = fechaISOEn(new Date())
+  const ahora = new Date()
+  const hoy = fechaISOEn(ahora)
+  const refrescarEnMs = instanteEnZona(sumarDias(hoy, 1), '00:00').getTime() - ahora.getTime()
   const lunes = semanaPedida(semana, hoy)
   const ruta = `/comidas/casa/${persona.id}`
   // El Director también puede mirarse a sí mismo desde La casa: entonces, en segunda persona.
@@ -54,7 +57,7 @@ export default async function PaginaPersonaDeLaCasa({
 
   return (
     <>
-      <RefrescarAlVolver />
+      <RefrescarAlVolver refrescarEnMs={refrescarEnMs} />
       <Link href={`/comidas/casa?semana=${lunes}`} className="btn ghost volver-casa">
         <Icono nombre="izquierda" />
         Volver a La casa
@@ -85,7 +88,7 @@ export default async function PaginaPersonaDeLaCasa({
         </nav>
       </div>
 
-      {vista === 'semana' && <VistaSemana ruta={ruta} usuarioId={persona.id} nombre={persona.nombre} voz={voz} lunes={lunes} hoy={hoy} />}
+      {vista === 'semana' && <VistaSemana ruta={ruta} usuarioId={persona.id} nombre={persona.nombre} voz={voz} lunes={lunes} hoy={hoy} ahora={ahora} />}
       {vista === 'plan' && <VistaPlan usuarioId={persona.id} nombre={persona.nombre} voz={voz} />}
       {vista === 'ausencias' && (
         <PanelAusencias
@@ -105,6 +108,7 @@ async function VistaSemana({
   voz,
   lunes,
   hoy,
+  ahora,
 }: {
   ruta: string
   usuarioId: string
@@ -112,8 +116,9 @@ async function VistaSemana({
   voz: Voz
   lunes: string
   hoy: string
+  ahora: Date
 }) {
-  const dias = await obtenerSemanaDe(usuarioId, lunes)
+  const dias = await obtenerSemanaDe(usuarioId, lunes, ahora)
   const tipo = tipoSemana(lunes, hoy)
   return (
     <>
@@ -123,6 +128,7 @@ async function VistaSemana({
         key={lunes}
         dias={dias}
         tipo={tipo}
+        hastaEditable={periodoEditable(hoy).hasta}
         diaAlEntrar={tipo === 'actual' ? diaParaMostrar(dias) : null}
         hrefSiguienteSemana={tipo === 'actual' ? `${ruta}?semana=${sumarDias(lunes, 7)}` : null}
         usuarioId={usuarioId}

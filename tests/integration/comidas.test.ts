@@ -1,7 +1,7 @@
 import { Client } from 'pg'
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { HORAS_LIMITE_POR_DEFECTO, type HorasLimite } from '@/lib/comidas/tipos'
-import { fechaISOEn, lunesDe, sumarDias } from '@/lib/fechas'
+import { diaSemana, fechaISOEn, lunesDe, sumarDias } from '@/lib/fechas'
 import casos from '@/tests/fixtures/casos-comidas.json'
 import { exigirBaseLocal } from '../soporte/entorno-local'
 import { asegurarUsuariosPrueba, clienteAdminPrueba, clienteComo, type ClaveUsuario } from '../soporte/usuarios-prueba'
@@ -15,8 +15,10 @@ const FECHA_ABIERTA = sumarDias(lunesDe(HOY), 9)
 const DIA_ABIERTA = 3
 /** Con cualquier hora límite (día anterior o mismo día, hasta 23:59) ya cerró. */
 const AYER = sumarDias(HOY, -1)
-/** Lunes de dentro de dos semanas: fuera de la ventana editable. */
-const FUERA_DE_VENTANA = sumarDias(lunesDe(HOY), 14)
+/** Límites obtenidos del reloj y la zona del servidor, nunca del reloj del navegador. */
+let ULTIMO_DIA: string
+let FUTURA: string
+let FUERA_DE_VENTANA: string
 /** Miércoles de una semana ficticia: el job real de pg_cron nunca la cierra. */
 const MIERCOLES_2030 = '2030-01-16'
 
@@ -40,14 +42,14 @@ async function restaurarHorasLimite() {
 
 async function limpiarComidas() {
   const usuarios = Object.values(ids)
-  // El plan primero: borrarlo congela lo vencido de cada celda (trigger), y esas filas se borran después.
-  for (const tabla of ['plan_semanal', 'selecciones_comida']) {
+  // Plan y ausencias primero: sus triggers congelan lo vencido, y esas filas se borran después.
+  for (const tabla of ['ausencias', 'plan_semanal', 'selecciones_comida']) {
     const { error } = await admin.from(tabla).delete().in('usuario_id', usuarios)
     if (error) throw error
   }
   const futuras = await admin.from('comidas_cerradas').delete().gte('fecha', '2030-01-01')
   if (futuras.error) throw futuras.error
-  const abierta = await admin.from('comidas_cerradas').delete().eq('fecha', FECHA_ABIERTA)
+  const abierta = await admin.from('comidas_cerradas').delete().in('fecha', [FECHA_ABIERTA, FUTURA, ULTIMO_DIA])
   if (abierta.error) throw abierta.error
 }
 
@@ -163,6 +165,14 @@ async function evaluarEnPostgres(funcion: 'comida_editable' | 'comida_sin_cerrar
 
 beforeAll(async () => {
   ids = await asegurarUsuariosPrueba()
+  const { rows } = await conPostgres((c) => c.query<{ ultimo: string; futura: string }>(`
+    select to_char(hoy + interval '3 months', 'YYYY-MM-DD') as ultimo,
+           to_char(hoy + 40, 'YYYY-MM-DD') as futura
+      from (select (now() at time zone public.zona_horaria_app())::date as hoy) as reloj
+  `))
+  ULTIMO_DIA = rows[0].ultimo
+  FUTURA = rows[0].futura
+  FUERA_DE_VENTANA = sumarDias(ULTIMO_DIA, 1)
 })
 
 beforeEach(async () => {
@@ -465,6 +475,114 @@ async function volver(clave: ClaveUsuario, fecha: string, comida: string) {
   const cliente = await clienteComo(clave)
   return cliente.rpc('volver_a_plan', { p_fecha: fecha, p_comida: comida })
 }
+
+describe('ventana de tres meses: persistencia, RLS y RPC con el reloj del servidor', () => {
+  it.each(['interior', 'ultimo'] as const)('guarda y relee una excepción con nota en el día %s del período', async (posicion) => {
+    const fecha = posicion === 'ultimo' ? ULTIMO_DIA : FUTURA
+    await ponerPlan('residente', diaSemana(fecha), 'almuerzo', SI)
+    expect((await guardar('residente', fecha, 'almuerzo', 'tarde', ' 13:45 ')).error).toBeNull()
+
+    // Una sesión nueva relee la fila persistida, como al volver a la semana o recargarla.
+    const nuevaSesion = await clienteComo('residente')
+    const { data, error } = await nuevaSesion.from('selecciones_comida')
+      .select('estado, nota, origen').eq('usuario_id', ids.residente).eq('fecha', fecha).eq('comida', 'almuerzo')
+    expect(error).toBeNull()
+    expect(data).toEqual([{ estado: 'tarde', nota: '13:45', origen: 'persona' }])
+
+    expect((await guardar('residente', fecha, 'almuerzo', 'si', null)).error).toBeNull()
+    expect(await leerSelecciones(fecha, 'almuerzo')).toEqual([])
+    expect((await guardar('residente', fecha, 'almuerzo', 'bolsa', null)).error).toBeNull()
+    expect((await volver('residente', fecha, 'almuerzo')).error).toBeNull()
+    expect(await leerSelecciones(fecha, 'almuerzo')).toEqual([])
+  })
+
+  it.each(['residente', 'director'] as const)('RLS permite insertar, editar y borrar el último día para %s', async (clave) => {
+    const cliente = await clienteComo(clave)
+    const fila = { usuario_id: ids[clave], fecha: ULTIMO_DIA, comida: 'almuerzo', origen: 'persona', ...NO }
+    expect((await cliente.from('selecciones_comida').insert(fila)).error).toBeNull()
+    const editar = await cliente.from('selecciones_comida').update({ estado: 'enfermo', nota: 'Dieta blanda' })
+      .eq('usuario_id', ids[clave]).eq('fecha', ULTIMO_DIA).eq('comida', 'almuerzo').select('estado, nota')
+    expect(editar.error).toBeNull()
+    expect(editar.data).toEqual([{ estado: 'enfermo', nota: 'Dieta blanda' }])
+    const borrar = await cliente.from('selecciones_comida').delete()
+      .eq('usuario_id', ids[clave]).eq('fecha', ULTIMO_DIA).eq('comida', 'almuerzo').select('fecha')
+    expect(borrar.error).toBeNull()
+    expect(borrar.data).toEqual([{ fecha: ULTIMO_DIA }])
+  })
+
+  it('RLS y las RPC bloquean el día posterior incluso si ya existe una selección', async () => {
+    const residente = await clienteComo('residente')
+    const insertar = await residente.from('selecciones_comida').insert({
+      usuario_id: ids.residente, fecha: FUERA_DE_VENTANA, comida: 'almuerzo', origen: 'persona', ...NO,
+    })
+    expect(insertar.error?.code).toBe('42501')
+    await ponerSeleccion('residente', FUERA_DE_VENTANA, 'almuerzo', BOLSA)
+    const editar = await residente.from('selecciones_comida').update({ estado: 'si' })
+      .eq('usuario_id', ids.residente).eq('fecha', FUERA_DE_VENTANA).select('fecha')
+    expect(editar.data).toEqual([])
+    const borrar = await residente.from('selecciones_comida').delete()
+      .eq('usuario_id', ids.residente).eq('fecha', FUERA_DE_VENTANA).select('fecha')
+    expect(borrar.data).toEqual([])
+    expect((await guardar('residente', FUERA_DE_VENTANA, 'almuerzo', 'si', null)).error?.code).toBe('MOL01')
+    expect((await volver('residente', FUERA_DE_VENTANA, 'almuerzo')).error?.code).toBe('MOL01')
+    expect(await leerSelecciones(FUERA_DE_VENTANA, 'almuerzo')).toEqual([
+      { usuario_id: ids.residente, estado: 'bolsa', nota: null, origen: 'persona' },
+    ])
+  })
+
+  it('el Director guarda por otra persona en el último día y no puede saltarse el límite', async () => {
+    await ponerPlan('residente', diaSemana(ULTIMO_DIA), 'almuerzo', SI)
+    const director = await clienteComo('director')
+    const parametros = { p_usuario: ids.residente, p_fecha: ULTIMO_DIA, p_comida: 'almuerzo' }
+    const guardarDe = await director.rpc('guardar_seleccion_de', { ...parametros, p_estado: 'enfermo', p_nota: 'Sopa' })
+    expect(guardarDe.error).toBeNull()
+    const { data } = await admin.from('selecciones_comida').select('estado, nota, modificado_por')
+      .eq('usuario_id', ids.residente).eq('fecha', ULTIMO_DIA).eq('comida', 'almuerzo')
+    expect(data).toEqual([{ estado: 'enfermo', nota: 'Sopa', modificado_por: ids.director }])
+    expect((await director.rpc('volver_a_plan_de', parametros)).error).toBeNull()
+    expect(await leerSelecciones(ULTIMO_DIA, 'almuerzo')).toEqual([])
+    const fuera = { ...parametros, p_fecha: FUERA_DE_VENTANA }
+    expect((await director.rpc('guardar_seleccion_de', { ...fuera, p_estado: 'no', p_nota: null })).error?.code).toBe('MOL01')
+    expect((await director.rpc('volver_a_plan_de', fuera)).error?.code).toBe('MOL01')
+  })
+
+  it('conserva ausencia, nota y vuelta a la ausencia en el último día', async () => {
+    await ponerPlan('residente', diaSemana(ULTIMO_DIA), 'almuerzo', SI)
+    const ausencia = await admin.from('ausencias').insert({ usuario_id: ids.residente, desde: ULTIMO_DIA, hasta: ULTIMO_DIA })
+    expect(ausencia.error).toBeNull()
+    expect((await guardar('residente', ULTIMO_DIA, 'almuerzo', 'no', null)).error).toBeNull()
+    expect(await leerSelecciones(ULTIMO_DIA, 'almuerzo')).toEqual([])
+    expect((await guardar('residente', ULTIMO_DIA, 'almuerzo', 'enfermo', ' Sopa ')).error).toBeNull()
+    expect(await leerSelecciones(ULTIMO_DIA, 'almuerzo')).toEqual([
+      { usuario_id: ids.residente, estado: 'enfermo', nota: 'Sopa', origen: 'persona' },
+    ])
+    expect((await volver('residente', ULTIMO_DIA, 'almuerzo')).error).toBeNull()
+    expect(await leerSelecciones(ULTIMO_DIA, 'almuerzo')).toEqual([])
+  })
+
+  it('un cierre explícito bloquea el último día para RLS y para el Director', async () => {
+    await cerrarConLlaveSecreta(ULTIMO_DIA, 'almuerzo')
+    expect((await guardar('residente', ULTIMO_DIA, 'almuerzo', 'no', null)).error?.code).toBe('MOL01')
+    const residente = await clienteComo('residente')
+    expect((await residente.from('selecciones_comida').insert({
+      usuario_id: ids.residente, fecha: ULTIMO_DIA, comida: 'almuerzo', origen: 'persona', ...NO,
+    })).error?.code).toBe('42501')
+    const director = await clienteComo('director')
+    expect((await director.rpc('guardar_seleccion_de', {
+      p_usuario: ids.residente, p_fecha: ULTIMO_DIA, p_comida: 'almuerzo', p_estado: 'no', p_nota: null,
+    })).error?.code).toBe('MOL01')
+  })
+
+  it('la ampliación conserva los permisos y el bloqueo de cuentas inactivas', async () => {
+    expect((await guardar('administracion', ULTIMO_DIA, 'almuerzo', 'si', null)).error?.code).toBe('42501')
+    const residente = await clienteComo('residente')
+    expect((await residente.rpc('guardar_seleccion_de', {
+      p_usuario: ids.residente2, p_fecha: ULTIMO_DIA, p_comida: 'almuerzo', p_estado: 'si', p_nota: null,
+    })).error?.code).toBe('42501')
+    await desactivar('residente2')
+    expect((await guardar('residente2', ULTIMO_DIA, 'almuerzo', 'si', null)).error?.code).toBe('42501')
+  })
+})
 
 describe('guardar_seleccion', () => {
   it('guarda una excepción con origen "persona" y la nota recortada', async () => {

@@ -54,6 +54,13 @@ export function sumarDias(fecha: FechaISO, dias: number): FechaISO {
   return desdeUTC(Date.UTC(a, m - 1, d + dias))
 }
 
+/** Meses calendario; si el día no existe en el mes destino, usa su último día. */
+export function sumarMeses(fecha: FechaISO, meses: number): FechaISO {
+  const [a, m, d] = aNumeros(fecha)
+  const ultimoDia = new Date(Date.UTC(a, m + meses, 0)).getUTCDate()
+  return desdeUTC(Date.UTC(a, m - 1 + meses, Math.min(d, ultimoDia)))
+}
+
 export function lunesDe(fecha: FechaISO): FechaISO {
   return sumarDias(fecha, 1 - diaSemana(fecha))
 }

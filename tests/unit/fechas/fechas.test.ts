@@ -7,6 +7,7 @@ import {
   instanteEnZona,
   lunesDe,
   sumarDias,
+  sumarMeses,
 } from '@/lib/fechas'
 
 describe('lib/fechas', () => {
@@ -30,6 +31,23 @@ describe('lib/fechas', () => {
     expect(sumarDias('2026-09-30', 1)).toBe('2026-10-01')
     expect(sumarDias('2026-01-01', -1)).toBe('2025-12-31')
     expect(sumarDias('2026-09-14', 13)).toBe('2026-09-27')
+  })
+
+  it.each([
+    ['2026-09-16', 3, '2026-12-16'],
+    ['2026-10-31', 3, '2027-01-31'],
+    ['2026-12-31', 3, '2027-03-31'],
+    ['2026-01-31', 3, '2026-04-30'],
+    ['2026-08-31', 3, '2026-11-30'],
+    ['2026-11-30', 3, '2027-02-28'],
+    ['2027-11-30', 3, '2028-02-29'],
+    ['2028-02-29', 12, '2029-02-28'],
+    ['2026-01-31', 1, '2026-02-28'],
+    ['2028-01-31', 1, '2028-02-29'],
+    ['2026-09-16', 0, '2026-09-16'],
+    ['2026-03-31', -1, '2026-02-28'],
+  ] as const)('sumarMeses(%s, %s) conserva el día o usa el último del mes: %s', (fecha, meses, esperado) => {
+    expect(sumarMeses(fecha, meses)).toBe(esperado)
   })
 
   it('lunesDe devuelve el lunes de la semana', () => {

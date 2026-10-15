@@ -130,6 +130,60 @@ describe('armarDiaAdministracion', () => {
   })
 })
 
+describe('armarSemanaPersona: última semana parcialmente editable', () => {
+  const base = {
+    lunes: '2026-12-14',
+    ahora: AHORA,
+    horas,
+    plan: planDesdeFilas(FILAS_PLAN),
+    selecciones: [],
+    cerradas: [],
+  }
+
+  it('mantiene los siete días y habilita únicamente los que llegan al límite inclusive', () => {
+    const dias = armarSemanaPersona(base)
+    expect(dias.map((dia) => dia.fecha)).toEqual([
+      '2026-12-14', '2026-12-15', '2026-12-16', '2026-12-17', '2026-12-18', '2026-12-19', '2026-12-20',
+    ])
+    expect(dias.map((dia) => dia.comidas.map((comida) => comida.abierta))).toEqual([
+      [true, true, true], [true, true, true], [true, true, true],
+      [false, false, false], [false, false, false], [false, false, false], [false, false, false],
+    ])
+    expect(dias.slice(3).every(diaCerrado)).toBe(true)
+  })
+
+  it('conserva la selección futura y la nota al reconstruir la semana, sin modificar el plan', () => {
+    const selecciones = [{ fecha: '2026-12-16', comida: 'cena', estado: 'tarde', nota: '20:00', origen: 'persona' }] as const
+    const primera = armarSemanaPersona({ ...base, selecciones })
+    const alVolver = armarSemanaPersona({ ...base, selecciones: JSON.parse(JSON.stringify(selecciones)) })
+    expect(alVolver).toEqual(primera)
+    expect(alVolver[2].comidas[1]).toMatchObject({ valor: { estado: 'si', nota: null, origen: 'plan' }, abierta: true })
+    expect(alVolver[2].comidas[2]).toMatchObject({
+      valor: { estado: 'tarde', nota: '20:00', origen: 'persona' },
+      plan: { estado: 'temprano', nota: '19:00' },
+      abierta: true,
+    })
+    expect(base.plan).toEqual(planDesdeFilas(FILAS_PLAN))
+  })
+
+  it('mantiene ausencias, excepciones por fecha y cierres explícitos en las fechas futuras', () => {
+    const dias = armarSemanaPersona({
+      ...base,
+      ausencias: [{ desde: '2026-12-16', hasta: '2026-12-16' }],
+      selecciones: [{ fecha: '2026-12-16', comida: 'cena', estado: 'enfermo', nota: 'Sopa', origen: 'persona' }],
+      cerradas: [{ fecha: '2026-12-15', comida: 'almuerzo' }],
+    })
+    expect(dias[1].comidas[1]).toMatchObject({ abierta: false, cierre: 'cerrada' })
+    expect(dias[2].comidas[1]).toMatchObject({
+      valor: { estado: 'no', nota: null, origen: 'ausencia' },
+      plan: { estado: 'si', nota: null },
+      ausente: true,
+      abierta: true,
+    })
+    expect(dias[2].comidas[2]).toMatchObject({ valor: { estado: 'enfermo', nota: 'Sopa', origen: 'persona' }, ausente: true, abierta: true })
+  })
+})
+
 describe('valorTrasGuardar', () => {
   it('igual al plan queda como "según tu plan"', () => {
     expect(valorTrasGuardar({ estado: 'si', nota: null }, { estado: 'si', nota: null })).toEqual({ estado: 'si', nota: null, origen: 'plan' })

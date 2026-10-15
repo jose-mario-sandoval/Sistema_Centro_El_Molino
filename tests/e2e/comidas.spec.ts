@@ -1,5 +1,6 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
-import { fechaISOEn, lunesDe, sumarDias } from '../../lib/fechas'
+import { diaSemana, fechaISOEn, lunesDe, sumarDias } from '../../lib/fechas'
+import { periodoEditable } from '../../lib/comidas/periodo'
 import {
   asegurarUsuariosPrueba,
   clienteAdminPrueba,
@@ -129,6 +130,47 @@ test.beforeEach(async () => {
 
 test.afterEach(async () => {
   await limpiar()
+})
+
+test('navega todas las semanas de los tres meses y guarda el último día inclusive', async ({ page }) => {
+  test.setTimeout(60_000)
+  const hoy = fechaISOEn(new Date())
+  const ultimo = periodoEditable(hoy).hasta
+  const lunesUltimo = lunesDe(ultimo)
+  await iniciarSesion(page, 'residente')
+
+  for (let lunes = sumarDias(lunesDe(hoy), 7); lunes <= lunesUltimo; lunes = sumarDias(lunes, 7)) {
+    const siguiente = page.getByRole('link', { name: 'Semana siguiente', exact: true })
+    await expect(siguiente).toHaveAttribute('href', `/comidas/semana?semana=${lunes}`)
+    await siguiente.click()
+    await expect(page).toHaveURL(new RegExp(`/comidas/semana\\?semana=${lunes}$`))
+    await expect(page.locator('.tarjetas-semana .tarjeta-dia')).toHaveCount(7)
+  }
+
+  await expect(page.getByRole('link', { name: 'Semana siguiente', exact: true })).toHaveCount(0)
+  // La última semana se presenta completa, pero sus días posteriores al límite son solo consulta.
+  await expect(page.locator('.tarjetas-semana button.comida-tarjeta')).toHaveCount(diaSemana(ultimo) * 3)
+  for (let fecha = sumarDias(ultimo, 1); fecha <= sumarDias(lunesUltimo, 6); fecha = sumarDias(fecha, 1)) {
+    await expect(page.locator(`.tarjetas-semana .comida-tarjeta[data-fecha="${fecha}"]`)).toHaveCount(3)
+    await expect(page.locator(`.tarjetas-semana button.comida-tarjeta[data-fecha="${fecha}"]`)).toHaveCount(0)
+  }
+
+  const burbuja = await abrirComida(page, ultimo, 'almuerzo')
+  await burbuja.getByRole('button', { name: 'En bolsa', exact: true }).click()
+  await expect(comidaSemana(page, ultimo, 'almuerzo')).toContainText('Bolsa')
+  await expect(comidaSemana(page, ultimo, 'almuerzo')).not.toHaveAttribute('aria-busy', 'true')
+  // La etiqueta es optimista: confirmar la fila del servidor antes de navegar o recargar.
+  await expect.poll(async () => {
+    const { data, error } = await clienteAdminPrueba().from('selecciones_comida').select('estado, origen')
+      .eq('usuario_id', ids.residente).eq('fecha', ultimo).eq('comida', 'almuerzo')
+    if (error) throw error
+    return data
+  }).toEqual([{ estado: 'bolsa', origen: 'persona' }])
+  await page.reload()
+  await expect(comidaSemana(page, ultimo, 'almuerzo')).toContainText('Bolsa')
+  await page.getByRole('link', { name: 'Semana anterior', exact: true }).click()
+  await page.getByRole('link', { name: 'Semana siguiente', exact: true }).click()
+  await expect(comidaSemana(page, ultimo, 'almuerzo')).toContainText('Bolsa')
 })
 
 test('un residente cambia el almuerzo y Administración lo ve en Semana', async ({ page }) => {

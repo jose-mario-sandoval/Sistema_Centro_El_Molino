@@ -76,7 +76,7 @@ export async function obtenerPlanDe(usuarioId: string): Promise<PlanSemanal> {
  * Semana de lunes a domingo de una persona (la propia, o la de otra para el Director) con el valor
  * efectivo, el estado de cierre y quién cambió cada comida.
  */
-export async function obtenerSemanaDe(usuarioId: string, lunes: FechaISO): Promise<DiaDeSemana[]> {
+export async function obtenerSemanaDe(usuarioId: string, lunes: FechaISO, ahora = new Date()): Promise<DiaDeSemana[]> {
   const domingo = sumarDias(lunes, 6)
   const supabase = await crearClienteServidor()
 
@@ -99,7 +99,7 @@ export async function obtenerSemanaDe(usuarioId: string, lunes: FechaISO): Promi
 
   return armarSemanaPersona({
     lunes,
-    ahora: new Date(),
+    ahora,
     horas,
     plan,
     selecciones: selecciones.data,
@@ -272,7 +272,7 @@ export async function obtenerNotasExtras(lunes: FechaISO): Promise<ExtraManual[]
  * su nombre real y su valor efectivo en cada comida, y el mismo resumen que ve Administración.
  * Lleva nombres y el detalle de cada persona: por eso exige el rol aquí también, no solo en la página.
  */
-export async function obtenerSemanaDeLaCasa(lunes: FechaISO): Promise<DiaDeLaCasa[]> {
+export async function obtenerSemanaDeLaCasa(lunes: FechaISO, ahora = new Date()): Promise<DiaDeLaCasa[]> {
   const observador = await obtenerPerfilActual()
   if (observador?.rol !== 'director') throw new Error('La semana de la casa es solo para el Director.')
 
@@ -314,7 +314,7 @@ export async function obtenerSemanaDeLaCasa(lunes: FechaISO): Promise<DiaDeLaCas
 
   return armarSemanaDeLaCasa({
     lunes,
-    ahora: new Date(),
+    ahora,
     horas,
     personas: personas.map(({ id, nombre }) => ({ id, nombre })),
     planes: planes.data,

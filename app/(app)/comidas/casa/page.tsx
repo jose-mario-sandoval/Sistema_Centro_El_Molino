@@ -4,7 +4,7 @@ import { exigirRol } from '@/lib/auth/sesion'
 import { diasParaExtra } from '@/lib/comidas/casa'
 import { obtenerConfirmacionesExtra, obtenerExtrasDeLaSemana, obtenerNotasExtras, obtenerSemanaDeLaCasa } from '@/lib/comidas/consultas'
 import { semanaPedida } from '@/lib/comidas/semana'
-import { fechaISOEn } from '@/lib/fechas'
+import { fechaISOEn, instanteEnZona, sumarDias } from '@/lib/fechas'
 import { NavegacionSemana } from '../_componentes/navegacion-semana'
 import { RefrescarAlVolver } from '../_componentes/refrescar-al-volver'
 import { TablaCasa } from './_componentes/tabla-casa'
@@ -23,14 +23,16 @@ export default async function PaginaLaCasa({
   const perfil = await exigirRol('director')
   const { semana, persona } = await searchParams
 
-  const hoy = fechaISOEn(new Date())
+  const ahora = new Date()
+  const hoy = fechaISOEn(ahora)
+  const refrescarEnMs = instanteEnZona(sumarDias(hoy, 1), '00:00').getTime() - ahora.getTime()
   const lunes = semanaPedida(semana, hoy)
 
   // "Ver la semana de:" es un formulario GET (funciona sin JavaScript): acá se lo lleva a su página.
   if (esUuid(persona)) redirect(`/comidas/casa/${persona}?semana=${lunes}`)
 
   const [dias, extras, extrasManuales, confirmaciones] = await Promise.all([
-    obtenerSemanaDeLaCasa(lunes),
+    obtenerSemanaDeLaCasa(lunes, ahora),
     obtenerExtrasDeLaSemana(lunes),
     obtenerNotasExtras(lunes),
     obtenerConfirmacionesExtra(lunes),
@@ -40,7 +42,7 @@ export default async function PaginaLaCasa({
   return (
     <>
       {/* Al volver a la pestaña, trae cierres y cambios hechos mientras tanto. */}
-      <RefrescarAlVolver />
+      <RefrescarAlVolver refrescarEnMs={refrescarEnMs} />
       <NavegacionSemana lunes={lunes} hoy={hoy} ruta="/comidas/casa" />
 
       <form action="/comidas/casa" method="get" className="card ver-persona">
