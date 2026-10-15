@@ -69,6 +69,45 @@ export type Database = {
         }
         Relationships: []
       }
+      avisos_mensaje_push: {
+        Row: {
+          mensaje_id: string
+          reservado_en: string
+          revision: number
+          suscripcion_id: string
+          tipo: string
+        }
+        Insert: {
+          mensaje_id: string
+          reservado_en?: string
+          revision: number
+          suscripcion_id: string
+          tipo: string
+        }
+        Update: {
+          mensaje_id?: string
+          reservado_en?: string
+          revision?: number
+          suscripcion_id?: string
+          tipo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "avisos_mensaje_push_mensaje_id_fkey"
+            columns: ["mensaje_id"]
+            isOneToOne: false
+            referencedRelation: "mensajes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "avisos_mensaje_push_suscripcion_id_fkey"
+            columns: ["suscripcion_id"]
+            isOneToOne: false
+            referencedRelation: "suscripciones_push"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       comidas_cerradas: {
         Row: {
           cerrada_en: string
@@ -280,6 +319,7 @@ export type Database = {
       mensajes: {
         Row: {
           autor_id: string
+          aviso_revision: number
           creado_en: string
           estado: Database["public"]["Enums"]["estado_mensaje"]
           fijado_en: string | null
@@ -293,6 +333,7 @@ export type Database = {
         }
         Insert: {
           autor_id: string
+          aviso_revision?: number
           creado_en?: string
           estado?: Database["public"]["Enums"]["estado_mensaje"]
           fijado_en?: string | null
@@ -306,6 +347,7 @@ export type Database = {
         }
         Update: {
           autor_id?: string
+          aviso_revision?: number
           creado_en?: string
           estado?: Database["public"]["Enums"]["estado_mensaje"]
           fijado_en?: string | null
@@ -337,6 +379,20 @@ export type Database = {
             columns: ["padre_id"]
             isOneToOne: false
             referencedRelation: "mensajes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notas_dieta: {
+        Row: { nota: string; usuario_id: string }
+        Insert: { nota: string; usuario_id: string }
+        Update: { nota?: string; usuario_id?: string }
+        Relationships: [
+          {
+            foreignKeyName: "notas_dieta_usuario_id_fkey"
+            columns: ["usuario_id"]
+            isOneToOne: true
+            referencedRelation: "perfiles"
             referencedColumns: ["id"]
           },
         ]
@@ -755,6 +811,10 @@ export type Database = {
         Args: { p_hasta: string; p_id: string }
         Returns: string
       }
+      guardar_nota_dieta_de: {
+        Args: { p_nota: string; p_usuario: string }
+        Returns: undefined
+      }
       guardar_seleccion: {
         Args: {
           p_comida: Database["public"]["Enums"]["tiempo_comida"]
@@ -798,9 +858,22 @@ export type Database = {
         Args: { p_usuario: string }
         Returns: boolean
       }
+      puedo_leer_mensaje: {
+        Args: { p_id: string }
+        Returns: boolean
+      }
       requiere_cocina_valido: {
         Args: { p: Database["public"]["Enums"]["requerimiento_cocina"][] }
         Returns: boolean
+      }
+      reservar_avisos_mensaje: {
+        Args: {
+          p_mensaje_id: string
+          p_revision: number
+          p_suscripciones: string[]
+          p_tipo: string
+        }
+        Returns: string[]
       }
       soy_activo: { Args: never; Returns: boolean }
       tiene_comidas: { Args: { p_usuario: string }; Returns: boolean }

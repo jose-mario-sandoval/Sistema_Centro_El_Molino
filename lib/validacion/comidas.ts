@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { FECHA_MAXIMA, FECHA_MINIMA } from '@/lib/calendario/cuadricula'
-import { mensajeNota, normalizarNota, notaValida } from '@/lib/comidas/notas'
+import { LARGO_MAXIMO_NOTA_DIETA, mensajeNota, normalizarNota, notaValida } from '@/lib/comidas/notas'
 import { CANTIDAD_MAXIMA_EXTRA, ESTADOS_COMIDA, LARGO_MAXIMO_NOTA_EXTRA, TIEMPOS_COMIDA } from '@/lib/comidas/tipos'
 
 const fecha = z.iso.date('Fecha inválida.')
@@ -44,6 +44,13 @@ export const esquemaPlan = z
   }))
 
 export const esquemaVolverAPlan = z.object({ fecha, comida, usuarioId })
+
+export const esquemaNotaDieta = z.object({
+  usuarioId,
+  nota: z.string('Nota inválida.').trim()
+    .max(LARGO_MAXIMO_NOTA_DIETA, `La nota puede tener hasta ${LARGO_MAXIMO_NOTA_DIETA} caracteres.`)
+    .nullish().transform((texto) => texto || null),
+})
 
 export { CANTIDAD_MAXIMA_EXTRA, LARGO_MAXIMO_NOTA_EXTRA }
 const MENSAJE_CANTIDAD = `Indicá cuántas personas, de 1 a ${CANTIDAD_MAXIMA_EXTRA}.`

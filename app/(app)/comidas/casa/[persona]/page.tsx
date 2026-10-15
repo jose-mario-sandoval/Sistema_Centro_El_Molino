@@ -5,7 +5,7 @@ import { Icono, type NombreIcono } from '@/components/ui/iconos'
 import { listarAusenciasDe } from '@/lib/ausencias/consultas'
 import { exigirRol } from '@/lib/auth/sesion'
 import { pestanasPersona, type VistaPersona } from '@/lib/comidas/casa'
-import { obtenerPlanDe, obtenerSemanaDe } from '@/lib/comidas/consultas'
+import { obtenerNotaDietaDe, obtenerPlanDe, obtenerSemanaDe } from '@/lib/comidas/consultas'
 import { semanaPedida, tipoSemana } from '@/lib/comidas/semana'
 import { diaParaMostrar } from '@/lib/comidas/vista'
 import type { Voz } from '@/lib/comidas/voz'
@@ -14,6 +14,7 @@ import { listarPerfiles } from '@/lib/perfiles/consultas'
 import { PanelAusencias } from '../../../calendario/_componentes/panel-ausencias'
 import { NavegacionSemana } from '../../_componentes/navegacion-semana'
 import { PlanEditable } from '../../_componentes/plan-editable'
+import { NotasDieta } from '../../_componentes/notas-dieta'
 import { RefrescarAlVolver } from '../../_componentes/refrescar-al-volver'
 import { SemanaPersona } from '../../_componentes/semana-persona'
 
@@ -133,7 +134,7 @@ async function VistaSemana({
 }
 
 async function VistaPlan({ usuarioId, nombre, voz }: { usuarioId: string; nombre: string; voz: Voz }) {
-  const plan = await obtenerPlanDe(usuarioId)
+  const [plan, notaDieta] = await Promise.all([obtenerPlanDe(usuarioId), obtenerNotaDietaDe(usuarioId)])
   return (
     <>
       <div className="locked-banner">
@@ -142,6 +143,7 @@ async function VistaPlan({ usuarioId, nombre, voz }: { usuarioId: string; nombre
           : `Lo que come normalmente ${nombre} cada semana. Se usa en todas las semanas mientras no se cambie un día puntual. Tocá una comida para cambiarla: los cambios se guardan solos.`}
       </div>
       <PlanEditable plan={plan} usuarioId={usuarioId} voz={voz} persona={nombre} />
+      <NotasDieta key={usuarioId} notaInicial={notaDieta} usuarioId={usuarioId} voz={voz} />
     </>
   )
 }

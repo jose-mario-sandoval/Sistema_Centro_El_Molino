@@ -38,7 +38,7 @@ async function sinNombresAjenos(page: Page, clave: ClaveUsuario) {
  * llave secreta el trigger lo deja "pendiente" (no hay auth.uid() de Director en esa sesión), así que
  * el Director lo aprueba aparte.
  */
-async function sembrarMensaje(clave: ClaveUsuario, texto: string) {
+async function sembrarMensaje(clave: ClaveUsuario, texto: string, padreId: string | null = null) {
   const admin = clienteAdminPrueba()
   const { data: perfil, error } = await admin
     .from('perfiles')
@@ -48,7 +48,7 @@ async function sembrarMensaje(clave: ClaveUsuario, texto: string) {
   if (error) throw error
   const { data: mensaje, error: errorMensaje } = await admin
     .from('mensajes')
-    .insert({ autor_id: perfil.id, texto })
+    .insert({ autor_id: perfil.id, texto, padre_id: padreId })
     .select('id')
     .single()
   if (errorMensaje) throw errorMensaje
@@ -56,6 +56,7 @@ async function sembrarMensaje(clave: ClaveUsuario, texto: string) {
   const director = await clienteComo('director')
   const { error: errorAprobar } = await director.from('mensajes').update({ estado: 'aprobado' }).eq('id', mensaje.id)
   if (errorAprobar) throw errorAprobar
+  return mensaje.id
 }
 
 /** La publicación (`article.msg`) que contiene `texto`. */
@@ -89,6 +90,81 @@ test('un residente publica y responde', async ({ page }) => {
 
   await page.reload()
   await expect(tarjeta(page, publicacion).locator('.thread')).toContainText(respuesta)
+})
+
+test('Me gusta de respuestas persiste, llega en tiempo real y se revierte con aviso si falla la conexión', async ({ page, context, browser, baseURL }) => {
+  const publicacion = textoUnico('likes en respuestas')
+  const padreId = await sembrarMensaje('director', publicacion)
+  const respuestaId = await sembrarMensaje('director', textoUnico('respuesta con like'), padreId)
+  await iniciarSesion(page, 'residente')
+  await page.goto('/mensajes')
+  await expect(page.locator('.feed-mensajes')).toHaveAttribute('data-conexion', 'en-vivo', { timeout: 20_000 })
+  const respuesta = page.locator(`[data-respuesta-id="${respuestaId}"]`)
+  const boton = respuesta.getByRole('button', { name: /^Me gusta/ })
+  await expect(boton).toHaveAttribute('aria-pressed', 'false')
+  await boton.click()
+  await expect(boton).toHaveAccessibleName('Me gusta (1)')
+  await expect(boton).toHaveAttribute('aria-busy', 'false')
+  await page.reload()
+  await expect(boton).toHaveAttribute('aria-pressed', 'true')
+  await expect(boton).toHaveAccessibleName('Me gusta (1)')
+  await expect(tarjeta(page, publicacion).locator('.msg-actions').first().getByRole('button', { name: 'Me gusta (0)', exact: true })).toBeVisible()
+
+  const contextoOtro = await browser.newContext({ baseURL })
+  try {
+    const otro = await contextoOtro.newPage()
+    await iniciarSesion(otro, 'administracion')
+    await otro.goto('/mensajes')
+    await expect(otro.locator('.feed-mensajes')).toHaveAttribute('data-conexion', 'en-vivo', { timeout: 20_000 })
+    const botonOtro = otro.locator(`[data-respuesta-id="${respuestaId}"]`).getByRole('button', { name: /^Me gusta/ })
+    await expect(botonOtro).toHaveAccessibleName('Me gusta (1)')
+    await expect(botonOtro).toHaveAttribute('aria-pressed', 'false')
+    await boton.click()
+    await expect(boton).toHaveAttribute('aria-pressed', 'false')
+    await expect(boton).toHaveAttribute('aria-busy', 'false')
+    await expect(botonOtro).toHaveAccessibleName('Me gusta (0)', { timeout: 10_000 })
+    await sinNombresAjenos(otro, 'administracion')
+
+    await context.setOffline(true)
+    await boton.click()
+    await expect(page.locator('.toast')).toContainText('No se pudo conectar')
+    await expect(boton).toHaveAttribute('aria-pressed', 'false')
+    await expect(boton).toHaveAccessibleName('Me gusta (0)')
+    await expect(boton).toHaveAttribute('aria-busy', 'false')
+    await context.setOffline(false)
+    await boton.click()
+    await expect(botonOtro).toHaveAccessibleName('Me gusta (1)', { timeout: 20_000 })
+    await expect(boton).toHaveAttribute('aria-busy', 'false')
+    await page.reload()
+    await expect(boton).toHaveAttribute('aria-pressed', 'true')
+  } finally {
+    await context.setOffline(false)
+    await contextoOtro.close()
+  }
+})
+
+test('el enlace de un aviso abre y enfoca un hilo anterior a la primera página', async ({ page }) => {
+  const ids = await asegurarUsuariosPrueba()
+  const admin = clienteAdminPrueba()
+  const antiguo = textoUnico('hilo antiguo enlazado')
+  const { data: hilo, error } = await admin.from('mensajes').insert({ autor_id: ids.director, texto: antiguo, creado_en: '2000-01-01T00:00:00Z' }).select('id').single()
+  if (error) throw error
+  const { data: recientes, error: errorRecientes } = await admin.from('mensajes').insert(
+    Array.from({ length: 51 }, (_, i) => ({ autor_id: ids.director, texto: textoUnico(`hilo reciente ${i}`) })),
+  ).select('id')
+  if (errorRecientes) throw errorRecientes
+  const director = await clienteComo('director')
+  const { error: errorAprobar } = await director.from('mensajes').update({ estado: 'aprobado' }).in('id', [hilo.id, ...recientes.map((m) => m.id)])
+  if (errorAprobar) throw errorAprobar
+
+  await iniciarSesion(page, 'residente')
+  await page.goto('/mensajes')
+  await expect(tarjeta(page, antiguo)).toHaveCount(0)
+  await page.goto(`/mensajes?hilo=${hilo.id}`)
+  await expect(tarjeta(page, antiguo)).toBeVisible()
+  await expect(tarjeta(page, antiguo)).toBeFocused()
+  await expect(page.locator('.feed-mensajes')).toHaveAttribute('data-conexion', 'en-vivo', { timeout: 20_000 })
+  await expect(tarjeta(page, antiguo)).toBeVisible()
 })
 
 test('el Director borra un mensaje de un residente y lo ve en el registro', async ({ page }) => {

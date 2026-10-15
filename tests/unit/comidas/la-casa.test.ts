@@ -129,13 +129,18 @@ describe('armarSemanaDeLaCasa', () => {
     for (const dia of casa) {
       const administracion = armarDiaAdministracion({
         fecha: dia.fecha,
-        personas: PERSONAS,
+        personas: PERSONAS.map(({ id }) => ({ id, siglas: id.toUpperCase() })),
         planes: [...PLANES],
         selecciones: [...SELECCIONES],
         cerradas: [...CERRADAS],
         ausentes: PERSONAS.filter((p) => estaAusente(AUSENCIAS.filter((a) => a.usuario_id === p.id), dia.fecha)).map((p) => p.id),
       })
-      for (const comida of dia.comidas) expect(comida.resumen, `${dia.fecha} ${comida.comida}`).toEqual(administracion.resumen[comida.comida])
+      for (const comida of dia.comidas) {
+        const { asistentes, ...resumen } = administracion.resumen[comida.comida]
+        expect(comida.resumen, `${dia.fecha} ${comida.comida}`).toEqual(resumen)
+        expect(asistentes).toHaveLength(comida.resumen.total - comida.resumen.partes
+          .filter(({ clave }) => clave === 'no' || clave === 'sin_definir').reduce((total, parte) => total + parte.cantidad, 0))
+      }
     }
   })
 

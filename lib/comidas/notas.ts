@@ -74,3 +74,5 @@ export function mensajeNota(estado: EstadoComida, voz: 'propia' | 'ajena' = 'pro
   if (nota === 'texto') return `Indicá qué ${voz === 'propia' ? 'podés' : 'puede'} comer (hasta ${LARGO_MAXIMO_NOTA} caracteres).`
   return `"${etiqueta}" no lleva nota.`
 }
+/** Las notas generales de dieta no dependen de la nota de ninguna celda. Espejo del check SQL. */
+export const LARGO_MAXIMO_NOTA_DIETA = 1000

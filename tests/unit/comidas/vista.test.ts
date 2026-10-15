@@ -13,7 +13,6 @@ import {
   textoCorto,
   textoValor,
   valorTrasGuardar,
-  type DiaAgregado,
   type DiaDeSemana,
   type FilaPlan,
   type PersonaConPlan,
@@ -100,9 +99,9 @@ describe('armarDiaAdministracion', () => {
   const datos = armarDiaAdministracion({
     fecha: '2026-09-16',
     personas: [
-      { id: 'a', nombre: 'Ana' },
-      { id: 'b', nombre: 'Beto' },
-      { id: 'c', nombre: 'Carla' },
+      { id: 'a', siglas: 'AA' },
+      { id: 'b', siglas: 'BB' },
+      { id: 'c', siglas: 'CC' },
     ],
     planes: [
       { usuario_id: 'a', dia_semana: 3, comida: 'desayuno', estado: 'si', nota: null },
@@ -118,7 +117,7 @@ describe('armarDiaAdministracion', () => {
   })
 
   it('calcula el valor efectivo de cada persona en el orden recibido', () => {
-    expect(datos.filas.map((f) => f.nombre)).toEqual(['Ana', 'Beto', 'Carla'])
+    expect(datos.filas.map((f) => f.siglas)).toEqual(['AA', 'BB', 'CC'])
     expect(datos.filas[0].valores).toEqual({ desayuno: null, almuerzo: { estado: 'si', nota: null, origen: 'plan' }, cena: null })
     expect(datos.filas[1].valores.almuerzo).toEqual({ estado: 'tarde', nota: '13:30', origen: 'persona' })
     expect(datos.filas[2].valores).toEqual({ desayuno: null, almuerzo: null, cena: null })
@@ -197,8 +196,8 @@ describe('armarDiaAdministracion: ausencias', () => {
     armarDiaAdministracion({
       fecha: '2026-09-17',
       personas: [
-        { id: 'a', nombre: 'AA' },
-        { id: 'b', nombre: 'BB' },
+        { id: 'a', siglas: 'AA' },
+        { id: 'b', siglas: 'BB' },
       ],
       planes: [
         { usuario_id: 'a', dia_semana: 4, comida: 'almuerzo', estado: 'si', nota: null },
@@ -253,7 +252,7 @@ describe('agregarSemana', () => {
   it('deja fecha y resumen; nunca filas', () => {
     const dia = armarDiaAdministracion({
       fecha: '2026-10-07',
-      personas: [{ id: 'p1', nombre: 'Residente Secreto' }],
+      personas: [{ id: 'p1', siglas: 'RS' }],
       planes: [],
       selecciones: [{ usuario_id: 'p1', fecha: '2026-10-07', comida: 'almuerzo', estado: 'si', nota: null, origen: 'persona' }],
       cerradas: [],
@@ -261,23 +260,26 @@ describe('agregarSemana', () => {
     const [agregado] = agregarSemana([dia])
     expect(agregado).toEqual({ fecha: '2026-10-07', resumen: dia.resumen })
     expect(JSON.stringify(agregado)).not.toContain('Secreto')
+    expect(agregado.resumen.almuerzo.asistentes).toEqual([{ siglas: 'RS', notaDieta: null, estado: 'si', nota: null }])
+    expect(JSON.stringify(agregado)).not.toContain('p1')
     expect((agregado as unknown as { filas?: unknown }).filas).toBeUndefined()
   })
 })
 
 describe('resumenPlanSemanal', () => {
   const personas: PersonaConPlan[] = [
-    { id: 'p1', nombre: 'A', plan: { 3: { almuerzo: { estado: 'si', nota: null } } } },
-    { id: 'p2', nombre: 'B', plan: { 3: { almuerzo: { estado: 'no', nota: null } } } },
+    { id: 'p1', siglas: 'AA', plan: { 3: { almuerzo: { estado: 'si', nota: null } } } },
+    { id: 'p2', siglas: 'BB', plan: { 3: { almuerzo: { estado: 'no', nota: null } } } },
   ]
 
-  it('agrega por día de semana y tiempo de comida, sin nombres', () => {
+  it('agrega por día de semana y tiempo de comida y conserva únicamente las siglas de quienes comen', () => {
     const semana = resumenPlanSemanal(personas)
     expect(semana[3].almuerzo.partes).toEqual([
       { clave: 'si', cantidad: 1, texto: '1 sí' },
       { clave: 'no', cantidad: 1, texto: '1 no come' },
     ])
-    expect(JSON.stringify(semana)).not.toMatch(/"A"|"B"/)
+    expect(semana[3].almuerzo.asistentes).toEqual([{ siglas: 'AA', estado: 'si', nota: null, notaDieta: null }])
+    expect(JSON.stringify(semana)).not.toMatch(/"id"|"nombre"/)
   })
 
   it('un día sin plan definido cuenta como "sin definir"', () => {
@@ -287,7 +289,7 @@ describe('resumenPlanSemanal', () => {
 
   it('sin personas, cada comida queda vacía', () => {
     const semana = resumenPlanSemanal([])
-    expect(semana[1].desayuno).toEqual({ total: 0, partes: [] })
+    expect(semana[1].desayuno).toEqual({ total: 0, partes: [], asistentes: [] })
   })
 })
 

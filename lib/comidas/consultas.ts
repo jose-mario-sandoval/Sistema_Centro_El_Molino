@@ -18,8 +18,30 @@ import {
   type DiaDeLaCasa,
   type DiaDeSemana,
   type PersonaConPlan,
+  type PersonaAdministracion,
   type PlanSemanal,
 } from './vista'
+
+/** Siempre filtra por persona: el Director y Administración pueden leer notas de otras. */
+export async function obtenerNotaDietaDe(usuarioId: string): Promise<string | null> {
+  const supabase = await crearClienteServidor()
+  const { data, error } = await supabase.from('notas_dieta').select('nota').eq('usuario_id', usuarioId).maybeSingle()
+  if (error) throw error
+  return data?.nota ?? null
+}
+
+/** Descarta nombres e IDs de cuenta ajenos antes de armar cualquier payload de cocina. */
+async function personasParaAdministracion(): Promise<PersonaAdministracion[]> {
+  const perfiles = await listarPerfiles({ conComidas: true })
+  if (perfiles.length === 0) return []
+  const supabase = await crearClienteServidor()
+  const notas = await supabase.from('notas_dieta').select('usuario_id, nota', { count: 'exact' })
+    .in('usuario_id', perfiles.map(({ id }) => id))
+  if (notas.error) throw notas.error
+  exigirFilasCompletas(notas, 'Notas de dieta')
+  const porPersona = new Map(notas.data.map(({ usuario_id, nota }) => [usuario_id, nota]))
+  return perfiles.map(({ id, siglas }) => ({ id, siglas, notaDieta: porPersona.get(id) ?? null }))
+}
 
 /** Las 3 horas límite vigentes (tabla horas_limite de la Fase 0). */
 export async function obtenerHorasLimite(): Promise<HorasLimite> {
@@ -89,7 +111,7 @@ export async function obtenerSemanaDe(usuarioId: string, lunes: FechaISO): Promi
 /** Plan semanal de cada Director/Residente activo (Administración, solo lectura). */
 export async function obtenerPlanesDeTodos(): Promise<PersonaConPlan[]> {
   const supabase = await crearClienteServidor()
-  const personas = await listarPerfiles({ conComidas: true })
+  const personas = await personasParaAdministracion()
   if (personas.length === 0) return []
 
   // Acotamos a las personas activas ya listadas: evita traer filas de usuarios
@@ -104,7 +126,8 @@ export async function obtenerPlanesDeTodos(): Promise<PersonaConPlan[]> {
 
   return personas.map((persona) => ({
     id: persona.id,
-    nombre: persona.nombre,
+    siglas: persona.siglas,
+    notaDieta: persona.notaDieta,
     plan: planDesdeFilas(filas.data.filter((fila) => fila.usuario_id === persona.id)),
   }))
 }
@@ -113,7 +136,7 @@ export async function obtenerPlanesDeTodos(): Promise<PersonaConPlan[]> {
 export async function obtenerDiaParaAdministracion(fecha: FechaISO): Promise<DiaAdministracion> {
   const supabase = await crearClienteServidor()
   const [personas, planes, selecciones, cerradas, ausentes] = await Promise.all([
-    listarPerfiles({ conComidas: true }),
+    personasParaAdministracion(),
     supabase
       .from('plan_semanal')
       .select('usuario_id, dia_semana, comida, estado, nota')
@@ -138,12 +161,12 @@ export async function obtenerDiaParaAdministracion(fecha: FechaISO): Promise<Dia
   })
 }
 
-/** Semana completa para Administración: solo cantidades por día y tiempo de comida, nunca por persona. */
+/** Semana concreta para Administración: cantidades y asistentes por siglas según el valor efectivo. */
 export async function obtenerSemanaParaAdministracion(lunes: FechaISO): Promise<DiaAgregado[]> {
   const domingo = sumarDias(lunes, 6)
   const dias = diasDeSemana(lunes)
   const supabase = await crearClienteServidor()
-  const personas = await listarPerfiles({ conComidas: true })
+  const personas = await personasParaAdministracion()
   const ids = personas.map((persona) => persona.id)
 
   const [planes, selecciones, cerradas, ausentesPorDia] = await Promise.all([
@@ -220,7 +243,7 @@ export async function obtenerConfirmacionesExtra(lunes: FechaISO): Promise<Confi
   }))
 }
 
-/** Plan habitual agregado, para Administración (nunca por persona). */
+/** Plan habitual para Administración: cantidades y asistentes por siglas, sin cambios de una semana. */
 export async function obtenerResumenPlanSemanal(): Promise<Record<number, Record<TiempoComida, import('./resumen').ResumenComida>>> {
   const personas = await obtenerPlanesDeTodos()
   return resumenPlanSemanal(personas)

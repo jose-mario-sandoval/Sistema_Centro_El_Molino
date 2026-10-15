@@ -208,24 +208,30 @@ function FormularioAusencia({
 }
 
 /**
- * Ausencias de la propia persona (Director y Residente), en una tarjeta compacta debajo del
- * calendario. Sus comidas de esos días se cancelan solas. Las ven ella y el Director; la cocina ve
- * "No comer", no el motivo ni las fechas. Con `persona`, las de otra persona en La casa del Director
+ * Ausencias de la propia persona (Director y Residente). En el calendario, `plegable` oculta todo
+ * el contenido hasta abrir la barra. Sus comidas de esos días se cancelan solas. Las ven ella y el
+ * Director; la cocina ve "No comer", no el motivo ni las fechas. Con `persona`, las de La casa del Director
  * (textos en tercera persona, `usuarioId` en cada acción).
  */
 export function PanelAusencias({
   ausencias,
   hoy,
   persona,
+  plegable = false,
 }: {
   ausencias: Ausencia[]
   hoy: FechaISO
   persona?: PersonaAusencias
+  /** El uso en La casa conserva la tarjeta abierta y sus textos en tercera persona. */
+  plegable?: boolean
 }) {
   const voz: Voz = persona ? 'ajena' : 'propia'
   const textos = textosAusencias(voz, persona?.nombre)
   const [abierto, setAbierto] = useState(false)
+  const [desplegado, setDesplegado] = useState(!plegable)
   const idFormulario = useId()
+  const idTitulo = useId()
+  const idContenido = useId()
   const boton = useRef<HTMLButtonElement>(null)
   const titulo = useRef<HTMLHeadingElement>(null)
 
@@ -235,48 +241,63 @@ export function PanelAusencias({
   }
 
   return (
-    <section className="card panel-ausencias" aria-labelledby="titulo-ausencias">
-      <h2 id="titulo-ausencias" ref={titulo} tabIndex={-1} className="section-title">
-        {textos.titulo}
+    <section className={`card panel-ausencias${plegable ? ' plegable' : ''}`} aria-labelledby={idTitulo}>
+      <h2 id={idTitulo} ref={titulo} tabIndex={-1} className="section-title">
+        {plegable ? (
+          <button
+            type="button"
+            className="btn ghost barra-ausencias"
+            aria-expanded={desplegado}
+            aria-controls={idContenido}
+            onClick={() => setDesplegado((actual) => !actual)}
+          >
+            <Icono nombre="ausencia" />
+            Ausencias
+            <Icono nombre="abajo" className="flecha" />
+          </button>
+        ) : textos.titulo}
       </h2>
-      <p className="hint">{textos.ayuda}</p>
-      {ausencias.length === 0 ? (
-        <p className="ausencias-vacio">{textos.vacio}</p>
-      ) : (
-        <ul className="lista-ausencias">
-          {ausencias.map((ausencia) => (
-            <FilaAusencia
-              key={ausencia.id}
-              ausencia={ausencia}
-              usuarioId={persona?.id}
-              voz={voz}
-              alQuitar={() => titulo.current?.focus()}
-            />
-          ))}
-        </ul>
-      )}
-      <button
-        ref={boton}
-        type="button"
-        className="btn ghost boton-marcar-ausencia"
-        aria-expanded={abierto}
-        aria-controls={abierto ? idFormulario : undefined}
-        onClick={() => (abierto ? cerrar() : setAbierto(true))}
-      >
-        Marcar una ausencia
-        <Icono nombre="abajo" className="flecha" />
-      </button>
-      {abierto && (
-        <FormularioAusencia
-          id={idFormulario}
-          hoy={hoy}
-          ausencias={ausencias}
-          alCerrar={cerrar}
-          usuarioId={persona?.id}
-          voz={voz}
-          comoMarcar={textos.comoMarcar}
-        />
-      )}
+      {/* `hidden` conserva cualquier borrador al plegar y quita sus controles del recorrido de teclado. */}
+      <div id={idContenido} className="contenido-ausencias" hidden={!desplegado}>
+        <p className="hint">{textos.ayuda}</p>
+        {ausencias.length === 0 ? (
+          <p className="ausencias-vacio">{textos.vacio}</p>
+        ) : (
+          <ul className="lista-ausencias">
+            {ausencias.map((ausencia) => (
+              <FilaAusencia
+                key={ausencia.id}
+                ausencia={ausencia}
+                usuarioId={persona?.id}
+                voz={voz}
+                alQuitar={() => titulo.current?.focus()}
+              />
+            ))}
+          </ul>
+        )}
+        <button
+          ref={boton}
+          type="button"
+          className="btn ghost boton-marcar-ausencia"
+          aria-expanded={abierto}
+          aria-controls={abierto ? idFormulario : undefined}
+          onClick={() => (abierto ? cerrar() : setAbierto(true))}
+        >
+          Marcar una ausencia
+          <Icono nombre="abajo" className="flecha" />
+        </button>
+        {abierto && (
+          <FormularioAusencia
+            id={idFormulario}
+            hoy={hoy}
+            ausencias={ausencias}
+            alCerrar={cerrar}
+            usuarioId={persona?.id}
+            voz={voz}
+            comoMarcar={textos.comoMarcar}
+          />
+        )}
+      </div>
     </section>
   )
 }

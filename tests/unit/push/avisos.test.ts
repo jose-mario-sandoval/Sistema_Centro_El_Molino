@@ -8,7 +8,7 @@ vi.mock('server-only', () => ({}))
 vi.mock('@/lib/supabase/admin', () => ({ crearClienteAdmin: vi.fn() }))
 vi.mock('@/lib/push/enviar', () => ({ enviarAUsuarios: vi.fn() }))
 
-type Mensaje = { id: string; autor_id: string; padre_id: string | null; texto: string; estado: string; motivo_rechazo?: string | null }
+type Mensaje = { id: string; autor_id: string; padre_id: string | null; texto: string; estado: string; motivo_rechazo?: string | null; solo_director?: boolean; aviso_revision?: number }
 
 const AVISOS = { activo: true, avisar_mensajes: true, avisar_hora_limite: true, avisar_cambios: true, avisar_cocina: true }
 const PERFILES = [
@@ -24,7 +24,7 @@ function clienteFalso(mensajes: Mensaje[]) {
     from(tabla: string) {
       const filtros: [string, unknown][] = []
       const filas = () =>
-        (tabla === 'mensajes' ? mensajes : PERFILES).filter((f) =>
+        (tabla === 'mensajes' ? mensajes.map((m) => ({ solo_director: false, aviso_revision: 1, ...m })) : PERFILES).filter((f) =>
           filtros.every(([col, val]) => (f as Record<string, unknown>)[col] === val),
         )
       let contar = false
@@ -80,6 +80,25 @@ describe('avisarNuevaPublicacion', () => {
     }
     expect(enviarAUsuarios).not.toHaveBeenCalled()
   })
+
+  it('un privado excluye a otros Residentes y usa solo siglas para Administración', async () => {
+    con([{ id: 'p', autor_id: 'r1', padre_id: null, texto: 'Privado', estado: 'aprobado', solo_director: true, aviso_revision: 4 }])
+    await avisarNuevaPublicacion('p')
+    expect(envios()).toEqual([
+      { ids: ['dir'], carga: expect.objectContaining({ titulo: 'Residente Uno publicó un mensaje' }) },
+      { ids: ['adm'], carga: expect.objectContaining({ titulo: 'R1 publicó un mensaje', url: '/mensajes?hilo=p' }) },
+    ])
+    for (const [, , opciones] of vi.mocked(enviarAUsuarios).mock.calls) {
+      expect(opciones).toEqual({ avisoMensaje: { mensajeId: 'p', revision: 4, tipo: 'publicacion' } })
+    }
+  })
+
+  it('un fallo push posterior a guardar no se propaga al envío del mensaje', async () => {
+    con([{ id: 'p', autor_id: 'dir', padre_id: null, texto: 'Aviso', estado: 'aprobado' }])
+    vi.mocked(enviarAUsuarios).mockRejectedValue(new Error('proveedor no disponible'))
+    await expect(avisarNuevaPublicacion('p')).resolves.toBeUndefined()
+    expect(console.error).toHaveBeenCalled()
+  })
 })
 
 describe('avisarNuevaRespuesta', () => {
@@ -109,6 +128,28 @@ describe('avisarNuevaRespuesta', () => {
     con([publicacion('pendiente'), respuesta('aprobado')])
     await avisarNuevaRespuesta('r')
     expect(enviarAUsuarios).not.toHaveBeenCalled()
+  })
+
+  it('en un privado incluye al autor del hilo, excluye al Residente ajeno y mantiene las siglas', async () => {
+    con([
+      { ...publicacion('aprobado'), autor_id: 'r1', solo_director: true },
+      { ...respuesta('aprobado'), autor_id: 'adm', solo_director: true },
+      { id: 'r2', autor_id: 'r2', padre_id: 'p', texto: 'Vieja', estado: 'aprobado', solo_director: true },
+      { id: 'r3', autor_id: 'dir', padre_id: 'p', texto: 'Anterior', estado: 'aprobado', solo_director: true },
+    ])
+    await avisarNuevaRespuesta('r')
+    expect(envios().flatMap((e) => e.ids).sort()).toEqual(['dir', 'r1'])
+    expect(envios()[0].carga.url).toBe('/mensajes?hilo=p')
+  })
+
+  it('la privacidad del padre se respeta incluso ante una respuesta antigua inconsistente', async () => {
+    con([
+      { ...publicacion('aprobado'), autor_id: 'r1', solo_director: true },
+      { ...respuesta('aprobado'), autor_id: 'dir', solo_director: false },
+      { id: 'r2', autor_id: 'r2', padre_id: 'p', texto: 'Vieja', estado: 'aprobado' },
+    ])
+    await avisarNuevaRespuesta('r')
+    expect(envios().flatMap((e) => e.ids)).toEqual(['r1'])
   })
 })
 
@@ -170,7 +211,7 @@ describe('avisarModeracion', () => {
     expect(envios()).toEqual([
       {
         ids: ['r1'],
-        carga: { titulo: 'Tu mensaje fue aprobado', cuerpo: 'Ya lo pueden leer todos en Mensajes.', url: '/mensajes', etiqueta: 'moderacion-p' },
+        carga: { titulo: 'Tu mensaje fue aprobado', cuerpo: 'Ya está disponible para quienes pueden leerlo.', url: '/mensajes?hilo=p', etiqueta: 'moderacion-p' },
       },
     ])
   })

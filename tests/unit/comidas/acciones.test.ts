@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { guardarPlan, guardarSeleccion, volverAPlan } from '@/app/(app)/comidas/acciones'
+import { guardarNotaDieta, guardarPlan, guardarSeleccion, volverAPlan } from '@/app/(app)/comidas/acciones'
 import { agregarExtra, quitarExtra } from '@/app/(app)/comidas/casa/acciones'
 import { fallo } from '@/lib/acciones/resultado'
 import { perfilParaAccion, type Perfil } from '@/lib/auth/sesion'
@@ -47,6 +47,48 @@ beforeEach(() => {
 })
 
 const SELECCION = { fecha: '2026-09-30', comida: 'almuerzo', estado: 'no', nota: null }
+
+describe('guardarNotaDieta', () => {
+  it.each([DIRECTOR, RESIDENTE])('guarda la nota propia normalizada de $rol', async (perfil) => {
+    sesionDe(perfil)
+    const falso = usarCliente(clienteSupabaseFalso())
+    expect(await guardarNotaDieta({ nota: '  Indicaciones generales\nOtra línea  ' })).toEqual({ ok: true, data: null })
+    expect(falso.rpcs).toEqual([{ nombre: 'guardar_nota_dieta_de', args: {
+      p_usuario: perfil.id, p_nota: 'Indicaciones generales\nOtra línea',
+    } }])
+    expect(revalidatePath).toHaveBeenCalledWith('/comidas', 'layout')
+  })
+
+  it('vacía elimina y no escribe en el plan ni las selecciones', async () => {
+    sesionDe(RESIDENTE)
+    const falso = usarCliente(clienteSupabaseFalso())
+    expect(await guardarNotaDieta({ nota: '   ' })).toEqual({ ok: true, data: null })
+    expect(falso.rpcs[0].args).toEqual({ p_usuario: RESIDENTE.id, p_nota: null })
+    expect(falso.operaciones).toEqual([])
+  })
+
+  it('el Director puede gestionar la nota de otra persona', async () => {
+    sesionDe(DIRECTOR)
+    const falso = usarCliente(clienteSupabaseFalso())
+    expect(await guardarNotaDieta({ nota: 'Indicaciones generales', usuarioId: OTRA })).toEqual({ ok: true, data: null })
+    expect(falso.rpcs[0].args).toEqual({ p_usuario: OTRA, p_nota: 'Indicaciones generales' })
+  })
+
+  it.each([ADMINISTRACION, RESIDENTE])('rechaza gestión ajena de $rol antes de consultar la base', async (perfil) => {
+    sesionDe(perfil)
+    const falso = usarCliente(clienteSupabaseFalso())
+    expect(await guardarNotaDieta({ nota: 'Indicaciones generales', usuarioId: OTRA })).toEqual(SIN_PERMISO)
+    expect(falso.rpcs).toEqual([])
+  })
+
+  it('rechaza una nota demasiado larga y conserva el error de permiso de la base', async () => {
+    sesionDe(DIRECTOR)
+    const falso = usarCliente(clienteSupabaseFalso({ rpc: [{ data: null, error: { code: '42501' } }] }))
+    expect((await guardarNotaDieta({ nota: 'x'.repeat(1001) })).ok).toBe(false)
+    expect(falso.rpcs).toEqual([])
+    expect(await guardarNotaDieta({ nota: 'Indicaciones', usuarioId: OTRA })).toEqual(SIN_PERMISO)
+  })
+})
 
 describe('guardarSeleccion: siempre por guardar_seleccion_de, con el objetivo', () => {
   it('sin usuarioId, las propias', async () => {

@@ -166,11 +166,13 @@ describe('publicar y responder: el aviso público solo si se publica directo', (
     expect(avisarMensajePendiente).not.toHaveBeenCalled()
   })
 
-  it('un reintento de un envío ya guardado (23505) no vuelve a avisar', async () => {
+  it('un reintento de un envío guardado recupera after con la reserva durable que evita duplicados', async () => {
     como('residente')
     clienteFalso({ insercion: { error: { code: '23505' } }, lectura: { data: { id: ID }, error: null } })
     expect(await publicarMensaje(null, formulario({ id: ID, texto: 'Hola' }))).toEqual({ ok: true, data: { id: ID } })
-    expect(after).not.toHaveBeenCalled()
+    expect(after).toHaveBeenCalledOnce()
+    await correrAfter()
+    expect(avisarMensajePendiente).toHaveBeenCalledWith(ID)
   })
 })
 

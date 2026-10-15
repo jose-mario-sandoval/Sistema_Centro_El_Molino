@@ -3,7 +3,7 @@ import {
   armarFeed,
   cursorAnteriores,
   TAMANO_PAGINA,
-  type MensajeFila,
+  type RespuestaFila,
   type Publicacion,
   type PublicacionFila,
 } from '@/lib/mensajes/feed'
@@ -35,7 +35,7 @@ export const MAXIMO_FIJADAS = 20
 // Un solo string literal (sin concatenar con `+`): supabase-js infiere el tipo de fila leyendo
 // el literal exacto, y `+` lo ampliaría a `string` genérico, perdiendo esa inferencia.
 const COLUMNAS_FEED =
-  'id, autor_id, padre_id, texto, creado_en, estado, motivo_rechazo, solo_director, fijado_en, fijado_hasta, fijado_por, reacciones(usuario_id), respuestas:mensajes!padre_id(id, autor_id, padre_id, texto, creado_en, estado, motivo_rechazo, solo_director, fijado_en, fijado_hasta, fijado_por)'
+  'id, autor_id, padre_id, texto, creado_en, estado, motivo_rechazo, solo_director, fijado_en, fijado_hasta, fijado_por, reacciones(usuario_id), respuestas:mensajes!padre_id(id, autor_id, padre_id, texto, creado_en, estado, motivo_rechazo, solo_director, fijado_en, fijado_hasta, fijado_por, reacciones(usuario_id))'
 
 type Cliente = SupabaseClient<Database>
 
@@ -43,12 +43,12 @@ type Cliente = SupabaseClient<Database>
  * Todas las respuestas de una publicación, de a MAXIMO_FILAS_API y avanzando por id: sin saltear ni repetir
  * aunque se agreguen o borren respuestas entre un pedido y otro. El orden del hilo lo pone armarFeed.
  */
-async function todasLasRespuestas(supabase: Cliente, padreId: string): Promise<MensajeFila[]> {
-  const respuestas: MensajeFila[] = []
+async function todasLasRespuestas(supabase: Cliente, padreId: string): Promise<RespuestaFila[]> {
+  const respuestas: RespuestaFila[] = []
   for (;;) {
     let consulta = supabase
       .from('mensajes')
-      .select('id, autor_id, padre_id, texto, creado_en, estado, motivo_rechazo, solo_director, fijado_en, fijado_hasta, fijado_por')
+      .select('id, autor_id, padre_id, texto, creado_en, estado, motivo_rechazo, solo_director, fijado_en, fijado_hasta, fijado_por, reacciones(usuario_id)')
       .eq('padre_id', padreId)
     const ultima = respuestas.at(-1)
     if (ultima) consulta = consulta.gt('id', ultima.id)

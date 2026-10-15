@@ -14,7 +14,7 @@ import {
   USUARIOS_PRUEBA,
   type ClaveUsuario,
 } from '../soporte/usuarios-prueba'
-import { marcarAusencia, panelAusencias } from './soporte/ausencias'
+import { abrirPanelAusencias, marcarAusencia, panelAusencias } from './soporte/ausencias'
 
 /*
  * "La casa" del Director: ve y cambia las comidas de todos con los mismos cierres; la persona ve que
@@ -237,6 +237,7 @@ test('"Ver la semana de": el Director cambia el plan y marca una ausencia del re
   await salir(page)
   await iniciarSesion(page, 'residente')
   await page.goto('/calendario')
+  await abrirPanelAusencias(panelAusencias(page))
   await expect(panelAusencias(page).getByText('La marcó el Director', { exact: true })).toBeVisible()
   await page.goto('/comidas/plan')
   const celdaPlan = page.getByRole('button', { name: /^Martes, cena:/ })
@@ -403,6 +404,7 @@ test('La casa no muestra a Administración como persona, y las "Mis ausencias" d
   await expect(page.getByRole('heading', { name: 'Página no encontrada' })).toBeVisible()
 
   await page.goto('/calendario')
+  await abrirPanelAusencias(panelAusencias(page))
   await expect(panelAusencias(page).getByRole('button', { name: /^Quitar la ausencia del / })).toHaveCount(1)
 
   await page.goto(`/comidas/casa/${ids.residente}?ver=ausencias&semana=${lunesSiguiente}`)

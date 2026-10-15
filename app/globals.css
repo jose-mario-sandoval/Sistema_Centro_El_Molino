@@ -1203,10 +1203,16 @@ button.comida-tarjeta[aria-busy="true"]{cursor:progress;}
   border:2px dashed var(--dorado);color:var(--dorado);font-size:var(--t-xs);font-weight:700;
 }
 .etiqueta-ausente .icono{width:1.1em;height:1.1em;}
-/* Tarjeta compacta debajo del calendario: una línea por ausencia y el mini calendario plegado. */
+/* Ausencias: tarjeta abierta en La casa; barra plegable antes del calendario. */
 .panel-ausencias{margin-top:1.5rem;}
 .panel-ausencias > .section-title{margin-bottom:.35rem;}
-.panel-ausencias > .hint{margin-bottom:1rem;max-width:65ch;}
+.contenido-ausencias > .hint{margin-bottom:1rem;max-width:65ch;}
+.panel-ausencias.plegable{margin:0 0 1rem;padding:0;}
+.panel-ausencias.plegable > .section-title{margin:0;}
+.barra-ausencias{width:100%;justify-content:flex-start;text-align:left;padding:.65rem 1rem;}
+.barra-ausencias .flecha{margin-left:auto;transition:transform var(--dur) var(--curva);}
+.barra-ausencias[aria-expanded="true"] .flecha{transform:rotate(180deg);}
+.panel-ausencias.plegable > .contenido-ausencias{padding:0 1rem 1rem;}
 .ausencias-vacio{margin-bottom:1rem;color:var(--tinta-suave);font-size:var(--t-sm);}
 .lista-ausencias{display:flex;flex-direction:column;gap:.5rem;margin-bottom:1rem;}
 .fila-ausencia{
@@ -1813,3 +1819,26 @@ html[data-ofrecer-avisos="si"] .invitacion-avisos{display:block;}
   /* La cabecera no baja de --t-xs: si "MIÉ" no entra en la columna, la inicial (como el mini calendario). */
   .cal-dow{letter-spacing:0;}
 }
+
+/* Asistentes de Administración y notas generales de dieta. */
+.asistentes-admin{margin-top:.8rem;min-width:0;width:100%;flex-basis:100%;}
+.asistentes-admin > summary{
+  display:flex;align-items:center;gap:.45rem;min-height:var(--toque);padding:.65rem;
+  border:2px solid var(--borde-elevado);border-radius:var(--r-sm);box-shadow:var(--relieve-bajo);
+  color:var(--tinta);font-size:var(--t-xs);font-weight:600;cursor:pointer;list-style:none;
+}
+.asistentes-admin > summary::-webkit-details-marker{display:none;}
+.asistentes-admin > summary::after{content:'+';margin-left:auto;}
+.asistentes-admin[open] > summary{box-shadow:var(--hundido-suave);border-color:var(--borde-hundido);}
+.asistentes-admin[open] > summary::after{content:'−';}
+.asistentes-contenido{padding:.75rem .25rem;overflow-wrap:anywhere;}
+.asistentes-grupo + .asistentes-grupo{margin-top:1rem;}
+.asistentes-estado{display:flex;align-items:center;gap:.35rem;color:var(--c);font-size:var(--t-xs);font-weight:600;}
+.asistentes-grupo ul{list-style:none;padding:0;margin:.5rem 0 0;}
+.asistentes-grupo li{border-top:1px solid var(--separador);padding:.5rem 0;font-size:var(--t-xs);}
+.asistente-nota{white-space:pre-wrap;overflow-wrap:anywhere;margin:.35rem 0 0;font-size:var(--t-xs);color:var(--tinta);}
+.notas-dieta{margin-top:1.25rem;min-width:0;}
+.notas-dieta .hint{margin:0;}
+.notas-dieta textarea{width:100%;min-width:0;}
+.notas-dieta .btn{max-width:100%;white-space:normal;}
+.notas-dieta-estado{min-height:1.5em;margin-top:.5rem !important;}

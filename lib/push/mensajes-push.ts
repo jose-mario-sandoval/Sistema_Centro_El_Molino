@@ -54,16 +54,16 @@ export function cargaNuevaPublicacion(p: { id: string; autor: string; texto: str
   return {
     titulo: `${p.autor} publicó un mensaje`,
     cuerpo: recortar(p.texto),
-    url: '/mensajes',
+    url: `/mensajes?hilo=${encodeURIComponent(p.id)}`,
     etiqueta: `mensaje-${p.id}`,
   }
 }
 
-export function cargaNuevaRespuesta(p: { id: string; autor: string; texto: string }): CargaPush {
+export function cargaNuevaRespuesta(p: { id: string; padreId: string; autor: string; texto: string }): CargaPush {
   return {
     titulo: `${p.autor} respondió en un hilo`,
     cuerpo: recortar(p.texto),
-    url: '/mensajes',
+    url: `/mensajes?hilo=${encodeURIComponent(p.padreId)}`,
     etiqueta: `mensaje-${p.id}`,
   }
 }
@@ -93,6 +93,7 @@ export function cargaMensajePendiente(p: { autor: string; tipo: TipoPendiente; p
 /** Al autor: el Director aprobó o no su mensaje (con el motivo, para que lo corrija). */
 export function cargaModeracion(p: {
   id: string
+  padreId?: string | null
   estado: 'aprobado' | 'rechazado'
   esRespuesta: boolean
   motivo: string | null
@@ -101,8 +102,8 @@ export function cargaModeracion(p: {
   if (p.estado === 'aprobado') {
     return {
       titulo: `${que} fue aprobad${a}`,
-      cuerpo: `Ya ${lo} pueden leer todos ${p.esRespuesta ? 'en el hilo' : 'en Mensajes'}.`,
-      url: '/mensajes',
+      cuerpo: `Ya está disponible para quienes pueden ${p.esRespuesta ? 'leer el hilo' : 'leerlo'}.`,
+      url: `/mensajes?hilo=${encodeURIComponent(p.padreId ?? p.id)}`,
       etiqueta: `moderacion-${p.id}`,
     }
   }
@@ -111,7 +112,7 @@ export function cargaModeracion(p: {
   return {
     titulo: `${que} no fue aprobad${a}`,
     cuerpo: recortar(motivo ? `Motivo: ${motivo}. ${queHacer}` : queHacer),
-    url: '/mensajes',
+    url: `/mensajes?hilo=${encodeURIComponent(p.padreId ?? p.id)}`,
     etiqueta: `moderacion-${p.id}`,
   }
 }
