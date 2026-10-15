@@ -41,7 +41,6 @@ function perfil(rol: Rol): Perfil {
     nombre: `Nombre ${rol}`,
     siglas: 'XX',
     usuario: rol,
-    correo: null,
     rol,
     activo: true,
     debe_cambiar_contrasena: false,

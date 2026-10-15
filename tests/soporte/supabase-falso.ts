@@ -96,7 +96,6 @@ export function perfilDePrueba(id: string, rol: Rol): Perfil {
     nombre: `Persona ${rol}`,
     siglas: rol.slice(0, 2).toUpperCase(),
     usuario: `${rol}-${id.slice(0, 4)}`,
-    correo: null,
     rol,
     activo: true,
     debe_cambiar_contrasena: false,

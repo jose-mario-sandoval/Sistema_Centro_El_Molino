@@ -352,7 +352,6 @@ export type Database = {
           avisar_hora_limite: boolean
           fuera_de_conteos: boolean
           avisar_mensajes: boolean
-          correo: string | null
           creado_en: string
           debe_cambiar_contrasena: boolean
           id: string
@@ -371,7 +370,6 @@ export type Database = {
           avisar_hora_limite?: boolean
           fuera_de_conteos?: boolean
           avisar_mensajes?: boolean
-          correo?: string | null
           creado_en?: string
           debe_cambiar_contrasena?: boolean
           id: string
@@ -390,7 +388,6 @@ export type Database = {
           avisar_hora_limite?: boolean
           fuera_de_conteos?: boolean
           avisar_mensajes?: boolean
-          correo?: string | null
           creado_en?: string
           debe_cambiar_contrasena?: boolean
           id?: string

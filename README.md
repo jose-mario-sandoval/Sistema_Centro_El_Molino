@@ -29,6 +29,7 @@ Next.js 16 (App Router) + TypeScript · Supabase (Postgres, Auth, Realtime, pg_c
 | `npm run crear-director -- --nombre "…" --siglas XX --usuario …` | Crea un Director con contraseña temporal (entra con ese usuario) |
 | `npm run datos-demo -- --confirmar` | Cuentas y datos demo (usuarios `demo.…`) con la contraseña de `CONTRASENA_DEMO`; a las cuentas que ya existen se la actualiza (sirve para rotarla) |
 | `npm run limpiar-datos-demo -- --confirmar` | Borra todo lo demo (checklist de lanzamiento) |
+| `npm run borrar-correos` | Dice cuántas cuentas tienen todavía un correo real en Auth; con `-- --confirmar` se los reemplaza por direcciones internas (no tiene vuelta atrás) |
 
 ## Reglas de trabajo
 
