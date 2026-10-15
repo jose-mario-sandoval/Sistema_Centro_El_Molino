@@ -97,7 +97,7 @@ export function etiquetaGrupo(etiqueta: string, cantidad: number): string {
 
 /**
  * Días de la semana en que se puede agregar un extra: desde hoy (la base lo exige igual). En la
- * semana en curso, de hoy al domingo; en la siguiente, los siete; en una pasada, ninguno.
+ * semana en curso, de hoy al domingo; en una futura, los siete; en una pasada, ninguno.
  */
 export function diasParaExtra(lunes: FechaISO, hoy: FechaISO): FechaISO[] {
   if (sumarDias(lunes, 6) < hoy) return []

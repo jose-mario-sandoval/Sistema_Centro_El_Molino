@@ -1,4 +1,5 @@
-import { fechaISOEn, instanteEnZona, lunesDe, sumarDias, type FechaISO } from '@/lib/fechas'
+import { fechaISOEn, instanteEnZona, sumarDias, type FechaISO } from '@/lib/fechas'
+import { periodoEditable } from './periodo'
 import type { HorasLimite, SeleccionGuardada, TiempoComida, ValorComida, ValorEfectivo } from './tipos'
 
 /** Instante en que cierra `comida` de `fecha` (spec §6.1). */
@@ -7,11 +8,10 @@ export function cierreDe(fecha: FechaISO, comida: TiempoComida, horas: HorasLimi
   return instanteEnZona(sumarDias(fecha, diaRelativo), hora)
 }
 
-/** Semana actual (desde su lunes) y la siguiente (hasta su domingo), en hora local. */
+/** Desde hoy hasta hoy + tres meses calendario, ambos incluidos, en hora local. */
 export function enVentanaEditable(fecha: FechaISO, ahora: Date): boolean {
-  const lunesActual = lunesDe(fechaISOEn(ahora))
-  const domingoSiguiente = sumarDias(lunesActual, 13)
-  return fecha >= lunesActual && fecha <= domingoSiguiente
+  const { desde, hasta } = periodoEditable(fechaISOEn(ahora))
+  return fecha >= desde && fecha <= hasta
 }
 
 export function estaAbierta(p: {

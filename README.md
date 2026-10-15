@@ -81,6 +81,27 @@ Resumen; el detalle completo está en el spec.
 
 - Roles: Director, Residente, Administración.
 - Comidas por comida (desayuno, almuerzo, cena) con 6 estados; la semana parte del Plan semanal.
-- Hora límite por comida (mismo día o día anterior) fijada por el Director; se edita la semana actual y la siguiente.
+- Hora límite por comida (mismo día o día anterior) fijada por el Director; se editan fechas desde hoy hasta tres meses calendario después, ambos días incluidos, según la fecha del servidor en `America/El_Salvador`. Si el día no existe en el mes destino, se usa el último de ese mes.
 - Solo el Director crea, edita y elimina eventos.
 - Cuentas: solo el Director las crea; se desactivan en lugar de borrarse; contraseña temporal obligatoria.
+
+## Activar los tres meses editables de comidas
+
+Aplicar `supabase/migrations/20261015130000_comidas_tres_meses.sql` antes o junto con el
+despliegue de las pantallas. Con `.env.local` configurado para el proyecto correcto:
+
+```powershell
+npm run db:aplicar -- --dry-run
+npm run db:aplicar
+```
+
+El primer comando muestra todas las migraciones pendientes. La nueva migración reemplaza
+`comida_editable()`, que ya usan RLS y las RPC de guardar y volver al plan, tanto propias como
+del Director. Conserva permisos, horas límite y cierres. No requiere nuevas variables de
+entorno, cambios de configuración ni regenerar tipos.
+
+El cálculo compartido de la aplicación está en `lib/comidas/periodo.ts`; los casos de
+`tests/fixtures/casos-comidas.json` comprueban su paridad con SQL. Las pruebas de integración
+verifican guardado y relectura a futuro y en el último día, rechazo por RLS/RPC del día siguiente,
+ausencias y permisos; los E2E verifican la navegación y la última semana parcialmente editable.
+Se ejecutan en el Supabase temporal de CI, nunca contra producción.

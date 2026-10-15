@@ -17,6 +17,7 @@ import {
 } from '@/lib/comidas/vista'
 import type { Voz } from '@/lib/comidas/voz'
 import type { FechaISO } from '@/lib/fechas'
+import { etiquetaDiaLarga } from '@/lib/fechas/etiquetas'
 import { ContextoBorradores, useBorradoresDelGrupo } from './borradores-del-grupo'
 import { ContenidoComida } from './contenido-comida'
 import { varsEstado } from './insignia-estado'
@@ -248,6 +249,7 @@ function TarjetaDia({
 export function SemanaPersona({
   dias,
   tipo,
+  hastaEditable,
   diaAlEntrar,
   hrefSiguienteSemana,
   usuarioId,
@@ -256,6 +258,7 @@ export function SemanaPersona({
 }: {
   dias: DiaDeSemana[]
   tipo: TipoSemana
+  hastaEditable: FechaISO
   diaAlEntrar: FechaISO | null
   /** Solo en la semana en curso: "mañana" nunca se esconde detrás de la paginación. */
   hrefSiguienteSemana: string | null
@@ -290,9 +293,13 @@ export function SemanaPersona({
   return (
     <>
       {tipo === 'pasada' && (
-        <div className="locked-banner">Semana pasada: solo consulta. Podés cambiar la semana actual y la siguiente.</div>
+        <div className="locked-banner">Semana pasada: solo consulta. Podés cambiar comidas desde hoy hasta dentro de tres meses.</div>
       )}
-      {tipo !== 'pasada' && <p className="hint semana-ayuda">Tocá una comida para cambiarla.</p>}
+      {tipo !== 'pasada' && (
+        <p className="hint semana-ayuda">
+          Tocá una comida para cambiarla. Podés cambiar desde hoy hasta el {etiquetaDiaLarga(hastaEditable).toLowerCase()}, inclusive.
+        </p>
+      )}
       {semanaCambiadaPorOtro(dias) && (
         <p className="leyenda-director">
           <span className="celda-director">

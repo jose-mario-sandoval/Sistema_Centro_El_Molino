@@ -58,19 +58,58 @@ describe('comidaSinCerrar (espejo de public.comida_sin_cerrar: quitar un extra)'
     expect(comidaSinCerrar({ ...base, cerrada: true, fecha: '2026-09-16', comida: 'almuerzo' })).toBe(false)
   })
 
-  it('a diferencia de estaAbierta, no mira la ventana editable: dentro de un mes sigue sin cerrar', () => {
-    expect(comidaSinCerrar({ ...base, fecha: '2026-10-20', comida: 'cena' })).toBe(true)
-    expect(estaAbierta({ ...base, fecha: '2026-10-20', comida: 'cena' })).toBe(false)
+  it('a diferencia de estaAbierta, no mira la ventana editable: después de los tres meses sigue sin cerrar', () => {
+    expect(comidaSinCerrar({ ...base, fecha: '2026-12-17', comida: 'cena' })).toBe(true)
+    expect(estaAbierta({ ...base, fecha: '2026-12-17', comida: 'cena' })).toBe(false)
   })
 })
 
 describe('enVentanaEditable', () => {
   const ahora = new Date('2026-09-16T08:00:00-06:00')
-  it('incluye desde el lunes actual hasta el domingo siguiente', () => {
+  it('incluye desde hoy hasta tres meses calendario, sin extenderse al fin de semana', () => {
     expect(enVentanaEditable('2026-09-13', ahora)).toBe(false)
-    expect(enVentanaEditable('2026-09-14', ahora)).toBe(true)
+    expect(enVentanaEditable('2026-09-14', ahora)).toBe(false)
+    expect(enVentanaEditable('2026-09-15', ahora)).toBe(false)
+    expect(enVentanaEditable('2026-09-16', ahora)).toBe(true)
     expect(enVentanaEditable('2026-09-27', ahora)).toBe(true)
-    expect(enVentanaEditable('2026-09-28', ahora)).toBe(false)
+    expect(enVentanaEditable('2026-09-28', ahora)).toBe(true)
+    expect(enVentanaEditable('2026-12-16', ahora)).toBe(true)
+    expect(enVentanaEditable('2026-12-17', ahora)).toBe(false)
+    expect(enVentanaEditable('2026-12-20', ahora)).toBe(false)
+  })
+
+  it.each([
+    ['2026-10-31', '2027-01-31', '2027-02-01'],
+    ['2026-01-31', '2026-04-30', '2026-05-01'],
+    ['2026-11-30', '2027-02-28', '2027-03-01'],
+    ['2027-11-30', '2028-02-29', '2028-03-01'],
+  ])('ajusta el último día desde %s: permite %s y bloquea %s', (hoy, ultimo, posterior) => {
+    const ahora = new Date(`${hoy}T08:00:00-06:00`)
+    expect(enVentanaEditable(ultimo, ahora)).toBe(true)
+    expect(enVentanaEditable(posterior, ahora)).toBe(false)
+  })
+
+  it('toma hoy y el límite de la zona del proyecto, y avanza al cambiar la fecha local', () => {
+    const antesDeMedianoche = new Date('2026-10-16T05:59:59Z')
+    const medianoche = new Date('2026-10-16T06:00:00Z')
+    expect(enVentanaEditable('2026-10-15', antesDeMedianoche)).toBe(true)
+    expect(enVentanaEditable('2027-01-15', antesDeMedianoche)).toBe(true)
+    expect(enVentanaEditable('2027-01-16', antesDeMedianoche)).toBe(false)
+    expect(enVentanaEditable('2026-10-15', medianoche)).toBe(false)
+    expect(enVentanaEditable('2027-01-16', medianoche)).toBe(true)
+  })
+})
+
+describe('estaAbierta: nuevo período sin alterar cierres', () => {
+  const base = { ahora: new Date('2026-09-16T08:00:00-06:00'), horas: HORAS_LIMITE_POR_DEFECTO, cerrada: false }
+
+  it.each(['desayuno', 'almuerzo', 'cena'] as const)('permite %s el último día y bloquea el posterior', (comida) => {
+    expect(estaAbierta({ ...base, fecha: '2026-12-16', comida })).toBe(true)
+    expect(estaAbierta({ ...base, fecha: '2026-12-17', comida })).toBe(false)
+  })
+
+  it('el cierre explícito también bloquea una comida futura dentro del período', () => {
+    expect(estaAbierta({ ...base, fecha: '2026-12-16', comida: 'almuerzo', cerrada: true })).toBe(false)
   })
 })
 

@@ -1,5 +1,6 @@
 import { diaSemana, fechaISOEn, horaHHMM, lunesDe, sumarDias, type FechaISO } from '@/lib/fechas'
 import { rangoLegible } from '@/lib/fechas/rango'
+import { MENSAJE_FUERA_DE_PERIODO, periodoEditable } from './periodo'
 import { cierreDe, enVentanaEditable, estaAbierta } from './reglas'
 import { ETIQUETA_TIEMPO, type HorasLimite, type TiempoComida } from './tipos'
 
@@ -7,7 +8,7 @@ export const NOMBRES_DIA = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'
 const DIAS_CORTOS = ['lun', 'mar', 'mié', 'jue', 'vie', 'sáb', 'dom'] as const
 const ARTICULO: Record<TiempoComida, string> = { desayuno: 'El', almuerzo: 'El', cena: 'La' }
 
-export type TipoSemana = 'pasada' | 'actual' | 'siguiente'
+export type TipoSemana = 'pasada' | 'actual' | 'siguiente' | 'futura'
 
 const PATRON_FECHA = /^20\d{2}-\d{2}-\d{2}$/
 
@@ -46,18 +47,19 @@ export function diasDeSemana(lunes: FechaISO): FechaISO[] {
   return Array.from({ length: 7 }, (_, i) => sumarDias(lunes, i))
 }
 
-/** Lunes de la semana pedida en `?semana=`. Inválida o posterior a la siguiente → semana actual. */
+/** Lunes pedido en `?semana=`. Inválida o posterior a la última semana editable → semana actual. */
 export function semanaPedida(valor: unknown, hoy: FechaISO): FechaISO {
   const lunesActual = lunesDe(hoy)
   if (!esFechaISO(valor)) return lunesActual
   const lunes = lunesDe(valor)
-  return lunes > sumarDias(lunesActual, 7) ? lunesActual : lunes
+  return lunes > lunesDe(periodoEditable(hoy).hasta) ? lunesActual : lunes
 }
 
 export function tipoSemana(lunes: FechaISO, hoy: FechaISO): TipoSemana {
   const lunesActual = lunesDe(hoy)
   if (lunes < lunesActual) return 'pasada'
-  return lunes === lunesActual ? 'actual' : 'siguiente'
+  if (lunes === lunesActual) return 'actual'
+  return lunes === sumarDias(lunesActual, 7) ? 'siguiente' : 'futura'
 }
 
 export function navegacionSemana(
@@ -65,7 +67,8 @@ export function navegacionSemana(
   hoy: FechaISO,
 ): { anterior: FechaISO; siguiente: FechaISO | null; tipo: TipoSemana } {
   const tipo = tipoSemana(lunes, hoy)
-  return { anterior: sumarDias(lunes, -7), siguiente: tipo === 'siguiente' ? null : sumarDias(lunes, 7), tipo }
+  const proxima = sumarDias(lunes, 7)
+  return { anterior: sumarDias(lunes, -7), siguiente: proxima > lunesDe(periodoEditable(hoy).hasta) ? null : proxima, tipo }
 }
 
 /** Día pedido en `?dia=` si pertenece a la semana; si no, hoy (si está en la semana) o el lunes. */
@@ -94,7 +97,7 @@ export function textoCierre(p: {
 
 /** Texto del error MOL01 (spec §6.4): fuera de ventana, pasó la hora o ya la cerró la tarea. */
 export function mensajeComidaCerrada(p: { fecha: FechaISO; comida: TiempoComida; ahora: Date; horas: HorasLimite }): string {
-  if (!enVentanaEditable(p.fecha, p.ahora)) return 'Solo podés cambiar la semana actual y la siguiente.'
+  if (!enVentanaEditable(p.fecha, p.ahora)) return MENSAJE_FUERA_DE_PERIODO
   const nombre = `${ARTICULO[p.comida]} ${ETIQUETA_TIEMPO[p.comida].toLowerCase()}`
   if (p.ahora.getTime() < cierreDe(p.fecha, p.comida, p.horas).getTime()) return `${nombre} ya cerró.`
   const { diaRelativo, hora } = p.horas[p.comida]

@@ -1,8 +1,10 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { guardarNotaDieta, guardarPlan, guardarSeleccion, volverAPlan } from '@/app/(app)/comidas/acciones'
 import { agregarExtra, quitarExtra } from '@/app/(app)/comidas/casa/acciones'
 import { fallo } from '@/lib/acciones/resultado'
 import { perfilParaAccion, type Perfil } from '@/lib/auth/sesion'
+import { obtenerHorasLimite } from '@/lib/comidas/consultas'
+import { HORAS_LIMITE_POR_DEFECTO } from '@/lib/comidas/tipos'
 import { avisarCambioDelDirector, avisarExtraCocina } from '@/lib/push/avisos-casa'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { clienteSupabaseFalso, perfilDePrueba } from '@/tests/soporte/supabase-falso'
@@ -44,7 +46,12 @@ function usarCliente(falso: ReturnType<typeof clienteSupabaseFalso>) {
 
 beforeEach(() => {
   vi.clearAllMocks()
+  vi.useFakeTimers()
+  vi.setSystemTime(new Date('2026-09-16T08:00:00-06:00'))
+  vi.mocked(obtenerHorasLimite).mockResolvedValue(HORAS_LIMITE_POR_DEFECTO)
 })
+
+afterEach(() => vi.useRealTimers())
 
 const SELECCION = { fecha: '2026-09-30', comida: 'almuerzo', estado: 'no', nota: null }
 
@@ -163,6 +170,96 @@ describe('volverAPlan: siempre por volver_a_plan_de, con el objetivo', () => {
     const otro = usarCliente(clienteSupabaseFalso())
     expect(await volverAPlan({ fecha: '2026-09-30', comida: 'cena', usuarioId: OTRA })).toMatchObject(SIN_PERMISO)
     expect(otro.rpcs).toEqual([])
+  })
+})
+
+describe.each([
+  ['guardarSeleccion', guardarSeleccion],
+  ['volverAPlan', volverAPlan],
+] as const)('%s: período validado en el servidor', (_nombre, accion) => {
+  it.each([RESIDENTE, DIRECTOR])('permite cambios de $rol dentro del período y en el último día inclusive', async (perfil) => {
+    sesionDe(perfil)
+    const falso = usarCliente(clienteSupabaseFalso())
+    for (const fecha of ['2026-10-20', '2026-12-16']) {
+      expect(await accion({ ...SELECCION, fecha })).toEqual({ ok: true, data: null })
+    }
+    expect(falso.rpcs.map((rpc) => rpc.args)).toEqual([
+      expect.objectContaining({ p_usuario: perfil.id, p_fecha: '2026-10-20' }),
+      expect.objectContaining({ p_usuario: perfil.id, p_fecha: '2026-12-16' }),
+    ])
+  })
+
+  it.each([RESIDENTE, DIRECTOR])('bloquea fechas pasadas y posteriores al límite para $rol antes de escribir', async (perfil) => {
+    sesionDe(perfil)
+    const falso = usarCliente(clienteSupabaseFalso())
+    for (const fecha of ['2026-09-15', '2026-12-17', '2026-12-20']) {
+      expect(await accion({ ...SELECCION, fecha })).toMatchObject({
+        ok: false,
+        error: 'Solo podés cambiar comidas desde hoy hasta dentro de tres meses.',
+      })
+    }
+    expect(falso.rpcs).toEqual([])
+    expect(falso.operaciones).toEqual([])
+    expect(after).not.toHaveBeenCalled()
+  })
+
+  it('el Director puede gestionar otra persona hasta el último día, pero no después', async () => {
+    sesionDe(DIRECTOR)
+    const falso = usarCliente(clienteSupabaseFalso())
+    expect(await accion({ ...SELECCION, fecha: '2026-12-16', usuarioId: OTRA })).toEqual({ ok: true, data: null })
+    expect(await accion({ ...SELECCION, fecha: '2026-12-17', usuarioId: OTRA })).toMatchObject({ ok: false })
+    expect(falso.rpcs).toHaveLength(1)
+    expect(falso.rpcs[0].args).toMatchObject({ p_usuario: OTRA, p_fecha: '2026-12-16' })
+  })
+
+  it('mantiene los permisos también en las nuevas fechas futuras', async () => {
+    const falso = usarCliente(clienteSupabaseFalso())
+    sesionDe(RESIDENTE)
+    expect(await accion({ ...SELECCION, fecha: '2026-12-16', usuarioId: OTRA })).toMatchObject(SIN_PERMISO)
+    sesionDe(ADMINISTRACION)
+    expect(await accion({ ...SELECCION, fecha: '2026-12-16' })).toMatchObject(SIN_PERMISO)
+    expect(falso.rpcs).toEqual([])
+  })
+
+  it('calcula hoy con la fecha del servidor en la zona del proyecto', async () => {
+    sesionDe(RESIDENTE)
+    const falso = usarCliente(clienteSupabaseFalso())
+    vi.setSystemTime(new Date('2026-10-16T05:59:59Z')) // 15/10, 23:59:59 en El Salvador.
+    expect(await accion({ ...SELECCION, fecha: '2027-01-15' })).toEqual({ ok: true, data: null })
+    expect(await accion({ ...SELECCION, fecha: '2027-01-16' })).toMatchObject({ ok: false })
+    vi.setSystemTime(new Date('2026-10-16T06:00:00Z'))
+    expect(await accion({ ...SELECCION, fecha: '2027-01-16' })).toEqual({ ok: true, data: null })
+    expect(falso.rpcs).toHaveLength(2)
+  })
+
+  it.each([
+    ['2026-10-31', '2027-01-31', '2027-02-01'],
+    ['2026-01-31', '2026-04-30', '2026-05-01'],
+    ['2026-11-30', '2027-02-28', '2027-03-01'],
+    ['2027-11-30', '2028-02-29', '2028-03-01'],
+  ])('desde %s permite el límite %s y bloquea %s', async (hoy, ultimo, posterior) => {
+    vi.setSystemTime(new Date(`${hoy}T08:00:00-06:00`))
+    sesionDe(RESIDENTE)
+    const falso = usarCliente(clienteSupabaseFalso())
+    expect(await accion({ ...SELECCION, fecha: ultimo })).toEqual({ ok: true, data: null })
+    expect(await accion({ ...SELECCION, fecha: posterior })).toMatchObject({ ok: false })
+    expect(falso.rpcs).toHaveLength(1)
+  })
+
+  it('sigue informando el cierre por hora que rechaza la base y revalida la vista', async () => {
+    vi.setSystemTime(new Date('2026-09-16T10:00:00-06:00'))
+    sesionDe(RESIDENTE)
+    usarCliente(clienteSupabaseFalso({ rpc: [{ data: null, error: { code: 'MOL01' } }] }))
+    expect(await accion({ ...SELECCION, fecha: '2026-09-16' })).toMatchObject({ ok: false, error: 'El almuerzo ya cerró a las 10:00.' })
+    expect(revalidatePath).toHaveBeenCalledWith('/comidas', 'layout')
+    expect(after).not.toHaveBeenCalled()
+  })
+
+  it('sigue informando una comida futura cerrada por la base antes de su hora límite', async () => {
+    sesionDe(RESIDENTE)
+    usarCliente(clienteSupabaseFalso({ rpc: [{ data: null, error: { code: 'MOL01' } }] }))
+    expect(await accion({ ...SELECCION, fecha: '2026-12-16' })).toMatchObject({ ok: false, error: 'El almuerzo ya cerró.' })
+    expect(after).not.toHaveBeenCalled()
   })
 })
 

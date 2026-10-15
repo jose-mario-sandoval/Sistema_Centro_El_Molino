@@ -107,8 +107,31 @@ describe('armarSemanaDeLaCasa', () => {
     expect(casa[2].comidas[0].sinCerrar).toBe(false) // desayuno de hoy: cerró anoche
     expect(casa[2].comidas[1].sinCerrar).toBe(true)
     expect(casa[1].comidas[2].sinCerrar).toBe(false)
-    const lejana = armarSemanaDeLaCasa({ ...datos, lunes: '2026-10-19', cerradas: [] })
+    const lejana = armarSemanaDeLaCasa({ ...datos, lunes: '2026-12-21', cerradas: [] })
     expect(lejana[0].comidas[0]).toMatchObject({ abierta: false, sinCerrar: true })
+  })
+
+  it('el Director comparte el límite inclusivo y la última semana parcial con cada persona', () => {
+    const ultimaSemana = armarSemanaDeLaCasa({
+      ...datos,
+      lunes: '2026-12-14',
+      selecciones: [{ usuario_id: 'b', fecha: '2026-12-16', comida: 'almuerzo', estado: 'tarde', nota: '13:30', origen: 'persona', modificado_por: 'dir' }],
+      cerradas: [{ fecha: '2026-12-15', comida: 'cena' }],
+      ausencias: [{ usuario_id: 'a', desde: '2026-12-16', hasta: '2026-12-16' }],
+    })
+    expect(ultimaSemana).toHaveLength(7)
+    expect(ultimaSemana.map((dia) => dia.comidas.map((comida) => comida.abierta))).toEqual([
+      [true, true, true], [true, true, false], [true, true, true],
+      [false, false, false], [false, false, false], [false, false, false], [false, false, false],
+    ])
+    for (const dia of ultimaSemana) {
+      for (const comida of dia.comidas) {
+        expect(comida.personas.every((persona) => persona.datos.abierta === comida.abierta)).toBe(true)
+      }
+    }
+    expect(ultimaSemana[2].comidas[1].personas[0].datos.valor).toEqual({ estado: 'no', nota: null, origen: 'ausencia' })
+    expect(ultimaSemana[2].comidas[1].personas[1].datos.valor).toEqual({ estado: 'tarde', nota: '13:30', origen: 'persona', cambiadaPorOtro: true })
+    expect(ultimaSemana[3].comidas[1]).toMatchObject({ abierta: false, sinCerrar: true })
   })
 
   it('las ausencias son de cada persona', () => {
