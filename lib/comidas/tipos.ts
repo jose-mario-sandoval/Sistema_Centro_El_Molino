@@ -10,17 +10,25 @@ export const ETIQUETA_TIEMPO: Record<TiempoComida, string> = {
 export const ESTADOS_COMIDA = ['si', 'no', 'temprano', 'tarde', 'bolsa', 'lonchera', 'enfermo'] as const
 export type EstadoComida = (typeof ESTADOS_COMIDA)[number]
 
-/** 'hora' = nota obligatoria HH:MM; 'texto' = nota obligatoria libre; null = sin nota. */
-export type TipoNota = 'hora' | 'texto' | null
+/**
+ * 'hora' = nota obligatoria HH:MM; 'texto' = nota obligatoria libre; 'texto_opcional' = nota libre que
+ * puede quedar vacía; null = sin nota.
+ */
+export type TipoNota = 'hora' | 'texto' | 'texto_opcional' | null
+
+/** Una nota escrita a mano (no una hora), obligatoria o no. */
+export function esNotaDeTexto(tipo: TipoNota): boolean {
+  return tipo === 'texto' || tipo === 'texto_opcional'
+}
 
 export const INFO_ESTADO: Record<EstadoComida, { etiqueta: string; nota: TipoNota; ayudaNota?: string }> = {
   si: { etiqueta: 'Sí comer', nota: null },
   no: { etiqueta: 'No comer', nota: null },
   temprano: { etiqueta: 'Comer temprano', nota: 'hora', ayudaNota: 'Hora a la que comerá' },
   tarde: { etiqueta: 'Comer tarde', nota: 'hora', ayudaNota: 'Hora a la que comerá' },
-  bolsa: { etiqueta: 'En bolsa', nota: null },
+  bolsa: { etiqueta: 'En bolsa', nota: 'texto_opcional', ayudaNota: 'Nota para la cocina (opcional)' },
   // Empacada en recipientes que se pueden calentar (a diferencia de la bolsa).
-  lonchera: { etiqueta: 'Lonchera', nota: null },
+  lonchera: { etiqueta: 'Lonchera', nota: 'texto_opcional', ayudaNota: 'Nota para la cocina (opcional)' },
   enfermo: { etiqueta: 'Enfermo', nota: 'texto', ayudaNota: 'Qué puede comer' },
 }
 

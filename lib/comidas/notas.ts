@@ -19,15 +19,15 @@ export function normalizarNota(estado: EstadoComida, nota: string | null | undef
 export function notaValida(estado: EstadoComida, nota: string | null): boolean {
   const tipo = INFO_ESTADO[estado].nota
   if (tipo === null) return nota === null
-  if (nota === null) return false
+  if (nota === null) return tipo === 'texto_opcional'
   if (tipo === 'hora') return PATRON_HORA.test(nota)
   return nota.length >= 1 && nota.length <= LARGO_MAXIMO_NOTA
 }
 
 /**
  * Con qué empieza el campo al elegir `estado`, según lo que había (lo guardado o lo que se estaba
- * escribiendo): la misma nota si el tipo coincide (temprano ↔ tarde conservan la hora), si no vacío.
- * Igual en Plan y Semana; la nota se confirma siempre con "Guardar".
+ * escribiendo): la misma nota si es de la misma clase (temprano ↔ tarde conservan la hora, bolsa ↔
+ * lonchera su nota), si no vacío. Igual en Plan y Semana; la nota se confirma siempre con "Guardar".
  */
 export function notaInicial(anterior: ValorComida | null, estado: EstadoComida): string {
   if (!anterior?.nota) return ''
@@ -72,6 +72,7 @@ export function mensajeNota(estado: EstadoComida, voz: 'propia' | 'ajena' = 'pro
   const { etiqueta, nota } = INFO_ESTADO[estado]
   if (nota === 'hora') return `Indicá la hora para "${etiqueta}" (HH:MM).`
   if (nota === 'texto') return `Indicá qué ${voz === 'propia' ? 'podés' : 'puede'} comer (hasta ${LARGO_MAXIMO_NOTA} caracteres).`
+  if (nota === 'texto_opcional') return `La nota puede tener hasta ${LARGO_MAXIMO_NOTA} caracteres.`
   return `"${etiqueta}" no lleva nota.`
 }
 /** Las notas generales de dieta no dependen de la nota de ninguna celda. Espejo del check SQL. */

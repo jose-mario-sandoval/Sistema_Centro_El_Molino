@@ -362,6 +362,8 @@ describe('textoCorto y textoValor', () => {
     expect(textoValor({ estado: 'tarde', nota: '20:00' })).toBe('Comer tarde 20:00')
     expect(textoValor({ estado: 'enfermo', nota: 'Sopa' })).toBe('Enfermo, Sopa')
     expect(textoValor({ estado: 'bolsa', nota: null })).toBe('En bolsa')
+    expect(textoValor({ estado: 'bolsa', nota: 'Sin sal' })).toBe('En bolsa, Sin sal')
+    expect(textoValor({ estado: 'lonchera', nota: 'Sin sal' })).toBe('Lonchera, Sin sal')
     expect(textoValor(null)).toBe('Falta, sin definir')
   })
 })

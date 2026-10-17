@@ -2,14 +2,16 @@
 
 import { useId } from 'react'
 import { LARGO_MAXIMO_NOTA } from '@/lib/comidas/notas'
-import { INFO_ESTADO, type EstadoComida } from '@/lib/comidas/tipos'
+import { INFO_ESTADO, esNotaDeTexto, type EstadoComida } from '@/lib/comidas/tipos'
+import { etiquetaNota } from '@/lib/comidas/voz'
 import type { BorradorNota } from './usar-borrador-nota'
 
 /**
- * El campo de hora (temprano, tarde) o de nota (enfermo) de una comida: el mismo, con el mismo
- * comportamiento, en Plan, Semana y La casa (DESIGN.md §8). Aparece al elegir un estado que lo pide y
- * toma el foco. "Guardar" (o cerrar la burbuja) guarda lo escrito si sirve; si no, el motivo va debajo
- * del campo. "Cancelar" lo descarta. La lógica está en `useBorradorNota` (ver `propsEditorNota`);
+ * El campo de hora (temprano, tarde) o de nota (enfermo, bolsa, lonchera) de una comida: el mismo, con
+ * el mismo comportamiento, en Plan, Semana y La casa (DESIGN.md §8). Aparece al elegir un estado que
+ * lo pide y toma el foco. "Guardar" (o cerrar la burbuja) guarda lo escrito si sirve; si no, el motivo
+ * va debajo del campo. "Cancelar" lo descarta. En bolsa y lonchera la nota es opcional: vacío también
+ * se guarda. La lógica está en `useBorradorNota` (ver `propsEditorNota`);
  * esto solo pinta. Quien lo usa le pone `key={estado}`: al pasar de un estado a otro vuelve a empezar
  * (y a tomar el foco).
  */
@@ -26,7 +28,7 @@ export function EditorNota({
 }: {
   /** Un estado que lleva nota. */
   estado: EstadoComida
-  /** Por defecto 'Hora' o 'Qué podés comer'. */
+  /** Por defecto 'Hora', 'Nota para la cocina (opcional)' o 'Qué podés comer'. */
   etiqueta?: string
   valor: string
   /** Por qué no se pudo guardar o cerrar. */
@@ -52,12 +54,12 @@ export function EditorNota({
         if (!pendiente) alGuardar()
       }}
     >
-      <label htmlFor={id}>{etiqueta ?? (tipo === 'hora' ? 'Hora' : 'Qué podés comer')}</label>
+      <label htmlFor={id}>{etiqueta ?? etiquetaNota(tipo ?? 'texto', 'propia')}</label>
       <input
         ref={campo}
         id={id}
         type={tipo === 'hora' ? 'time' : 'text'}
-        maxLength={tipo === 'texto' ? LARGO_MAXIMO_NOTA : undefined}
+        maxLength={esNotaDeTexto(tipo) ? LARGO_MAXIMO_NOTA : undefined}
         value={valor}
         onChange={(e) => alCambiar(e.target.value)}
         aria-invalid={error ? true : undefined}
