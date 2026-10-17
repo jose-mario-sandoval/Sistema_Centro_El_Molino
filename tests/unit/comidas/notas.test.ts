@@ -18,10 +18,16 @@ describe('normalizarNota', () => {
     expect(normalizarNota('enfermo', undefined)).toBeNull()
   })
 
+  it('recorta la nota opcional de bolsa y lonchera, y la deja en null si queda vacía', () => {
+    expect(normalizarNota('bolsa', '  Sin sal  ')).toBe('Sin sal')
+    expect(normalizarNota('lonchera', 'Sin picante')).toBe('Sin picante')
+    expect(normalizarNota('bolsa', '   ')).toBeNull()
+    expect(normalizarNota('lonchera', null)).toBeNull()
+  })
+
   it('descarta la nota de los estados que no la llevan', () => {
     expect(normalizarNota('si', '13:30')).toBeNull()
     expect(normalizarNota('no', 'algo')).toBeNull()
-    expect(normalizarNota('bolsa', 'algo')).toBeNull()
   })
 
   it('deja sin tocar una hora con otro formato (la valida notaValida)', () => {
@@ -34,6 +40,10 @@ describe('notaValida', () => {
     ['si', null],
     ['no', null],
     ['bolsa', null],
+    ['lonchera', null],
+    ['bolsa', 'Sin sal'],
+    ['lonchera', 'Sin sal'],
+    ['lonchera', 'x'.repeat(200)],
     ['temprano', '06:05'],
     ['tarde', '13:30'],
     ['tarde', '00:00'],
@@ -47,6 +57,9 @@ describe('notaValida', () => {
   it.each([
     ['si', 'algo'],
     ['bolsa', ''],
+    ['lonchera', ''],
+    ['bolsa', 'x'.repeat(201)],
+    ['lonchera', 'x'.repeat(201)],
     ['tarde', null],
     ['tarde', '24:00'],
     ['tarde', '7:30'],
@@ -66,6 +79,11 @@ describe('mensajeNota', () => {
     expect(mensajeNota('temprano')).toBe('Indicá la hora para "Comer temprano" (HH:MM).')
     expect(mensajeNota('enfermo')).toBe('Indicá qué podés comer (hasta 200 caracteres).')
     expect(mensajeNota('si')).toBe('"Sí comer" no lleva nota.')
+  })
+
+  it('la nota opcional solo se queja del largo', () => {
+    expect(mensajeNota('bolsa')).toBe('La nota puede tener hasta 200 caracteres.')
+    expect(mensajeNota('lonchera', 'ajena')).toBe('La nota puede tener hasta 200 caracteres.')
   })
 
   it('en tercera persona (el Director cambia la comida de otra persona)', () => {
@@ -111,6 +129,48 @@ describe('resolverBorrador', () => {
       valor: { estado: 'enfermo', nota: 'Sopa' },
     })
   })
+
+  describe('con nota opcional (bolsa, lonchera)', () => {
+    it('vacía se guarda igual, con nota null: "Listo" y "Guardar" cierran sin error', () => {
+      for (const alCerrar of [true, false]) {
+        expect(resolverBorrador({ estado: 'bolsa', nota: '' }, { estado: 'si', nota: null }, { alCerrar })).toEqual({
+          tipo: 'guardar',
+          valor: { estado: 'bolsa', nota: null },
+        })
+        expect(resolverBorrador({ estado: 'lonchera', nota: '   ' }, null, { alCerrar })).toEqual({
+          tipo: 'guardar',
+          valor: { estado: 'lonchera', nota: null },
+        })
+      }
+    })
+
+    it('escrita se guarda recortada', () => {
+      expect(resolverBorrador({ estado: 'lonchera', nota: ' Sin sal ' }, null, { alCerrar: true })).toEqual({
+        tipo: 'guardar',
+        valor: { estado: 'lonchera', nota: 'Sin sal' },
+      })
+    })
+
+    it('igual a lo guardado no hay nada que guardar; vaciar una nota guardada sí', () => {
+      expect(resolverBorrador({ estado: 'bolsa', nota: '' }, { estado: 'bolsa', nota: null }, { alCerrar: true })).toEqual({
+        tipo: 'nada',
+      })
+      expect(resolverBorrador({ estado: 'bolsa', nota: 'Sin sal' }, { estado: 'bolsa', nota: 'Sin sal' }, { alCerrar: true })).toEqual({
+        tipo: 'nada',
+      })
+      expect(resolverBorrador({ estado: 'bolsa', nota: '' }, { estado: 'bolsa', nota: 'Sin sal' }, { alCerrar: true })).toEqual({
+        tipo: 'guardar',
+        valor: { estado: 'bolsa', nota: null },
+      })
+    })
+
+    it('demasiado larga: error y la burbuja no se cierra', () => {
+      expect(resolverBorrador({ estado: 'bolsa', nota: 'x'.repeat(201) }, null, { alCerrar: true })).toEqual({
+        tipo: 'error',
+        mensaje: 'La nota puede tener hasta 200 caracteres. Si no querés cambiarla, tocá "Cancelar".',
+      })
+    })
+  })
 })
 
 describe('notaInicial', () => {
@@ -124,9 +184,18 @@ describe('notaInicial', () => {
     expect(notaInicial({ estado: 'temprano', nota: '06:45' }, 'tarde')).toBe('06:45')
   })
 
+  it('entre bolsa y lonchera se conserva la nota', () => {
+    expect(notaInicial({ estado: 'bolsa', nota: 'Sin sal' }, 'lonchera')).toBe('Sin sal')
+    expect(notaInicial({ estado: 'lonchera', nota: 'Sin sal' }, 'bolsa')).toBe('Sin sal')
+  })
+
   it('entre tipos de nota distintos, o sin nota, empieza vacía', () => {
     expect(notaInicial({ estado: 'enfermo', nota: 'Sopa' }, 'tarde')).toBe('')
     expect(notaInicial({ estado: 'tarde', nota: '20:00' }, 'enfermo')).toBe('')
+    // Lo que puede comer quien está enfermo no se arrastra a la bolsa, ni al revés.
+    expect(notaInicial({ estado: 'enfermo', nota: 'Sopa' }, 'bolsa')).toBe('')
+    expect(notaInicial({ estado: 'bolsa', nota: 'Sin sal' }, 'enfermo')).toBe('')
+    expect(notaInicial({ estado: 'tarde', nota: '20:00' }, 'bolsa')).toBe('')
     expect(notaInicial({ estado: 'si', nota: null }, 'tarde')).toBe('')
     expect(notaInicial(null, 'temprano')).toBe('')
   })

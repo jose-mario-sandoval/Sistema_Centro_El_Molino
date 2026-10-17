@@ -1,11 +1,18 @@
-import { ESTADOS_COMIDA, INFO_ESTADO, type EstadoComida, type SeleccionGuardada, type ValorEfectivo } from './tipos'
+import {
+  ESTADOS_COMIDA,
+  INFO_ESTADO,
+  esNotaDeTexto,
+  type EstadoComida,
+  type SeleccionGuardada,
+  type ValorEfectivo,
+} from './tipos'
 
 export type ClaveResumen = EstadoComida | 'sin_definir'
 export type ParteResumen = {
   clave: ClaveResumen
   cantidad: number
   texto: string
-  /** Lo que escribió cada persona en un estado con nota libre (enfermo: qué puede comer). Nunca nombres. */
+  /** Lo que escribió cada persona en un estado con nota libre (enfermo: qué puede comer; bolsa y lonchera). Nunca nombres. */
   notas?: string[]
 }
 /** Consulta para cocina: exclusivamente siglas, nunca nombres ni identificadores. */
@@ -56,7 +63,8 @@ function horasAgrupadas(notas: (string | null)[]): string[] {
 
 /**
  * Conteo de una comida para el resumen de Administración (spec §6.5). null = "Sin definir". Las horas
- * van en el texto, agrupadas; las notas de texto (enfermo) van en `notas`, una por persona y sin nombre.
+ * van en el texto, agrupadas; las notas de texto (enfermo, bolsa, lonchera) van en `notas`, una por
+ * persona y sin nombre.
  */
 export function resumenComida(valores: ValorEfectivo[]): ResumenComida {
   const partes: ParteResumen[] = []
@@ -70,7 +78,7 @@ export function resumenComida(valores: ValorEfectivo[]): ResumenComida {
       if (horas.length > 0) texto += ` (${horas.join(', ')})`
     }
     const parte: ParteResumen = { clave: estado, cantidad: delEstado.length, texto }
-    if (INFO_ESTADO[estado].nota === 'texto') {
+    if (esNotaDeTexto(INFO_ESTADO[estado].nota)) {
       const notas = delEstado.flatMap((valor) => {
         const nota = valor.nota?.trim()
         return nota ? [nota] : []

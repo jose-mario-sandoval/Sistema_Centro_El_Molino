@@ -397,8 +397,11 @@ principal para que un lector de pantalla anuncie dónde quedó la persona.
   de mayor impacto de todo el rediseño.
 - **La nota se comporta igual en todas partes, y lo escrito nunca se pierde en silencio.** Un estado
   sin nota se guarda al tocarlo. Uno que la pide (temprano, tarde, enfermo) abre el campo, que toma
-  el foco. Lo escrito se guarda con "Guardar" **y también al cerrar**: "Listo", volver a tocar la
-  comida, tocar fuera de la burbuja o pasar a otra comida. Si la nota está vacía o no sirve, no se
+  el foco; bolsa y lonchera abren el mismo campo con la nota **opcional** ("Nota para la cocina
+  (opcional)"): vacío también se guarda, y la cocina la lee en el desglose, igual que lo que puede
+  comer quien está enfermo. Lo escrito se guarda con "Guardar" **y también al cerrar**: "Listo",
+  volver a tocar la comida, tocar fuera de la burbuja o pasar a otra comida. Si la nota está vacía
+  (en los estados donde es obligatoria) o no sirve, no se
   cierra nada (y ese toque fuera no hace nada más: si era un enlace, no navega): el motivo aparece
   debajo del campo ("…Si no querés cambiarla, tocá 'Cancelar'") y el foco vuelve a él. Solo Escape y
   "Cancelar" descartan, porque son pedidos explícitos; elegir otra opción la reemplaza. Nada se
@@ -696,7 +699,7 @@ Decisiones tomadas al portar:
   celda) y `.fila-extra` (cada extra ya agregado, dentro de su burbuja). Con los filtros del
   calendario, `.cal-event` sigue siendo el evento y su texto no cambia (la sigla es un `::before`); con
   tipo lleva `data-tipo`, `data-marca` y `data-inicial` (también para Administración). Lo que puede
-  comer quien está enfermo va en `.nota-parte`, debajo de su `.parte`. Se suman la sección
+  comer quien está enfermo, y la nota de una bolsa o lonchera, va en `.nota-parte`, debajo de su `.parte`. Se suman la sección
   nombrada *"Filtros"* (`.filtros-cal`, por su rol: `getByRole('region', { name: 'Filtros' })`), sus
   chips `.chip-filtro[data-filtro]` (botones con `aria-pressed`, nombrados por el tipo: *"San
   Miguel"*), el `switch` *"Solo eventos con pedido a cocina"*, el aviso `.aviso-filtros` (dentro de la

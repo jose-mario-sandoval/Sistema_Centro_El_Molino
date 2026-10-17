@@ -122,6 +122,7 @@ test('el Director edita el último día desde La casa y desde la semana de la pe
   await panelCasa(page).getByRole('button', { name: 'Residente Prueba', exact: true }).click()
   const enBolsa = page.getByRole('dialog').getByRole('button', { name: 'En bolsa', exact: true })
   await enBolsa.click()
+  await page.getByRole('dialog').getByRole('button', { name: 'Guardar', exact: true }).click()
   await expect(page.getByRole('dialog').getByText('la cambió el Director', { exact: true })).toBeVisible()
   await expect(enBolsa).not.toHaveAttribute('aria-disabled', 'true')
   await expect.poll(async () => {

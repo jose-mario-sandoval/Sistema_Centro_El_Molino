@@ -29,9 +29,10 @@ export function textoVolver(ausente: boolean, voz: Voz): string {
   return `Volver a ${voz === 'propia' ? 'mi' : 'su'} ${ausente ? 'ausencia' : 'plan'}`
 }
 
-/** Etiqueta del campo de la nota: la hora (temprano/tarde) o qué puede comer (enfermo). */
+/** Etiqueta del campo de la nota: la hora (temprano/tarde), qué puede comer (enfermo) o la nota opcional (bolsa/lonchera). */
 export function etiquetaNota(tipo: NonNullable<TipoNota>, voz: Voz): string {
   if (tipo === 'hora') return 'Hora'
+  if (tipo === 'texto_opcional') return 'Nota para la cocina (opcional)'
   return voz === 'propia' ? 'Qué podés comer' : 'Qué puede comer'
 }
 

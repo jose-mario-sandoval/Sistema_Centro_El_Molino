@@ -157,6 +157,8 @@ test('navega todas las semanas de los tres meses y guarda el último día inclus
 
   const burbuja = await abrirComida(page, ultimo, 'almuerzo')
   await burbuja.getByRole('button', { name: 'En bolsa', exact: true }).click()
+  // La nota de la bolsa es opcional: "Listo" guarda la bolsa sin nota.
+  await burbuja.getByRole('button', { name: 'Listo', exact: true }).click()
   await expect(comidaSemana(page, ultimo, 'almuerzo')).toContainText('Bolsa')
   await expect(comidaSemana(page, ultimo, 'almuerzo')).not.toHaveAttribute('aria-busy', 'true')
   // La etiqueta es optimista: confirmar la fila del servidor antes de navegar o recargar.
@@ -422,6 +424,58 @@ test('Administración ve la nota puntual de enfermo y consulta sus siglas', asyn
   await expect(celda).toContainText('Sopa de pollo')
   await expect(celda).toContainText('Dieta blanda')
   await sinNombresAjenos(page, 'administracion')
+})
+
+test('una lonchera y una bolsa llevan nota opcional, y la cocina la lee sin nombres', async ({ page }) => {
+  const { lunesSiguiente, miercolesSiguiente } = fechas()
+  await planAlmuerzoMiercoles()
+  await iniciarSesion(page, 'residente')
+  await page.goto(`/comidas/semana?semana=${lunesSiguiente}`)
+
+  const almuerzo = comidaSemana(page, miercolesSiguiente, 'almuerzo')
+  const burbuja = await abrirComida(page, miercolesSiguiente, 'almuerzo')
+  await burbuja.getByRole('button', { name: 'Lonchera', exact: true }).click()
+  const campo = burbuja.getByLabel('Nota para la cocina (opcional)', { exact: true })
+  await campo.fill('Sin sal')
+  await burbuja.getByRole('button', { name: 'Guardar', exact: true }).click()
+  await expect(almuerzo).toHaveAccessibleName(
+    `Almuerzo del miércoles ${fechaCorta(miercolesSiguiente)}: Lonchera, Sin sal. Cambiar`,
+  )
+
+  const consulta = async () => {
+    const { data, error } = await clienteAdminPrueba()
+      .from('selecciones_comida')
+      .select('estado, nota')
+      .eq('usuario_id', ids.residente)
+      .eq('fecha', miercolesSiguiente)
+      .eq('comida', 'almuerzo')
+    if (error) throw error
+    return data
+  }
+  await expect.poll(consulta).toEqual([{ estado: 'lonchera', nota: 'Sin sal' }])
+
+  // Administración: la nota va en el desglose, sin nombre ni sigla en la celda.
+  await page.context().clearCookies()
+  await iniciarSesion(page, 'administracion')
+  await page.goto(`/comidas/semana?semana=${lunesSiguiente}`)
+  const celda = celdaSemana(page, miercolesSiguiente, 'almuerzo')
+  await expect(celda.locator('.parte').first()).toHaveText('1 lonchera')
+  await expect(celda.locator('.nota-parte')).toHaveText(['Sin sal'])
+  await sinNombresAjenos(page, 'administracion')
+
+  // Cambiar a bolsa trae la nota; vaciarla y tocar "Listo" la quita.
+  await page.context().clearCookies()
+  await iniciarSesion(page, 'residente')
+  await page.goto(`/comidas/semana?semana=${lunesSiguiente}`)
+  const segunda = await abrirComida(page, miercolesSiguiente, 'almuerzo')
+  await segunda.getByRole('button', { name: 'En bolsa', exact: true }).click()
+  const campoBolsa = segunda.getByLabel('Nota para la cocina (opcional)', { exact: true })
+  await expect(campoBolsa).toHaveValue('Sin sal')
+  await campoBolsa.fill('')
+  await segunda.getByRole('button', { name: 'Listo', exact: true }).click()
+  await expect(segunda).toHaveCount(0)
+  await expect(almuerzo).toHaveAccessibleName(`Almuerzo del miércoles ${fechaCorta(miercolesSiguiente)}: En bolsa. Cambiar`)
+  await expect.poll(consulta).toEqual([{ estado: 'bolsa', nota: null }])
 })
 
 test.describe('en el teléfono', () => {
@@ -703,6 +757,7 @@ for (const ancho of [375, 1280]) {
     await page.goto(`/comidas/semana?semana=${lunesSiguiente}`)
     const burbuja = await abrirComida(page, miercolesSiguiente, 'almuerzo')
     await burbuja.getByRole('button', { name: 'En bolsa', exact: true }).click()
+    await burbuja.getByRole('button', { name: 'Guardar', exact: true }).click()
     await expect(comidaSemana(page, miercolesSiguiente, 'almuerzo')).toContainText('Bolsa')
     await page.goto('/comidas/plan')
     await expect(campo).toHaveValue('Indicación general\nSegunda indicación')

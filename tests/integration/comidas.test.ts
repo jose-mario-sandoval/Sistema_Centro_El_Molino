@@ -394,6 +394,10 @@ describe('nota según el estado (CHECK nota_valida)', () => {
     { caso: 'enfermo con 201 caracteres', estado: 'enfermo', nota: 'x'.repeat(201) },
     { caso: 'sí con nota', estado: 'si', nota: 'algo' },
     { caso: 'en bolsa con nota vacía', estado: 'bolsa', nota: '' },
+    { caso: 'en bolsa con nota en blanco', estado: 'bolsa', nota: '   ' },
+    { caso: 'en bolsa con 201 caracteres', estado: 'bolsa', nota: 'x'.repeat(201) },
+    { caso: 'lonchera con nota vacía', estado: 'lonchera', nota: '' },
+    { caso: 'lonchera con 201 caracteres', estado: 'lonchera', nota: 'x'.repeat(201) },
   ]
 
   it.each(invalidas)('rechaza $caso (23514)', async ({ estado, nota }) => {
@@ -413,6 +417,11 @@ describe('nota según el estado (CHECK nota_valida)', () => {
     { caso: 'enfermo con texto', estado: 'enfermo', nota: 'Solo sopa' },
     { caso: 'enfermo con 200 caracteres', estado: 'enfermo', nota: 'x'.repeat(200) },
     { caso: 'no sin nota', estado: 'no', nota: null },
+    { caso: 'en bolsa sin nota', estado: 'bolsa', nota: null },
+    { caso: 'en bolsa con texto', estado: 'bolsa', nota: 'Sin sal' },
+    { caso: 'lonchera sin nota', estado: 'lonchera', nota: null },
+    { caso: 'lonchera con texto', estado: 'lonchera', nota: 'Sin picante' },
+    { caso: 'lonchera con 200 caracteres', estado: 'lonchera', nota: 'x'.repeat(200) },
   ]
 
   it.each(validas)('acepta $caso', async ({ estado, nota }) => {

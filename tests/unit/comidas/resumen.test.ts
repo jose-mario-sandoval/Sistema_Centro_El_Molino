@@ -52,6 +52,21 @@ describe('resumenComida', () => {
     ])
   })
 
+  it('las notas de bolsa y lonchera van en `notas`, una por persona y sin nombre', () => {
+    const resumen = resumenComida([v('bolsa', 'Sin sal'), v('bolsa'), v('lonchera', 'Sin picante'), v('lonchera', 'Sin sal')])
+    expect(resumen.partes).toEqual([
+      { clave: 'bolsa', cantidad: 2, texto: '2 en bolsa', notas: ['Sin sal'] },
+      { clave: 'lonchera', cantidad: 2, texto: '2 loncheras', notas: ['Sin picante', 'Sin sal'] },
+    ])
+    expect(textoResumen(resumen)).toBe('2 en bolsa (Sin sal) · 2 loncheras (Sin picante; Sin sal)')
+  })
+
+  it('una bolsa sin nota no agrega `notas`', () => {
+    const [parte] = resumenComida([v('bolsa'), v('bolsa', '   ')]).partes
+    expect(parte).toEqual({ clave: 'bolsa', cantidad: 2, texto: '2 en bolsa' })
+    expect(parte).not.toHaveProperty('notas')
+  })
+
   it('varios enfermos: plural, una nota por persona, en su orden y sin agrupar', () => {
     const resumen = resumenComida([v('enfermo', 'Sopa'), v('si'), v('enfermo', 'Dieta blanda'), v('enfermo', 'Sopa')])
     expect(resumen.partes.find((p) => p.clave === 'enfermo')).toEqual({
