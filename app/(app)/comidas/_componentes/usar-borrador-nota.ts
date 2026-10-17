@@ -9,7 +9,10 @@ export type BorradorNota = {
   error: string | null
   /** Para `EditorNota`: al quedar un error, el foco vuelve al campo. */
   campo: React.RefObject<HTMLInputElement | null>
-  /** Elegir temprano, tarde o enfermo: abre el campo (temprano ↔ tarde traen la hora ya escrita). */
+  /**
+   * Elegir un estado con nota (temprano, tarde, enfermo, bolsa, lonchera): abre el campo (temprano ↔
+   * tarde traen la hora ya escrita, bolsa ↔ lonchera su nota).
+   */
   elegir: (estado: EstadoComida) => void
   cambiar: (nota: string) => void
   /**

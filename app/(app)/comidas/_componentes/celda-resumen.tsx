@@ -65,7 +65,7 @@ function Parte({ parte, Item }: { parte: ParteResumen; Item: 'li' | 'span' }) {
         <Icono nombre={parte.clave} />
         {parte.texto}
       </Item>
-      {/* Texto libre de cada persona (enfermo: qué puede comer). Sin nombre; el renglón parte, no se recorta. */}
+      {/* Texto libre de cada persona (enfermo: qué puede comer; bolsa y lonchera: su nota). Sin nombre; el renglón parte, no se recorta. */}
       {parte.notas?.map((nota, indice) => (
         <Item key={indice} className="nota-parte">
           {nota}

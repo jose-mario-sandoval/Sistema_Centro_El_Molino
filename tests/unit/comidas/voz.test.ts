@@ -72,6 +72,11 @@ describe('etiquetaNota', () => {
     expect(etiquetaNota('texto', 'propia')).toBe('Qué podés comer')
     expect(etiquetaNota('texto', 'ajena')).toBe('Qué puede comer')
   })
+
+  it('la nota opcional de bolsa y lonchera dice que es opcional y para quién es, en las dos voces', () => {
+    expect(etiquetaNota('texto_opcional', 'propia')).toBe('Nota para la cocina (opcional)')
+    expect(etiquetaNota('texto_opcional', 'ajena')).toBe('Nota para la cocina (opcional)')
+  })
 })
 
 describe('etiquetaOpciones: el grupo de las seis opciones', () => {
