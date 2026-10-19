@@ -139,7 +139,7 @@ describe('publicar y responder: el aviso público solo si se publica directo', (
   })
 
   it('Director y Administración publican y se avisa', async () => {
-    for (const rol of ['director', 'administracion'] as const) {
+    for (const rol of ['director', 'administracion', 'administradora'] as const) {
       vi.clearAllMocks()
       como(rol)
       clienteFalso()
@@ -258,7 +258,7 @@ describe('fijarPublicacion', () => {
   it('solo Director y Administración', async () => {
     vi.mocked(perfilParaAccion).mockResolvedValue({ ok: false, error: 'No tenés permiso para hacer esto.' })
     expect(await fijarPublicacion({ id: ID, duracion: 'siempre' })).toMatchObject({ ok: false })
-    expect(perfilParaAccion).toHaveBeenCalledWith('director', 'administracion')
+    expect(perfilParaAccion).toHaveBeenCalledWith('director', 'administracion', 'administradora')
   })
 
   it('"hasta que lo quite": sin fin', async () => {
@@ -314,7 +314,7 @@ describe('desfijarPublicacion', () => {
     como('administracion')
     const registro = clienteFalso()
     expect(await desfijarPublicacion({ id: ID })).toEqual({ ok: true, data: null })
-    expect(perfilParaAccion).toHaveBeenCalledWith('director', 'administracion')
+    expect(perfilParaAccion).toHaveBeenCalledWith('director', 'administracion', 'administradora')
     expect(registro.rpcs).toEqual([['desfijar_mensaje', { p_id: ID }]])
     expect(revalidatePath).toHaveBeenCalledWith('/mensajes')
   })

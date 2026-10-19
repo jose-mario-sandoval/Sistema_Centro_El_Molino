@@ -1,4 +1,4 @@
-import type { Rol } from '@/lib/perfiles/roles'
+import { esAdministracion, type Rol } from '@/lib/perfiles/roles'
 import type { PreferenciasAvisos } from '@/lib/validacion/push'
 
 export type ClavePreferencia = keyof PreferenciasAvisos
@@ -18,7 +18,7 @@ const RECORDATORIO: OpcionAviso = {
  * cambios del Director, pero sí los cambios para la cocina (spec §8.2 y plan 2026-09-29).
  */
 export function opcionesAvisos(rol: Rol): OpcionAviso[] {
-  if (rol === 'administracion') {
+  if (esAdministracion(rol)) {
     return [
       {
         clave: 'avisarMensajes',
@@ -60,7 +60,7 @@ export function opcionesAvisos(rol: Rol): OpcionAviso[] {
 
 /** Para qué sirven los avisos, en la tarjeta que los ofrece al abrir la app instalada. */
 export function textoOfrecerAvisos(rol: Rol): string {
-  if (rol === 'administracion') return 'Te avisa cuando hay mensajes nuevos y cambios para la cocina.'
+  if (esAdministracion(rol)) return 'Te avisa cuando hay mensajes nuevos y cambios para la cocina.'
   if (rol === 'director') {
     return 'Te avisa antes de que cierre una comida sin definir, cuando hay mensajes nuevos y cuando hay mensajes por aprobar.'
   }
@@ -69,6 +69,6 @@ export function textoOfrecerAvisos(rol: Rol): string {
 
 /** El texto bajo el título "Notificaciones": solo lo que ese rol recibe. */
 export function descripcionAvisos(rol: Rol): string {
-  if (rol === 'administracion') return 'Avisos de mensajes nuevos y de cambios para la cocina.'
+  if (esAdministracion(rol)) return 'Avisos de mensajes nuevos y de cambios para la cocina.'
   return 'Avisos de mensajes nuevos, recordatorios antes de la hora límite y cambios en tus comidas.'
 }

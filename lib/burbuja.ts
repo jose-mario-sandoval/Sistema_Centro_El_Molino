@@ -74,9 +74,9 @@ export function calcularPosicion(p: {
 }
 
 /**
- * Cuánto bajar la página para que la burbuja recién abierta se vea entera (0 si ya se ve), sin que
- * el botón que la abrió se vaya por arriba: si la burbuja es más alta que la pantalla, el botón queda
- * arriba y la burbuja empieza debajo de él.
+ * Cuánto desplazar la página para mostrar la burbuja, conservando el botón que la abrió cuando
+ * hay lugar. Si no caben el botón y el control enfocado juntos, tiene prioridad el foco: nunca
+ * queda tapado por la barra inferior ni sale por arriba al intentar mostrar el resto de la burbuja.
  */
 export function cuantoDesplazar(p: {
   burbuja: Rect
@@ -85,12 +85,18 @@ export function cuantoDesplazar(p: {
   reservaAbajo?: number
   /** Lo que tapa el comienzo de la pantalla sobre el botón (su scroll-margin-top: la cabecera fija del plan). */
   margenArriba?: number
+  /** Control que recibió el foco dentro de la burbuja; no el diálogo completo. */
+  foco?: Rect
 }): number {
   const limite = p.vista.alto - (p.reservaAbajo ?? 0) - MARGEN_BURBUJA
   const falta = p.burbuja.bottom - limite
-  if (falta <= 0) return 0
   const arriba = Math.max(MARGEN_BURBUJA, p.margenArriba ?? 0)
-  return Math.max(0, Math.min(falta, p.ancla.top - arriba))
+  const paraBurbuja = Math.max(0, Math.min(falta, p.ancla.top - arriba))
+  if (!p.foco) return paraBurbuja
+  const minimo = p.foco.bottom - limite
+  const maximo = p.foco.top - MARGEN_BURBUJA
+  // Si ni el control cabe entero (p. ej. con el teclado abierto), mostrar su comienzo.
+  return minimo > maximo ? maximo : acotar(paraBurbuja, minimo, maximo)
 }
 
 /** Tiempo tras abrir en que volver a tocar el mismo botón no la cierra: un doble toque no la abre y cierra. */

@@ -34,7 +34,7 @@ export default async function LayoutApp({ children }: { children: React.ReactNod
     <>
       <SincronizarApariencia cuenta={aparienciaDeCuenta(perfil)} />
       <ProveedorPendientes inicial={pendientes}>
-        <Estructura nombre={perfil.nombre} siglas={perfil.siglas} rol={ETIQUETA_ROL[perfil.rol]}>
+        <Estructura nombre={perfil.nombre} siglas={perfil.siglas} rol={ETIQUETA_ROL[perfil.rol]} rolAcceso={perfil.rol}>
           {movil && <InvitacionInstalar enEste={enEste} />}
           {movil && <OfrecerAvisos enEste={enEste} texto={textoOfrecerAvisos(perfil.rol)} />}
           {children}

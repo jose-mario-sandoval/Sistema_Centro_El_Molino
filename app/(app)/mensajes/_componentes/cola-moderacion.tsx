@@ -49,7 +49,7 @@ function FilaPendiente({ mensaje, autor }: { mensaje: MensajeFila; autor: Perfil
       {mensaje.solo_director && (
         <div className="insignia-privado">
           <Icono nombre="candado" />
-          <span>Privado: al aprobarlo, solo Administración y el Director pueden leerlo</span>
+          <span>Privado: al aprobarlo, solo Administración, la Administradora y el Director pueden leerlo</span>
         </div>
       )}
       <textarea aria-label="Texto del mensaje" value={texto} onChange={(e) => setTexto(e.target.value)} rows={3} />

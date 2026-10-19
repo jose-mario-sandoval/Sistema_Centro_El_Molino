@@ -1,4 +1,4 @@
-import type { Rol } from '@/lib/perfiles/roles'
+import { esAdministracion, type Rol } from '@/lib/perfiles/roles'
 
 export type ObjetivoComidas = { ok: true; usuarioId: string } | { ok: false; error: string }
 
@@ -11,7 +11,7 @@ const SIN_PERMISO = 'No tenés permiso para hacer esto.'
  * `puedo_gestionar_comidas_de()`, que además rechaza a una persona inactiva o de Administración.
  */
 export function usuarioObjetivo(perfil: { id: string; rol: Rol }, pedido?: string | null): ObjetivoComidas {
-  if (perfil.rol === 'administracion') return { ok: false, error: SIN_PERMISO }
+  if (esAdministracion(perfil.rol)) return { ok: false, error: SIN_PERMISO }
   if (!pedido || pedido === perfil.id) return { ok: true, usuarioId: perfil.id }
   if (perfil.rol !== 'director') return { ok: false, error: SIN_PERMISO }
   return { ok: true, usuarioId: pedido }

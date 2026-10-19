@@ -384,9 +384,18 @@ export type Database = {
         ]
       }
       notas_dieta: {
-        Row: { nota: string; usuario_id: string }
-        Insert: { nota: string; usuario_id: string }
-        Update: { nota?: string; usuario_id?: string }
+        Row: {
+          nota: string
+          usuario_id: string
+        }
+        Insert: {
+          nota: string
+          usuario_id: string
+        }
+        Update: {
+          nota?: string
+          usuario_id?: string
+        }
         Relationships: [
           {
             foreignKeyName: "notas_dieta_usuario_id_fkey"
@@ -397,6 +406,179 @@ export type Database = {
           },
         ]
       }
+      pensiones_cuotas: {
+        Row: {
+          categoria: string
+          desde: string
+          modificado_en: string
+          monto_centavos: number
+          usuario_id: string
+        }
+        Insert: {
+          categoria: string
+          desde: string
+          modificado_en?: string
+          monto_centavos: number
+          usuario_id: string
+        }
+        Update: {
+          categoria?: string
+          desde?: string
+          modificado_en?: string
+          monto_centavos?: number
+          usuario_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pensiones_cuotas_usuario_id_fkey"
+            columns: ["usuario_id"]
+            isOneToOne: false
+            referencedRelation: "perfiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pensiones_pagos: {
+        Row: {
+          categoria: string
+          monto_centavos: number
+          periodo: string
+          registrado_en: string
+          usuario_id: string
+        }
+        Insert: {
+          categoria: string
+          monto_centavos: number
+          periodo: string
+          registrado_en?: string
+          usuario_id: string
+        }
+        Update: {
+          categoria?: string
+          monto_centavos?: number
+          periodo?: string
+          registrado_en?: string
+          usuario_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pensiones_pagos_usuario_id_fkey"
+            columns: ["usuario_id"]
+            isOneToOne: false
+            referencedRelation: "perfiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pensiones_participacion: {
+        Row: {
+          desde: string
+          incluido: boolean
+          usuario_id: string
+        }
+        Insert: {
+          desde: string
+          incluido: boolean
+          usuario_id: string
+        }
+        Update: {
+          desde?: string
+          incluido?: boolean
+          usuario_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pensiones_participacion_usuario_id_fkey"
+            columns: ["usuario_id"]
+            isOneToOne: false
+            referencedRelation: "perfiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pensiones_reportes: {
+        Row: {
+          cargado_en: string
+          cargado_por: string | null
+          categoria: string
+          id: string
+          nombre: string
+          ruta: string
+          tamano: number
+        }
+        Insert: {
+          cargado_en?: string
+          cargado_por?: string | null
+          categoria: string
+          id: string
+          nombre: string
+          ruta: string
+          tamano: number
+        }
+        Update: {
+          cargado_en?: string
+          cargado_por?: string | null
+          categoria?: string
+          id?: string
+          nombre?: string
+          ruta?: string
+          tamano?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pensiones_reportes_cargado_por_fkey"
+            columns: ["cargado_por"]
+            isOneToOne: false
+            referencedRelation: "perfiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pensiones_reportes_limpieza: {
+        Row: {
+          creado_en: string
+          ruta: string
+        }
+        Insert: {
+          creado_en?: string
+          ruta: string
+        }
+        Update: {
+          creado_en?: string
+          ruta?: string
+        }
+        Relationships: []
+      }
+      pensiones_reportes_reservas: {
+        Row: {
+          categoria: string
+          creado_en: string
+          id: string
+          nombre: string
+          ruta: string
+          tamano: number
+          usuario_id: string
+        }
+        Insert: {
+          categoria: string
+          creado_en?: string
+          id?: string
+          nombre: string
+          ruta: string
+          tamano: number
+          usuario_id: string
+        }
+        Update: {
+          categoria?: string
+          creado_en?: string
+          id?: string
+          nombre?: string
+          ruta?: string
+          tamano?: number
+          usuario_id?: string
+        }
+        Relationships: []
+      }
       perfiles: {
         Row: {
           activo: boolean
@@ -406,11 +588,11 @@ export type Database = {
           avisar_cambios: boolean
           avisar_cocina: boolean
           avisar_hora_limite: boolean
-          fuera_de_conteos: boolean
           avisar_mensajes: boolean
           correo: string | null
           creado_en: string
           debe_cambiar_contrasena: boolean
+          fuera_de_conteos: boolean
           id: string
           nombre: string
           rol: Database["public"]["Enums"]["rol"]
@@ -425,11 +607,11 @@ export type Database = {
           avisar_cambios?: boolean
           avisar_cocina?: boolean
           avisar_hora_limite?: boolean
-          fuera_de_conteos?: boolean
           avisar_mensajes?: boolean
           correo?: string | null
           creado_en?: string
           debe_cambiar_contrasena?: boolean
+          fuera_de_conteos?: boolean
           id: string
           nombre: string
           rol: Database["public"]["Enums"]["rol"]
@@ -444,11 +626,11 @@ export type Database = {
           avisar_cambios?: boolean
           avisar_cocina?: boolean
           avisar_hora_limite?: boolean
-          fuera_de_conteos?: boolean
           avisar_mensajes?: boolean
           correo?: string | null
           creado_en?: string
           debe_cambiar_contrasena?: boolean
+          fuera_de_conteos?: boolean
           id?: string
           nombre?: string
           rol?: Database["public"]["Enums"]["rol"]
@@ -721,6 +903,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      abandonar_reporte_pension: { Args: { p_id: string }; Returns: undefined }
       ausentes_en: { Args: { p_fecha: string }; Returns: string[] }
       comida_editable: {
         Args: {
@@ -811,6 +994,16 @@ export type Database = {
         Args: { p_hasta: string; p_id: string }
         Returns: string
       }
+      finalizar_reporte_pension: { Args: { p_id: string }; Returns: string }
+      guardar_cuota_pension: {
+        Args: {
+          p_categoria: string
+          p_desde: string
+          p_monto_centavos: number
+          p_usuario_id: string
+        }
+        Returns: undefined
+      }
       guardar_nota_dieta_de: {
         Args: { p_nota: string; p_usuario: string }
         Returns: undefined
@@ -845,8 +1038,36 @@ export type Database = {
           vigente: boolean
         }[]
       }
+      llamar_limpieza_reportes_pension: { Args: never; Returns: number }
       llamar_recordatorios: { Args: never; Returns: number }
+      marcar_pensiones: {
+        Args: { p_montos_esperados?: number[]; p_periodos: string[] }
+        Returns: {
+          categoria: string
+          monto_centavos: number
+          periodo: string
+          registrado_en: string
+          usuario_id: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "pensiones_pagos"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      mes_actual_pensiones: { Args: never; Returns: string }
       mi_rol: { Args: never; Returns: Database["public"]["Enums"]["rol"] }
+      mis_pensiones: {
+        Args: { p_anio: number }
+        Returns: {
+          categoria: string
+          monto_centavos: number
+          pagado_centavos: number
+          periodo: string
+          registrado_en: string
+        }[]
+      }
       nota_valida: {
         Args: {
           p_estado: Database["public"]["Enums"]["estado_comida"]
@@ -854,14 +1075,28 @@ export type Database = {
         }
         Returns: boolean
       }
+      preparar_limpieza_reportes_pension: {
+        Args: never
+        Returns: {
+          ruta: string
+        }[]
+      }
+      presupuesto_pensiones: {
+        Args: { p_periodo: string }
+        Returns: {
+          categoria: string
+          etiqueta: string
+          monto_centavos: number
+          pagado_centavos: number
+          registrado_en: string
+          usuario_id: string
+        }[]
+      }
       puedo_gestionar_comidas_de: {
         Args: { p_usuario: string }
         Returns: boolean
       }
-      puedo_leer_mensaje: {
-        Args: { p_id: string }
-        Returns: boolean
-      }
+      puedo_leer_mensaje: { Args: { p_id: string }; Returns: boolean }
       requiere_cocina_valido: {
         Args: { p: Database["public"]["Enums"]["requerimiento_cocina"][] }
         Returns: boolean
@@ -875,8 +1110,24 @@ export type Database = {
         }
         Returns: string[]
       }
+      reservar_reporte_pension: {
+        Args: { p_categoria: string; p_nombre: string; p_tamano: number }
+        Returns: {
+          id: string
+          ruta: string
+        }[]
+      }
       soy_activo: { Args: never; Returns: boolean }
       tiene_comidas: { Args: { p_usuario: string }; Returns: boolean }
+      valores_pension: {
+        Args: { p_periodo: string; p_usuario_id: string }
+        Returns: {
+          categoria: string
+          monto_centavos: number
+          pagado_centavos: number
+          registrado_en: string
+        }[]
+      }
       volver_a_plan: {
         Args: {
           p_comida: Database["public"]["Enums"]["tiempo_comida"]
@@ -895,12 +1146,23 @@ export type Database = {
       zona_horaria_app: { Args: never; Returns: string }
     }
     Enums: {
-      estado_comida: "si" | "no" | "temprano" | "tarde" | "bolsa" | "lonchera" | "enfermo"
+      estado_comida:
+        | "si"
+        | "no"
+        | "temprano"
+        | "tarde"
+        | "bolsa"
+        | "lonchera"
+        | "enfermo"
       estado_mensaje: "pendiente" | "aprobado" | "rechazado"
       origen_seleccion: "persona" | "plan" | "ausencia"
-      patron_recurrencia: "semanal" | "mensual_dia_fijo" | "mensual_dia_semana" | "anual"
+      patron_recurrencia:
+        | "semanal"
+        | "mensual_dia_fijo"
+        | "mensual_dia_semana"
+        | "anual"
       requerimiento_cocina: "merienda" | "comida" | "materiales"
-      rol: "director" | "residente" | "administracion"
+      rol: "director" | "residente" | "administracion" | "administradora"
       tiempo_comida: "desayuno" | "almuerzo" | "cena"
       tipo_evento: "san_rafael" | "san_gabriel" | "san_miguel" | "otro"
     }
@@ -1030,12 +1292,25 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      estado_comida: ["si", "no", "temprano", "tarde", "bolsa", "lonchera", "enfermo"],
+      estado_comida: [
+        "si",
+        "no",
+        "temprano",
+        "tarde",
+        "bolsa",
+        "lonchera",
+        "enfermo",
+      ],
       estado_mensaje: ["pendiente", "aprobado", "rechazado"],
       origen_seleccion: ["persona", "plan", "ausencia"],
-      patron_recurrencia: ["semanal", "mensual_dia_fijo", "mensual_dia_semana", "anual"],
+      patron_recurrencia: [
+        "semanal",
+        "mensual_dia_fijo",
+        "mensual_dia_semana",
+        "anual",
+      ],
       requerimiento_cocina: ["merienda", "comida", "materiales"],
-      rol: ["director", "residente", "administracion"],
+      rol: ["director", "residente", "administracion", "administradora"],
       tiempo_comida: ["desayuno", "almuerzo", "cena"],
       tipo_evento: ["san_rafael", "san_gabriel", "san_miguel", "otro"],
     },

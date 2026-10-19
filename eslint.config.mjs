@@ -12,6 +12,7 @@ export default defineConfig([
     'lib/supabase/database.types.ts',
     'playwright-report/**',
     'test-results/**',
+    '.verificacion/**',
     'docs/**',
   ]),
 ])

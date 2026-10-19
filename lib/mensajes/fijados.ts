@@ -2,7 +2,7 @@ import { fechaCorta, nombreDia } from '@/lib/comidas/semana'
 import { fechaISOEn, instanteEnZona, sumarDias, type FechaISO } from '@/lib/fechas'
 import type { DatosFijado, Publicacion } from '@/lib/mensajes/feed'
 import { fechaHoraLocal } from '@/lib/mensajes/tiempo'
-import type { Rol } from '@/lib/perfiles/roles'
+import { esAdministracion, type Rol } from '@/lib/perfiles/roles'
 
 /** Por cuánto tiempo se fija una publicación. 'fecha' = hasta el final del día elegido. */
 export const DURACIONES_FIJADO = ['siempre', '1d', '3d', '7d', 'fecha'] as const
@@ -22,7 +22,7 @@ const DIAS: Record<Exclude<DuracionFijado, 'siempre' | 'fecha'>, number> = { '1d
 
 /** Espejo de fijar_mensaje()/desfijar_mensaje() en SQL: quién fija y quita publicaciones. */
 export function puedeFijar(rol: Rol): boolean {
-  return rol === 'director' || rol === 'administracion'
+  return rol === 'director' || esAdministracion(rol)
 }
 
 /**
@@ -59,7 +59,11 @@ export function separarFijadas(
   return { fijadas: fijadas.sort(compararFijadas), resto }
 }
 
-const POR_ROL: Partial<Record<Rol, string>> = { director: 'por el Director', administracion: 'por Administración' }
+const POR_ROL: Partial<Record<Rol, string>> = {
+  director: 'por el Director',
+  administracion: 'por Administración',
+  administradora: 'por la Administradora',
+}
 
 /**
  * 'Fijado por el Director hasta que lo quiten' · 'Fijado por Administración hasta el jueves 1/10' (todo ese

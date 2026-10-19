@@ -1,5 +1,6 @@
 import { exigirPerfil } from '@/lib/auth/sesion'
 import { obtenerNotaDietaDe, obtenerPlanDe, obtenerResumenPlanSemanal } from '@/lib/comidas/consultas'
+import { esAdministracion } from '@/lib/perfiles/roles'
 import { PlanAgregadoAdministracion } from '../_componentes/plan-agregado-administracion'
 import { PlanEditable } from '../_componentes/plan-editable'
 import { NotasDieta } from '../_componentes/notas-dieta'
@@ -7,7 +8,7 @@ import { NotasDieta } from '../_componentes/notas-dieta'
 export default async function PaginaPlanSemanal() {
   const perfil = await exigirPerfil()
 
-  if (perfil.rol === 'administracion') {
+  if (esAdministracion(perfil.rol)) {
     const resumenSemana = await obtenerResumenPlanSemanal()
     return <PlanAgregadoAdministracion resumenSemana={resumenSemana} />
   }

@@ -1,7 +1,7 @@
 import 'server-only'
 import { rangoCuadricula, type MesISO } from '@/lib/calendario/cuadricula'
 import { eventoParaAdministracion, type Evento } from '@/lib/calendario/tipos'
-import type { Rol } from '@/lib/perfiles/roles'
+import { esAdministracion, type Rol } from '@/lib/perfiles/roles'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 
 /**
@@ -15,7 +15,7 @@ export async function listarEventosDeCuadricula(mes: MesISO, rol: Rol): Promise<
   const { desde, hasta } = rangoCuadricula(mes)
   const supabase = await crearClienteServidor()
 
-  if (rol === 'administracion') {
+  if (esAdministracion(rol)) {
     const { data, error } = await supabase.rpc('eventos_para_cocina', { p_desde: desde, p_hasta: hasta })
     if (error) throw error
     return data.map(eventoParaAdministracion)

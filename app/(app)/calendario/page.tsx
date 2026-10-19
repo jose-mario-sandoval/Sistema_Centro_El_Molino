@@ -16,6 +16,7 @@ import {
 } from '@/lib/calendario/cuadricula'
 import { fechaISOEn } from '@/lib/fechas'
 import { listarAusenciasDe } from '@/lib/ausencias/consultas'
+import { esAdministracion } from '@/lib/perfiles/roles'
 import { CalendarioMes } from './_componentes/calendario-mes'
 import { PanelAusencias } from './_componentes/panel-ausencias'
 import { SelectorMes } from './_componentes/selector-mes'
@@ -38,7 +39,7 @@ export default async function PaginaCalendario({
   const puedeEditar = perfil.rol === 'director'
 
   // Las ausencias son de quienes comen en la casa; Administración no las marca ni las ve.
-  const conAusencias = perfil.rol !== 'administracion'
+  const conAusencias = !esAdministracion(perfil.rol)
   const [eventos, ausencias] = await Promise.all([
     listarEventosDeCuadricula(mes, perfil.rol),
     conAusencias ? listarAusenciasDe(perfil.id, hoy) : Promise.resolve([]),
@@ -52,7 +53,7 @@ export default async function PaginaCalendario({
         <div className="desc">
           {puedeEditar
             ? 'Eventos de la casa. Tocá un día para agregar, editar o eliminar eventos.'
-            : perfil.rol === 'administracion'
+            : esAdministracion(perfil.rol)
               ? 'Lo que la casa necesita de la cocina: cuándo y qué preparar. Tocá un día para ver el detalle.'
               : 'Vista de solo lectura de los eventos de la casa. Tocá un día para ver sus eventos.'}
         </div>
@@ -85,7 +86,7 @@ export default async function PaginaCalendario({
         eventosPorFecha={agruparPorFecha(eventos)}
         hoy={hoy}
         puedeEditar={puedeEditar}
-        paraCocina={perfil.rol === 'administracion'}
+        paraCocina={esAdministracion(perfil.rol)}
         ausencias={ausencias}
         // Administración no tiene filtros: ve todo lo que le piden, con su categoría.
         conFiltros={conAusencias}

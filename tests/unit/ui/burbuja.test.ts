@@ -128,6 +128,43 @@ describe('cuantoDesplazar: lo que se abrió tiene que verse', () => {
       cuantoDesplazar({ burbuja: rect(500, 16, 1200, 343), ancla: rect(430, 16, 56, 100), vista: VISTA, margenArriba: 4 }),
     ).toBe(430 - 16)
   })
+
+  it('prioriza el foco sobre el ancla si la letra enorme y la barra de tres filas no dejan lugar para ambos', () => {
+    const foco = rect(720, 40, 142, 110)
+    const desplazamiento = cuantoDesplazar({
+      burbuja: rect(398, 16, 1200, 288),
+      ancla: rect(300, 16, 86, 100),
+      vista: { alto: 640 },
+      reservaAbajo: 281,
+      foco,
+    })
+    expect(desplazamiento).toBe(519)
+    // El control entero queda encima de la barra con margen, aunque el ancla salga por arriba.
+    expect(foco.bottom - desplazamiento).toBe(640 - 281 - 16)
+    expect(foco.top - desplazamiento).toBeGreaterThanOrEqual(16)
+  })
+
+  it('no empuja el foco por arriba al intentar mostrar una burbuja abierta sobre el ancla', () => {
+    const foco = rect(50, 40, 56, 110)
+    const desplazamiento = cuantoDesplazar({
+      burbuja: rect(20, 16, 700, 288),
+      ancla: rect(732, 16, 56, 100),
+      vista: { alto: 640 },
+      reservaAbajo: 150,
+      foco,
+    })
+    expect(desplazamiento).toBe(34)
+    expect(foco.top - desplazamiento).toBe(16)
+  })
+
+  it('sube para recuperar un foco que quedó fuera por arriba aunque el final de la burbuja ya se vea', () => {
+    expect(cuantoDesplazar({
+      burbuja: rect(-120, 16, 500, 288),
+      ancla: rect(392, 16, 56, 100),
+      vista: { alto: 640 },
+      foco: rect(-30, 40, 56, 110),
+    })).toBe(-46)
+  })
 })
 
 describe('esRetoqueRapido: un doble toque no abre y cierra enseguida', () => {

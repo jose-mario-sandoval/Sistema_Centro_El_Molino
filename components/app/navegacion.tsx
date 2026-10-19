@@ -4,6 +4,8 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { InsigniaPendientes } from '@/components/app/pendientes'
 import { Icono, type NombreIcono } from '@/components/ui/iconos'
+import type { Rol } from '@/lib/perfiles/roles'
+import { puedeVerPensiones } from '@/lib/pensiones/permisos'
 
 // "Ajustes" y no "Configuraciones": cabe en la barra inferior y es el nombre que la gente ya
 // conoce del teléfono.
@@ -11,12 +13,13 @@ const SECCIONES: readonly { ruta: string; prefijo: string; etiqueta: string; ico
   { ruta: '/comidas/semana', prefijo: '/comidas', etiqueta: 'Comidas', icono: 'comidas' },
   { ruta: '/mensajes', prefijo: '/mensajes', etiqueta: 'Mensajes', icono: 'mensajes' },
   { ruta: '/calendario', prefijo: '/calendario', etiqueta: 'Calendario', icono: 'calendario' },
+  { ruta: '/pensiones', prefijo: '/pensiones', etiqueta: 'Pensiones', icono: 'pensiones' },
   { ruta: '/configuraciones', prefijo: '/configuraciones', etiqueta: 'Ajustes', icono: 'ajustes' },
 ]
 
-function Enlaces() {
+function Enlaces({ rol }: { rol: Rol }) {
   const ruta = usePathname()
-  return SECCIONES.map((s) => {
+  return SECCIONES.filter((s) => s.prefijo !== '/pensiones' || puedeVerPensiones(rol)).map((s) => {
     const activa = ruta.startsWith(s.prefijo)
     return (
       <Link
@@ -35,19 +38,19 @@ function Enlaces() {
 }
 
 /** Escritorio: en el lateral. */
-export function NavegacionLateral() {
+export function NavegacionLateral({ rol }: { rol: Rol }) {
   return (
     <nav className="nav" aria-label="Secciones">
-      <Enlaces />
+      <Enlaces rol={rol} />
     </nav>
   )
 }
 
-/** Teléfono: barra fija abajo, cuatro destinos siempre visibles con icono y nombre. */
-export function NavegacionInferior() {
+/** Los cinco destinos se distribuyen en filas sin achicar texto ni controles. */
+export function NavegacionInferior({ rol }: { rol: Rol }) {
   return (
-    <nav className="barra-inferior" aria-label="Secciones">
-      <Enlaces />
+    <nav className="barra-inferior" data-pensiones={puedeVerPensiones(rol)} aria-label="Secciones">
+      <Enlaces rol={rol} />
     </nav>
   )
 }

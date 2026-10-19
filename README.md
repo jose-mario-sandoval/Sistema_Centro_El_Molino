@@ -1,6 +1,6 @@
 # Centro El Molino para la comunicacion con administracion
 
-Sistema web interno del centro: comidas, mensajes, calendario y configuraciones.
+Sistema web interno del centro: comidas, mensajes, calendario, pensiones y configuraciones.
 
 - **Diseño (spec):** `docs/superpowers/specs/2026-09-16-produccion-centro-el-molino-design.md`
 - **Planes de implementación:** `docs/superpowers/plans/`
@@ -79,11 +79,22 @@ limit 5;
 
 Resumen; el detalle completo está en el spec.
 
-- Roles: Director, Residente, Administración.
+- Roles: Director, Residente, Administración y Administradora (roles distintos; no se convierten cuentas automáticamente).
 - Comidas por comida (desayuno, almuerzo, cena) con 6 estados; la semana parte del Plan semanal.
 - Hora límite por comida (mismo día o día anterior) fijada por el Director; se editan fechas desde hoy hasta tres meses calendario después, ambos días incluidos, según la fecha del servidor en `America/El_Salvador`. Si el día no existe en el mes destino, se usa el último de ese mes.
 - Solo el Director crea, edita y elimina eventos.
 - Cuentas: solo el Director las crea; se desactivan en lugar de borrarse; contraseña temporal obligatoria.
+
+## Activar Administradora y Pensiones
+
+La implementación y sus pasos de activación están en [la guía de Pensiones](docs/pensiones.md).
+Aplicá primero las cuatro migraciones `20261019…`, en orden de timestamp, y después desplegá
+las pantallas. El valor del enum se agrega en una migración independiente. No se modifican roles
+de cuentas existentes ni se crean cuotas ficticias.
+
+Los reportes usan el bucket privado `pensiones-reportes` creado por la migración, con PDF de
+hasta 3 MiB y 12 documentos por categoría. La limpieza durable requiere `CRON_SECRET` y los
+secretos Vault `url_app` / `cron_secret` ya usados por los avisos. La guía detalla su verificación.
 
 ## Activar los tres meses editables de comidas
 

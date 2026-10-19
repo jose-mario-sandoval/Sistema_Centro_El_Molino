@@ -462,7 +462,11 @@ principal para que un lector de pantalla anuncie dónde quedó la persona.
 - **Sin tablas con scroll horizontal.** En el teléfono, cada fila pasa a ser una ficha con sus
   etiquetas escritas. En la vista de Administración, cada comida ocupa una línea (etiqueta a la
   izquierda, respuesta a la derecha), así caben dos personas por pantalla en lugar de una.
-- **La barra inferior nunca parte una palabra.** Las cuatro etiquetas dejan de crecer al llegar al
+- **La barra inferior nunca parte una palabra.** Administración conserva cuatro destinos. Los
+  otros roles tienen cinco, incluyendo Pensiones: se distribuyen en filas con ancho natural,
+  letra `var(--t-xs)`, controles de al menos 56px y separación. El contenido y los elementos que
+  se traen a la vista reservan hasta tres filas para 320px con letra enorme. En la barra de cuatro,
+  las etiquetas dejan de crecer al llegar al
   ancho disponible (`min(var(--t-xs), 4.2vw)`), como hace iOS con su barra de pestañas: siempre van
   junto a su icono, y el contenido de la página sí escala entero. El ancho se reparte según lo que
   cada etiqueta necesita, no en cuartos iguales: "Calendario" necesita 79px y "Ajustes" 54.
@@ -588,6 +592,13 @@ principal para que un lector de pantalla anuncie dónde quedó la persona.
 ---
 
 ## 9. Estados que la interfaz debe saber decir
+
+Pensiones reutiliza tarjetas, campos y botones del sistema. Los meses pagados muestran visto y
+«Pagado»; los que no tienen cuota lo dicen y no se seleccionan. Antes de registrar pagos se abre
+una confirmación en la misma pantalla, enfocada por teclado, con cada importe y el total revisado
+congelados hasta confirmar o volver a elegir. El servidor rechaza un importe que cambió después
+de esa revisión. Presupuesto acompaña la barra con porcentaje y montos escritos, incluida meta cero.
+Las listas y los formularios se apilan por ancho de contenedor sin scroll lateral.
 
 | Estado | Cómo se ve | Por qué |
 |---|---|---|

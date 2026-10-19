@@ -15,7 +15,7 @@ import type { DatosMiCuenta } from '@/lib/configuraciones/tipos'
 import { nombreAdministracion, siglasAdministracion, siguienteNumeroAdministracion } from '@/lib/cuentas/administracion'
 import { crearCuenta } from '@/lib/cuentas/crear-cuenta'
 import { verificarContrasena } from '@/lib/cuentas/verificar-contrasena'
-import type { Rol } from '@/lib/perfiles/roles'
+import { esAdministracion, type Rol } from '@/lib/perfiles/roles'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { camposConError } from '@/lib/validacion/auth'
@@ -48,7 +48,7 @@ export async function guardarMiCuenta(
   if (!acceso.ok) return acceso
   const { perfil } = acceso
   // La casa no ve el nombre real de Administración: el suyo es genérico y no se edita.
-  if (perfil.rol === 'administracion') return fallo('En Administración el nombre lo pone la app.')
+  if (esAdministracion(perfil.rol)) return fallo('En Administración el nombre lo pone la app.')
 
   const entrada = esquemaPerfilPropio.safeParse({
     nombre: formData.get('nombre'),
@@ -198,7 +198,7 @@ export async function crearNuevaCuenta(
   if (existente) return fallo(MENSAJE_REVISAR, { usuario: MENSAJE_USUARIO_REPETIDO })
 
   let identidad: { nombre: string; siglas: string }
-  if (datos.rol === 'administracion') {
+  if (esAdministracion(datos.rol)) {
     const generica = await identidadDeAdministracion(admin)
     if ('error' in generica) {
       console.error('crearNuevaCuenta: no se pudieron leer los nombres de Administración', generica.error)
@@ -206,6 +206,7 @@ export async function crearNuevaCuenta(
     }
     identidad = generica
   } else {
+    if (!('nombre' in datos)) return fallo(MENSAJE_REVISAR)
     identidad = { nombre: datos.nombre, siglas: datos.siglas }
   }
 
@@ -238,7 +239,7 @@ export async function cambiarRolCuenta(entrada: unknown): Promise<Resultado<null
 
   const admin = crearClienteAdmin()
   let cambios: { rol: Rol; nombre?: string; siglas?: string } = { rol }
-  if (rol === 'administracion') {
+  if (esAdministracion(rol)) {
     // Entrar a Administración cambia el nombre por uno genérico (la casa no ve su nombre real);
     // quien ya estaba conserva el suyo.
     const { data: actual, error: errorLectura } = await admin.from('perfiles').select('rol').eq('id', id).maybeSingle()
@@ -247,7 +248,7 @@ export async function cambiarRolCuenta(entrada: unknown): Promise<Resultado<null
       return fallo('No se pudo cambiar el rol. Intentá de nuevo.')
     }
     if (!actual) return fallo('La cuenta no existe.')
-    if (actual.rol !== 'administracion') {
+    if (!esAdministracion(actual.rol)) {
       const generica = await identidadDeAdministracion(admin)
       if ('error' in generica) {
         console.error(`cambiarRolCuenta: no se pudieron leer los nombres de Administración (usuario ${id})`, generica.error)
@@ -454,6 +455,18 @@ export async function eliminarCuenta(entrada: unknown): Promise<Resultado<null>>
     }
     if (!count) return fallo(MENSAJE_DIRECTOR_MINIMO)
   }
+
+  // Las FK de cuotas y pagos conservan el historial: esa cuenta se desactiva.
+  // Se consulta después de validar la sesión, el rol y la cuenta, antes de tocar Auth.
+  const [pagos, cuotas] = await Promise.all([
+    admin.from('pensiones_pagos').select('usuario_id').eq('usuario_id', id).limit(1).maybeSingle(),
+    admin.from('pensiones_cuotas').select('usuario_id').eq('usuario_id', id).limit(1).maybeSingle(),
+  ])
+  if (pagos.error || cuotas.error) {
+    console.error(`eliminarCuenta: no se pudo consultar el historial de pensiones (usuario ${id})`, pagos.error ?? cuotas.error)
+    return fallo('No se pudo eliminar la cuenta. Intentá de nuevo.')
+  }
+  if (pagos.data || cuotas.data) return fallo('Esta cuenta tiene historial de pensiones. Desactivala para conservarlo.')
 
   const { error } = await admin.auth.admin.deleteUser(id)
   if (error) {

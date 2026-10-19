@@ -2,7 +2,7 @@
 
 import { useActionState, useState } from 'react'
 import { BotonEnvio } from '@/components/ui/boton-envio'
-import { ETIQUETA_ROL, ROLES, type Rol } from '@/lib/perfiles/roles'
+import { esAdministracion, ETIQUETA_ROL, ROLES, type Rol } from '@/lib/perfiles/roles'
 import { guardarMiCuenta } from '../acciones'
 import { accionDeFormulario } from './llamar-accion'
 import { useAvisoDeResultado } from './usar-aviso-resultado'
@@ -15,7 +15,7 @@ export function FormularioMiCuenta(props: { nombre: string; siglas: string; usua
   const [siglas, setSiglas] = useState(props.siglas)
   const campos = estado && !estado.ok ? estado.campos : undefined
   // La casa no ve el nombre real de Administración: el suyo es genérico y lo pone la app.
-  const nombreFijo = props.rol === 'administracion'
+  const nombreFijo = esAdministracion(props.rol)
 
   // Tras guardar, los campos muestran lo que quedó en la base (sin espacios, siglas en mayúsculas).
   // Se ajusta durante el render al llegar un resultado nuevo, sin efecto.

@@ -27,3 +27,6 @@ playwright-report/
 Thumbs.db
 *.log
 *.tsbuildinfo
+
+# herramientas temporales de verificación local
+.verificacion/

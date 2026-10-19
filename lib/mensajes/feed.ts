@@ -1,4 +1,4 @@
-import type { Rol } from '@/lib/perfiles/roles'
+import { esAdministracion, type Rol } from '@/lib/perfiles/roles'
 import type { Tabla } from '@/lib/supabase/tipos'
 
 /** Publicaciones por carga (spec §7). */
@@ -40,7 +40,7 @@ export type Publicacion = Respuesta & DatosFijado & { respuestas: Respuesta[] }
 
 /** Espejo de mensajes_forzar_estado() en SQL: quién publica sin pasar por la aprobación del Director. */
 export function publicaDirecto(rol: Rol): boolean {
-  return rol === 'director' || rol === 'administracion'
+  return rol === 'director' || esAdministracion(rol)
 }
 
 /**
