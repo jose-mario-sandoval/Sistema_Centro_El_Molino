@@ -137,13 +137,14 @@ el éxito del job SQL solo acredita que se despachó la petición, no que Storag
   separada por archivo. Las comprobaciones SQL pasaron para permisos, cuotas distintas, montos
   históricos, metas pasadas ante cambios de cuenta, pagos concurrentes (ocho llamadas), lotes
   atómicos, privacidad de presupuesto y retención concurrente 12+12 de reportes.
-- Los tipos se generaron íntegramente con `@supabase/postgres-meta@0.100.0`
-  (`@supabase/typegen@0.2.2`), esquema public y PostgREST 14, contra ese esquema temporal aplicado;
-  no se editaron a mano. La paridad exacta con el artefacto de Supabase CI debe revisarse todavía.
-- Este banco SQL simula Auth, Vault, Storage, cron y net. **No verifica el servicio HTTP de
-  Storage, Auth real, entrega de eventos Realtime ni la ejecución del cron remoto.** Las pruebas nuevas
-  de integración/E2E quedan preparadas para Supabase temporal de CI, sin ejecutarse contra
-  producción. La revisión con residentes mayores sigue siendo una validación humana pendiente.
+- Los tipos están sincronizados con el artefacto oficial `database-types` del CI
+  [39340566874](https://github.com/jose-mario-sandoval/Sistema_Centro_El_Molino/actions/runs/39340566874),
+  generado desde Supabase temporal con todas las migraciones. No se editaron a mano.
+- Ese CI aprobó las **401 pruebas de integración**, incluidas Auth, RLS y Storage de Supabase.
+- El banco SQL local simula Auth, Vault, Storage, cron y net. El CI complementa esa revisión
+  con Auth, RLS y Storage reales del Supabase temporal. Los E2E se ejecutan exclusivamente
+  en ese entorno, sin pruebas contra producción. La ejecución del cron remoto y la revisión
+  con residentes mayores siguen siendo verificaciones pendientes.
 - La revisión visual aislada usa componentes, CSS y fuentes reales con backend/router simulados:
   130 casos a 320/375/768/1280 px, letra normal/enorme, claro/oscuro y contraste suave/alto.
   Se revisaron capturas y se corrigieron recortes de controles nativos sin reducir el texto.

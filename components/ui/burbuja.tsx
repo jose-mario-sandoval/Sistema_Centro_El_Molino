@@ -180,33 +180,29 @@ export function Burbuja({
     if (cambioDeLado) mostrar()
   }
 
-  /** Baja la página lo justo para que la burbuja (y el control con el foco) se vea, sin perder el botón. */
+  /** Muestra la burbuja y prioriza el control enfocado si no cabe junto al botón que la abrió. */
   function mostrar(suave = false) {
     const elemento = burbuja.current
     const boton = ancla.current
     if (!elemento || !boton) return
-    const bajar = cuantoDesplazar({
+    const activo = document.activeElement
+    const foco = activo instanceof HTMLElement && activo !== elemento && elemento.contains(activo) ? activo : null
+    const desplazar = cuantoDesplazar({
       burbuja: elemento.getBoundingClientRect(),
       ancla: boton.getBoundingClientRect(),
       vista: { alto: window.innerHeight },
       reservaAbajo: reservaAbajo(),
       margenArriba: margenArriba(boton),
+      foco: foco?.getBoundingClientRect(),
     })
     const quieto = !suave || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
-    if (bajar > 0) window.scrollBy({ top: bajar, behavior: quieto ? 'auto' : 'smooth' })
-    // Al abrir, el foco está en una opción de arriba: con bajar lo justo alcanza.
-    if (suave) return
-    const activo = document.activeElement
-    if (activo instanceof HTMLElement && activo !== elemento && elemento.contains(activo)) {
-      const r = activo.getBoundingClientRect()
-      if (r.bottom > window.innerHeight - reservaAbajo() || r.top < 0) activo.scrollIntoView({ block: 'nearest' })
-    }
+    if (desplazar !== 0) window.scrollBy({ top: desplazar, behavior: quieto ? 'auto' : 'smooth' })
   }
 
   // En cada pintada: el contenido o el botón pudieron moverse.
   useLayoutEffect(colocar)
 
-  // Al abrir: el foco entra y, si no se ve entera, la página baja lo justo (el botón sigue a la vista).
+  // Al abrir: el foco entra y la página se desplaza para que el control enfocado quede a la vista.
   useLayoutEffect(() => {
     const elemento = burbuja.current
     const boton = ancla.current
