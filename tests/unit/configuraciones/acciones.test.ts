@@ -6,6 +6,7 @@ import {
   cambiarRolCuenta,
   cambiarUsuarioCuenta,
   crearNuevaCuenta,
+  eliminarCuenta,
   guardarHorasLimite,
   guardarMiCuenta,
   ponerContrasenaTemporal,
@@ -73,6 +74,7 @@ function clienteFalso(respuestas: { lecturas?: Respuesta[]; escrituras?: Respues
       eq: () => q,
       neq: () => q,
       like: () => q,
+      limit: () => q,
       insert: (valores: Record<string, unknown>) => {
         inserciones.push(valores)
         escritura = escrituras.shift() ?? ESCRITURA_OK
@@ -292,7 +294,7 @@ describe('crearNuevaCuenta', () => {
     expect(falso.cliente.auth.admin.deleteUser).toHaveBeenCalledWith(ID_OTRA)
   })
 
-  it('una cuenta de Administración recibe el nombre genérico que sigue, no uno escrito', async () => {
+  it.each(['administracion', 'administradora'] as const)('una cuenta %s recibe el nombre genérico que sigue, no uno escrito', async (rol) => {
     const falso = usarAdmin(
       clienteFalso({
         // 1.ª lectura: ¿existe el usuario? 2.ª: los nombres genéricos en uso.
@@ -301,10 +303,10 @@ describe('crearNuevaCuenta', () => {
     )
     const r = await crearNuevaCuenta(
       null,
-      formulario({ rol: 'administracion', usuario: 'admin.5', contrasena: CONTRASENA, nombre: 'María Real', siglas: 'MR' }),
+      formulario({ rol, usuario: 'admin.5', contrasena: CONTRASENA, nombre: 'María Real', siglas: 'MR' }),
     )
     expect(r).toEqual({ ok: true, data: { id: ID_OTRA, nombre: 'Administración 5', usuario: 'admin.5' } })
-    expect(falso.inserciones[0]).toMatchObject({ nombre: 'Administración 5', siglas: 'A5', usuario: 'admin.5', rol: 'administracion' })
+    expect(falso.inserciones[0]).toMatchObject({ nombre: 'Administración 5', siglas: 'A5', usuario: 'admin.5', rol })
     expect(JSON.stringify(falso.inserciones)).not.toContain('María')
   })
 
@@ -356,15 +358,24 @@ describe('cambiarUsuarioCuenta', () => {
 })
 
 describe('cambiarRolCuenta hacia Administración', () => {
-  it('la cuenta toma el nombre genérico que sigue', async () => {
+  it.each(['administracion', 'administradora'] as const)('la cuenta toma el nombre genérico al pasar a %s', async (rol) => {
     const falso = usarAdmin(
       clienteFalso({
         // 1.ª lectura: el rol que tiene hoy. 2.ª: los nombres genéricos en uso.
         lecturas: [{ data: { rol: 'residente' }, error: null }, { data: [{ nombre: 'Administración 2' }], error: null }],
       }),
     )
-    expect(await cambiarRolCuenta({ id: ID_OTRA, rol: 'administracion' })).toEqual({ ok: true, data: null })
-    expect(falso.actualizaciones).toEqual([{ rol: 'administracion', nombre: 'Administración 3', siglas: 'A3' }])
+    expect(await cambiarRolCuenta({ id: ID_OTRA, rol })).toEqual({ ok: true, data: null })
+    expect(falso.actualizaciones).toEqual([{ rol, nombre: 'Administración 3', siglas: 'A3' }])
+  })
+
+  it.each([
+    ['administracion', 'administradora'],
+    ['administradora', 'administracion'],
+  ] as const)('al pasar de %s a %s conserva la identidad genérica', async (anterior, rol) => {
+    const falso = usarAdmin(clienteFalso({ lecturas: [{ data: { rol: anterior }, error: null }] }))
+    expect(await cambiarRolCuenta({ id: ID_OTRA, rol })).toEqual({ ok: true, data: null })
+    expect(falso.actualizaciones).toEqual([{ rol }])
   })
 
   it('si ya era de Administración, conserva su nombre', async () => {
@@ -386,6 +397,53 @@ describe('cambiarRolCuenta hacia Administración', () => {
   })
 })
 
+describe('eliminarCuenta conserva el historial de pensiones', () => {
+  it('una cuenta con pagos se desactiva en lugar de borrarse', async () => {
+    const falso = usarAdmin(clienteFalso({ lecturas: [
+      { data: { activo: true, rol: 'residente' }, error: null },
+      { data: { usuario_id: ID_OTRA }, error: null },
+    ] }))
+    expect(await eliminarCuenta({ id: ID_OTRA })).toMatchObject({
+      ok: false, error: 'Esta cuenta tiene historial de pensiones. Desactivala para conservarlo.',
+    })
+    expect(falso.cliente.auth.admin.deleteUser).not.toHaveBeenCalled()
+  })
+
+  it('una cuenta con cuotas conserva también las metas históricas', async () => {
+    const falso = usarAdmin(clienteFalso({ lecturas: [
+      { data: { activo: true, rol: 'residente' }, error: null }, LECTURA_VACIA,
+      { data: { usuario_id: ID_OTRA }, error: null },
+    ] }))
+    expect(await eliminarCuenta({ id: ID_OTRA })).toMatchObject({
+      ok: false, error: 'Esta cuenta tiene historial de pensiones. Desactivala para conservarlo.',
+    })
+    expect(falso.cliente.auth.admin.deleteUser).not.toHaveBeenCalled()
+  })
+
+  it('una cuenta sin pagos se puede seguir borrando', async () => {
+    const falso = usarAdmin(clienteFalso({ lecturas: [
+      { data: { activo: true, rol: 'residente' }, error: null }, LECTURA_VACIA,
+    ] }))
+    expect(await eliminarCuenta({ id: ID_OTRA })).toEqual({ ok: true, data: null })
+    expect(falso.cliente.auth.admin.deleteUser).toHaveBeenCalledWith(ID_OTRA)
+  })
+
+  it('si no se pudo verificar el historial no borra la cuenta', async () => {
+    const falso = usarAdmin(clienteFalso({ lecturas: [
+      { data: { activo: true, rol: 'residente' }, error: null },
+      { data: null, error: { code: '08006' } },
+    ] }))
+    expect(await eliminarCuenta({ id: ID_OTRA })).toMatchObject({ ok: false })
+    expect(falso.cliente.auth.admin.deleteUser).not.toHaveBeenCalled()
+  })
+
+  it('sin permiso de Director no consulta datos ni invoca Auth', async () => {
+    vi.mocked(perfilParaAccion).mockResolvedValue({ ok: false, error: 'No tenés permiso para hacer esto.' })
+    expect(await eliminarCuenta({ id: ID_OTRA })).toMatchObject({ ok: false })
+    expect(crearClienteAdmin).not.toHaveBeenCalled()
+  })
+})
+
 describe('Mi cuenta', () => {
   it('guarda nombre y siglas normalizados; ni correo ni usuario', async () => {
     const falso = usarAdmin(clienteFalso())
@@ -395,10 +453,10 @@ describe('Mi cuenta', () => {
     expect(falso.cliente.auth.admin.updateUserById).not.toHaveBeenCalled()
   })
 
-  it('Administración no cambia su nombre: lo pone la app', async () => {
+  it.each(['administracion', 'administradora'] as const)('%s no cambia su nombre: lo pone la app', async (rol) => {
     vi.mocked(perfilParaAccion).mockResolvedValue({
       ok: true,
-      perfil: { ...DIRECTOR, id: ID_OTRA, rol: 'administracion', nombre: 'Administración 1', siglas: 'A1' },
+      perfil: { ...DIRECTOR, id: ID_OTRA, rol, nombre: 'Administración 1', siglas: 'A1' },
     })
     const falso = usarAdmin(clienteFalso())
     const r = await guardarMiCuenta(null, formulario({ nombre: 'María Real', siglas: 'MR' }))

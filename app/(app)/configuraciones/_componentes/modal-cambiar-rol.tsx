@@ -5,7 +5,7 @@ import { useAviso } from '@/components/ui/avisos'
 import { Modal } from '@/components/ui/modal'
 import type { Cuenta } from '@/lib/configuraciones/tipos'
 import { nombreAdministracion, siglasAdministracion } from '@/lib/cuentas/administracion'
-import { ETIQUETA_ROL, type Rol } from '@/lib/perfiles/roles'
+import { esAdministracion, ETIQUETA_ROL, type Rol } from '@/lib/perfiles/roles'
 import { cambiarRolCuenta } from '../acciones'
 import { llamarAccion } from './llamar-accion'
 
@@ -30,7 +30,9 @@ export function ModalCambiarRol({
 
   const daDirector = cambio?.rol === 'director'
   const quitaDirector = cambio?.cuenta.rol === 'director' && !daDirector
-  const aAdministracion = cambio?.rol === 'administracion'
+  const aAdministracion = esAdministracion(cambio?.rol)
+  const cambiaIdentidad = aAdministracion && !esAdministracion(cambio?.cuenta.rol)
+  const etiquetaNueva = cambio ? ETIQUETA_ROL[cambio.rol] : ''
   const nombreNuevo = nombreAdministracion(numeroAdministracion)
 
   function confirmar() {
@@ -43,7 +45,7 @@ export function ModalCambiarRol({
         !resultado.ok
           ? resultado.error
           : aAdministracion
-            ? `${cuenta.nombre} pasó a Administración.`
+            ? `${cuenta.nombre} pasó a ${ETIQUETA_ROL[rol]}.`
             : `Rol actualizado para ${cuenta.nombre}.`,
       )
       alCerrar()
@@ -55,15 +57,18 @@ export function ModalCambiarRol({
       {cambio && (
         <>
           <p>
-            {daDirector ? '¿Dar el rol Director a ' : aAdministracion ? '¿Pasar a Administración a ' : '¿Quitar el rol Director a '}
+            {daDirector ? '¿Dar el rol Director a ' : aAdministracion ? `¿Pasar a ${etiquetaNueva} a ` : '¿Quitar el rol Director a '}
             <strong>{cambio.cuenta.nombre}</strong>?
             {quitaDirector && !aAdministracion && ` Pasará a tener el rol ${ETIQUETA_ROL[cambio.rol]}.`}
           </p>
-          {aAdministracion && (
+          {cambiaIdentidad && (
             <p className="hint">
               Va a llamarse «{nombreNuevo}» ({siglasAdministracion(numeroAdministracion)}): la casa no ve el nombre
               real de Administración.
             </p>
+          )}
+          {aAdministracion && !cambiaIdentidad && (
+            <p className="hint">Conservará su nombre y siglas genéricos.</p>
           )}
           {(daDirector || quitaDirector) && (
             <p className="hint">
@@ -82,7 +87,7 @@ export function ModalCambiarRol({
                 : daDirector
                   ? 'Dar rol Director'
                   : aAdministracion
-                    ? 'Pasar a Administración'
+                    ? `Pasar a ${etiquetaNueva}`
                     : 'Quitar rol Director'}
             </button>
           </div>

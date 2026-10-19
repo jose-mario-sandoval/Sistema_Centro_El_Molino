@@ -2,6 +2,7 @@ import { BotonCerrarSesion } from '@/components/app/cerrar-sesion'
 import { Escudo } from '@/components/app/escudo'
 import { NavegacionInferior, NavegacionLateral } from '@/components/app/navegacion'
 import { BotonApariencia } from '@/components/ui/apariencia'
+import type { Rol } from '@/lib/perfiles/roles'
 
 /**
  * Estructura de la app: lateral en escritorio; barra superior y barra inferior en el teléfono
@@ -11,15 +12,17 @@ export function Estructura({
   nombre,
   siglas,
   rol,
+  rolAcceso,
   children,
 }: {
   nombre: string
   siglas: string
   rol: string
+  rolAcceso: Rol
   children: React.ReactNode
 }) {
   return (
-    <div id="app-screen">
+    <div id="app-screen" data-pensiones={rolAcceso !== 'administracion'}>
       <aside className="sidebar">
         <div className="brand">
           <Escudo />
@@ -28,7 +31,7 @@ export function Estructura({
             <div className="sub">Sistema interno</div>
           </div>
         </div>
-        <NavegacionLateral />
+        <NavegacionLateral rol={rolAcceso} />
         <div className="sidebar-foot">
           <div className="who-box">
             <div className="avatar">{siglas}</div>
@@ -56,7 +59,7 @@ export function Estructura({
         </header>
         <main className="content">{children}</main>
       </div>
-      <NavegacionInferior />
+      <NavegacionInferior rol={rolAcceso} />
     </div>
   )
 }

@@ -4,7 +4,7 @@ import { useActionState, useState } from 'react'
 import { BotonEnvio } from '@/components/ui/boton-envio'
 import { Modal } from '@/components/ui/modal'
 import { nombreAdministracion, siglasAdministracion, usuarioSugeridoAdministracion } from '@/lib/cuentas/administracion'
-import { ETIQUETA_ROL, ROLES, type Rol } from '@/lib/perfiles/roles'
+import { esAdministracion, ETIQUETA_ROL, ROLES, type Rol } from '@/lib/perfiles/roles'
 import { crearNuevaCuenta } from '../acciones'
 import { CampoContrasenaTemporal, ContrasenaParaEntregar } from './campo-contrasena-temporal'
 import { accionDeFormulario } from './llamar-accion'
@@ -38,14 +38,14 @@ function FormularioNuevaCuenta({ alCerrar, numeroAdministracion }: { alCerrar: (
   useAvisoDeResultado(estado, null)
 
   // La casa no ve el nombre real de Administración: esa cuenta no lleva nombre escrito.
-  const esAdministracion = rol === 'administracion'
+  const identidadGenerica = esAdministracion(rol)
   const usuarioSugerido = usuarioSugeridoAdministracion(numeroAdministracion)
 
   function cambiarRol(nuevo: Rol) {
     // Al pasar a Administración se propone su usuario (si no se escribió otro); al salir, se retira
     // la propuesta que nadie tocó.
-    if (nuevo === 'administracion' && usuario.trim() === '') setUsuario(usuarioSugerido)
-    if (nuevo !== 'administracion' && usuario === usuarioSugerido) setUsuario('')
+    if (esAdministracion(nuevo) && usuario.trim() === '') setUsuario(usuarioSugerido)
+    if (!esAdministracion(nuevo) && usuario === usuarioSugerido) setUsuario('')
     setRol(nuevo)
   }
 
@@ -88,7 +88,7 @@ function FormularioNuevaCuenta({ alCerrar, numeroAdministracion }: { alCerrar: (
             <div className="hint">Con esto va a entrar. Letras sin tilde, números, punto o guion. Ejemplo: r.flores</div>
             {campos?.usuario && <div className="campo-error">{campos.usuario}</div>}
           </div>
-          {esAdministracion ? (
+          {identidadGenerica ? (
             // Dentro de un .field: ocupa el lugar (y el espacio) de los campos que no se piden.
             <div className="field">
               <p className="hint">

@@ -20,6 +20,13 @@ export const USUARIOS_PRUEBA = {
     siglas: 'AP',
     rol: 'administracion',
   },
+  administradora: {
+    usuario: 'administradora',
+    correo: 'administradora@prueba.test',
+    nombre: 'Administración 2',
+    siglas: 'A2',
+    rol: 'administradora',
+  },
 } as const
 
 export type ClaveUsuario = keyof typeof USUARIOS_PRUEBA
@@ -29,7 +36,7 @@ export type ClaveUsuario = keyof typeof USUARIOS_PRUEBA
  * aparecer ni en pantalla ni en los datos que la página lleva embebidos para hidratarse.
  */
 export function nombresQueNoDebeVer(clave: ClaveUsuario): string[] {
-  if (clave !== 'administracion') return []
+  if (clave !== 'administracion' && clave !== 'administradora') return []
   return Object.entries(USUARIOS_PRUEBA)
     .filter(([otra]) => otra !== clave)
     .map(([, u]) => u.nombre)

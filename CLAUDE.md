@@ -42,7 +42,10 @@ opcionales:
 
 ## Modelo de datos y reglas de negocio
 
-- Roles: `director`, `residente`, `administracion`. `ROLES_CON_COMIDAS = [director, residente]`;
+- Roles: `director`, `residente`, `administracion`, `administradora`. Los dos últimos son distintos:
+  `esAdministracion()` agrupa su comportamiento existente (identidad genérica, privacidad, cocina,
+  mensajes y avisos). Solo Administradora accede a Pensiones. No convertir cuentas automáticamente.
+  `ROLES_CON_COMIDAS = [director, residente]`;
   Administración no tiene comidas propias y **no debe conocer nombres** (solo siglas), en ninguna
   interfaz — pantallas, HTML, notificaciones push. Del calendario sí ve el título, la hora, la categoría
   y el pedido de los eventos que le piden algo (`eventos_para_cocina()`), pero **no** los demás eventos
@@ -94,7 +97,7 @@ opcionales:
 - Privacidad: se refuerza en el servidor (nunca se manda al navegador lo que un rol no debe ver) y
   en la base cuando se puede (RLS + funciones `security definer` para exponer solo el resultado
   agregado, ej. `eventos_para_cocina()`, `ausentes_en()`). Límite conocido: `perfiles` sigue
-  legible por la API de PostgREST para cualquier usuario activo — Administración no lo usa porque
+  legible por la API de PostgREST para cualquier usuario activo — Administración y Administradora no lo usan porque
   la app no se lo permite en pantalla, pero no hay una barrera de RLS que lo impida a nivel de fila.
 - Eventos: `tipo_evento` = `san_rafael | san_gabriel | san_miguel | otro`; `requiere_otro_texto` es
   el pedido libre a Administración (`eventos_para_cocina()` también devuelve el evento si solo pide
@@ -184,6 +187,14 @@ opcionales:
   `<head>` y es la prueba de que NO está instalada (borra la marca de "instalada").
 
 ## Migraciones: NO se aplican solas a producción
+
+Para Administradora y Pensiones, ver `docs/pensiones.md`: cuotas y participación con vigencia
+mensual; monto/categoría de pagos inmutables; pagos exclusivamente propios mediante RPC;
+Presupuesto solo Director/Administradora, con etiqueta segura desde SQL. Administradora no lee
+las tablas crudas de cuotas/pagos. Los reportes se descargan por la ruta autorizada, sin URLs
+firmadas reutilizables. Reservar antes de subir y finalizar bajo candado por categoría; la cola
+durable borra bytes retirados después de publicar correctamente el PDF nuevo. No borrar una
+cuenta con cuotas o pagos: desactivarla para conservar historial y metas.
 
 `.github/workflows/migraciones.yml` tiene `if: vars.SUPABASE_PROJECT_REF != ''`, y esa variable de
 repositorio **no está definida** → el job siempre da "skipped" al mergear a `master`, silenciosamente.

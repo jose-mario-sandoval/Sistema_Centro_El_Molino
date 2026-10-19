@@ -4,7 +4,7 @@ import { useOptimistic, useTransition } from 'react'
 import { useAviso } from '@/components/ui/avisos'
 import { Icono } from '@/components/ui/iconos'
 import type { Cuenta } from '@/lib/configuraciones/tipos'
-import { ETIQUETA_ROL, ROLES, type Rol } from '@/lib/perfiles/roles'
+import { esAdministracion, ETIQUETA_ROL, ROLES, type Rol } from '@/lib/perfiles/roles'
 import { cambiarEstadoCuenta, cambiarRolCuenta } from '../acciones'
 import { llamarAccion } from './llamar-accion'
 
@@ -43,13 +43,13 @@ export function FilaCuenta({
 
   function cambiarRol(nuevo: Rol) {
     if (pendiente || nuevo === rol) return
-    if (nuevo === 'director' || rol === 'director' || nuevo === 'administracion') {
+    if (nuevo === 'director' || rol === 'director' || esAdministracion(nuevo)) {
       // El select es controlado: sigue mostrando el rol vigente hasta que se confirme.
       alConfirmarRol(nuevo)
       return
     }
     // Quien sale de Administración conserva el nombre genérico hasta que ponga el suyo.
-    const saleDeAdministracion = rol === 'administracion'
+    const saleDeAdministracion = esAdministracion(rol)
     iniciarTransicion(async () => {
       setRolOptimista(nuevo)
       const resultado = await llamarAccion(() => cambiarRolCuenta({ id: cuenta.id, rol: nuevo }))

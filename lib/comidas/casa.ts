@@ -1,4 +1,5 @@
 import { sumarDias, type FechaISO } from '@/lib/fechas'
+import { esAdministracion, type Rol } from '@/lib/perfiles/roles'
 import { partesParaCocina, textoParte, totalQueComen, type ResumenComida } from './resumen'
 import { diasDeSemana, etiquetaDia, tituloComida } from './semana'
 import { CANTIDAD_MAXIMA_EXTRA, ETIQUETA_TIEMPO, type ConfirmacionExtra, type ExtraManual, type TiempoComida } from './tipos'
@@ -20,8 +21,8 @@ export function pestanasComidas(esDirector: boolean): { ruta: string; etiqueta: 
  * El texto bajo "Comidas": lo propio para Director y Residente en su Plan y su Semana; la casa entera
  * para el Director en La casa (y en la página de una persona); solo lectura para Administración.
  */
-export function descripcionComidas(rol: 'director' | 'residente' | 'administracion', ruta: string): string {
-  if (rol === 'administracion') return 'Planes y selecciones de comida de la casa, en solo lectura.'
+export function descripcionComidas(rol: Rol, ruta: string): string {
+  if (esAdministracion(rol)) return 'Planes y selecciones de comida de la casa, en solo lectura.'
   if (rol === 'director' && ruta.startsWith('/comidas/casa'))
     return 'Las comidas de toda la casa: quién come cada día, la comida de cada persona y los extras para la cocina.'
   return 'Tu plan habitual y lo que vas a comer cada día de la semana.'

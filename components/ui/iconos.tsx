@@ -44,6 +44,7 @@ const TRAZOS = {
     </>
   ),
   mensajes: <path d="M21 15a2 2 0 0 1-2 2H8l-4 4V5a2 2 0 0 1 2-2h13a2 2 0 0 1 2 2z" />,
+  pensiones: <><rect x="3" y="5" width="18" height="15" rx="2" /><path d="M3 9h18M12 12v5M10 13h3a1 1 0 0 1 0 2h-2a1 1 0 0 0 0 2h3" /></>,
   calendario: (
     <>
       <path d="M3 6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />

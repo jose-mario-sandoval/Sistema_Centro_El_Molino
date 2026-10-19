@@ -115,9 +115,9 @@ describe('esquemaNuevaCuenta', () => {
     expect(r.success && r.data).toEqual({ ...datos, siglas: 'AT', usuario: 'a.torres' })
   })
 
-  it('una cuenta de Administración no lleva nombre ni siglas (los pone el servidor)', () => {
-    const r = esquemaNuevaCuenta.safeParse({ rol: 'administracion', usuario: 'admin.3', contrasena: datos.contrasena, nombre: 'Ana' })
-    expect(r.success && r.data).toEqual({ rol: 'administracion', usuario: 'admin.3', contrasena: datos.contrasena })
+  it.each(['administracion', 'administradora'] as const)('una cuenta %s no lleva nombre ni siglas (los pone el servidor)', (rol) => {
+    const r = esquemaNuevaCuenta.safeParse({ rol, usuario: 'admin.3', contrasena: datos.contrasena, nombre: 'Ana', siglas: 'AT' })
+    expect(r.success && r.data).toEqual({ rol, usuario: 'admin.3', contrasena: datos.contrasena })
   })
 
   it('a una cuenta de la casa le pide nombre y siglas', () => {

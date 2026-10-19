@@ -31,7 +31,7 @@ function InsigniaSoloDirector() {
   return (
     <div className="insignia-privado">
       <Icono nombre="candado" />
-      <span>Privado: solo Administración y el Director pueden leerlo</span>
+      <span>Privado: solo Administración, la Administradora y el Director pueden leerlo</span>
     </div>
   )
 }

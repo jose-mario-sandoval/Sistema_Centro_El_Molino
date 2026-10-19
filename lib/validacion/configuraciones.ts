@@ -86,7 +86,7 @@ export const esquemaHorasLimite = z
 export const esquemaNuevaCuenta = z.discriminatedUnion(
   'rol',
   [
-    z.object({ rol: z.literal('administracion'), usuario, contrasena: contrasenaTemporal }),
+    z.object({ rol: z.enum(['administracion', 'administradora']), usuario, contrasena: contrasenaTemporal }),
     z.object({ rol: z.enum(['director', 'residente']), nombre, siglas, usuario, contrasena: contrasenaTemporal }),
   ],
   { error: 'Elegí un rol.' },

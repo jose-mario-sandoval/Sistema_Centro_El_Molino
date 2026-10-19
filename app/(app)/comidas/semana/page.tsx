@@ -10,6 +10,7 @@ import { semanaPedida, tipoSemana } from '@/lib/comidas/semana'
 import { periodoEditable } from '@/lib/comidas/periodo'
 import { diaParaMostrar } from '@/lib/comidas/vista'
 import { fechaISOEn, instanteEnZona, sumarDias } from '@/lib/fechas'
+import { esAdministracion } from '@/lib/perfiles/roles'
 import { NavegacionSemana } from '../_componentes/navegacion-semana'
 import { RefrescarAlVolver } from '../_componentes/refrescar-al-volver'
 import { SemanaAgregadaAdministracion } from '../_componentes/semana-agregada-administracion'
@@ -28,7 +29,7 @@ export default async function PaginaSemana({
   const refrescarEnMs = instanteEnZona(sumarDias(hoy, 1), '00:00').getTime() - ahora.getTime()
   const lunes = semanaPedida(semana, hoy)
 
-  if (perfil.rol === 'administracion') {
+  if (esAdministracion(perfil.rol)) {
     const [dias, extras, extrasManuales] = await Promise.all([
       obtenerSemanaParaAdministracion(lunes),
       obtenerExtrasDeLaSemana(lunes),

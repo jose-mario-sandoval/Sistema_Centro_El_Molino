@@ -10,7 +10,7 @@ import type { PaginaRegistro } from '@/lib/mensajes/consulta-registro'
 import { publicaDirecto, type DatosFijado, type Publicacion } from '@/lib/mensajes/feed'
 import { fijadoHasta } from '@/lib/mensajes/fijados'
 import { listarPerfiles, type PerfilResumen } from '@/lib/perfiles/consultas'
-import type { Rol } from '@/lib/perfiles/roles'
+import { ROLES_ADMINISTRACION, type Rol } from '@/lib/perfiles/roles'
 import { avisarMensajePendiente, avisarModeracion, avisarNuevaPublicacion, avisarNuevaRespuesta } from '@/lib/push/avisos'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { camposConError } from '@/lib/validacion/auth'
@@ -334,7 +334,7 @@ const DIA_PASADO = 'Elegí un día de hoy en adelante.'
  * servidor (el del navegador puede estar mal); `fijar_mensaje` verifica rol y estado.
  */
 export async function fijarPublicacion(entrada: unknown): Promise<Resultado<DatosFijado>> {
-  const sesion = await perfilParaAccion('director', 'administracion')
+  const sesion = await perfilParaAccion('director', ...ROLES_ADMINISTRACION)
   if (!sesion.ok) return sesion
 
   const datos = esquemaFijar.safeParse(entrada)
@@ -363,7 +363,7 @@ export async function fijarPublicacion(entrada: unknown): Promise<Resultado<Dato
 
 /** Director o Administración la quitan de fijados, la haya fijado quien la haya fijado. */
 export async function desfijarPublicacion(entrada: unknown): Promise<Resultado<null>> {
-  const sesion = await perfilParaAccion('director', 'administracion')
+  const sesion = await perfilParaAccion('director', ...ROLES_ADMINISTRACION)
   if (!sesion.ok) return sesion
 
   const datos = esquemaDesfijar.safeParse(entrada)

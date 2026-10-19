@@ -1,4 +1,4 @@
-import type { Rol } from './roles'
+import { esAdministracion, type Rol } from './roles'
 
 /**
  * Regla de privacidad del centro: Administración vive en otra parte de la casa y no conoce el
@@ -10,7 +10,7 @@ import type { Rol } from './roles'
  * Sin rol conocido (sin sesión) se elige lo más privado.
  */
 export function veSoloSiglas(rolObservador: Rol | null | undefined): boolean {
-  return rolObservador == null || rolObservador === 'administracion'
+  return rolObservador == null || esAdministracion(rolObservador)
 }
 
 /** La persona tal como la ve `rolObservador`: para Administración, `nombre` pasa a ser las siglas. */

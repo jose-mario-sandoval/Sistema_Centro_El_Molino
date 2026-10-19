@@ -1,4 +1,4 @@
-import { ROLES_CON_COMIDAS, type Rol } from '@/lib/perfiles/roles'
+import { esAdministracion, ROLES_ADMINISTRACION, ROLES_CON_COMIDAS, type Rol } from '@/lib/perfiles/roles'
 import { veSoloSiglas } from '@/lib/perfiles/visibilidad'
 
 /** Datos del perfil que deciden si una persona recibe un aviso (columnas de `perfiles`). */
@@ -45,7 +45,7 @@ export function filtrarSoloDirector(
   const rolDe = new Map(perfiles.map((p) => [p.id, p.rol]))
   return ids.filter((id) => {
     const rol = rolDe.get(id)
-    return rol === 'director' || rol === 'administracion' || (rol !== undefined && tambien.includes(id))
+    return rol === 'director' || esAdministracion(rol) || (rol !== undefined && tambien.includes(id))
   })
 }
 
@@ -89,7 +89,7 @@ export function destinatarioCambio(p: { personaId: string; actorId: string; perf
 
 /** Cambios para la cocina (extras, pedidos de eventos): a Administración, nunca a quien los hizo. */
 export function destinatariosCocina(p: { actorId: string; perfiles: PerfilAviso[] }): string[] {
-  return filtrar(p.perfiles, conRol(p.perfiles, ['administracion']), 'avisar_cocina', p.actorId)
+  return filtrar(p.perfiles, conRol(p.perfiles, ROLES_ADMINISTRACION), 'avisar_cocina', p.actorId)
 }
 
 /**

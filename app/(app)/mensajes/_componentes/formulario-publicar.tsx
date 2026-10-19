@@ -89,13 +89,13 @@ export function FormularioPublicar({
             />
             <span>
               <Icono nombre="candado" />
-              Solo Administración y el Director
+              Solo Administración, la Administradora y el Director
             </span>
           </label>
         </div>
         <input type="hidden" name="soloDirector" value={soloDirector ? 'true' : 'false'} />
         {soloDirector && requiereAprobacion && (
-          <div className="hint">Lo lee primero el Director y, si lo aprueba, Administración. Nadie más lo ve.</div>
+          <div className="hint">Lo lee primero el Director y, si lo aprueba, Administración y la Administradora. Nadie más lo ve.</div>
         )}
       </fieldset>
       <div className="compose-foot">

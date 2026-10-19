@@ -5,6 +5,11 @@ const nextConfig: NextConfig = {
   // serían archivos sin commitear que ensucian el repo y no forman parte del proyecto.
   agentRules: false,
 
+  experimental: {
+    // PDF de Pensiones: 3 MiB de archivo y margen para los campos de FormData.
+    serverActions: { bodySizeLimit: '4mb' },
+  },
+
   async headers() {
     return [
       {
