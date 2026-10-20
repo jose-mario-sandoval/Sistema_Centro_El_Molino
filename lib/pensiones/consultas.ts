@@ -32,6 +32,22 @@ export async function obtenerPresupuesto(periodo: string): Promise<FilaPresupues
   return data.map((fila) => ({ ...fila, periodo }))
 }
 
+/**
+ * Las filas del presupuesto de los 12 meses de un año, en orden de enero a diciembre. Comprueba el rol una
+ * sola vez y pide los meses en paralelo; cada mes sigue pasando por la misma función de la base (con las
+ * mismas reglas de visibilidad: la Administradora recibe solo siglas).
+ */
+export async function obtenerPresupuestoAnual(anio: number): Promise<FilaPresupuesto[][]> {
+  await exigirRol(...ROLES_PRESUPUESTO)
+  const supabase = await crearClienteServidor()
+  return Promise.all(Array.from({ length: 12 }, async (_, i) => {
+    const periodo = `${anio}-${String(i + 1).padStart(2, '0')}-01`
+    const filas = await leerPaginasPensiones((desde, hasta) => supabase.rpc('presupuesto_pensiones', { p_periodo: periodo })
+      .order('etiqueta').order('usuario_id').range(desde, hasta))
+    return filas.map((fila) => ({ ...fila, periodo }))
+  }))
+}
+
 export async function obtenerConfiguraciones() {
   await exigirRol('director')
   const supabase = await crearClienteServidor()

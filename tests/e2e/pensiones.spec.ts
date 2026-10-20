@@ -221,6 +221,31 @@ test('Presupuesto entrega nombres al Director y solo siglas a la Administradora'
   } finally { await otroContexto.close() }
 })
 
+test('Presupuesto del año completo: total, mes por mes y por persona, con siglas para la Administradora', async ({ page, browser, baseURL }) => {
+  await configurar('residente', 30000)
+  await registrar('residente')
+  await iniciarSesion(page, 'administradora')
+  await page.goto(`/pensiones/presupuesto?vista=anual&anio=${anio}`)
+  const resumen = page.getByRole('region', { name: 'Resumen del año' })
+  await expect(resumen).toContainText(`Año ${anio}`)
+  await expect(resumen).toContainText('$300.00')
+  await expect(resumen).toContainText('$3,600.00')
+  await expect(page.getByRole('region', { name: 'Mes por mes' }).getByRole('listitem')).toHaveCount(12)
+  const porPersona = page.getByRole('region', { name: 'Por persona' })
+  await expect(porPersona).toContainText(USUARIOS_PRUEBA.residente.siglas)
+  const html = await page.content()
+  for (const clave of ['director', 'director2', 'residente', 'residente2'] as const) expect(html).not.toContain(USUARIOS_PRUEBA[clave].nombre)
+  await page.getByRole('link', { name: `Ver el detalle de Enero de ${anio}` }).click()
+  await expect(page).toHaveURL(new RegExp(`/pensiones/presupuesto\?anio=${anio}&mes=1$`))
+  const contexto = await browser.newContext({ baseURL })
+  try {
+    const director = await contexto.newPage()
+    await iniciarSesion(director, 'director')
+    await director.goto(`/pensiones/presupuesto?vista=anual&anio=${anio}`)
+    await expect(director.getByRole('region', { name: 'Por persona' })).toContainText(USUARIOS_PRUEBA.residente.nombre)
+  } finally { await contexto.close() }
+})
+
 test('Administradora sube PDF validado y Director consulta y descarga sin controles de carga', async ({ page, browser, baseURL }) => {
   await iniciarSesion(page, 'administradora')
   await page.goto('/pensiones/reporte')
