@@ -462,14 +462,14 @@ principal para que un lector de pantalla anuncie dónde quedó la persona.
 - **Sin tablas con scroll horizontal.** En el teléfono, cada fila pasa a ser una ficha con sus
   etiquetas escritas. En la vista de Administración, cada comida ocupa una línea (etiqueta a la
   izquierda, respuesta a la derecha), así caben dos personas por pantalla en lugar de una.
-- **La barra inferior nunca parte una palabra.** Administración conserva cuatro destinos. Los
-  otros roles tienen cinco, incluyendo Pensiones: se distribuyen en filas con ancho natural,
-  letra `var(--t-xs)`, controles de al menos 56px y separación. El contenido y los elementos que
-  se traen a la vista reservan hasta tres filas para 320px con letra enorme. En la barra de cuatro,
-  las etiquetas dejan de crecer al llegar al
-  ancho disponible (`min(var(--t-xs), 4.2vw)`), como hace iOS con su barra de pestañas: siempre van
-  junto a su icono, y el contenido de la página sí escala entero. El ancho se reparte según lo que
-  cada etiqueta necesita, no en cuartos iguales: "Calendario" necesita 79px y "Ajustes" 54.
+- **La barra inferior es una sola fila y nunca parte una palabra.** Administración tiene cuatro
+  destinos; los otros roles, cinco (con Pensiones). Cada destino lleva su icono y su etiqueta completa,
+  a `var(--t-xs)` (el piso de letra: no se achica para que quepan) y con un control de al menos 56px. Si
+  caben, se reparten el ancho según lo que pide cada etiqueta ("Calendario" necesita 79px y "Ajustes" 54, no
+  cuartos iguales). Si no caben (cinco destinos en un teléfono angosto, o letra grande), **la fila se
+  desplaza** —con el dedo, con el teclado o con el botón de la derecha, que lleva al final y de vuelta al
+  principio— y la sección actual se trae a la vista; lo que no entra queda fuera de la pantalla, nunca
+  recortado. La altura de la barra no cambia, así que el contenido reserva siempre el mismo espacio debajo.
 - **La cocina identifica a los asistentes por siglas.** La semana concreta y el plan habitual
   mantienen el total y el desglose escrito por estado. Cada comida ofrece *"Quiénes comen (N)"*,
   desplegable por teclado, con las siglas agrupadas por estado y sus *"Notas de dieta"* si las hay.

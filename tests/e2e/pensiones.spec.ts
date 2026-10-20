@@ -339,13 +339,28 @@ test('navegación móvil incorpora Pensiones con etiquetas completas y controles
   await expect(barra.getByRole('link')).toHaveCount(5)
   await esperarAltoMinimo(barra.getByRole('link'))
   await esperarSinScrollLateral(page)
+  // Una sola fila: ninguna etiqueta recortada (cada una cabe en su destino) y todos de al menos 56 px.
   const recortados = await barra.locator('.nav-item').evaluateAll((elementos) => elementos.flatMap((enlace) => {
     const caja = enlace.getBoundingClientRect()
     const texto = enlace.querySelector('span')!.getBoundingClientRect()
-    return caja.width < 56 || caja.left < 0 || caja.right > window.innerWidth || texto.left < caja.left || texto.right > caja.right
-      ? [enlace.textContent?.trim()] : []
+    return caja.width < 56 || texto.left < caja.left || texto.right > caja.right ? [enlace.textContent?.trim()] : []
   }))
   expect(recortados).toEqual([])
+  const filas = await barra.locator('.nav-item').evaluateAll((elementos) => new Set(elementos.map((e) => Math.round(e.getBoundingClientRect().top))).size)
+  expect(filas).toBe(1)
+  // En 320 px con letra enorme no caben los cinco: el botón desplaza la fila hasta el último destino y de vuelta.
+  const desplazar = barra.getByRole('button', { name: 'Ver más secciones' })
+  const volver = barra.getByRole('button', { name: 'Volver al principio de las secciones' })
+  await expect(desplazar).toBeVisible()
+  // Con letra enorme se ven dos destinos a la vez: hacen falta varios toques para llegar al final, donde el botón cambia de sentido.
+  for (let toques = 0; toques < 6 && !(await volver.isVisible()); toques++) {
+    await desplazar.click()
+    await page.waitForTimeout(500)
+  }
+  await expect(volver).toBeVisible()
+  await expect(barra.getByRole('link', { name: 'Ajustes', exact: true })).toBeInViewport()
+  await volver.click()
+  await expect(barra.getByRole('link', { name: 'Comidas', exact: true })).toBeInViewport()
   await barra.getByRole('link', { name: 'Pensiones', exact: true }).click()
   await expect(page).toHaveURL(/\/pensiones\/marcar$/)
   await expect(barra.getByRole('link', { name: 'Pensiones', exact: true })).toHaveAttribute('aria-current', 'page')

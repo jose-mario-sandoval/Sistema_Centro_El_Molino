@@ -22,7 +22,7 @@ export function Estructura({
   children: React.ReactNode
 }) {
   return (
-    <div id="app-screen" data-pensiones={rolAcceso !== 'administracion'}>
+    <div id="app-screen">
       <aside className="sidebar">
         <div className="brand">
           <Escudo />
