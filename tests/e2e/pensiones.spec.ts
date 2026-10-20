@@ -236,7 +236,7 @@ test('Presupuesto del año completo: total, mes por mes y por persona, con sigla
   const html = await page.content()
   for (const clave of ['director', 'director2', 'residente', 'residente2'] as const) expect(html).not.toContain(USUARIOS_PRUEBA[clave].nombre)
   await page.getByRole('link', { name: `Ver el detalle de Enero de ${anio}` }).click()
-  await expect(page).toHaveURL(new RegExp(`/pensiones/presupuesto\?anio=${anio}&mes=1$`))
+  await expect(page).toHaveURL(new RegExp(`/pensiones/presupuesto\\?anio=${anio}&mes=1$`))
   const contexto = await browser.newContext({ baseURL })
   try {
     const director = await contexto.newPage()
