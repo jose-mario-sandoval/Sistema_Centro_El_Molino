@@ -960,6 +960,7 @@ export type Database = {
         Returns: string
       }
       desfijar_mensaje: { Args: { p_id: string }; Returns: undefined }
+      eliminar_reporte_pension: { Args: { p_id: string }; Returns: undefined }
       eventos_para_cocina: {
         Args: { p_desde: string; p_hasta: string }
         Returns: {

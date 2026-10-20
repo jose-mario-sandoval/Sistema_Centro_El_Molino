@@ -1,10 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { subirReportePension } from '@/app/(app)/pensiones/acciones-reporte'
+import { eliminarReportePension, subirReportePension } from '@/app/(app)/pensiones/acciones-reporte'
 import { perfilParaAccion } from '@/lib/auth/sesion'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { perfilDePrueba } from '@/tests/soporte/supabase-falso'
 import { revalidatePath } from 'next/cache'
+import { after } from 'next/server'
 
 vi.mock('server-only', () => ({}))
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
@@ -88,5 +89,35 @@ describe('carga de reportes', () => {
     expect((await subirReportePension(formulario())).ok).toBe(false)
     expect(rpc).toHaveBeenCalledWith('abandonar_reporte_pension', { p_id: id })
     expect(revalidatePath).not.toHaveBeenCalled()
+  })
+})
+
+describe('eliminación de reportes', () => {
+  it('exige Administradora antes de tocar la base', async () => {
+    const fallo = { ok: false as const, error: 'No tenés permiso.' }
+    vi.mocked(perfilParaAccion).mockResolvedValue(fallo)
+    expect(await eliminarReportePension({ id })).toEqual(fallo)
+    expect(perfilParaAccion).toHaveBeenCalledWith('administradora')
+    expect(rpc).not.toHaveBeenCalled()
+  })
+
+  it('rechaza un identificador inválido sin llamar a la base', async () => {
+    expect((await eliminarReportePension({ id: 'no-es-un-uuid' })).ok).toBe(false)
+    expect((await eliminarReportePension(null)).ok).toBe(false)
+    expect(rpc).not.toHaveBeenCalled()
+  })
+
+  it('borra la ficha por la función de la base y programa la limpieza del archivo', async () => {
+    expect(await eliminarReportePension({ id })).toEqual({ ok: true, data: null })
+    expect(rpc).toHaveBeenCalledWith('eliminar_reporte_pension', { p_id: id })
+    expect(revalidatePath).toHaveBeenCalledWith('/pensiones/reporte')
+    expect(after).toHaveBeenCalledTimes(1)
+  })
+
+  it('si la base falla, informa sin revalidar ni programar limpieza', async () => {
+    rpc.mockResolvedValue({ data: null, error: new Error('Base no disponible') })
+    expect((await eliminarReportePension({ id })).ok).toBe(false)
+    expect(revalidatePath).not.toHaveBeenCalled()
+    expect(after).not.toHaveBeenCalled()
   })
 })

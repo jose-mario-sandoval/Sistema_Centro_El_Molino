@@ -7,7 +7,7 @@ import { useAviso } from '@/components/ui/avisos'
 import { llamarAccion } from '@/lib/acciones/llamar'
 import { ZONA_HORARIA } from '@/lib/fechas'
 import { CATEGORIAS_REPORTE, ETIQUETA_REPORTE, type CategoriaReporte, type ReportePension } from '@/lib/pensiones/reportes'
-import { subirReportePension } from '../acciones-reporte'
+import { eliminarReportePension, subirReportePension } from '../acciones-reporte'
 
 const fechaCarga = new Intl.DateTimeFormat('es-SV', {
   timeZone: ZONA_HORARIA, day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit',
@@ -15,6 +15,7 @@ const fechaCarga = new Intl.DateTimeFormat('es-SV', {
 
 export function ReportesPensiones({ reportes, puedeSubir }: { reportes: ReportePension[]; puedeSubir: boolean }) {
   const [categoria, setCategoria] = useState<CategoriaReporte | null>(null)
+  const [aEliminar, setAEliminar] = useState<ReportePension | null>(null)
   const router = useRouter()
   return <div className="pensiones-reportes">
     <p>Consultá y descargá los PDF preparados por la Administradora. Se conservan los 12 más recientes de cada categoría.</p>
@@ -33,11 +34,15 @@ export function ReportesPensiones({ reportes, puedeSubir }: { reportes: ReporteP
               <strong>{reporte.nombre}</strong>
               <p className="pensiones-reporte-meta">Cargado el {fechaCarga.format(new Date(reporte.cargadoEn))} · {(reporte.tamano / 1024 / 1024).toFixed(2)} MiB</p>
             </div>
-            <a className="btn ghost" href={`/api/pensiones/reportes/${reporte.id}`} download aria-label={`Descargar ${reporte.nombre}`}>Descargar PDF</a>
+            <div className="pensiones-acciones">
+              <a className="btn ghost" href={`/api/pensiones/reportes/${reporte.id}`} download aria-label={`Descargar ${reporte.nombre}`}>Descargar PDF</a>
+              {puedeSubir && <button type="button" className="btn danger" aria-label={`Eliminar ${reporte.nombre}`} onClick={() => setAEliminar(reporte)}>Eliminar</button>}
+            </div>
           </li>)}
         </ul>}
       </section>
     })}
+    {aEliminar && <EliminarReporte reporte={aEliminar} alCerrar={() => setAEliminar(null)} />}
     {categoria && <CargarReporte categoria={categoria} cantidad={reportes.filter((r) => r.categoria === categoria).length} alCerrar={() => setCategoria(null)} />}
   </div>
 }
@@ -79,5 +84,33 @@ function CargarReporte({ categoria, cantidad, alCerrar }: { categoria: Categoria
         <button type="submit" className="btn" aria-disabled={pendiente}>{pendiente ? 'Subiendo PDF…' : 'Guardar PDF'}</button>
       </div>
     </form>
+  </Modal>
+}
+
+/** Confirmación para quitar un reporte subido por error: se borra para siempre, no hay papelera. */
+function EliminarReporte({ reporte, alCerrar }: { reporte: ReportePension; alCerrar: () => void }) {
+  const [pendiente, iniciar] = useTransition()
+  const [error, setError] = useState<string | null>(null)
+  const aviso = useAviso()
+  const router = useRouter()
+  function confirmar() {
+    if (pendiente) return
+    setError(null)
+    iniciar(async () => {
+      const resultado = await llamarAccion(() => eliminarReportePension({ id: reporte.id }))
+      if (!resultado.ok) { setError(resultado.error); return }
+      aviso('Reporte eliminado.')
+      router.refresh()
+      alCerrar()
+    })
+  }
+  return <Modal titulo="Eliminar reporte" abierto alCerrar={alCerrar} bloquearCierre={pendiente} enfocarDialogo>
+    <p>¿Eliminar <strong>{reporte.nombre}</strong>?</p>
+    <p className="hint">Se borra para siempre, también de {ETIQUETA_REPORTE[reporte.categoria].toLowerCase()}. Si lo subiste por error, podés volver a subir el correcto.</p>
+    {error && <p className="campo-error" role="alert">{error}</p>}
+    <div className="modal-foot">
+      <button type="button" className="btn ghost" onClick={() => { if (!pendiente) alCerrar() }} aria-disabled={pendiente}>Cancelar</button>
+      <button type="button" className="btn danger" onClick={confirmar} aria-busy={pendiente} aria-disabled={pendiente}>{pendiente ? 'Eliminando…' : 'Eliminar para siempre'}</button>
+    </div>
   </Modal>
 }
