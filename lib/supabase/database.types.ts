@@ -440,21 +440,27 @@ export type Database = {
       }
       pensiones_pagos: {
         Row: {
+          abono_centavos: number
           categoria: string
+          id: string
           monto_centavos: number
           periodo: string
           registrado_en: string
           usuario_id: string
         }
         Insert: {
+          abono_centavos: number
           categoria: string
+          id?: string
           monto_centavos: number
           periodo: string
           registrado_en?: string
           usuario_id: string
         }
         Update: {
+          abono_centavos?: number
           categoria?: string
+          id?: string
           monto_centavos?: number
           periodo?: string
           registrado_en?: string
@@ -1041,9 +1047,16 @@ export type Database = {
       llamar_limpieza_reportes_pension: { Args: never; Returns: number }
       llamar_recordatorios: { Args: never; Returns: number }
       marcar_pensiones: {
-        Args: { p_montos_esperados?: number[]; p_periodos: string[] }
+        Args: {
+          p_abonos?: number[]
+          p_montos_esperados?: number[]
+          p_pagados_esperados?: number[]
+          p_periodos: string[]
+        }
         Returns: {
+          abono_centavos: number
           categoria: string
+          id: string
           monto_centavos: number
           periodo: string
           registrado_en: string

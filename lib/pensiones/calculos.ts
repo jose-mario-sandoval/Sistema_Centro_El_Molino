@@ -29,9 +29,26 @@ export function resumenPresupuesto(filas: Pick<MesPension, 'monto_centavos' | 'p
   return { meta, pagado, falta: Math.max(0, meta - pagado), porcentaje: meta > 0 ? Math.min(100, pagado / meta * 100) : 0 }
 }
 
-export function seleccionPagable(meses: MesPension[], periodos: string[]) {
+/** Lo que falta de un mes: la cuota menos lo ya pagado (nunca negativo; 0 si el mes no tiene cuota). */
+export function saldoMes(mes: Pick<MesPension, 'monto_centavos' | 'pagado_centavos'>): number {
+  return Math.max(0, (mes.monto_centavos ?? 0) - mes.pagado_centavos)
+}
+
+/** Centavos como se escribe en un campo de dinero: 30000 → '300.00' (sin símbolo ni separador de miles). */
+export function textoMonto(centavos: number): string {
+  return (centavos / 100).toFixed(2)
+}
+
+/**
+ * Los meses elegidos para pagar y cuánto se paga de cada uno. Cada mes se puede pagar completo (lo que falta) o en
+ * parte: `abonos[periodo]` es lo que se escribió, en centavos (`undefined` = todo lo que falta; 0 = el texto no era
+ * un monto válido). Es válido si cada mes tiene cuota, algo pendiente y un abono de 1 centavo hasta lo que falta.
+ * `abonos` (del resultado) sigue el orden de `meses`.
+ */
+export function seleccionPagable(meses: MesPension[], periodos: string[], escritos: Record<string, number | undefined> = {}) {
   const elegidos = meses.filter((m) => periodos.includes(m.periodo))
-  const valido = periodos.length > 0 && new Set(periodos).size === periodos.length &&
-    elegidos.length === periodos.length && elegidos.every((m) => m.pagado_centavos === 0 && m.monto_centavos !== null && m.monto_centavos > 0)
-  return { valido, meses: elegidos, total: elegidos.reduce((total, m) => total + (m.monto_centavos ?? 0), 0) }
+  const abonos = elegidos.map((m) => escritos[m.periodo] ?? saldoMes(m))
+  const valido = periodos.length > 0 && new Set(periodos).size === periodos.length && elegidos.length === periodos.length &&
+    elegidos.every((m, i) => m.monto_centavos !== null && m.monto_centavos > 0 && saldoMes(m) > 0 && abonos[i] >= 1 && abonos[i] <= saldoMes(m))
+  return { valido, meses: elegidos, abonos, total: abonos.reduce((total, abono) => total + abono, 0) }
 }

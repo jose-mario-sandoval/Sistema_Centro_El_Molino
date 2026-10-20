@@ -55,3 +55,25 @@ describe('acciones de pensiones', () => {
     expect(await marcarPensiones({ periodos: ['2099-01-01'], montos: [30000] })).toEqual({ ok: true, data: { cantidad: 0 } })
   })
 })
+
+describe('pago parcial', () => {
+  it('envía lo ya pagado y el abono para que SQL valide contra lo que falta', async () => {
+    const falso = clienteSupabaseFalso({ rpc: [{ data: [{ periodo: '2099-01-01' }], error: null }] })
+    vi.mocked(crearClienteServidor).mockResolvedValue(falso.cliente as never)
+    expect(await marcarPensiones({ periodos: ['2099-01-01'], montos: [30000], pagados: [10000], abonos: [5000] })).toEqual({ ok: true, data: { cantidad: 1 } })
+    expect(falso.rpcs[0]).toEqual({ nombre: 'marcar_pensiones', args: { p_periodos: ['2099-01-01'], p_montos_esperados: [30000], p_pagados_esperados: [10000], p_abonos: [5000] } })
+  })
+
+  it('rechaza un abono en cero antes de tocar SQL', async () => {
+    expect((await marcarPensiones({ periodos: ['2099-01-01'], montos: [30000], pagados: [0], abonos: [0] })).ok).toBe(false)
+    expect(crearClienteServidor).not.toHaveBeenCalled()
+  })
+
+  it('si la base rechaza el pago (lo pagado cambió) no revalida ni anuncia éxito', async () => {
+    const falso = clienteSupabaseFalso({ rpc: [{ data: null, error: { code: '40001' } }] })
+    vi.mocked(crearClienteServidor).mockResolvedValue(falso.cliente as never)
+    const r = await marcarPensiones({ periodos: ['2099-01-01'], montos: [30000], pagados: [0], abonos: [10000] })
+    expect(r.ok).toBe(false)
+    expect(revalidatePath).not.toHaveBeenCalled()
+  })
+})

@@ -31,15 +31,18 @@ export async function marcarPensiones(entrada: unknown): Promise<Resultado<{ can
   const permiso = await perfilParaAccion(...ROLES_PAGO)
   if (!permiso.ok) return permiso
   const datos = esquemaMarcarPensiones.safeParse(entrada)
-  if (!datos.success) return fallo('Elegí entre uno y doce meses pendientes con una cuota válida.')
+  if (!datos.success) return fallo('Elegí entre uno y doce meses con algo pendiente y un monto válido.')
   const supabase = await crearClienteServidor()
   // No se envía usuario ni categoría. SQL calcula los importes; montos solo evita confirmar
   // un total obsoleto si el Director cambió la cuota mientras se revisaba la selección.
   const { data, error } = await supabase.rpc('marcar_pensiones', {
     p_periodos: datos.data.periodos,
     p_montos_esperados: datos.data.montos,
+    // Solo con pagos parciales: sin `abonos`, SQL paga todo lo que falta de cada mes.
+    ...(datos.data.pagados && { p_pagados_esperados: datos.data.pagados }),
+    ...(datos.data.abonos && { p_abonos: datos.data.abonos }),
   })
-  if (error) return fallo('No se registraron los pagos. Una cuota pudo cambiar o faltar. Recargá y revisá los meses antes de confirmar.')
+  if (error) return fallo('No se registraron los pagos. Una cuota o lo ya pagado pudo cambiar, o el monto superar lo que falta. Recargá y revisá los meses antes de confirmar.')
   revalidatePath('/pensiones', 'layout')
   return exito({ cantidad: data.length })
 }
