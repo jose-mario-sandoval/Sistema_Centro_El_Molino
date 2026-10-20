@@ -19,7 +19,8 @@
     "db:aplicar": "node --env-file=.env.local scripts/aplicar-migraciones.mjs",
     "crear-director": "tsx --env-file=.env.local scripts/crear-director.ts",
     "datos-demo": "tsx --env-file=.env.local scripts/datos-demo.ts",
-    "limpiar-datos-demo": "tsx --env-file=.env.local scripts/limpiar-datos-demo.ts"
+    "limpiar-datos-demo": "tsx --env-file=.env.local scripts/limpiar-datos-demo.ts",
+    "borrar-correos": "tsx --env-file=.env.local scripts/borrar-correos.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",
