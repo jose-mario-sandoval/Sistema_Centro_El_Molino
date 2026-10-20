@@ -350,11 +350,16 @@ test('navegación móvil incorpora Pensiones con etiquetas completas y controles
   expect(filas).toBe(1)
   // En 320 px con letra enorme no caben los cinco: el botón desplaza la fila hasta el último destino y de vuelta.
   const desplazar = barra.getByRole('button', { name: 'Ver más secciones' })
+  const volver = barra.getByRole('button', { name: 'Volver al principio de las secciones' })
   await expect(desplazar).toBeVisible()
-  await desplazar.click()
-  await expect(barra.getByRole('button', { name: 'Volver al principio de las secciones' })).toBeVisible()
+  // Con letra enorme se ven dos destinos a la vez: hacen falta varios toques para llegar al final, donde el botón cambia de sentido.
+  for (let toques = 0; toques < 6 && !(await volver.isVisible()); toques++) {
+    await desplazar.click()
+    await page.waitForTimeout(500)
+  }
+  await expect(volver).toBeVisible()
   await expect(barra.getByRole('link', { name: 'Ajustes', exact: true })).toBeInViewport()
-  await barra.getByRole('button', { name: 'Volver al principio de las secciones' }).click()
+  await volver.click()
   await expect(barra.getByRole('link', { name: 'Comidas', exact: true })).toBeInViewport()
   await barra.getByRole('link', { name: 'Pensiones', exact: true }).click()
   await expect(page).toHaveURL(/\/pensiones\/marcar$/)
