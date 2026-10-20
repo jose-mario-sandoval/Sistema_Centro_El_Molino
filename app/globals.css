@@ -371,6 +371,7 @@ a{color:var(--acento);}
 .pensiones-confirmacion ul{padding-left:1.25rem;margin-block:.75rem;}
 .pensiones-lista,.pensiones-reporte-lista{list-style:none;padding:0;margin:1rem 0;}
 .pensiones-lista li,.pensiones-reporte-lista > li{display:flex;flex-wrap:wrap;gap:.6rem 1.25rem;justify-content:space-between;padding:1rem 0;border-bottom:1px solid var(--borde-hundido);}
+.pensiones-reporte-lista .pensiones-acciones{margin-block:0;align-items:center;}
 .pensiones-lista li > *{min-width:0;overflow-wrap:anywhere;}
 .pensiones-cifras{display:grid;grid-template-columns:minmax(0,1fr);gap:1rem;margin-block:1.25rem;}
 .pensiones-cifras dt{color:var(--tinta-suave);}

@@ -8,7 +8,7 @@ import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { BUCKET_REPORTES } from '@/lib/pensiones/reportes'
 import { limpiarArchivosReportes } from '@/lib/pensiones/reportes-limpieza'
-import { validarCargaReporte } from '@/lib/validacion/reportes-pensiones'
+import { esquemaEliminarReporte, validarCargaReporte } from '@/lib/validacion/reportes-pensiones'
 
 export async function subirReportePension(formulario: FormData): Promise<Resultado<{ id: string }>> {
   const permiso = await perfilParaAccion('administradora')
@@ -60,4 +60,25 @@ function programarLimpieza() {
     try { await limpiarArchivosReportes() }
     catch (error) { console.error('[pensiones] Limpieza pendiente; se reintentará por cron', error) }
   })
+}
+
+/**
+ * Quita un reporte subido por error. Solo la Administradora. La base borra la ficha y encola la ruta; el
+ * archivo de Storage se borra después (aquí mismo, y el cron lo reintenta si algo se corta). Quitar uno que
+ * ya no existe no es un error.
+ */
+export async function eliminarReportePension(entrada: unknown): Promise<Resultado<null>> {
+  const permiso = await perfilParaAccion('administradora')
+  if (!permiso.ok) return permiso
+  const datos = esquemaEliminarReporte.safeParse(entrada)
+  if (!datos.success) return fallo('No se pudo identificar el reporte.')
+  const cliente = await crearClienteServidor()
+  const { error } = await cliente.rpc('eliminar_reporte_pension', { p_id: datos.data.id })
+  if (error) {
+    console.error('[pensiones] No se pudo eliminar un reporte', error)
+    return fallo('No se pudo eliminar el reporte. Recargá la página e intentá de nuevo.')
+  }
+  revalidatePath('/pensiones/reporte')
+  programarLimpieza()
+  return exito(null)
 }

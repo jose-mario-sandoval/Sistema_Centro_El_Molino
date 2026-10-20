@@ -142,3 +142,35 @@ describe('reportes privados de Pensiones', () => {
     expect(restringido.error).not.toBeNull()
   })
 })
+
+describe('eliminar un reporte subido por error', () => {
+  it('la Administradora lo quita: desaparece la ficha, la ruta pasa a la cola y los demás quedan', async () => {
+    const sobra = await cargar('otras_utilidades')
+    const error = await cargar('finanzas')
+    const antes = await listado()
+    const quitado = await administradora.rpc('eliminar_reporte_pension', { p_id: error.id })
+    expect(quitado.error).toBeNull()
+    const despues = await listado()
+    expect(despues.some((r) => r.id === error.id)).toBe(false)
+    expect(despues).toHaveLength(antes.length - 1)
+    expect(despues.some((r) => r.id === sobra.id)).toBe(true)
+    const cola = await admin.from('pensiones_reportes_limpieza').select('ruta').eq('ruta', error.ruta)
+    expect(cola.data).toHaveLength(1)
+  })
+
+  it('quitar uno que ya no existe no es un error', async () => {
+    const documento = await cargar('finanzas')
+    expect((await administradora.rpc('eliminar_reporte_pension', { p_id: documento.id })).error).toBeNull()
+    expect((await administradora.rpc('eliminar_reporte_pension', { p_id: documento.id })).error).toBeNull()
+    expect((await administradora.rpc('eliminar_reporte_pension', { p_id: '00000000-0000-4000-8000-000000000000' })).error).toBeNull()
+  })
+
+  it('solo la Administradora: ni el Director, ni Residente, ni Administración, ni sin sesión', async () => {
+    const documento = await cargar('finanzas')
+    for (const cliente of [await clienteComo('director'), await clienteComo('residente'), await clienteComo('administracion'), clienteAnonimoPrueba()]) {
+      const r = await cliente.rpc('eliminar_reporte_pension', { p_id: documento.id })
+      expect(r.error).not.toBeNull()
+    }
+    expect((await listado()).some((r) => r.id === documento.id)).toBe(true)
+  })
+})

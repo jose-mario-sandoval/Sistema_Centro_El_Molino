@@ -1,3 +1,4 @@
+import { z } from 'zod'
 import { categoriaReporteValida, MAX_BYTES_REPORTE, nombreReporteSeguro } from '@/lib/pensiones/reportes'
 import { exito, fallo } from '@/lib/acciones/resultado'
 
@@ -22,3 +23,5 @@ export async function validarCargaReporte(formulario: FormData) {
   if (!tieneFirmaPDF(bytes)) return fallo('El archivo no es un PDF válido. Revisá el documento e intentá de nuevo.')
   return exito({ categoria, nombre, bytes, tamano: bytes.byteLength })
 }
+
+export const esquemaEliminarReporte = z.object({ id: z.uuid() })
