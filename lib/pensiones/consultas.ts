@@ -19,8 +19,8 @@ export async function obtenerHistorialPropio(): Promise<PagoPension[]> {
   const supabase = await crearClienteServidor()
   // El Director puede leer más filas por RLS: se filtra siempre por la identidad de sesión.
   return leerPaginasPensiones((desde, hasta) => supabase.from('pensiones_pagos')
-    .select('periodo, categoria, monto_centavos, registrado_en')
-    .eq('usuario_id', perfil.id).order('periodo', { ascending: false }).range(desde, hasta))
+    .select('id, periodo, categoria, monto_centavos, abono_centavos, registrado_en')
+    .eq('usuario_id', perfil.id).order('periodo', { ascending: false }).order('registrado_en', { ascending: false }).order('id').range(desde, hasta))
 }
 
 export async function obtenerPresupuesto(periodo: string): Promise<FilaPresupuesto[]> {

@@ -48,7 +48,10 @@ export default async function PaginaPresupuesto({ searchParams }: { searchParams
     </section>
     <section className="card" aria-label="Pagos del período"><h3 className="section-title">Quiénes ya pagaron</h3>
       {perfil.rol === 'administradora' && <p>Las personas se identifican únicamente por sus siglas.</p>}
-      {pagados.length ? <ul className="pensiones-lista">{pagados.map((f) => <li key={f.usuario_id}><strong>{f.etiqueta}</strong><span>{dolares(f.pagado_centavos)}</span></li>)}</ul> : <p className="empty-state">No hay pagos registrados para este período.</p>}
+      {pagados.length ? <ul className="pensiones-lista">{pagados.map((f) => {
+        const parcial = f.monto_centavos !== null && f.pagado_centavos < f.monto_centavos
+        return <li key={f.usuario_id}><strong>{f.etiqueta}</strong><span>{dolares(f.pagado_centavos)}{parcial && <> de {dolares(f.monto_centavos!)} · <span className="role-pill">Pago parcial</span></>}</span></li>
+      })}</ul> : <p className="empty-state">No hay pagos registrados para este período.</p>}
     </section>
   </>
 }

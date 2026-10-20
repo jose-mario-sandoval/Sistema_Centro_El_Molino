@@ -366,6 +366,10 @@ a{color:var(--acento);}
 .pension-mes input{min-width:1.4rem;width:1.4rem;height:1.4rem;margin:.2rem 0;accent-color:var(--acento);}
 .pension-mes > span{display:flex;flex-direction:column;gap:.3rem;min-width:0;}
 .pension-mes .icono{width:1em;height:1em;vertical-align:middle;}
+/* Pago parcial: el campo del monto va debajo del mes elegido, sin estar dentro de su etiqueta (tocarlo no desmarca el mes). */
+.pension-mes-bloque{display:grid;gap:.5rem;min-width:0;}
+.pension-abono{margin:0 0 .5rem;padding:.75rem var(--marco);border:2px solid var(--borde-hundido);border-radius:var(--r-md);box-shadow:var(--hundido-suave);}
+.pension-abono input{max-width:12rem;}
 .pensiones-total{font-size:var(--t-base);margin-block:1rem;}
 .pensiones-confirmacion{border:2px solid var(--acento);border-radius:var(--r-md);box-shadow:var(--hundido-suave);padding:1rem var(--marco);margin-block:1rem;}
 .pensiones-confirmacion ul{padding-left:1.25rem;margin-block:.75rem;}

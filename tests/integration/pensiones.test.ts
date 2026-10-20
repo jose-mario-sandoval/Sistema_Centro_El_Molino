@@ -197,3 +197,59 @@ describe('Pensiones: autorización y datos históricos', () => {
     expect((await clienteAdministradora.from('pensiones_pagos').select('*')).data).toEqual([])
   })
 })
+
+describe('Pensiones: pagos parciales', () => {
+  async function abonar(clave: ClaveUsuario, periodo: string, monto: number, pagado: number, abono: number) {
+    const cliente = await clienteComo(clave)
+    return cliente.rpc('marcar_pensiones', { p_periodos: [periodo], p_montos_esperados: [monto], p_pagados_esperados: [pagado], p_abonos: [abono] })
+  }
+
+  it('un mes se paga en varios abonos y queda pagado cuando suman la cuota', async () => {
+    await cuota('residente')
+    expect((await abonar('residente', ACTUAL, 30000, 0, 10000)).error).toBeNull()
+    expect((await presupuesto(ACTUAL)).find((f) => f.usuario_id === ids.residente)).toMatchObject({ monto_centavos: 30000, pagado_centavos: 10000 })
+    expect((await abonar('residente', ACTUAL, 30000, 10000, 20000)).error).toBeNull()
+    expect((await presupuesto(ACTUAL)).find((f) => f.usuario_id === ids.residente)).toMatchObject({ monto_centavos: 30000, pagado_centavos: 30000 })
+    const { data } = await admin.from('pensiones_pagos').select('abono_centavos, monto_centavos').eq('usuario_id', ids.residente).order('registrado_en')
+    expect(data).toEqual([{ abono_centavos: 10000, monto_centavos: 30000 }, { abono_centavos: 20000, monto_centavos: 30000 }])
+  })
+
+  it('no se puede pagar más de lo que falta, ni cero, ni un mes ya pagado', async () => {
+    await cuota('residente')
+    expect((await abonar('residente', ACTUAL, 30000, 0, 30001)).error?.code).toBe('22023')
+    expect((await abonar('residente', ACTUAL, 30000, 0, 0)).error?.code).toBe('22023')
+    expect((await abonar('residente', ACTUAL, 30000, 0, 30000)).error).toBeNull()
+    expect((await abonar('residente', ACTUAL, 30000, 30000, 1)).error?.code).toBe('22023')
+    // Sin abonos, un mes ya pagado se omite y no duplica nada.
+    const residente = await clienteComo('residente')
+    expect((await residente.rpc('marcar_pensiones', { p_periodos: [ACTUAL] })).error).toBeNull()
+    expect((await admin.from('pensiones_pagos').select('id').eq('usuario_id', ids.residente)).data).toHaveLength(1)
+  })
+
+  it('reenviar el mismo abono (doble clic) o varios a la vez deja uno solo', async () => {
+    await cuota('residente')
+    const resultados = await Promise.all(Array.from({ length: 5 }, () => abonar('residente', ACTUAL, 30000, 0, 10000)))
+    expect(resultados.filter((r) => r.error === null)).toHaveLength(1)
+    for (const r of resultados.filter((x) => x.error !== null)) expect(r.error?.code).toBe('40001')
+    expect((await admin.from('pensiones_pagos').select('id').eq('usuario_id', ids.residente)).data).toHaveLength(1)
+  })
+
+  it('tras el primer abono la cuota del mes queda fija aunque el Director la cambie', async () => {
+    await cuota('residente', 30000, FUTURO)
+    expect((await abonar('residente', FUTURO, 30000, 0, 10000)).error).toBeNull()
+    await cuota('residente', 45000, FUTURO, 'profesional')
+    expect((await presupuesto(FUTURO)).find((f) => f.usuario_id === ids.residente)).toMatchObject({ categoria: 'universitario', monto_centavos: 30000, pagado_centavos: 10000 })
+    expect((await abonar('residente', FUTURO, 30000, 10000, 20000)).error).toBeNull()
+  })
+
+  it('la Administradora ve la suma por siglas y nadie escribe abonos directo', async () => {
+    await cuota('residente')
+    expect((await abonar('residente', ACTUAL, 30000, 0, 12345)).error).toBeNull()
+    const fila = (await presupuesto(ACTUAL, 'administradora')).find((f) => f.usuario_id === ids.residente)
+    expect(fila).toMatchObject({ etiqueta: 'RP', pagado_centavos: 12345 })
+    const residente = await clienteComo('residente')
+    expect((await residente.from('pensiones_pagos').insert({
+      usuario_id: ids.residente, periodo: ACTUAL, categoria: 'universitario', monto_centavos: 30000, abono_centavos: 1,
+    })).error).not.toBeNull()
+  })
+})

@@ -23,4 +23,13 @@ export const esquemaMarcarPensiones = z.object({
   // La confirmación muestra las cuotas leídas por el servidor. La RPC vuelve a calcularlas
   // bajo bloqueo; si cambiaron, aborta toda la operación y pide revisar el total nuevamente.
   montos: z.array(z.number().int().min(1).max(100_000_000)).min(1).max(12),
-}).refine((e) => e.periodos.length === e.montos.length, 'Revisá los meses y sus montos.')
+  // Pagos parciales. `pagados`: lo ya pagado de cada mes que vio la persona (si cambió, p. ej. por un doble clic, la
+  // base aborta). `abonos`: cuánto paga ahora de cada mes; sin él, paga todo lo que falta.
+  pagados: z.array(z.number().int().min(0).max(100_000_000)).min(1).max(12).optional(),
+  abonos: z.array(z.number().int().min(1).max(100_000_000)).min(1).max(12).optional(),
+}).refine(
+  (e) => e.periodos.length === e.montos.length
+    && (e.pagados === undefined || e.pagados.length === e.periodos.length)
+    && (e.abonos === undefined || e.abonos.length === e.periodos.length),
+  'Revisá los meses y sus montos.',
+)
