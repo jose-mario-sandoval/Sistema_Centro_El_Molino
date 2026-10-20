@@ -1,11 +1,13 @@
 import { exigirRol } from '@/lib/auth/sesion'
-import { dolares, etiquetaPeriodo, mesActual, resumenPresupuesto } from '@/lib/pensiones/calculos'
-import { obtenerPresupuesto } from '@/lib/pensiones/consultas'
+import Link from 'next/link'
+import { dolares, etiquetaPeriodo, mesActual, resumenAnual, resumenPresupuesto } from '@/lib/pensiones/calculos'
+import { obtenerPresupuesto, obtenerPresupuestoAnual } from '@/lib/pensiones/consultas'
 import { ROLES_PRESUPUESTO } from '@/lib/pensiones/permisos'
 import { esquemaAnioPension } from '@/lib/validacion/pensiones'
+import { PresupuestoAnual } from '../_componentes/presupuesto-anual'
 import { SelectorPeriodo } from '../_componentes/selector-periodo'
 
-export default async function PaginaPresupuesto({ searchParams }: { searchParams: Promise<{ anio?: string; mes?: string }> }) {
+export default async function PaginaPresupuesto({ searchParams }: { searchParams: Promise<{ anio?: string; mes?: string; vista?: string }> }) {
   const perfil = await exigirRol(...ROLES_PRESUPUESTO)
   const actual = mesActual()
   const params = await searchParams
@@ -13,6 +15,20 @@ export default async function PaginaPresupuesto({ searchParams }: { searchParams
   const anio = pedido.success ? pedido.data : Number(actual.slice(0, 4))
   const numero = Number(params.mes)
   const mes = Number.isInteger(numero) && numero >= 1 && numero <= 12 ? numero : Number(actual.slice(5, 7))
+  const anual = params.vista === 'anual'
+  const vistas = <nav className="sub-tabs" aria-label="Período del presupuesto">
+    <Link href={`/pensiones/presupuesto?anio=${anio}&mes=${mes}`} className={`sub-tab${anual ? '' : ' active'}`} aria-current={anual ? undefined : 'page'}>Por mes</Link>
+    <Link href={`/pensiones/presupuesto?vista=anual&anio=${anio}`} className={`sub-tab${anual ? ' active' : ''}`} aria-current={anual ? 'page' : undefined}>Año completo</Link>
+  </nav>
+  if (anual) {
+    const resumenDelAnio = resumenAnual(await obtenerPresupuestoAnual(anio))
+    return <>
+      <h2 className="section-title">Presupuesto</h2>
+      {vistas}
+      <SelectorPeriodo key={`anual-${anio}`} ruta="/pensiones/presupuesto" anio={anio} vista="anual" />
+      <PresupuestoAnual anio={anio} resumen={resumenDelAnio} mesDeHoy={actual} rol={perfil.rol} />
+    </>
+  }
   const periodo = `${anio}-${String(mes).padStart(2, '0')}-01`
   const filas = await obtenerPresupuesto(periodo)
   const resumen = resumenPresupuesto(filas)
@@ -20,6 +36,7 @@ export default async function PaginaPresupuesto({ searchParams }: { searchParams
   const sinCuota = filas.filter((f) => f.monto_centavos === null)
   return <>
     <h2 className="section-title">Presupuesto</h2>
+    {vistas}
     <SelectorPeriodo key={periodo} ruta="/pensiones/presupuesto" anio={anio} mes={mes} />
     <section className="card" aria-label="Resumen del presupuesto">
       <h3 className="section-title">{etiquetaPeriodo(periodo)}</h3>
