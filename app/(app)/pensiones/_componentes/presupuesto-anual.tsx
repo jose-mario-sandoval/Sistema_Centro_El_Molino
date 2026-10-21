@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { dolares, nombreMes, resumenAnual } from '@/lib/pensiones/calculos'
+import { dolares, etiquetaPeriodo, nombreMes, resumenAnual } from '@/lib/pensiones/calculos'
 
 type Resumen = ReturnType<typeof resumenAnual>
 
@@ -39,7 +39,8 @@ export function PresupuestoAnual({ anio, resumen, mesDeHoy, rol }: { anio: numbe
       {rol === 'administradora' && <p>Las personas se identifican únicamente por sus siglas.</p>}
       {personas.length ? <ul className="pensiones-lista">{personas.map((p) => <li key={p.usuario_id}>
         <strong>{p.etiqueta}</strong>
-        <span>{p.meta > 0 ? <>Pagó {dolares(p.pagado)} de {dolares(p.meta)}</> : 'Sin cuota configurada'}</span>
+        <span>{p.exento ? `Exento de pensión · ${dolares(0)}` : p.meta > 0 ? <>Pagó {dolares(p.pagado)} de {dolares(p.meta)}</> : 'Sin cuota configurada'}</span>
+        {p.exentoDesde && !p.exento && <span>Exento de pensión desde {etiquetaPeriodo(p.exentoDesde)}.</span>}
         <span>{p.meta > 0 ? <>Falta {dolares(p.falta)}</> : null}</span>
       </li>)}</ul> : <p className="empty-state">No hay personas con cuota en este año.</p>}
     </section>

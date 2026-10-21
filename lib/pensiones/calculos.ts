@@ -23,14 +23,15 @@ export function etiquetaPeriodo(periodo: string): string {
   return `${MESES[Number(periodo.slice(5, 7)) - 1]} de ${periodo.slice(0, 4)}`
 }
 
-export function resumenPresupuesto(filas: Pick<MesPension, 'monto_centavos' | 'pagado_centavos'>[]) {
-  const meta = filas.reduce((total, fila) => total + (fila.monto_centavos ?? 0), 0)
+export function resumenPresupuesto(filas: (Pick<MesPension, 'monto_centavos' | 'pagado_centavos'> & Partial<Pick<MesPension, 'exento'>>)[]) {
+  const meta = filas.reduce((total, fila) => total + (fila.exento ? 0 : (fila.monto_centavos ?? 0)), 0)
   const pagado = filas.reduce((total, fila) => total + fila.pagado_centavos, 0)
   return { meta, pagado, falta: Math.max(0, meta - pagado), porcentaje: meta > 0 ? Math.min(100, pagado / meta * 100) : 0 }
 }
 
 /** Lo que falta de un mes: la cuota menos lo ya pagado (nunca negativo; 0 si el mes no tiene cuota). */
-export function saldoMes(mes: Pick<MesPension, 'monto_centavos' | 'pagado_centavos'>): number {
+export function saldoMes(mes: Pick<MesPension, 'monto_centavos' | 'pagado_centavos'> & Partial<Pick<MesPension, 'exento'>>): number {
+  if (mes.exento) return 0
   return Math.max(0, (mes.monto_centavos ?? 0) - mes.pagado_centavos)
 }
 
@@ -49,7 +50,7 @@ export function seleccionPagable(meses: MesPension[], periodos: string[], escrit
   const elegidos = meses.filter((m) => periodos.includes(m.periodo))
   const abonos = elegidos.map((m) => escritos[m.periodo] ?? saldoMes(m))
   const valido = periodos.length > 0 && new Set(periodos).size === periodos.length && elegidos.length === periodos.length &&
-    elegidos.every((m, i) => m.monto_centavos !== null && m.monto_centavos > 0 && saldoMes(m) > 0 && abonos[i] >= 1 && abonos[i] <= saldoMes(m))
+    elegidos.every((m, i) => !m.exento && m.monto_centavos !== null && m.monto_centavos > 0 && saldoMes(m) > 0 && abonos[i] >= 1 && abonos[i] <= saldoMes(m))
   return { valido, meses: elegidos, abonos, total: abonos.reduce((total, abono) => total + abono, 0) }
 }
 
@@ -82,9 +83,9 @@ export function resumenAnual(filasPorMes: FilaPresupuesto[][]) {
     porPersona.set(fila.usuario_id, persona)
   }
   const personas = [...porPersona.values()]
-    .map((p) => ({ usuario_id: p.usuario_id, etiqueta: p.etiqueta, ...resumenPresupuesto(p.filas) }))
+    .map((p) => ({ usuario_id: p.usuario_id, etiqueta: p.etiqueta, exento: p.filas.every((f) => f.exento), exentoDesde: p.filas.filter((f) => f.exento).map((f) => f.periodo).sort()[0] ?? null, ...resumenPresupuesto(p.filas) }))
     .sort((a, b) => a.etiqueta.localeCompare(b.etiqueta, 'es') || a.usuario_id.localeCompare(b.usuario_id))
-  const sinCuota = [...new Set(todas.filter((f) => f.monto_centavos === null).map((f) => f.etiqueta))]
+  const sinCuota = [...new Set(todas.filter((f) => !f.exento && f.monto_centavos === null).map((f) => f.etiqueta))]
     .sort((a, b) => a.localeCompare(b, 'es'))
   return { meses, total: resumenPresupuesto(todas) as ResumenPresupuesto, personas, sinCuota }
 }

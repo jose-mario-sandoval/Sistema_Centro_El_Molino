@@ -1,10 +1,12 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
+import { after } from 'next/server'
 import { exito, fallo, type Resultado } from '@/lib/acciones/resultado'
 import { perfilParaAccion } from '@/lib/auth/sesion'
 import { mesActual } from '@/lib/pensiones/calculos'
 import { ROLES_PAGO } from '@/lib/pensiones/permisos'
+import { avisarPagoPension } from '@/lib/push/avisos-pensiones'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { camposConError } from '@/lib/validacion/auth'
 import { esquemaCuotaPension, esquemaMarcarPensiones } from '@/lib/validacion/pensiones'
@@ -35,7 +37,7 @@ export async function marcarPensiones(entrada: unknown): Promise<Resultado<{ can
   const supabase = await crearClienteServidor()
   // No se envía usuario ni categoría. SQL calcula los importes; montos solo evita confirmar
   // un total obsoleto si el Director cambió la cuota mientras se revisaba la selección.
-  const { data, error } = await supabase.rpc('marcar_pensiones', {
+  const { data, error } = await supabase.rpc('marcar_pensiones_con_movimientos', {
     p_periodos: datos.data.periodos,
     p_montos_esperados: datos.data.montos,
     // Solo con pagos parciales: sin `abonos`, SQL paga todo lo que falta de cada mes.
@@ -43,6 +45,10 @@ export async function marcarPensiones(entrada: unknown): Promise<Resultado<{ can
     ...(datos.data.abonos && { p_abonos: datos.data.abonos }),
   })
   if (error) return fallo('No se registraron los pagos. Una cuota o lo ya pagado pudo cambiar, o el monto superar lo que falta. Recargá y revisá los meses antes de confirmar.')
+  // La RPC devuelve solo ids recién creados bajo el mismo candado del pago, sin abonos anteriores.
+  if (data.length > 0) after(async () => {
+    await Promise.all(data.map(({ pago_id }) => avisarPagoPension(pago_id)))
+  })
   revalidatePath('/pensiones', 'layout')
   return exito({ cantidad: data.length })
 }

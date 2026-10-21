@@ -32,4 +32,4 @@ export const esquemaMarcarPensiones = z.object({
     && (e.pagados === undefined || e.pagados.length === e.periodos.length)
     && (e.abonos === undefined || e.abonos.length === e.periodos.length),
   'Revisá los meses y sus montos.',
-)
+).refine((e) => e.abonos === undefined || e.pagados !== undefined, 'Revisá lo ya pagado antes de confirmar un abono parcial.')

@@ -11,6 +11,7 @@ export type MesPension = {
   monto_centavos: number | null
   pagado_centavos: number
   registrado_en: string | null
+  exento: boolean
 }
 
 export type FilaPresupuesto = MesPension & { usuario_id: string; etiqueta: string }

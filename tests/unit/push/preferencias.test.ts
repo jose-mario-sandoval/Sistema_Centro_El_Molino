@@ -32,6 +32,13 @@ describe('opcionesAvisos: qué avisos puede apagar cada rol en Ajustes', () => {
       }
     }
   })
+  it('Pagos de pensiones aparece exclusivamente para Administradora y tiene persistencia propia', () => {
+    expect(claves('administradora')).toEqual(['avisarMensajes', 'avisarCocina', 'avisarPensiones'])
+    expect(opcionesAvisos('administradora')[2].etiqueta).toBe('Pagos de pensiones')
+    for (const rol of ['director', 'residente', 'administracion'] as const) expect(claves(rol)).not.toContain('avisarPensiones')
+    expect(descripcionAvisos('administradora')).toContain('pagos de pensiones')
+    expect(textoOfrecerAvisos('administradora')).toContain('pagos de pensiones')
+  })
 })
 
 describe('descripcionAvisos', () => {

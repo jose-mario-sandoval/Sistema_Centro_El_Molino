@@ -10,7 +10,7 @@ import { mensajeDePrueba, type MensajePrueba } from '@/lib/push/prueba'
 import { esquemaPreferenciasAvisos, esquemaPruebaPush } from '@/lib/validacion/push'
 
 type ColumnasAvisos = Partial<
-  Pick<Tabla<'perfiles'>, 'avisar_hora_limite' | 'avisar_mensajes' | 'avisar_cambios' | 'avisar_cocina'>
+  Pick<Tabla<'perfiles'>, 'avisar_hora_limite' | 'avisar_mensajes' | 'avisar_cambios' | 'avisar_cocina' | 'avisar_pensiones'>
 >
 
 /**
@@ -24,10 +24,11 @@ export async function actualizarPreferenciasAvisos(entrada: unknown): Promise<Re
   const datos = esquemaPreferenciasAvisos.safeParse(entrada)
   if (!datos.success) return fallo('Las preferencias no son válidas.')
 
-  const { avisarHoraLimite, avisarMensajes, avisarCambios, avisarCocina } = datos.data
+  const { avisarHoraLimite, avisarMensajes, avisarCambios, avisarCocina, avisarPensiones } = datos.data
   const cambios: ColumnasAvisos = { avisar_hora_limite: avisarHoraLimite, avisar_mensajes: avisarMensajes }
   if (avisarCambios !== undefined) cambios.avisar_cambios = avisarCambios
   if (avisarCocina !== undefined) cambios.avisar_cocina = avisarCocina
+  if (avisarPensiones !== undefined && permiso.perfil.rol === 'administradora') cambios.avisar_pensiones = avisarPensiones
 
   const { error } = await crearClienteAdmin().from('perfiles').update(cambios).eq('id', permiso.perfil.id)
   if (error) {

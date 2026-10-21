@@ -4,7 +4,7 @@ import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { crearClienteNavegador } from '@/lib/supabase/navegador'
 
-/** Realtime para pagos/cuotas; volver a la pestaña y sondeo cubren reconexiones y cambios de rol. */
+/** Realtime de Pensiones; volver a la pestaña y sondeo cubren reconexiones y cambios de rol. */
 export function RefrescarPensiones() {
   const router = useRouter()
   useEffect(() => {
@@ -18,6 +18,8 @@ export function RefrescarPensiones() {
     const canal = supabase.channel(`pensiones-${Math.random().toString(36).slice(2)}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'pensiones_pagos' }, refrescar)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'pensiones_cuotas' }, refrescar)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'pensiones_donaciones_configuracion' }, refrescar)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'pensiones_donaciones_recepciones' }, refrescar)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'pensiones_reportes' }, refrescar)
     void supabase.realtime.setAuth().then(() => {
       if (!detenido) canal.subscribe((estado) => { if (estado === 'SUBSCRIBED') refrescar() })

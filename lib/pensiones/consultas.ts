@@ -51,10 +51,20 @@ export async function obtenerPresupuestoAnual(anio: number): Promise<FilaPresupu
 export async function obtenerConfiguraciones() {
   await exigirRol('director')
   const supabase = await crearClienteServidor()
-  const [personas, cuotas] = await Promise.all([
+  const [personas, cuotas, exencion] = await Promise.all([
     listarPerfiles({ soloActivos: true, roles: ROLES_PAGO }),
     leerPaginasPensiones((desde, hasta) => supabase.from('pensiones_cuotas')
       .select('usuario_id, desde, categoria, monto_centavos').order('desde', { ascending: false }).order('usuario_id').range(desde, hasta)),
+    obtenerExencionPension(),
   ])
-  return personas.map((persona) => ({ ...persona, cuotas: cuotas.filter((c) => c.usuario_id === persona.id) }))
+  return personas.map((persona) => ({ ...persona, exenta_desde: exencion?.usuario_id === persona.id ? exencion.desde : null, cuotas: cuotas.filter((c) => c.usuario_id === persona.id) }))
+}
+
+/** Identidad configurada por mantenimiento; nunca se deduce del nombre ni de fuera_de_conteos. */
+export async function obtenerExencionPension(): Promise<{ usuario_id: string; desde: string } | null> {
+  await exigirRol('director')
+  const supabase = await crearClienteServidor()
+  const { data, error } = await supabase.from('pensiones_exencion').select('usuario_id, desde').maybeSingle()
+  if (error) throw error
+  return data
 }

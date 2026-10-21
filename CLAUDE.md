@@ -186,6 +186,24 @@ opcionales:
   teléfonos y tablets mientras no corre instalada; `beforeinstallprompt` lo captura el script de
   `<head>` y es la prueba de que NO está instalada (borra la marca de "instalada").
 
+## Pensiones: donación, exención y avisos
+
+Ver `docs/pensiones-2026-10-20.md` para activación y pruebas de esta ampliación.
+`ETIQUETA_REPORTE` centraliza «Resúmenes Económicos» y «Otros documentos»; las categorías
+siguen siendo `finanzas` / `otras_utilidades`, sin migrar documentos ni cambiar retención.
+La donación pertenece a la casa: configuración mensual con vigencia y recepción única por
+período, ambas exclusivas del Director. Sus snapshots no son abonos personales.
+`pensiones_exencion` vincula una única cuenta a su UUID y mes de activación; no usar nombre
+ni `fuera_de_conteos` como regla. `exento` viene de SQL en las vistas mensual y anual,
+sin borrar cuotas/pagos antiguos ni admitir cuotas normales de cero. Hasta verificar el
+UUID de «Dani y José», la exención queda preparada y sin activar.
+Los pagos usan `marcar_pensiones_con_movimientos()`: filtra abonos anteriores bajo el mismo
+candado que la RPC original. Solo esos nuevos movimientos programan `after()`; el evento
+persistente es `pago_id` y la reserva única es pago/dispositivo. Estos avisos económicos
+usan `cargas-pensiones.ts` (solo siglas, importe nuevo y período), exclusivamente para el
+rol exacto `administradora` con `avisar_pensiones`; no usan las preferencias de cocina
+ni `paraCocina()`. Los avisos de cocina conservan su flujo y su privacidad existentes.
+
 ## Migraciones: NO se aplican solas a producción
 
 Para Administradora y Pensiones, ver `docs/pensiones.md`: cuotas y participación con vigencia

@@ -51,6 +51,20 @@ describe('actualizarPreferenciasAvisos', () => {
     await actualizarPreferenciasAvisos({ avisarHoraLimite: false, avisarMensajes: true })
     expect(falso.operaciones[0].valores).toEqual({ avisar_hora_limite: false, avisar_mensajes: true })
   })
+  it('Administradora guarda la preferencia independiente de pagos de pensiones', async () => {
+    vi.mocked(perfilParaAccion).mockResolvedValue({ ok: true, perfil: perfilDePrueba(RESIDENTE.id, 'administradora') })
+    const falso = usarAdmin(clienteSupabaseFalso())
+    await actualizarPreferenciasAvisos({ avisarHoraLimite: false, avisarMensajes: false, avisarCocina: false, avisarPensiones: true })
+    expect(falso.operaciones[0].valores).toEqual({ avisar_hora_limite: false, avisar_mensajes: false, avisar_cocina: false, avisar_pensiones: true })
+  })
+  it('otros roles no alteran la preferencia de pensiones aunque la envíen manualmente', async () => {
+    for (const rol of ['director', 'residente', 'administracion'] as const) {
+      vi.mocked(perfilParaAccion).mockResolvedValue({ ok: true, perfil: perfilDePrueba(RESIDENTE.id, rol) })
+      const falso = usarAdmin(clienteSupabaseFalso())
+      await actualizarPreferenciasAvisos({ avisarHoraLimite: true, avisarMensajes: true, avisarPensiones: false })
+      expect(falso.operaciones[0].valores).not.toHaveProperty('avisar_pensiones')
+    }
+  })
 
   it('nunca toca otra cuenta aunque el pedido traiga otro id', async () => {
     const falso = usarAdmin(clienteSupabaseFalso())

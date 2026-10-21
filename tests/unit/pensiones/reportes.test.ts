@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { disposicionDescarga, MAX_BYTES_REPORTE, nombreReporteSeguro, puedeConsultarReportes, puedeSubirReportes } from '@/lib/pensiones/reportes'
+import { CATEGORIAS_REPORTE, ETIQUETA_REPORTE, disposicionDescarga, MAX_BYTES_REPORTE, MAX_REPORTES_POR_CATEGORIA, nombreReporteSeguro, puedeConsultarReportes, puedeSubirReportes } from '@/lib/pensiones/reportes'
 import { tieneFirmaPDF, validarCargaReporte } from '@/lib/validacion/reportes-pensiones'
 
 const pdf = '%PDF-1.7\n1 0 obj\n<<>>\nendobj\n%%EOF\n'
@@ -11,6 +11,11 @@ function formulario(contenido = pdf, categoria = 'finanzas', nombre = 'reporte.p
 }
 
 describe('permisos de reportes', () => {
+  it('renombra solo las etiquetas y conserva las categorías y su límite de documentos', () => {
+    expect(CATEGORIAS_REPORTE).toEqual(['finanzas', 'otras_utilidades'])
+    expect(ETIQUETA_REPORTE).toEqual({ finanzas: 'Resúmenes Económicos', otras_utilidades: 'Otros documentos' })
+    expect(MAX_REPORTES_POR_CATEGORIA).toBe(12)
+  })
   it('sólo Administradora sube; Director también consulta; residentes y Administración no acceden', () => {
     for (const rol of ['director', 'residente', 'administracion', 'administradora'] as const) {
       expect(puedeConsultarReportes(rol)).toBe(rol === 'director' || rol === 'administradora')

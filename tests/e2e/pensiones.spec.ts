@@ -45,7 +45,7 @@ async function registrar(clave: 'director' | 'residente', periodo = enero) {
 
 async function limpiar() {
   const usuarios = Object.values(ids)
-  for (const tabla of ['pensiones_pagos', 'pensiones_cuotas'] as const) {
+  for (const tabla of ['pensiones_pagos', 'pensiones_cuotas', 'pensiones_participacion'] as const) {
     const { error } = await admin.from(tabla).delete().in('usuario_id', usuarios)
     if (error) throw error
   }
@@ -62,6 +62,13 @@ async function limpiar() {
 test.beforeEach(async () => {
   ids = await asegurarUsuariosPrueba()
   await limpiar()
+  // Integración y otras suites pueden dejar participaciones distintas o ausentes.
+  // Restaurar el perfil no recrea esa historia si su rol y estado no cambiaron.
+  const { error } = await admin.from('pensiones_participacion').insert(
+    (['director', 'director2', 'residente', 'residente2'] as const)
+      .map((clave) => ({ usuario_id: ids[clave], desde: actual, incluido: true })),
+  )
+  if (error) throw error
 })
 test.afterEach(async () => {
   await limpiar()
@@ -294,10 +301,10 @@ test('Presupuesto del año completo: total, mes por mes y por persona, con sigla
 test('Administradora sube PDF validado y Director consulta y descarga sin controles de carga', async ({ page, browser, baseURL }) => {
   await iniciarSesion(page, 'administradora')
   await page.goto('/pensiones/reporte')
-  await expect(page.getByRole('heading', { name: 'Reporte finanzas', exact: true })).toBeVisible()
-  await expect(page.getByRole('heading', { name: 'Reporte de otras utilidades', exact: true })).toBeVisible()
-  await page.getByRole('button', { name: 'Subir PDF · Reporte finanzas', exact: true }).click()
-  const modal = page.getByRole('dialog', { name: 'Subir PDF · Reporte finanzas', exact: true })
+  await expect(page.getByRole('heading', { name: 'Resúmenes Económicos', exact: true })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Otros documentos', exact: true })).toBeVisible()
+  await page.getByRole('button', { name: 'Subir PDF · Resúmenes Económicos', exact: true }).click()
+  const modal = page.getByRole('dialog', { name: 'Subir PDF · Resúmenes Económicos', exact: true })
   await modal.getByLabel('Documento PDF').setInputFiles({ name: 'e2e-pensiones-invalido.pdf', mimeType: 'application/pdf', buffer: Buffer.from('Esto no es un PDF') })
   await modal.getByRole('button', { name: 'Guardar PDF', exact: true }).click()
   await expect(modal.getByRole('alert')).toContainText('no es un PDF válido')

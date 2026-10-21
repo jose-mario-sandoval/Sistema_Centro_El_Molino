@@ -49,10 +49,11 @@ describe('Administradora hereda capacidades de Administración y mantiene su rol
     expect(paraObservador(persona, 'director').nombre).toBe(persona.nombre)
   })
 
-  it('recibe las mismas preferencias de notificación de cocina', () => {
-    expect(opcionesAvisos('administradora')).toEqual(opcionesAvisos('administracion'))
-    expect(descripcionAvisos('administradora')).toBe(descripcionAvisos('administracion'))
-    expect(textoOfrecerAvisos('administradora')).toBe(textoOfrecerAvisos('administracion'))
+  it('conserva los avisos de cocina y añade una preferencia independiente de pensiones', () => {
+    expect(opcionesAvisos('administradora').filter((o) => o.clave !== 'avisarPensiones')).toEqual(opcionesAvisos('administracion'))
+    expect(descripcionAvisos('administradora')).toContain('cambios para la cocina y pagos de pensiones')
+    expect(textoOfrecerAvisos('administradora')).toContain('cambios para la cocina y pagos de pensiones')
+    expect(opcionesAvisos('administracion').some((o) => o.clave === 'avisarPensiones')).toBe(false)
   })
 
   it('solo consulta los eventos destinados a cocina', async () => {

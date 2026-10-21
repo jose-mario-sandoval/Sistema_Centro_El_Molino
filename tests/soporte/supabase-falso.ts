@@ -104,6 +104,7 @@ export function perfilDePrueba(id: string, rol: Rol): Perfil {
     fuera_de_conteos: false,
     avisar_cambios: true,
     avisar_cocina: true,
+    avisar_pensiones: true,
     avisar_mensajes: true,
     apariencia_tema: null,
     apariencia_contraste: null,

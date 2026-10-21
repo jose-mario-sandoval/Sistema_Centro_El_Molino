@@ -87,6 +87,10 @@ Resumen; el detalle completo está en el spec.
 
 ## Activar Administradora y Pensiones
 
+Los cambios de donación compartida, exención individual y avisos de pagos del 20 de octubre
+se preparan sin aplicar a producción. Ver [activación y pruebas](docs/pensiones-2026-10-20.md),
+incluida la identificación pendiente del UUID de la cuenta «Dani y José».
+
 La implementación y sus pasos de activación están en [la guía de Pensiones](docs/pensiones.md).
 Aplicá primero las cuatro migraciones `20261019…`, en orden de timestamp, y después desplegá
 las pantallas. El valor del enum se agrega en una migración independiente. No se modifican roles
