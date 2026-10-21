@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { dolares, etiquetaPeriodo, nombreMes, resumenAnual } from '@/lib/pensiones/calculos'
+import { dolares, nombreMes, resumenAnual } from '@/lib/pensiones/calculos'
 
 type Resumen = ReturnType<typeof resumenAnual>
 
@@ -9,6 +9,8 @@ type Resumen = ReturnType<typeof resumenAnual>
  */
 export function PresupuestoAnual({ anio, resumen, mesDeHoy, rol }: { anio: number; resumen: Resumen; mesDeHoy: string; rol: string }) {
   const { total, meses, personas, sinCuota } = resumen
+  // La exención oculta la cuenta en la lista, incluso si empezó a mitad del año; los totales conservan su historia.
+  const personasVisibles = personas.filter((p) => !p.exento && !p.exentoDesde)
   return <>
     <section className="card" aria-label="Resumen del año">
       <h3 className="section-title">Año {anio}</h3>
@@ -37,10 +39,9 @@ export function PresupuestoAnual({ anio, resumen, mesDeHoy, rol }: { anio: numbe
     <section className="card" aria-label="Por persona">
       <h3 className="section-title">Por persona</h3>
       {rol === 'administradora' && <p>Las personas se identifican únicamente por sus siglas.</p>}
-      {personas.length ? <ul className="pensiones-lista">{personas.map((p) => <li key={p.usuario_id}>
+      {personasVisibles.length ? <ul className="pensiones-lista">{personasVisibles.map((p) => <li key={p.usuario_id}>
         <strong>{p.etiqueta}</strong>
-        <span>{p.exento ? `Exento de pensión · ${dolares(0)}` : p.meta > 0 ? <>Pagó {dolares(p.pagado)} de {dolares(p.meta)}</> : 'Sin cuota configurada'}</span>
-        {p.exentoDesde && !p.exento && <span>Exento de pensión desde {etiquetaPeriodo(p.exentoDesde)}.</span>}
+        <span>{p.meta > 0 ? <>Pagó {dolares(p.pagado)} de {dolares(p.meta)}</> : 'Sin cuota configurada'}</span>
         <span>{p.meta > 0 ? <>Falta {dolares(p.falta)}</> : null}</span>
       </li>)}</ul> : <p className="empty-state">No hay personas con cuota en este año.</p>}
     </section>
