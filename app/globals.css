@@ -354,6 +354,21 @@ a{color:var(--acento);}
 .pensiones{container-type:inline-size;container-name:pensiones;}
 .pensiones > p{margin-bottom:1rem;max-width:65ch;}
 .pensiones .card{margin-block:1.25rem;overflow-wrap:anywhere;}
+.pensiones .panel-pensiones{padding:0;}
+.panel-pensiones > .section-title{margin:0;}
+.panel-pensiones .barra-pensiones{gap:.75rem;padding:1rem var(--marco);border-radius:var(--r-lg);}
+.barra-pensiones-textos{display:flex;flex:1;flex-direction:column;gap:.4rem;min-width:0;}
+.barra-pensiones-titulo{font-family:var(--fuente-display);font-size:var(--t-lg);}
+.barra-pensiones-descripcion,.barra-pensiones-resumen{font-size:var(--t-sm);font-weight:400;line-height:1.5;}
+.barra-pensiones-descripcion{color:var(--tinta-suave);}
+.barra-pensiones-resumen{color:var(--acento);font-weight:600;}
+.barra-pensiones[aria-expanded="true"]{box-shadow:var(--hundido-suave);border-color:var(--acento);}
+.contenido-panel-pensiones{padding:1.25rem var(--marco);}
+.contenido-panel-pensiones > p{max-width:65ch;margin-bottom:1rem;}
+.pensiones-bloque > .pensiones-meses{margin-top:1rem;}
+/* `hidden` mantiene los formularios montados y fuera del teclado al plegar. */
+.contenido-panel-pensiones[hidden]{display:none;}
+.pensiones-bloque + .pensiones-bloque{border-top:2px solid var(--separador);padding-top:1.25rem;margin-top:1.25rem;}
 .pensiones-selector,.pensiones-acciones{display:flex;flex-wrap:wrap;gap:.75rem;align-items:end;margin-block:1rem;}
 .pensiones-selector .field{flex:1 1 8rem;min-width:0;margin:0;}
 .pensiones-selector .btn{flex:0 1 auto;}

@@ -607,6 +607,14 @@ se anuncia explícitamente. «Exento de pensión» acompaña $0.00 y evita ofrec
 ese período; conserva el historial y los controles del rol. Las categorías de documentos
 usan las etiquetas «Resúmenes Económicos» y «Otros documentos».
 
+En Marcar pensiones, solo el Director ve «Mi pensión» y «Donaciones» como dos paneles
+independientes, cerrados al entrar. Siguen la barra de Ausencias: botón con `aria-expanded`,
+`aria-controls` y flecha; el contenido usa `hidden` sin desmontarse para conservar la selección,
+los importes escritos y las confirmaciones al plegar o refrescar datos del mismo año. El año
+consultado se elige fuera de los paneles. Cada encabezado conserva un resumen del mismo mes
+calendario dentro de ese año, con mes y año explícitos. Abrir un panel solo muestra su contenido;
+registrar sigue requiriendo las confirmaciones existentes. El Residente conserva su vista actual.
+
 | Estado | Cómo se ve | Por qué |
 |---|---|---|
 | **Sin definir** | Hueco hundido y vacío, borde punteado, con la pregunta escrita: *"¿Vas a almorzar el martes?"* | Es el estado de fallo que el sistema persigue con notificaciones push. Dejó de ser texto gris chico: la ausencia se ve como un agujero, que es lo que es |
