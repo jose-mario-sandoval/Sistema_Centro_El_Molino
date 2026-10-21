@@ -24,7 +24,7 @@ async function iniciarSesion(page: Page, clave: ClaveUsuario) {
 async function limpiar() {
   const exencion = await admin.from('pensiones_exencion').delete().eq('unica', true)
   if (exencion.error) throw exencion.error
-  for (const tabla of ['pensiones_pagos', 'pensiones_cuotas']) {
+  for (const tabla of ['pensiones_pagos', 'pensiones_cuotas', 'pensiones_participacion']) {
     const { error } = await admin.from(tabla).delete().in('usuario_id', Object.values(ids))
     if (error) throw error
   }
@@ -37,6 +37,12 @@ async function limpiar() {
 test.beforeEach(async () => {
   ids = await asegurarUsuariosPrueba()
   await limpiar()
+  // Cada prueba define la participación; no depende de lo que dejó integración.
+  const participacion = await admin.from('pensiones_participacion').insert(
+    (['director', 'director2', 'residente', 'residente2'] as const)
+      .map((clave) => ({ usuario_id: ids[clave], desde: actual, incluido: true })),
+  )
+  if (participacion.error) throw participacion.error
   const director = await clienteComo('director')
   for (const [clave, monto] of [['director2', 50000], ['residente', 30000]] as const) {
     const { error } = await director.rpc('guardar_cuota_pension', {

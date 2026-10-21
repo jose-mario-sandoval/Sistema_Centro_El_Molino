@@ -45,7 +45,7 @@ async function registrar(clave: 'director' | 'residente', periodo = enero) {
 
 async function limpiar() {
   const usuarios = Object.values(ids)
-  for (const tabla of ['pensiones_pagos', 'pensiones_cuotas'] as const) {
+  for (const tabla of ['pensiones_pagos', 'pensiones_cuotas', 'pensiones_participacion'] as const) {
     const { error } = await admin.from(tabla).delete().in('usuario_id', usuarios)
     if (error) throw error
   }
@@ -62,6 +62,13 @@ async function limpiar() {
 test.beforeEach(async () => {
   ids = await asegurarUsuariosPrueba()
   await limpiar()
+  // Integración y otras suites pueden dejar participaciones distintas o ausentes.
+  // Restaurar el perfil no recrea esa historia si su rol y estado no cambiaron.
+  const { error } = await admin.from('pensiones_participacion').insert(
+    (['director', 'director2', 'residente', 'residente2'] as const)
+      .map((clave) => ({ usuario_id: ids[clave], desde: actual, incluido: true })),
+  )
+  if (error) throw error
 })
 test.afterEach(async () => {
   await limpiar()

@@ -89,9 +89,9 @@ Ningún rol de la aplicación puede activar o ampliar la excepción.
 
 1. Ejecutar el CI del repositorio en su Supabase temporal con todas las migraciones; aprobar
    integración y E2E. Descargar y comparar el artefacto `database-types` según `CLAUDE.md`.
-   El archivo preparado se generó automáticamente con el generador oficial `postgres-meta`
-   desde PostgreSQL temporal con el esquema completo, sin editar tipos a mano; queda pendiente
-   contrastarlo con el artefacto generado por Supabase de CI.
+   Los tipos están sincronizados con el artefacto oficial `database-types` del run
+   [39528143131](https://github.com/jose-mario-sandoval/Sistema_Centro_El_Molino/actions/runs/39528143131),
+   generado desde Supabase temporal con todas las migraciones. No se editaron a mano.
 2. Revisar las tres migraciones y las demás pendientes antes de una activación autorizada.
    Aplicar el esquema antes de desplegar las pantallas que consultan las tablas/RPC nuevas.
 3. Verificar y activar el UUID conforme al apartado anterior. Sin ese paso, las reglas normales
@@ -121,6 +121,11 @@ Ningún rol de la aplicación puede activar o ampliar la excepción.
 - `npm run test:integracion` y `npm run test:e2e`: se intentaron y abortaron en sus guardas de
   entorno porque no hay Supabase local configurado. No se ejecutaron contra producción.
   Las nuevas suites están listas para el entorno temporal del workflow `base-de-datos`.
+- El primer CI del [PR #53](https://github.com/jose-mario-sandoval/Sistema_Centro_El_Molino/pull/53)
+  aprobó las **424 pruebas de integración**. En E2E pasaron 119 de 120: la prueba de pago propio
+  del Director heredaba una participación borrada por integración, aunque tenía cuota. Las suites
+  E2E de pagos y exención ahora limpian y restauran explícitamente la participación de sus cuatro
+  cuentas antes de cada caso. El resultado de la ejecución posterior se consulta en el PR.
 - Playwright descubrió correctamente las 16 pruebas de Pensiones en tres archivos con
   `npx playwright test pensiones --list`; esto solo comprueba descubrimiento, no ejecución E2E.
 - `npm run build`: aprobado con las variables ficticias de CI.
