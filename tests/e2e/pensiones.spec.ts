@@ -91,6 +91,8 @@ test('Residente solo accede a sus meses y sin cuota no puede registrar pagos', a
   await iniciarSesion(page, 'residente')
   await page.getByRole('link', { name: 'Pensiones', exact: true }).filter({ visible: true }).click()
   await expect(page).toHaveURL(/\/pensiones\/marcar$/)
+  await expect(page.getByRole('button', { name: /^Mi pensión/ })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: /^Donaciones/ })).toHaveCount(0)
   await expect(page.getByRole('checkbox')).toHaveCount(12)
   for (const casilla of await page.getByRole('checkbox').all()) await expect(casilla).toBeDisabled()
   await expect(page.getByRole('button', { name: 'Revisar pagos' })).toBeDisabled()
@@ -236,6 +238,7 @@ test('Director marca únicamente sus meses, aunque pueda consultar pagos ajenos 
   await registrar('residente')
   await iniciarSesion(page, 'director')
   await page.goto(`/pensiones/marcar?anio=${anio}`)
+  await page.getByRole('button', { name: /^Mi pensión/ }).click()
   const eneroPropio = page.locator(`.pension-mes:has(input[value="${enero}"])`)
   await expect(eneroPropio).toContainText('Pendiente')
   await expect(eneroPropio).toContainText('$500.00')
@@ -248,6 +251,77 @@ test('Director marca únicamente sus meses, aunque pueda consultar pagos ajenos 
     { usuario_id: ids.director, monto_centavos: 50000 },
     { usuario_id: ids.residente, monto_centavos: 30000 },
   ]))
+})
+
+test('Director despliega paneles independientes y conserva el abono y la revisión al plegar y actualizar', async ({ page }) => {
+  await configurar('director', 50000)
+  await iniciarSesion(page, 'director')
+  await page.goto(`/pensiones/marcar?anio=${anio}`)
+  const pension = page.getByRole('button', { name: /^Mi pensión/ })
+  const donaciones = page.getByRole('button', { name: /^Donaciones/ })
+  const periodoResumen = `${anio}-${actual.slice(5, 7)}-01`
+  for (const [boton, descripcion] of [
+    [pension, 'Consultá y registrá tus pagos'],
+    [donaciones, 'Registrá la recepción de la donación de la casa'],
+  ] as const) {
+    await expect(boton).toHaveAttribute('aria-expanded', 'false')
+    await expect(boton).toContainText(descripcion)
+    // El resumen identifica el mes y el año que se están consultando.
+    await expect(boton).toContainText(etiquetaPeriodo(periodoResumen))
+    const id = await boton.getAttribute('aria-controls')
+    expect(id).toBeTruthy()
+    await expect(page.locator(`[id="${id}"]`)).toBeHidden()
+  }
+  await expect(page.getByRole('checkbox')).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Revisar pagos', exact: true })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Donación recibida', exact: true })).toHaveCount(0)
+  // Ningún control del contenido plegado se interpone entre los dos encabezados.
+  await pension.focus()
+  await page.keyboard.press('Tab')
+  await expect(donaciones).toBeFocused()
+  await pension.focus()
+  await page.keyboard.press('Enter')
+  await expect(pension).toHaveAttribute('aria-expanded', 'true')
+  await expect(donaciones).toHaveAttribute('aria-expanded', 'false')
+
+  const primerMes = page.locator(`.pension-mes:has(input[value="${enero}"])`)
+  const segundoMes = page.locator(`.pension-mes:has(input[value="${febrero}"])`)
+  const monto = page.getByLabel(`¿Cuánto pagás de ${etiquetaPeriodo(enero)}?`)
+  await primerMes.getByRole('checkbox').check()
+  await monto.fill('125.75')
+  await page.getByRole('button', { name: 'Revisar pagos', exact: true }).click()
+  const revision = page.getByRole('region', { name: 'Confirmar pagos', exact: true })
+  await expect(revision).toContainText('Total: $125.75')
+  await pension.click()
+  await donaciones.click()
+  await expect(donaciones).toHaveAttribute('aria-expanded', 'true')
+  await expect(pension).toHaveAttribute('aria-expanded', 'false')
+  await expect(revision).toBeHidden()
+
+  // Un cambio externo fuerza datos nuevos sin desmontar el borrador del panel cerrado.
+  await configurar('director', 55000, febrero)
+  await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')))
+  await expect(segundoMes).toContainText('$550.00')
+  await expect(pension).toHaveAttribute('aria-expanded', 'false')
+  await expect(donaciones).toHaveAttribute('aria-expanded', 'true')
+  await pension.click()
+  await expect(revision).toContainText(`${etiquetaPeriodo(enero)}: $125.75`)
+  await expect(revision).toContainText('Total: $125.75')
+  await expect(monto).toHaveValue('125.75')
+  await expect(primerMes.getByRole('checkbox')).toBeChecked()
+  await revision.getByRole('button', { name: 'Volver a elegir', exact: true }).click()
+  await expect(monto).toHaveValue('125.75')
+  await donaciones.click()
+  await expect(pension).toHaveAttribute('aria-expanded', 'true')
+  expect((await admin.from('pensiones_pagos').select('periodo').eq('usuario_id', ids.director)).data).toEqual([])
+
+  await page.getByRole('button', { name: 'Revisar pagos', exact: true }).click()
+  await revision.getByRole('button', { name: 'Confirmar que ya pagué', exact: true }).click()
+  await expect(primerMes).toContainText('Pago parcial')
+  await expect(primerMes).toContainText('Falta $374.25')
+  const pago = await admin.from('pensiones_pagos').select('periodo, abono_centavos, monto_centavos').eq('usuario_id', ids.director)
+  expect(pago.error).toBeNull()
+  expect(pago.data).toEqual([{ periodo: enero, abono_centavos: 12575, monto_centavos: 50000 }])
 })
 
 test('Presupuesto entrega nombres al Director y solo siglas a la Administradora', async ({ page, browser, baseURL }) => {

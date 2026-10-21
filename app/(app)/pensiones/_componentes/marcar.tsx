@@ -9,7 +9,7 @@ import { centavosDesdeTexto, dolares, etiquetaPeriodo, saldoMes, seleccionPagabl
 import { ETIQUETA_CATEGORIA, type CategoriaPension, type MesPension, type PagoPension } from '@/lib/pensiones/tipos'
 import { marcarPensiones } from '../acciones'
 
-export function MarcarPensiones({ meses, historial }: { meses: MesPension[]; historial: PagoPension[] }) {
+export function MarcarPensiones({ meses, historial, integrado = false }: { meses: MesPension[]; historial: PagoPension[]; integrado?: boolean }) {
   const [seleccion, setSeleccion] = useState<string[]>([])
   // Lo que la persona escribe en cada mes elegido (texto); sin tocar, paga todo lo que falta.
   const [escritos, setEscritos] = useState<Record<string, string>>({})
@@ -50,7 +50,7 @@ export function MarcarPensiones({ meses, historial }: { meses: MesPension[]; his
     })
   }
   return <>
-    <section className="card" aria-label="Meses de pensión">
+    <section className={integrado ? 'pensiones-bloque' : 'card'} aria-label="Meses de pensión">
       <p>La categoría y el monto corresponden a cada mes. Podés pagar un mes completo o solo una parte y completarlo después. Si falta una cuota, pedile al Director que la configure.</p>
       <fieldset disabled={ocupado || revision !== null} className="pensiones-meses"><legend>Elegí uno o varios meses con algo pendiente</legend>
         {meses.map((m) => {
@@ -86,7 +86,7 @@ export function MarcarPensiones({ meses, historial }: { meses: MesPension[]; his
       </div>}
       {error && <p className="campo-error" role="alert">{error}</p>}
     </section>
-    <section className="card" aria-label="Historial de pagos"><h2 className="section-title">Tu historial de pagos</h2>
+    <section className={integrado ? 'pensiones-bloque' : 'card'} aria-label="Historial de pagos">{integrado ? <h3 className="section-title">Tu historial de pagos</h3> : <h2 className="section-title">Tu historial de pagos</h2>}
       {historial.length ? <ul className="pensiones-lista">{historial.map((p) => <li key={p.id}><strong>{etiquetaPeriodo(p.periodo)}</strong><span>{ETIQUETA_CATEGORIA[p.categoria as CategoriaPension]} · {p.abono_centavos < p.monto_centavos ? `Pagaste ${dolares(p.abono_centavos)} (cuota de ${dolares(p.monto_centavos)})` : dolares(p.abono_centavos)}</span><span>Registrado el {new Intl.DateTimeFormat('es-SV', { timeZone: 'America/El_Salvador', dateStyle: 'medium' }).format(new Date(p.registrado_en))}</span></li>)}</ul> : <p className="empty-state">Todavía no registraste pagos.</p>}
     </section>
   </>

@@ -9,7 +9,7 @@ import { dolares, etiquetaPeriodo } from '@/lib/pensiones/calculos'
 import type { MesDonacion } from '@/lib/pensiones/donaciones'
 import { recibirDonacionPension } from '../acciones-donacion'
 
-export function Donacion({ meses }: { meses: MesDonacion[] }) {
+export function Donacion({ meses, integrado = false }: { meses: MesDonacion[]; integrado?: boolean }) {
   const [revision, setRevision] = useState<{ periodo: string; monto: number } | null>(null)
   const tituloRevision = useRef<HTMLHeadingElement>(null)
   const botonRevision = useRef<HTMLButtonElement | null>(null)
@@ -34,8 +34,8 @@ export function Donacion({ meses }: { meses: MesDonacion[] }) {
       router.refresh()
     })
   }
-  return <section className="card" aria-label="Donación">
-    <h2 className="section-title">Donación</h2>
+  return <section className={integrado ? 'pensiones-bloque' : 'card'} aria-label="Donación">
+    {!integrado && <h2 className="section-title">Donación</h2>}
     <p>El estado es compartido por todos los Directores y es independiente de tu pensión personal.</p>
     <div className="pensiones-meses">{meses.map((m) => <div key={m.periodo} className="pension-mes" role="region" aria-label={`Donación de ${etiquetaPeriodo(m.periodo)}`}><span>
       <strong>{etiquetaPeriodo(m.periodo)}</strong>
