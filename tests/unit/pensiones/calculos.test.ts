@@ -4,7 +4,7 @@ import { apartadosPensiones, puedeVerPensiones } from '@/lib/pensiones/permisos'
 import { esquemaCuotaPension, esquemaMarcarPensiones, esquemaPeriodoPension } from '@/lib/validacion/pensiones'
 import type { FilaPresupuesto, MesPension } from '@/lib/pensiones/tipos'
 
-const mes = (periodo: string, monto: number | null, pagado = 0): MesPension => ({ periodo, monto_centavos: monto, pagado_centavos: pagado, categoria: monto === null ? null : 'universitario', registrado_en: null })
+const mes = (periodo: string, monto: number | null, pagado = 0): MesPension => ({ periodo, monto_centavos: monto, pagado_centavos: pagado, categoria: monto === null ? null : 'universitario', registrado_en: null, exento: false })
 describe('dinero y selección de pensiones', () => {
   it('convierte dólares a centavos exactos y rechaza formatos ambiguos', () => {
     expect(centavosDesdeTexto('0.29')).toBe(29)
@@ -53,7 +53,7 @@ describe('permisos y validación', () => {
 })
 
 const fila = (periodo: string, usuario: string, etiqueta: string, monto: number | null, pagado = 0): FilaPresupuesto => ({
-  periodo, usuario_id: usuario, etiqueta, categoria: monto === null ? null : 'universitario', monto_centavos: monto, pagado_centavos: pagado, registrado_en: null,
+  periodo, usuario_id: usuario, etiqueta, categoria: monto === null ? null : 'universitario', monto_centavos: monto, pagado_centavos: pagado, registrado_en: null, exento: false,
 })
 
 describe('presupuesto de un año', () => {

@@ -59,6 +59,7 @@ export const esquemaPreferenciasAvisos = z.object({
   avisarMensajes: z.boolean(),
   avisarCambios: z.boolean().optional(),
   avisarCocina: z.boolean().optional(),
+  avisarPensiones: z.boolean().optional(),
 })
 
 export type PreferenciasAvisos = z.output<typeof esquemaPreferenciasAvisos>

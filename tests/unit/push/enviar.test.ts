@@ -179,4 +179,23 @@ describe('enviarAUsuarios', () => {
     })).rejects.toBe(error)
     expect(sendNotification).not.toHaveBeenCalled()
   })
+
+  it('cada abono de pensión reserva por movimiento y dispositivo antes de enviar, incluso en paralelo', async () => {
+    const falso = usarCliente([fila('s1'), fila('s2')])
+    falso.cliente.rpc.mockResolvedValueOnce({ data: ['s1', 's2'], error: null })
+      .mockResolvedValueOnce({ data: [], error: null })
+    const opciones = { avisoPagoPension: { pagoId: 'pago-1' } }
+    await Promise.all([enviarAUsuarios(['administradora'], CARGA, opciones), enviarAUsuarios(['administradora'], CARGA, opciones)])
+    expect(falso.cliente.rpc).toHaveBeenCalledWith('reservar_avisos_pago_pension', {
+      p_pago_id: 'pago-1', p_suscripciones: ['s1', 's2'],
+    })
+    expect(sendNotification).toHaveBeenCalledTimes(2)
+  })
+
+  it('una reserva de pensión fallida impide contactar al proveedor', async () => {
+    const falso = usarCliente([fila('s1')])
+    falso.cliente.rpc.mockResolvedValue({ data: [], error: { code: '08006' } })
+    await expect(enviarAUsuarios(['administradora'], CARGA, { avisoPagoPension: { pagoId: 'pago-1' } })).rejects.toMatchObject({ code: '08006' })
+    expect(sendNotification).not.toHaveBeenCalled()
+  })
 })

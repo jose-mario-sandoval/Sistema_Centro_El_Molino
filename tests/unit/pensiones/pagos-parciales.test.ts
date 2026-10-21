@@ -3,7 +3,7 @@ import { saldoMes, seleccionPagable, textoMonto } from '@/lib/pensiones/calculos
 import type { MesPension } from '@/lib/pensiones/tipos'
 import { esquemaMarcarPensiones } from '@/lib/validacion/pensiones'
 
-const mes = (periodo: string, monto: number | null, pagado = 0): MesPension => ({ periodo, monto_centavos: monto, pagado_centavos: pagado, categoria: monto === null ? null : 'universitario', registrado_en: null })
+const mes = (periodo: string, monto: number | null, pagado = 0): MesPension => ({ periodo, monto_centavos: monto, pagado_centavos: pagado, categoria: monto === null ? null : 'universitario', registrado_en: null, exento: false })
 
 describe('pagos parciales', () => {
   it('el saldo es la cuota menos lo pagado, nunca negativo ni de un mes sin cuota', () => {
@@ -47,6 +47,11 @@ describe('validación del pago parcial', () => {
 
   it('acepta pagados y abonos del mismo largo que los meses', () => {
     expect(esquemaMarcarPensiones.safeParse({ ...base, pagados: [10000], abonos: [5000] }).success).toBe(true)
+  })
+
+  it('exige la copia de lo ya pagado cuando se envían abonos, para impedir reintentos duplicados', () => {
+    expect(esquemaMarcarPensiones.safeParse({ ...base, abonos: [5000] }).success).toBe(false)
+    expect(esquemaMarcarPensiones.safeParse({ ...base, pagados: [0], abonos: [5000] }).success).toBe(true)
   })
 
   it('rechaza abonos en cero o negativos, y arreglos de otro largo', () => {

@@ -54,7 +54,7 @@ function hostDe(endpoint: string): string {
 export async function enviarAUsuarios(
   usuarioIds: string[],
   carga: CargaPush,
-  opciones: { ttlSegundos?: number; avisoMensaje?: AvisoMensaje } = {},
+  opciones: { ttlSegundos?: number; avisoMensaje?: AvisoMensaje; avisoPagoPension?: { pagoId: string } } = {},
 ): Promise<ResumenEnvio> {
   const resumen: ResumenEnvio = { enviadas: 0, caducadas: 0, fallidas: 0, descartadas: 0 }
   const ids = [...new Set(usuarioIds)]
@@ -82,6 +82,14 @@ export async function enviarAUsuarios(
       p_mensaje_id: mensajeId,
       p_revision: revision,
       p_tipo: tipo,
+      p_suscripciones: suscripciones.map((s) => s.id),
+    })
+    if (errorReserva) throw errorReserva
+    habilitadas = new Set(data)
+  }
+  if (opciones.avisoPagoPension) {
+    const { data, error: errorReserva } = await admin.rpc('reservar_avisos_pago_pension', {
+      p_pago_id: opciones.avisoPagoPension.pagoId,
       p_suscripciones: suscripciones.map((s) => s.id),
     })
     if (errorReserva) throw errorReserva

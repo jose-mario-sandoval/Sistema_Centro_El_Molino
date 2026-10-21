@@ -57,7 +57,7 @@ export function MarcarPensiones({ meses, historial }: { meses: MesPension[]; his
           const saldo = saldoMes(m)
           const completo = m.pagado_centavos > 0 && saldo === 0
           const parcial = m.pagado_centavos > 0 && saldo > 0
-          const habilitado = saldo > 0
+          const habilitado = !m.exento && saldo > 0
           const elegido = pendientes.includes(m.periodo)
           const texto = escritos[m.periodo] ?? textoMonto(saldo)
           const valor = centavosDesdeTexto(texto)
@@ -65,7 +65,7 @@ export function MarcarPensiones({ meses, historial }: { meses: MesPension[]; his
           return <div key={m.periodo} className="pension-mes-bloque">
             <label className="pension-mes" data-disponible={habilitado} data-elegido={elegido}>
               <input type="checkbox" value={m.periodo} disabled={!habilitado} checked={elegido} onChange={(e) => { setError(null); setSeleccion(e.target.checked ? [...pendientes, m.periodo] : pendientes.filter((p) => p !== m.periodo)) }} />
-              <span><strong>{etiquetaPeriodo(m.periodo)}</strong><span>{m.categoria ? ETIQUETA_CATEGORIA[m.categoria as CategoriaPension] : 'Sin cuota configurada'}</span><span>{m.monto_centavos !== null ? dolares(m.monto_centavos) : 'No disponible para registrar'}</span>{parcial && <span>Pagaste {dolares(m.pagado_centavos)} · Falta {dolares(saldo)}</span>}<span>{completo ? <><Icono nombre="si" /> Pagado</> : parcial ? 'Pago parcial' : habilitado ? 'Pendiente' : 'Sin cuota aplicable'}</span></span>
+              <span><strong>{etiquetaPeriodo(m.periodo)}</strong><span>{m.exento ? 'Exento de pensión' : m.categoria ? ETIQUETA_CATEGORIA[m.categoria as CategoriaPension] : 'Sin cuota configurada'}</span><span>{m.exento ? dolares(0) : m.monto_centavos !== null ? dolares(m.monto_centavos) : 'No disponible para registrar'}</span>{parcial && <span>Pagaste {dolares(m.pagado_centavos)} · Falta {dolares(saldo)}</span>}<span>{m.exento ? 'No requiere registrar pagos.' : completo ? <><Icono nombre="si" /> Pagado</> : parcial ? 'Pago parcial' : habilitado ? 'Pendiente' : 'Sin cuota aplicable'}</span></span>
             </label>
             {elegido && <div className="field pension-abono">
               <label htmlFor={`abono-${m.periodo}`}>¿Cuánto pagás de {etiquetaPeriodo(m.periodo)}?</label>

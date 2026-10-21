@@ -4,10 +4,14 @@ import { perfilParaAccion } from '@/lib/auth/sesion'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { clienteSupabaseFalso, perfilDePrueba } from '@/tests/soporte/supabase-falso'
 import { revalidatePath } from 'next/cache'
+import { after } from 'next/server'
+import { avisarPagoPension } from '@/lib/push/avisos-pensiones'
 
 vi.mock('@/lib/auth/sesion', () => ({ perfilParaAccion: vi.fn() }))
 vi.mock('@/lib/supabase/servidor', () => ({ crearClienteServidor: vi.fn() }))
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
+vi.mock('next/server', () => ({ after: vi.fn() }))
+vi.mock('@/lib/push/avisos-pensiones', () => ({ avisarPagoPension: vi.fn() }))
 const ID = '0b8f7c4e-1a2b-4c3d-8e9f-0a1b2c3d4e5f'
 beforeEach(() => {
   vi.clearAllMocks()
@@ -33,11 +37,15 @@ describe('acciones de pensiones', () => {
     expect(revalidatePath).toHaveBeenCalledWith('/pensiones', 'layout')
   })
   it('pago exige rol personal y omite toda identidad o categoría enviada por navegador', async () => {
-    const falso = clienteSupabaseFalso({ rpc: [{ data: [{ periodo: '2099-01-01' }], error: null }] })
+    const falso = clienteSupabaseFalso({ rpc: [{ data: [{ pago_id: 'pago-nuevo' }], error: null }] })
     vi.mocked(crearClienteServidor).mockResolvedValue(falso.cliente as never)
     expect(await marcarPensiones({ usuario_id: 'otra-persona', categoria: 'falsa', periodos: ['2099-01-01'], montos: [30000] })).toEqual({ ok: true, data: { cantidad: 1 } })
     expect(perfilParaAccion).toHaveBeenCalledWith('director', 'residente')
-    expect(falso.rpcs[0]).toEqual({ nombre: 'marcar_pensiones', args: { p_periodos: ['2099-01-01'], p_montos_esperados: [30000] } })
+    expect(falso.rpcs[0]).toEqual({ nombre: 'marcar_pensiones_con_movimientos', args: { p_periodos: ['2099-01-01'], p_montos_esperados: [30000] } })
+    expect(after).toHaveBeenCalledOnce()
+    expect(avisarPagoPension).not.toHaveBeenCalled()
+    await (vi.mocked(after).mock.calls[0][0] as () => Promise<void>)()
+    expect(avisarPagoPension).toHaveBeenCalledWith('pago-nuevo')
   })
   it('rechaza duplicados antes de tocar SQL', async () => {
     expect((await marcarPensiones({ periodos: ['2099-01-01', '2099-01-01'], montos: [30000, 30000] })).ok).toBe(false)
@@ -48,20 +56,22 @@ describe('acciones de pensiones', () => {
     vi.mocked(crearClienteServidor).mockResolvedValue(falso.cliente as never)
     expect((await marcarPensiones({ periodos: ['2099-01-01'], montos: [30000] })).ok).toBe(false)
     expect(revalidatePath).not.toHaveBeenCalled()
+    expect(after).not.toHaveBeenCalled()
   })
   it('reintento sin inserciones devuelve éxito sin inventar pagos nuevos', async () => {
     const falso = clienteSupabaseFalso({ rpc: [{ data: [], error: null }] })
     vi.mocked(crearClienteServidor).mockResolvedValue(falso.cliente as never)
     expect(await marcarPensiones({ periodos: ['2099-01-01'], montos: [30000] })).toEqual({ ok: true, data: { cantidad: 0 } })
+    expect(after).not.toHaveBeenCalled()
   })
 })
 
 describe('pago parcial', () => {
   it('envía lo ya pagado y el abono para que SQL valide contra lo que falta', async () => {
-    const falso = clienteSupabaseFalso({ rpc: [{ data: [{ periodo: '2099-01-01' }], error: null }] })
+    const falso = clienteSupabaseFalso({ rpc: [{ data: [{ pago_id: 'abono-nuevo' }], error: null }] })
     vi.mocked(crearClienteServidor).mockResolvedValue(falso.cliente as never)
     expect(await marcarPensiones({ periodos: ['2099-01-01'], montos: [30000], pagados: [10000], abonos: [5000] })).toEqual({ ok: true, data: { cantidad: 1 } })
-    expect(falso.rpcs[0]).toEqual({ nombre: 'marcar_pensiones', args: { p_periodos: ['2099-01-01'], p_montos_esperados: [30000], p_pagados_esperados: [10000], p_abonos: [5000] } })
+    expect(falso.rpcs[0]).toEqual({ nombre: 'marcar_pensiones_con_movimientos', args: { p_periodos: ['2099-01-01'], p_montos_esperados: [30000], p_pagados_esperados: [10000], p_abonos: [5000] } })
   })
 
   it('rechaza un abono en cero antes de tocar SQL', async () => {

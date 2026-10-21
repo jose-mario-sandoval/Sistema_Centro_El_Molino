@@ -43,6 +43,7 @@ const DIRECTOR: Perfil = {
   fuera_de_conteos: false,
   avisar_cambios: true,
   avisar_cocina: true,
+  avisar_pensiones: true,
   avisar_mensajes: true,
   apariencia_tema: null,
   apariencia_contraste: null,
@@ -426,6 +427,33 @@ describe('eliminarCuenta conserva el historial de pensiones', () => {
     ] }))
     expect(await eliminarCuenta({ id: ID_OTRA })).toEqual({ ok: true, data: null })
     expect(falso.cliente.auth.admin.deleteUser).toHaveBeenCalledWith(ID_OTRA)
+  })
+
+  it.each([
+    ['exención', 'pensiones_exencion', 0],
+    ['configuración de donación', 'pensiones_donaciones_configuracion', 1],
+    ['recepción de donación', 'pensiones_donaciones_recepciones', 2],
+  ])('conserva la cuenta con %s aunque no tenga cuotas ni pagos', async (_caso, tabla, indice) => {
+    const falso = usarAdmin(clienteFalso({ lecturas: [
+      { data: { activo: true, rol: 'residente' }, error: null },
+      LECTURA_VACIA, LECTURA_VACIA,
+      ...Array.from({ length: 3 }, (_, i) => i === indice ? { data: { referencia: ID_OTRA }, error: null } : LECTURA_VACIA),
+    ] }))
+    expect(await eliminarCuenta({ id: ID_OTRA })).toEqual({
+      ok: false, error: 'Esta cuenta tiene una exención o registros de donaciones. Desactivala para conservarlos.',
+    })
+    expect(falso.cliente.from).toHaveBeenCalledWith(tabla)
+    expect(falso.cliente.auth.admin.deleteUser).not.toHaveBeenCalled()
+  })
+
+  it('no borra si no pudo comprobar las referencias de donaciones', async () => {
+    const falso = usarAdmin(clienteFalso({ lecturas: [
+      { data: { activo: true, rol: 'residente' }, error: null },
+      LECTURA_VACIA, LECTURA_VACIA, LECTURA_VACIA,
+      { data: null, error: { code: '08006' } },
+    ] }))
+    expect(await eliminarCuenta({ id: ID_OTRA })).toMatchObject({ ok: false })
+    expect(falso.cliente.auth.admin.deleteUser).not.toHaveBeenCalled()
   })
 
   it('si no se pudo verificar el historial no borra la cuenta', async () => {

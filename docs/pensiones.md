@@ -1,5 +1,8 @@
 # Administradora y Pensiones
 
+La ampliación del 20 de octubre de 2026 está en [donaciones, exención y avisos de pagos](pensiones-2026-10-20.md).
+Esa guía complementa esta entrega inicial e incluye las migraciones nuevas y la activación pendiente por UUID.
+
 Implementación local sobre `b572f76`. No se aplicaron migraciones ni pruebas a producción.
 
 ## Comportamiento y decisiones
@@ -80,7 +83,7 @@ directo: una política restrictiva bloquea ese bucket para `anon` y `authenticat
 si posteriormente se agregan políticas permisivas generales. El servidor usa la llave secreta
 solo después de comprobar sesión/rol y reservar la carga.
 
-Categorías independientes: **Reporte finanzas** y **Reporte de otras utilidades**. La segunda
+Categorías independientes: **Resúmenes Económicos** y **Otros documentos**. La segunda
 es opcional. Se muestran de más reciente a más antiguo, con nombre y fecha de carga local.
 Cada categoría conserva hasta 12 documentos disponibles. El archivo 13 se almacena antes de
 finalizar una transacción que conserva el nuevo, retira el más antiguo de esa categoría y

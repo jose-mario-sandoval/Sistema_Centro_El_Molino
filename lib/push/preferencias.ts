@@ -19,7 +19,7 @@ const RECORDATORIO: OpcionAviso = {
  */
 export function opcionesAvisos(rol: Rol): OpcionAviso[] {
   if (esAdministracion(rol)) {
-    return [
+    const opciones: OpcionAviso[] = [
       {
         clave: 'avisarMensajes',
         id: 'avisar-mensajes',
@@ -33,6 +33,13 @@ export function opcionesAvisos(rol: Rol): OpcionAviso[] {
         ayuda: 'Extras que se agregan o se quitan, y pedidos de eventos nuevos, cambiados o cancelados.',
       },
     ]
+    if (rol === 'administradora') opciones.push({
+      clave: 'avisarPensiones',
+      id: 'avisar-pensiones',
+      etiqueta: 'Pagos de pensiones',
+      ayuda: 'Pagos y abonos parciales de Residentes y Directores, identificados por sus siglas.',
+    })
+    return opciones
   }
 
   const esDirector = rol === 'director'
@@ -60,6 +67,7 @@ export function opcionesAvisos(rol: Rol): OpcionAviso[] {
 
 /** Para qué sirven los avisos, en la tarjeta que los ofrece al abrir la app instalada. */
 export function textoOfrecerAvisos(rol: Rol): string {
+  if (rol === 'administradora') return 'Te avisa cuando hay mensajes nuevos, cambios para la cocina y pagos de pensiones.'
   if (esAdministracion(rol)) return 'Te avisa cuando hay mensajes nuevos y cambios para la cocina.'
   if (rol === 'director') {
     return 'Te avisa antes de que cierre una comida sin definir, cuando hay mensajes nuevos y cuando hay mensajes por aprobar.'
@@ -69,6 +77,7 @@ export function textoOfrecerAvisos(rol: Rol): string {
 
 /** El texto bajo el título "Notificaciones": solo lo que ese rol recibe. */
 export function descripcionAvisos(rol: Rol): string {
+  if (rol === 'administradora') return 'Avisos de mensajes nuevos, cambios para la cocina y pagos de pensiones.'
   if (esAdministracion(rol)) return 'Avisos de mensajes nuevos y de cambios para la cocina.'
   return 'Avisos de mensajes nuevos, recordatorios antes de la hora límite y cambios en tus comidas.'
 }

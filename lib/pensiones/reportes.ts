@@ -3,8 +3,8 @@ import type { Rol } from '@/lib/perfiles/roles'
 export const CATEGORIAS_REPORTE = ['finanzas', 'otras_utilidades'] as const
 export type CategoriaReporte = (typeof CATEGORIAS_REPORTE)[number]
 export const ETIQUETA_REPORTE: Record<CategoriaReporte, string> = {
-  finanzas: 'Reporte finanzas',
-  otras_utilidades: 'Reporte de otras utilidades',
+  finanzas: 'Resúmenes Económicos',
+  otras_utilidades: 'Otros documentos',
 }
 export const MAX_REPORTES_POR_CATEGORIA = 12
 export const MAX_BYTES_REPORTE = 3 * 1024 * 1024

@@ -33,6 +33,7 @@ export default async function PaginaConfiguraciones() {
           avisarMensajes: perfil.avisar_mensajes,
           avisarCambios: perfil.avisar_cambios,
           avisarCocina: perfil.avisar_cocina,
+          avisarPensiones: perfil.avisar_pensiones,
         }}
       />
 

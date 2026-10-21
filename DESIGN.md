@@ -600,6 +600,13 @@ congelados hasta confirmar o volver a elegir. El servidor rechaza un importe que
 de esa revisión. Presupuesto acompaña la barra con porcentaje y montos escritos, incluida meta cero.
 Las listas y los formularios se apilan por ancho de contenedor sin scroll lateral.
 
+La donación se presenta en un bloque independiente de la pensión personal, con período,
+monto y «Pendiente de recibir» / «Recibida» escritos. Antes de recibirla se revisa y confirma
+el importe, con foco de teclado y aviso de que el estado será compartido. La falta de un monto
+se anuncia explícitamente. «Exento de pensión» acompaña $0.00 y evita ofrecer pagos para
+ese período; conserva el historial y los controles del rol. Las categorías de documentos
+usan las etiquetas «Resúmenes Económicos» y «Otros documentos».
+
 | Estado | Cómo se ve | Por qué |
 |---|---|---|
 | **Sin definir** | Hueco hundido y vacío, borde punteado, con la pregunta escrita: *"¿Vas a almorzar el martes?"* | Es el estado de fallo que el sistema persigue con notificaciones push. Dejó de ser texto gris chico: la ausencia se ve como un agujero, que es lo que es |

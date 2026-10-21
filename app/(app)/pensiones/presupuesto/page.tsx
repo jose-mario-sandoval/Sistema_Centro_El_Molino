@@ -33,7 +33,8 @@ export default async function PaginaPresupuesto({ searchParams }: { searchParams
   const filas = await obtenerPresupuesto(periodo)
   const resumen = resumenPresupuesto(filas)
   const pagados = filas.filter((f) => f.pagado_centavos > 0)
-  const sinCuota = filas.filter((f) => f.monto_centavos === null)
+  const sinCuota = filas.filter((f) => !f.exento && f.monto_centavos === null)
+  const exentos = filas.filter((f) => f.exento)
   return <>
     <h2 className="section-title">Presupuesto</h2>
     {vistas}
@@ -45,6 +46,7 @@ export default async function PaginaPresupuesto({ searchParams }: { searchParams
       <progress id="progreso-pension" max="100" value={resumen.porcentaje}>{resumen.porcentaje.toFixed(1)} %</progress>
       {resumen.meta === 0 && <p>No hay una meta configurada para este período.</p>}
       {sinCuota.length > 0 && <p role="status">{sinCuota.length} personas sin cuota configurada: {sinCuota.map((p) => p.etiqueta).join(', ')}. La meta todavía no incluye sus cuotas.</p>}
+      {exentos.map((p) => <p key={p.usuario_id}>{p.etiqueta}: Exento de pensión · {dolares(0)}. No suma a la meta.</p>)}
     </section>
     <section className="card" aria-label="Pagos del período"><h3 className="section-title">Quiénes ya pagaron</h3>
       {perfil.rol === 'administradora' && <p>Las personas se identifican únicamente por sus siglas.</p>}
