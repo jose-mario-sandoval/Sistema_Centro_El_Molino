@@ -37,6 +37,7 @@ export function SeccionGestionUsuarios({ cuentas, idPropio }: { cuentas: Cuenta[
         Creá cuentas, asigná roles, poné contraseñas temporales y desactivá, reactivá o eliminá cuentas. Cada persona edita su
         propio nombre y siglas; el usuario con el que entra lo ponés vos: tocalo para cambiarlo.
       </div>
+      <p className="hint">Podés asignar el rol Administradora a varias cuentas existentes desde la columna Rol.</p>
       <div className="card">
         <div className="tabla-desplazable">
           <table className="user-table">

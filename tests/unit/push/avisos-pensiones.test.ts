@@ -9,8 +9,8 @@ vi.mock('@/lib/supabase/admin', () => ({ crearClienteAdmin: vi.fn() }))
 vi.mock('@/lib/push/enviar', () => ({ enviarAUsuarios: vi.fn() }))
 
 const pago = { siglas: 'RP', periodo: '2026-10-01', abono_centavos: 5000, completado: false }
-function usar(pagos: unknown[] = [pago], error: unknown = null) {
-  const falso = clienteSupabaseFalso({ rpc: [{ data: pagos, error }], consultas: [{ data: [{ id: 'administradora' }], error: null }] })
+function usar(pagos: unknown[] = [pago], error: unknown = null, destinatarias = [{ id: 'administradora' }]) {
+  const falso = clienteSupabaseFalso({ rpc: [{ data: pagos, error }], consultas: [{ data: destinatarias, error: null }] })
   vi.mocked(crearClienteAdmin).mockReturnValue(falso.cliente as never)
   return falso
 }
@@ -19,6 +19,15 @@ beforeEach(() => {
   vi.spyOn(console, 'error').mockImplementation(() => {})
 })
 describe('avisarPagoPension', () => {
+  it('avisa a todas las Administradoras elegibles, sin escoger una cuenta única', async () => {
+    const falso = usar([pago], null, [{ id: 'administradora-1' }, { id: 'administradora-2' }])
+    await avisarPagoPension('abono-compartido')
+    expect(enviarAUsuarios).toHaveBeenCalledWith(['administradora-1', 'administradora-2'], expect.any(Object), {
+      avisoPagoPension: { pagoId: 'abono-compartido' },
+    })
+    expect(falso.operaciones.every((op) => op.operacion === 'select')).toBe(true)
+  })
+
   it('consulta solo siglas y destinatarias activas de rol exacto, con preferencia propia', async () => {
     const falso = usar()
     await avisarPagoPension('abono-1')
