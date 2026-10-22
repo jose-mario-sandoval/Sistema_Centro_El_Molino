@@ -28,7 +28,6 @@ export function EditarDonacion({ configuraciones, actual }: { configuraciones: C
   }
   return <section className="card" aria-label={ETIQUETA_DONACIONES}>
     <h2 className="section-title">{ETIQUETA_DONACIONES}</h2>
-    <p>Un monto mensual compartido para toda la casa. El monto continúa vigente hasta que un Director lo cambie.</p>
     <p>{vigente ? `Monto vigente de ingresos por donaciones: ${dolares(vigente.monto_centavos)} al mes.` : 'Todavía no hay un monto de ingresos por donaciones configurado para el mes actual.'}</p>
     <p>Elegí desde qué mes se aplica el monto. Los ingresos por donaciones ya recibidos conservan su importe original.</p>
     <form action={guardar} className="pensiones-cuota"><fieldset disabled={ocupado}>
