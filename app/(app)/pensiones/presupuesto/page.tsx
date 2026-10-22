@@ -4,6 +4,7 @@ import { dolares, etiquetaPeriodo, mesActual, resumenAnual, resumenPresupuesto, 
 import { obtenerPresupuesto, obtenerPresupuestoAnual } from '@/lib/pensiones/consultas'
 import { ROLES_PRESUPUESTO } from '@/lib/pensiones/permisos'
 import { esquemaAnioPension } from '@/lib/validacion/pensiones'
+import { ETIQUETA_DONACIONES, ETIQUETA_PRESUPUESTO } from '@/lib/pensiones/etiquetas'
 import { PresupuestoAnual } from '../_componentes/presupuesto-anual'
 import { SelectorPeriodo } from '../_componentes/selector-periodo'
 
@@ -32,28 +33,36 @@ export default async function PaginaPresupuesto({ searchParams }: { searchParams
   const periodo = `${anio}-${String(mes).padStart(2, '0')}-01`
   const filas = await obtenerPresupuesto(periodo)
   const resumen = resumenPresupuesto(filas)
-  const pagados = filas.filter((f) => f.pagado_centavos > 0)
-  const pendientes = filas.filter((f) => saldoMes(f) > 0)
-  const sinCuota = filas.filter((f) => !f.exento && f.monto_centavos === null)
+  const pendientes = filas.filter((f) => f.concepto === 'pension' && saldoMes(f) > 0)
+  const sinCuota = filas.filter((f) => f.concepto === 'pension' && !f.exento && f.monto_centavos === null)
+  const donacion = filas.find((f) => f.concepto === 'donacion')
+  const ingresos = filas.filter((f) => !f.exento || f.pagado_centavos > 0)
   return <>
     <h2 className="section-title">Presupuesto</h2>
     {vistas}
     <SelectorPeriodo key={periodo} ruta="/pensiones/presupuesto" anio={anio} mes={mes} />
     <section className="card" aria-label="Resumen del presupuesto">
       <h3 className="section-title">{etiquetaPeriodo(periodo)}</h3>
-      <dl className="pensiones-cifras"><div><dt>Registrado como pagado</dt><dd>{dolares(resumen.pagado)}</dd></div><div><dt>Meta mensual</dt><dd>{dolares(resumen.meta)}</dd></div><div><dt>Falta para la meta</dt><dd>{dolares(resumen.falta)}</dd></div></dl>
-      <label htmlFor="progreso-pension">Avance: {resumen.porcentaje.toFixed(1)} %</label>
+      <dl className="pensiones-cifras"><div><dt>{ETIQUETA_PRESUPUESTO.ejecutado}</dt><dd>{dolares(resumen.pagado)}</dd></div><div><dt>{ETIQUETA_PRESUPUESTO.mensual}</dt><dd>{dolares(resumen.meta)}</dd></div><div><dt>{ETIQUETA_PRESUPUESTO.pendiente}</dt><dd>{dolares(resumen.falta)}</dd></div></dl>
+      <label htmlFor="progreso-pension">Avance del presupuesto mensual: {resumen.porcentaje.toFixed(1)} %</label>
       <progress id="progreso-pension" max="100" value={resumen.porcentaje}>{resumen.porcentaje.toFixed(1)} %</progress>
-      {resumen.meta === 0 && <p>No hay una meta configurada para este período.</p>}
+      {resumen.meta === 0 && <p>No hay un presupuesto mensual configurado para este período.</p>}
       {pendientes.length > 0 && <p role="status">{pendientes.length} {pendientes.length === 1 ? 'persona con pago pendiente' : 'personas con pagos pendientes'}: {pendientes.map((p) => `${p.etiqueta} (falta ${dolares(saldoMes(p))})`).join(', ')}.</p>}
-      {sinCuota.length > 0 && <p role="status">{sinCuota.length} {sinCuota.length === 1 ? 'persona sin monto asignado' : 'personas sin monto asignado'}: {sinCuota.map((p) => p.etiqueta).join(', ')}. La meta todavía no incluye {sinCuota.length === 1 ? 'su cuota' : 'sus cuotas'}.</p>}
+      {sinCuota.length > 0 && <p role="status">{sinCuota.length} {sinCuota.length === 1 ? 'persona sin monto asignado' : 'personas sin monto asignado'}: {sinCuota.map((p) => p.etiqueta).join(', ')}. El presupuesto mensual todavía no incluye {sinCuota.length === 1 ? 'su cuota' : 'sus cuotas'}.</p>}
+      {donacion && saldoMes(donacion) > 0 && <p role="status">{ETIQUETA_DONACIONES}: pendiente de recibir {dolares(saldoMes(donacion))}.</p>}
+      {donacion?.monto_centavos === null && <p role="status">{ETIQUETA_DONACIONES}: sin monto configurado para este período. El presupuesto mensual todavía no incluye este ingreso.</p>}
     </section>
-    <section className="card" aria-label="Pagos del período"><h3 className="section-title">Quiénes ya pagaron</h3>
+    <section className="card" aria-label="Pagos del período"><h3 className="section-title">Ingresos del período</h3>
       {perfil.rol === 'administradora' && <p>Las personas se identifican únicamente por sus siglas.</p>}
-      {pagados.length ? <ul className="pensiones-lista">{pagados.map((f) => {
-        const parcial = f.monto_centavos !== null && f.pagado_centavos < f.monto_centavos
-        return <li key={f.usuario_id}><strong>{f.etiqueta}</strong><span>{dolares(f.pagado_centavos)}{parcial && <> de {dolares(f.monto_centavos!)} · <span className="role-pill">Pago parcial</span></>}</span></li>
-      })}</ul> : <p className="empty-state">No hay pagos registrados para este período.</p>}
+      {ingresos.length ? <ul className="pensiones-lista">{ingresos.map((f) => {
+        const estado = f.exento ? 'Exento de pensión' : f.monto_centavos === null ? 'Sin monto configurado' : saldoMes(f) === 0 ? 'Recibido' : f.pagado_centavos > 0 ? 'Pago parcial' : 'Pendiente de recibir'
+        return <li key={f.concepto === 'donacion' ? 'donacion' : f.usuario_id} aria-label={f.etiqueta}>
+          <strong>{f.etiqueta}</strong><span>{estado}</span>
+          <span>Esperado: {f.monto_centavos === null ? 'Sin monto configurado' : dolares(f.monto_centavos)}</span>
+          <span>Recibido: {dolares(f.pagado_centavos)}</span>
+          <span>{ETIQUETA_PRESUPUESTO.pendiente}: {dolares(saldoMes(f))}</span>
+        </li>
+      })}</ul> : <p className="empty-state">No hay ingresos configurados para este período.</p>}
     </section>
   </>
 }

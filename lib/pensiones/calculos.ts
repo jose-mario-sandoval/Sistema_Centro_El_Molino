@@ -64,7 +64,7 @@ export function nombreMes(periodo: string): string {
 
 /**
  * Presupuesto de un año a partir de las filas de sus 12 meses (en orden): el resumen de cada mes, el del
- * año y el de cada persona (la suma de lo que le toca y lo que pagó en el año). Una persona que entró a
+ * año, cada persona y los ingresos por donaciones por separado. Una persona que entró a
  * mitad de año solo suma los meses en que le corresponde pagar. `sinCuota`: quienes no tuvieron cuota en
  * algún mes (su meta todavía no está en las cifras).
  */
@@ -75,8 +75,10 @@ export function resumenAnual(filasPorMes: FilaPresupuesto[][]) {
     ...resumenPresupuesto(filas),
   }))
   const todas = filasPorMes.flat()
+  const pensiones = todas.filter((f) => f.concepto === 'pension')
+  const filasDonacion = todas.filter((f) => f.concepto === 'donacion')
   const porPersona = new Map<string, { usuario_id: string; etiqueta: string; filas: FilaPresupuesto[] }>()
-  for (const fila of todas) {
+  for (const fila of pensiones) {
     const persona = porPersona.get(fila.usuario_id) ?? { usuario_id: fila.usuario_id, etiqueta: fila.etiqueta, filas: [] }
     persona.etiqueta = fila.etiqueta
     persona.filas.push(fila)
@@ -85,7 +87,9 @@ export function resumenAnual(filasPorMes: FilaPresupuesto[][]) {
   const personas = [...porPersona.values()]
     .map((p) => ({ usuario_id: p.usuario_id, etiqueta: p.etiqueta, exento: p.filas.every((f) => f.exento), exentoDesde: p.filas.filter((f) => f.exento).map((f) => f.periodo).sort()[0] ?? null, ...resumenPresupuesto(p.filas) }))
     .sort((a, b) => a.etiqueta.localeCompare(b.etiqueta, 'es') || a.usuario_id.localeCompare(b.usuario_id))
-  const sinCuota = [...new Set(todas.filter((f) => !f.exento && f.monto_centavos === null).map((f) => f.etiqueta))]
+  const sinCuota = [...new Set(pensiones.filter((f) => !f.exento && f.monto_centavos === null).map((f) => f.etiqueta))]
     .sort((a, b) => a.localeCompare(b, 'es'))
-  return { meses, total: resumenPresupuesto(todas) as ResumenPresupuesto, personas, sinCuota }
+  const donaciones = filasDonacion.length > 0 ? resumenPresupuesto(filasDonacion) : null
+  const sinDonacion = filasDonacion.some((f) => f.monto_centavos === null)
+  return { meses, total: resumenPresupuesto(todas) as ResumenPresupuesto, personas, sinCuota, donaciones, sinDonacion }
 }

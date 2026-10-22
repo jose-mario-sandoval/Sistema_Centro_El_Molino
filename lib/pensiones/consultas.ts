@@ -5,6 +5,21 @@ import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { ROLES_PAGO, ROLES_PRESUPUESTO } from './permisos'
 import type { FilaPresupuesto, MesPension, PagoPension } from './tipos'
 import { leerPaginasPensiones } from './paginacion'
+import { ETIQUETA_DONACIONES } from './etiquetas'
+import type { Database } from '@/lib/supabase/database.types'
+
+type FilaPresupuestoSQL = Database['public']['Functions']['presupuesto_pensiones']['Returns'][number]
+
+/** Normaliza el discriminante SQL; jamás convierte un concepto de la casa en una persona. */
+function filaPresupuesto(fila: FilaPresupuestoSQL, periodo: string): FilaPresupuesto {
+  if (fila.concepto === 'donacion') {
+    return { ...fila, periodo, concepto: 'donacion', usuario_id: null, etiqueta: ETIQUETA_DONACIONES }
+  }
+  if (fila.concepto === 'pension' && fila.usuario_id) {
+    return { ...fila, periodo, concepto: 'pension', usuario_id: fila.usuario_id }
+  }
+  throw new Error('No se pudo identificar el concepto del presupuesto.')
+}
 
 export async function obtenerMisPensiones(anio: number): Promise<MesPension[]> {
   await exigirRol(...ROLES_PAGO)
@@ -29,7 +44,7 @@ export async function obtenerPresupuesto(periodo: string): Promise<FilaPresupues
   // La RPC aplica la visibilidad también en SQL: Administradora recibe solamente siglas.
   const data = await leerPaginasPensiones((desde, hasta) => supabase.rpc('presupuesto_pensiones', { p_periodo: periodo })
     .order('etiqueta').order('usuario_id').range(desde, hasta))
-  return data.map((fila) => ({ ...fila, periodo }))
+  return data.map((fila) => filaPresupuesto(fila, periodo))
 }
 
 /**
@@ -44,7 +59,7 @@ export async function obtenerPresupuestoAnual(anio: number): Promise<FilaPresupu
     const periodo = `${anio}-${String(i + 1).padStart(2, '0')}-01`
     const filas = await leerPaginasPensiones((desde, hasta) => supabase.rpc('presupuesto_pensiones', { p_periodo: periodo })
       .order('etiqueta').order('usuario_id').range(desde, hasta))
-    return filas.map((fila) => ({ ...fila, periodo }))
+    return filas.map((fila) => filaPresupuesto(fila, periodo))
   }))
 }
 

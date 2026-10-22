@@ -92,7 +92,7 @@ test('Residente solo accede a sus meses y sin cuota no puede registrar pagos', a
   await page.getByRole('link', { name: 'Pensiones', exact: true }).filter({ visible: true }).click()
   await expect(page).toHaveURL(/\/pensiones\/marcar$/)
   await expect(page.getByRole('button', { name: /^Mi pensión/ })).toHaveCount(0)
-  await expect(page.getByRole('button', { name: /^Donaciones/ })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: /^Ingresos por donaciones/ })).toHaveCount(0)
   await expect(page.getByRole('checkbox')).toHaveCount(12)
   for (const casilla of await page.getByRole('checkbox').all()) await expect(casilla).toBeDisabled()
   await expect(page.getByRole('button', { name: 'Revisar pagos' })).toBeDisabled()
@@ -258,11 +258,11 @@ test('Director despliega paneles independientes y conserva el abono y la revisi�
   await iniciarSesion(page, 'director')
   await page.goto(`/pensiones/marcar?anio=${anio}`)
   const pension = page.getByRole('button', { name: /^Mi pensión/ })
-  const donaciones = page.getByRole('button', { name: /^Donaciones/ })
+  const donaciones = page.getByRole('button', { name: /^Ingresos por donaciones/ })
   const periodoResumen = `${anio}-${actual.slice(5, 7)}-01`
   for (const [boton, descripcion] of [
     [pension, 'Consultá y registrá tus pagos'],
-    [donaciones, 'Registrá la recepción de la donación de la casa'],
+    [donaciones, 'Registrá los pagos a la administración provenientes de donativos'],
   ] as const) {
     await expect(boton).toHaveAttribute('aria-expanded', 'false')
     await expect(boton).toContainText(descripcion)
@@ -274,7 +274,7 @@ test('Director despliega paneles independientes y conserva el abono y la revisi�
   }
   await expect(page.getByRole('checkbox')).toHaveCount(0)
   await expect(page.getByRole('button', { name: 'Revisar pagos', exact: true })).toHaveCount(0)
-  await expect(page.getByRole('button', { name: 'Donación recibida', exact: true })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Registrar recepción', exact: true })).toHaveCount(0)
   // Ningún control del contenido plegado se interpone entre los dos encabezados.
   await pension.focus()
   await page.keyboard.press('Tab')
@@ -375,6 +375,8 @@ test('Presupuesto del año completo: total, mes por mes y por persona, con sigla
 test('Administradora sube PDF validado y Director consulta y descarga sin controles de carga', async ({ page, browser, baseURL }) => {
   await iniciarSesion(page, 'administradora')
   await page.goto('/pensiones/reporte')
+  await expect(page.getByRole('link', { name: 'Resúmenes', exact: true })).toHaveAttribute('href', '/pensiones/reporte')
+  await expect(page.getByRole('link', { name: 'Resúmenes', exact: true })).toHaveAttribute('aria-current', 'page')
   await expect(page.getByRole('heading', { name: 'Resúmenes Económicos', exact: true })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Otros documentos', exact: true })).toBeVisible()
   await page.getByRole('button', { name: 'Subir PDF · Resúmenes Económicos', exact: true }).click()
@@ -398,6 +400,7 @@ test('Administradora sube PDF validado y Director consulta y descarga sin contro
     const director = await contextoDirector.newPage()
     await iniciarSesion(director, 'director')
     await director.goto('/pensiones/reporte')
+    await expect(director.getByRole('link', { name: 'Resúmenes', exact: true })).toHaveAttribute('href', '/pensiones/reporte')
     await expect(director.getByRole('button', { name: /^Subir PDF/ })).toHaveCount(0)
     const [descarga] = await Promise.all([
       director.waitForEvent('download'),

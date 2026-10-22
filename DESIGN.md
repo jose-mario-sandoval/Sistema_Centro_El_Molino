@@ -597,23 +597,37 @@ Pensiones reutiliza tarjetas, campos y botones del sistema. Los meses pagados mu
 «Pagado»; los que no tienen cuota lo dicen y no se seleccionan. Antes de registrar pagos se abre
 una confirmación en la misma pantalla, enfocada por teclado, con cada importe y el total revisado
 congelados hasta confirmar o volver a elegir. El servidor rechaza un importe que cambió después
-de esa revisión. Presupuesto acompaña la barra con porcentaje y montos escritos, incluida meta cero.
+de esa revisión. Presupuesto acompaña la barra con porcentaje y montos escritos: «Presupuesto
+mensual», «Presupuesto ejecutado» y «Pendiente de recibir». El primero reúne los ingresos
+esperados del período; el segundo, los importes registrados como recibidos; el pendiente es la
+diferencia, sin valores negativos. La barra usa esos mismos importes, también cuando el
+presupuesto es cero. La vista anual usa «Presupuesto anual» para sus totales y conserva el
+desglose mensual.
 Las listas y los formularios se apilan por ancho de contenedor sin scroll lateral.
 
-La donación se presenta en un bloque independiente de la pensión personal, con período,
-monto y «Pendiente de recibir» / «Recibida» escritos. Antes de recibirla se revisa y confirma
+«Ingresos por donaciones» se presenta en un bloque independiente de la pensión personal, con
+período, monto y «Pendiente de recibir» / «Recibido» escritos. Antes de registrar la recepción se revisa y confirma
 el importe, con foco de teclado y aviso de que el estado será compartido. La falta de un monto
-se anuncia explícitamente. «Exento de pensión» acompaña $0.00 y evita ofrecer pagos para
+se anuncia explícitamente. Es un concepto económico de la casa, con configuración y una sola
+recepción por mes y año para todos los Directores; no representa una persona. En Presupuesto
+aparece como elemento propio con esperado, recibido, pendiente y estado. Administradora lo
+consulta sin controles de configuración o recepción y sin conocer quién lo registró; las personas
+continúan identificándose por siglas y los conteos de personas excluyen este concepto.
+«Exento de pensión» acompaña $0.00 y evita ofrecer pagos para
 ese período; conserva el historial y los controles del rol. Las categorías de documentos
-usan las etiquetas «Resúmenes Económicos» y «Otros documentos».
+usan las etiquetas «Resúmenes Económicos» y «Otros documentos», dentro de la pestaña
+«Resúmenes» de Director y Administradora. Conservan la ruta, los permisos y el límite de
+12 PDF por categoría.
 
-En Marcar pensiones, solo el Director ve «Mi pensión» y «Donaciones» como dos paneles
+En Marcar pensiones, solo el Director ve «Mi pensión» e «Ingresos por donaciones» como dos paneles
 independientes, cerrados al entrar. Siguen la barra de Ausencias: botón con `aria-expanded`,
 `aria-controls` y flecha; el contenido usa `hidden` sin desmontarse para conservar la selección,
 los importes escritos y las confirmaciones al plegar o refrescar datos del mismo año. El año
 consultado se elige fuera de los paneles. Cada encabezado conserva un resumen del mismo mes
 calendario dentro de ese año, con mes y año explícitos. Abrir un panel solo muestra su contenido;
 registrar sigue requiriendo las confirmaciones existentes. El Residente conserva su vista actual.
+El panel de ingresos por donaciones usa la descripción «Registrá los pagos a la administración
+provenientes de donativos».
 
 | Estado | Cómo se ve | Por qué |
 |---|---|---|
