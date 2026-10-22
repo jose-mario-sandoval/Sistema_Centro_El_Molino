@@ -40,11 +40,12 @@ corresponden a esa entrega; no acreditan la aplicación de migraciones ni prueba
   comportamiento desplegable; su descripción es «Registrá los pagos a la administración
   provenientes de donativos».
 - «Presupuesto mensual» reúne lo esperado por pensiones e ingresos por donaciones del período;
-  «Presupuesto ejecutado» suma lo registrado como recibido; «Pendiente de recibir» es su
+  «Real mensual» suma lo registrado como recibido; «Pendiente de recibir» es su
   diferencia, nunca negativa. El porcentaje usa esos mismos importes, con cero cuando no hay
-  presupuesto y un máximo de 100 %. Recibir una donación aumenta una sola vez el ejecutado,
+  presupuesto y un máximo de 100 %. Recibir una donación aumenta una sola vez el real mensual,
   reduce el pendiente y conserva el presupuesto esperado: el importe ya estaba incluido.
-  La vista anual consulta las mismas filas de cada mes y usa «Presupuesto anual» para el total;
+  La vista anual consulta las mismas filas de cada mes y usa «Presupuesto anual» para el total
+  esperado y «Real anual» para el total recibido;
   TypeScript no vuelve a agregar las donaciones que ya devuelve SQL.
 - La recepción conserva importe, fecha y Director que la registró. Se atribuye al mes y año
   seleccionados, independientemente de la fecha real de registro. La clave primaria del período y
@@ -57,7 +58,7 @@ corresponden a esa entrega; no acreditan la aplicación de migraciones ni prueba
   expone el autor de recepción ni se ofrecen controles de escritura a Administradora.
 - La exención de la cuenta «Dani y José» continúa vinculada a su UUID verificado y vigencia,
   sin deducirla del nombre. No crea cuotas de cero para otras cuentas ni elimina cuotas o abonos
-  anteriores; los pagos históricos reales permanecen en el presupuesto ejecutado.
+  anteriores; los pagos históricos reales permanecen en los importes recibidos del mes y del año.
 - Confirmar declara el pago válido inmediatamente, sin comprobantes ni aprobación. La RPC
   determina identidad y cuota, valida el lote completo y serializa pagos/configuración por
   persona. Un mes admite varios abonos parciales, cada uno con su ID, y la suma no supera su cuota.

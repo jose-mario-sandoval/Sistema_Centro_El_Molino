@@ -4,6 +4,7 @@ export const ETIQUETA_DONACIONES = 'Ingresos por donaciones'
 export const ETIQUETA_PRESUPUESTO = {
   mensual: 'Presupuesto mensual',
   anual: 'Presupuesto anual',
-  ejecutado: 'Presupuesto ejecutado',
+  ejecutado: 'Real mensual',
+  ejecutadoAnual: 'Real anual',
   pendiente: 'Pendiente de recibir',
 } as const

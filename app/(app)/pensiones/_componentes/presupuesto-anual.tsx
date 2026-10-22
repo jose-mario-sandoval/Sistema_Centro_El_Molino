@@ -15,7 +15,7 @@ export function PresupuestoAnual({ anio, resumen, mesDeHoy, rol }: { anio: numbe
   return <>
     <section className="card" aria-label="Resumen del año">
       <h3 className="section-title">Año {anio}</h3>
-      <dl className="pensiones-cifras"><div><dt>{ETIQUETA_PRESUPUESTO.ejecutado}</dt><dd>{dolares(total.pagado)}</dd></div><div><dt>{ETIQUETA_PRESUPUESTO.anual}</dt><dd>{dolares(total.meta)}</dd></div><div><dt>{ETIQUETA_PRESUPUESTO.pendiente}</dt><dd>{dolares(total.falta)}</dd></div></dl>
+      <dl className="pensiones-cifras"><div><dt>{ETIQUETA_PRESUPUESTO.ejecutadoAnual}</dt><dd>{dolares(total.pagado)}</dd></div><div><dt>{ETIQUETA_PRESUPUESTO.anual}</dt><dd>{dolares(total.meta)}</dd></div><div><dt>{ETIQUETA_PRESUPUESTO.pendiente}</dt><dd>{dolares(total.falta)}</dd></div></dl>
       <label htmlFor="progreso-anual">Avance del presupuesto anual: {total.porcentaje.toFixed(1)} %</label>
       <progress id="progreso-anual" max="100" value={total.porcentaje}>{total.porcentaje.toFixed(1)} %</progress>
       {total.meta === 0 && <p>No hay un presupuesto anual configurado para este año.</p>}

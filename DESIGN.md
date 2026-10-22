@@ -598,11 +598,11 @@ Pensiones reutiliza tarjetas, campos y botones del sistema. Los meses pagados mu
 una confirmación en la misma pantalla, enfocada por teclado, con cada importe y el total revisado
 congelados hasta confirmar o volver a elegir. El servidor rechaza un importe que cambió después
 de esa revisión. Presupuesto acompaña la barra con porcentaje y montos escritos: «Presupuesto
-mensual», «Presupuesto ejecutado» y «Pendiente de recibir». El primero reúne los ingresos
+mensual», «Real mensual» y «Pendiente de recibir». El primero reúne los ingresos
 esperados del período; el segundo, los importes registrados como recibidos; el pendiente es la
 diferencia, sin valores negativos. La barra usa esos mismos importes, también cuando el
-presupuesto es cero. La vista anual usa «Presupuesto anual» para sus totales y conserva el
-desglose mensual.
+presupuesto es cero. La vista anual usa «Presupuesto anual» para el total esperado y «Real anual»
+para el total recibido, y conserva el desglose mensual.
 Las listas y los formularios se apilan por ancho de contenedor sin scroll lateral.
 
 «Ingresos por donaciones» se presenta en un bloque independiente de la pensión personal, con

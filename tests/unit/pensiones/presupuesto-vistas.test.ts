@@ -31,7 +31,7 @@ beforeEach(() => {
 it.each([0, 20000])('lista sólo ingresos recibidos y su monto, conservando los totales y conteos: %s', async (recibido) => {
   vi.mocked(obtenerPresupuesto).mockResolvedValue([pension, { ...pension, usuario_id: 'sin-pago', etiqueta: 'CD', pagado_centavos: 0 }, { ...donacion, pagado_centavos: recibido }])
   const html = renderToStaticMarkup(await PaginaPresupuesto({ searchParams: Promise.resolve({ anio: '2027', mes: '1' }) }))
-  expect(html).toContain('Presupuesto ejecutado')
+  expect(html).toContain('Real mensual')
   expect(html).toContain('Presupuesto mensual')
   expect(html).toContain('Pendiente de recibir')
   expect(html).toContain('2 personas con pagos pendientes')
@@ -51,8 +51,9 @@ it('la vista anual separa el concepto de las personas y conserva las etiquetas d
     anio: 2027, resumen: resumenAnual([[pension, donacion]]), mesDeHoy: '2027-01-01', rol: 'administradora',
   }))
   expect(html).toContain('Presupuesto anual')
-  expect(html).toContain('Presupuesto ejecutado')
-  expect(html).not.toMatch(/Meta mensual|Meta del año|Falta para la meta|Registrado como pagado/)
+  expect(html).toContain('Real anual')
+  expect(html).toContain('Real mensual')
+  expect(html).not.toMatch(/Meta mensual|Meta del año|Falta para la meta|Registrado como pagado|Presupuesto ejecutado/)
   const personas = html.match(/<section class="card" aria-label="Por persona">([\s\S]*?)<\/section>/)?.[1]
   expect(personas).toContain('AB')
   expect(personas).not.toContain(ETIQUETA_DONACIONES)
