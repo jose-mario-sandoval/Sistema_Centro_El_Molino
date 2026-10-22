@@ -13,8 +13,11 @@ corresponden a esa entrega; no acreditan la aplicación de migraciones ni prueba
 - `administradora` es un rol nuevo, con etiqueta **Administradora**. Conserva las vistas y
   capacidades actuales de Administración en Comidas, Mensajes, Calendario y Ajustes, incluida
   privacidad por siglas y avisos de cocina. Ninguno tiene comidas propias. El Director puede
-  crear cuentas y asignar el rol desde Ajustes. Ambos comparten la identidad genérica
-  `Administración N` / `AN`, sin revelar nombres personales; sus etiquetas de rol son distintas.
+  crear cuentas y asignar el rol desde Ajustes. Administradora no es un rol exclusivo de una
+  cuenta: el Director puede asignarlo a varias cuentas existentes en **Ajustes → Gestión de
+  usuarios → Rol**. El despliegue no convierte ni modifica cuentas automáticamente.
+  Administración y Administradora comparten la identidad genérica `Administración N` / `AN`,
+  sin revelar nombres personales; sus etiquetas de rol son distintas.
 - Administración no tiene acceso a Pensiones, sus acciones, tablas ni archivos. El Director
   edita cuotas; Director y Residente consultan y registran exclusivamente pagos propios.
   Presupuesto y Resúmenes son exclusivos de Director y Administradora; solo esta última sube PDF.

@@ -16,6 +16,7 @@ import { MENSAJE_USUARIO_REPETIDO } from '@/lib/configuraciones/errores'
 import { verificarContrasena } from '@/lib/cuentas/verificar-contrasena'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
+import { clienteSupabaseFalso } from '@/tests/soporte/supabase-falso'
 
 // Las acciones se prueban sin base: sesión, clientes de Supabase y caché de Next se reemplazan.
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
@@ -359,6 +360,28 @@ describe('cambiarUsuarioCuenta', () => {
 })
 
 describe('cambiarRolCuenta hacia Administración', () => {
+  it('permite asignar Administradora a varias cuentas existentes sin crear cuentas ni reemplazar otras asignaciones', async () => {
+    // Sólo clientes falsos: no se crean ni se modifican cuentas en Supabase.
+    const objetivos = [ID_OTRA, '770ca17e-4d9d-41ca-8664-a77409d83823']
+    const falso = clienteSupabaseFalso({ consultas: objetivos.flatMap((id) => [
+      { data: { rol: 'administracion' }, error: null },
+      { data: [{ id }], error: null },
+    ]) })
+    const crearCuenta = vi.fn()
+    vi.mocked(crearClienteAdmin).mockReturnValue({
+      ...falso.cliente, auth: { admin: { createUser: crearCuenta } },
+    } as never)
+
+    for (const id of objetivos) expect(await cambiarRolCuenta({ id, rol: 'administradora' })).toEqual({ ok: true, data: null })
+
+    expect(perfilParaAccion).toHaveBeenCalledWith('director')
+    expect(falso.operaciones).toEqual(objetivos.flatMap((id) => [
+      { tabla: 'perfiles', operacion: 'select', columnas: 'rol', filtros: [['id', id]] },
+      { tabla: 'perfiles', operacion: 'update', columnas: 'id', valores: { rol: 'administradora' }, filtros: [['id', id]] },
+    ]))
+    expect(crearCuenta).not.toHaveBeenCalled()
+  })
+
   it.each(['administracion', 'administradora'] as const)('la cuenta toma el nombre genérico al pasar a %s', async (rol) => {
     const falso = usarAdmin(
       clienteFalso({
