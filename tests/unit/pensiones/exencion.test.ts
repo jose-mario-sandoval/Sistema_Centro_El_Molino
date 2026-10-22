@@ -4,7 +4,7 @@ import { esquemaCuotaPension } from '@/lib/validacion/pensiones'
 import type { FilaPresupuesto, MesPension } from '@/lib/pensiones/tipos'
 
 function fila(periodo: string, exento: boolean, monto_centavos: number | null = exento ? 0 : 30000, pagado_centavos = 0): FilaPresupuesto {
-  return { usuario_id: 'cuenta-exenta', etiqueta: 'DJ', periodo, exento, categoria: null, monto_centavos, pagado_centavos, registrado_en: null }
+  return { concepto: 'pension', usuario_id: 'cuenta-exenta', etiqueta: 'DJ', periodo, exento, categoria: null, monto_centavos, pagado_centavos, registrado_en: null }
 }
 
 describe('exención individual de pensión', () => {

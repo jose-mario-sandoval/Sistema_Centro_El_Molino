@@ -2,6 +2,7 @@ import { exigirRol } from '@/lib/auth/sesion'
 import { mesActual } from '@/lib/pensiones/calculos'
 import { obtenerHistorialPropio, obtenerMisPensiones } from '@/lib/pensiones/consultas'
 import { obtenerDonaciones } from '@/lib/pensiones/donaciones-consultas'
+import { ETIQUETA_DONACIONES } from '@/lib/pensiones/etiquetas'
 import { ROLES_PAGO } from '@/lib/pensiones/permisos'
 import { esquemaAnioPension } from '@/lib/validacion/pensiones'
 import { resumenDonacion, resumenMiPension } from '@/lib/pensiones/resumen-paneles'
@@ -30,7 +31,7 @@ export default async function PaginaMarcar({ searchParams }: { searchParams: Pro
         <p>Registrá los meses que ya pagaste. Al confirmar, el pago queda registrado inmediatamente.</p>
         <MarcarPensiones key={anio} meses={meses} historial={historial} integrado />
       </PanelPensiones>
-      <PanelPensiones titulo="Donaciones" descripcion="Registrá la recepción de la donación de la casa"
+      <PanelPensiones titulo={ETIQUETA_DONACIONES} descripcion="Registrá los pagos a la administración provenientes de donativos"
         resumen={resumenDonacion(donaciones.find((m) => m.periodo === periodoResumen), periodoResumen)}>
         <Donacion key={`donaciones-${anio}`} meses={donaciones} integrado />
       </PanelPensiones>

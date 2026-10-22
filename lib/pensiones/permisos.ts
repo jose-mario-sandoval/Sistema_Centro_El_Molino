@@ -1,4 +1,5 @@
 import type { Rol } from '@/lib/perfiles/roles'
+import { ETIQUETA_RESUMENES } from './etiquetas'
 
 export const ROLES_PENSIONES: Rol[] = ['director', 'residente', 'administradora']
 export const ROLES_PRESUPUESTO: Rol[] = ['director', 'administradora']
@@ -15,7 +16,7 @@ export function apartadosPensiones(rol: Rol) {
     ...(ROLES_PAGO.includes(rol) ? [{ ruta: '/pensiones/marcar', etiqueta: 'Marcar pensiones' }] : []),
     ...(ROLES_PRESUPUESTO.includes(rol) ? [
       { ruta: '/pensiones/presupuesto', etiqueta: 'Presupuesto' },
-      { ruta: '/pensiones/reporte', etiqueta: 'Reporte' },
+      { ruta: '/pensiones/reporte', etiqueta: ETIQUETA_RESUMENES },
     ] : []),
   ]
 }

@@ -2,8 +2,11 @@
 
 La ampliación del 20 de octubre de 2026 está en [donaciones, exención y avisos de pagos](pensiones-2026-10-20.md).
 Esa guía complementa esta entrega inicial e incluye las migraciones nuevas y la activación pendiente por UUID.
+La integración del 21 de octubre está en [presupuesto e ingresos por donaciones](pensiones-2026-10-21.md),
+con su migración, verificaciones y pasos de despliegue.
 
-Implementación local sobre `b572f76`. No se aplicaron migraciones ni pruebas a producción.
+La entrega inicial se implementó sobre `b572f76`. Las verificaciones históricas indicadas más abajo
+corresponden a esa entrega; no acreditan la aplicación de migraciones ni pruebas a producción.
 
 ## Comportamiento y decisiones
 
@@ -14,7 +17,9 @@ Implementación local sobre `b572f76`. No se aplicaron migraciones ni pruebas a 
   `Administración N` / `AN`, sin revelar nombres personales; sus etiquetas de rol son distintas.
 - Administración no tiene acceso a Pensiones, sus acciones, tablas ni archivos. El Director
   edita cuotas; Director y Residente consultan y registran exclusivamente pagos propios.
-  Presupuesto y Reporte son exclusivos de Director y Administradora; solo esta última sube PDF.
+  Presupuesto y Resúmenes son exclusivos de Director y Administradora; solo esta última sube PDF.
+  «Resúmenes» conserva `/pensiones/reporte` y las categorías «Resúmenes Económicos» y
+  «Otros documentos», con sus cargas, descargas y máximo de 12 PDF por categoría.
 - Categoría y monto son individuales e independientes del rol. Los montos se almacenan en
   centavos enteros, entre 1 y 100 000 000 ($0.01–$1,000,000.00), sin multiplicar decimales de
   punto flotante. Sin cuota aplicable no se puede marcar un pago.
@@ -25,14 +30,38 @@ Implementación local sobre `b572f76`. No se aplicaron migraciones ni pruebas a 
   desarrollo `fuera_de_conteos` conservan su regla exclusiva de comidas: no determina Pensiones.
 - Cada pago guarda período, categoría, monto y fecha originales. Incluso los pagos adelantados
   mantienen ese valor en el presupuesto si después cambia la cuota o se desactiva la cuenta.
-  La meta suma las cuotas aplicables de participantes del período y los snapshots ya pagados;
-  nunca suma todos los adelantos al mes de registro. No se inventan metas anteriores a la puesta
+  El presupuesto suma las cuotas aplicables de participantes del período y los snapshots ya pagados;
+  nunca suma todos los adelantos al mes de registro. No se inventan presupuestos anteriores a la puesta
   en marcha. Las personas participantes sin cuota se anuncian y aportan cero hasta configurarla.
+- «Ingresos por donaciones» es un concepto económico compartido de la casa, con monto mensual
+  esperado y una sola recepción por mes y año. No requiere usuario, credenciales ni residente
+  ficticio, y no forma parte de los conteos de personas. Solo el Director configura el monto con
+  vigencia y registra su recepción. El panel es independiente de «Mi pensión» y conserva el
+  comportamiento desplegable; su descripción es «Registrá los pagos a la administración
+  provenientes de donativos».
+- «Presupuesto mensual» reúne lo esperado por pensiones e ingresos por donaciones del período;
+  «Presupuesto ejecutado» suma lo registrado como recibido; «Pendiente de recibir» es su
+  diferencia, nunca negativa. El porcentaje usa esos mismos importes, con cero cuando no hay
+  presupuesto y un máximo de 100 %. Recibir una donación aumenta una sola vez el ejecutado,
+  reduce el pendiente y conserva el presupuesto esperado: el importe ya estaba incluido.
+  La vista anual consulta las mismas filas de cada mes y usa «Presupuesto anual» para el total;
+  TypeScript no vuelve a agregar las donaciones que ya devuelve SQL.
+- La recepción conserva importe, fecha y Director que la registró. Se atribuye al mes y año
+  seleccionados, independientemente de la fecha real de registro. La clave primaria del período y
+  el candado compartido impiden que dos Directores dupliquen el ingreso. Las recepciones ya
+  guardadas aparecen automáticamente y conservan sus snapshots al cambiar la configuración de
+  períodos posteriores. Administradora ve esperado, recibido, pendiente y estado en un elemento
+  propio, sin autor de recepción ni controles de escritura; las personas se muestran solo por siglas.
+- La exención de la cuenta «Dani y José» continúa vinculada a su UUID verificado y vigencia,
+  sin deducirla del nombre. No crea cuotas de cero para otras cuentas ni elimina cuotas o abonos
+  anteriores; los pagos históricos reales permanecen en el presupuesto ejecutado.
 - Confirmar declara el pago válido inmediatamente, sin comprobantes ni aprobación. La RPC
   determina identidad y cuota, valida el lote completo y serializa pagos/configuración por
-  persona. La clave primaria persona/período impide duplicados incluso ante concurrencia.
-  El navegador conserva una copia del total revisado: SQL lo compara con el monto calculado
-  para rechazar confirmaciones obsoletas. No existe edición, borrado ni reversión de pagos.
+  persona. Un mes admite varios abonos parciales, cada uno con su ID, y la suma no supera su cuota.
+  El navegador conserva una copia de lo esperado, lo ya pagado y el importe revisado: SQL los
+  comprueba bajo el mismo candado para rechazar confirmaciones obsoletas. La acción distingue
+  movimientos nuevos de los históricos antes de notificar. No existe edición, borrado ni reversión
+  de pagos.
 - El historial abarca todos los años. Las consultas extensas se paginan para evitar el recorte
   silencioso de PostgREST. Las cuentas con cuotas o pagos se desactivan; las FK impiden su
   eliminación física y Ajustes explica el motivo.
@@ -47,7 +76,7 @@ Implementación local sobre `b572f76`. No se aplicaron migraciones ni pruebas a 
   Un sondeo cada 30 segundos mientras la pestaña está visible y el retorno a ella cubren
   desconexiones y el presupuesto de Administradora, que no recibe filas crudas de pagos.
 
-## Activación, en este orden
+## Activación de la entrega inicial, en este orden
 
 1. Ejecutar el flujo de CI con Supabase temporal: integración y E2E. Revisar el artefacto
    `database-types` y confirmar su paridad con `lib/supabase/database.types.ts`.
@@ -129,7 +158,7 @@ Debe haber un único job con `*/10 * * * *`, bucket privado y máximo 12 fichas 
 Comprobar también las ejecuciones en `cron.job_run_details` y la respuesta HTTP del trabajador:
 el éxito del job SQL solo acredita que se despachó la petición, no que Storage ya se limpió.
 
-## Verificación y alcance
+## Verificación y alcance de la entrega inicial
 
 - `npm run lint`: aprobado.
 - `npm run typecheck`: aprobado con tipos regenerados.
@@ -138,7 +167,7 @@ el éxito del job SQL solo acredita que se despachó la petición, no que Storag
   sandbox falló al descargar Google Fonts; la repetición con red habilitada terminó correctamente.
 - Las 36 migraciones se aplicaron desde cero en PostgreSQL 18 temporal local, con transacción
   separada por archivo. Las comprobaciones SQL pasaron para permisos, cuotas distintas, montos
-  históricos, metas pasadas ante cambios de cuenta, pagos concurrentes (ocho llamadas), lotes
+  históricos, presupuestos pasados ante cambios de cuenta, pagos concurrentes (ocho llamadas), lotes
   atómicos, privacidad de presupuesto y retención concurrente 12+12 de reportes.
 - Los tipos están sincronizados con el artefacto oficial `database-types` del CI
   [39340566874](https://github.com/jose-mario-sandoval/Sistema_Centro_El_Molino/actions/runs/39340566874),
@@ -155,7 +184,7 @@ el éxito del job SQL solo acredita que se despachó la petición, no que Storag
 
 Las pruebas añadidas cubren herencia de Administradora; exclusión de Administración; escritura
 de cuotas exclusiva del Director; pagos propios, duplicados y concurrencia; cuotas diferentes;
-historia y metas por período; nombres/siglas; reportes autorizados; límites independientes;
+historia y presupuestos por período; nombres/siglas; reportes autorizados; límites independientes;
 cargas fallidas; limpieza reintentable; y navegación móvil accesible.
 
 ## Archivos

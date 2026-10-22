@@ -44,11 +44,11 @@ describe('resumen de Mi pensión en el panel cerrado', () => {
   })
 })
 
-describe('resumen de Donaciones en el panel cerrado', () => {
+describe('resumen de Ingresos por donaciones en el panel cerrado', () => {
   it('distingue información no disponible de un monto sin configurar', () => {
     expect(resumenDonacion(undefined, periodo)).toBe('octubre de 2026 · Sin información disponible')
     expect(resumenDonacion(donacion({ monto_centavos: null }), periodo))
-      .toBe('octubre de 2026 · Sin donación configurada')
+      .toBe('octubre de 2026 · Sin monto configurado')
   })
 
   it('muestra el monto pendiente de recibir y no confunde cero con null', () => {
@@ -57,14 +57,14 @@ describe('resumen de Donaciones en el panel cerrado', () => {
       .toBe('octubre de 2026 · Pendiente de recibir · $0.00')
   })
 
-  it('muestra Recibida para una recepción registrada por cualquier Director', () => {
+  it('muestra Recibido para una recepción registrada por cualquier Director', () => {
     expect(resumenDonacion(donacion({ recibido_en: '2026-10-21T12:00:00Z', registrado_por: 'otro-director' }), periodo))
-      .toBe('octubre de 2026 · Recibida · $150.00')
+      .toBe('octubre de 2026 · Recibido · $150.00')
   })
 
-  it('conserva Recibida sin inventar un importe cuando no está disponible', () => {
+  it('conserva Recibido sin inventar un importe cuando no está disponible', () => {
     expect(resumenDonacion(donacion({ monto_centavos: null, recibido_en: '2026-10-21T12:00:00Z' }), periodo))
-      .toBe('octubre de 2026 · Recibida')
+      .toBe('octubre de 2026 · Recibido')
   })
 
   it('identifica el período consultado también en otro año', () => {

@@ -14,7 +14,11 @@ export type MesPension = {
   exento: boolean
 }
 
-export type FilaPresupuesto = MesPension & { usuario_id: string; etiqueta: string }
+/** La donación es un concepto compartido, nunca la identidad de una persona. */
+export type FilaPresupuesto = MesPension & { etiqueta: string } & (
+  | { concepto: 'pension'; usuario_id: string }
+  | { concepto: 'donacion'; usuario_id: null }
+)
 
 /** Un abono: `abono_centavos` es lo que se pagó en ese momento y `monto_centavos`, la cuota de ese mes. */
 export type PagoPension = {

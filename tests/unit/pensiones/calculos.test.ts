@@ -32,10 +32,11 @@ describe('dinero y selección de pensiones', () => {
 })
 
 describe('permisos y validación', () => {
-  it('Administración carece de Pensiones y Administradora solo tiene Presupuesto y Reporte', () => {
+  it('Administración carece de Pensiones y Administradora solo tiene Presupuesto y Resúmenes', () => {
     expect(puedeVerPensiones('administracion')).toBe(false)
     expect(apartadosPensiones('administracion')).toEqual([])
-    expect(apartadosPensiones('administradora').map((p) => p.etiqueta)).toEqual(['Presupuesto', 'Reporte'])
+    expect(apartadosPensiones('administradora').map((p) => p.etiqueta)).toEqual(['Presupuesto', 'Resúmenes'])
+    for (const rol of ['administradora', 'director'] as const) expect(apartadosPensiones(rol)).toContainEqual({ ruta: '/pensiones/reporte', etiqueta: 'Resúmenes' })
     expect(apartadosPensiones('residente').map((p) => p.etiqueta)).toEqual(['Marcar pensiones'])
     expect(apartadosPensiones('director')).toHaveLength(4)
   })
@@ -53,7 +54,7 @@ describe('permisos y validación', () => {
 })
 
 const fila = (periodo: string, usuario: string, etiqueta: string, monto: number | null, pagado = 0): FilaPresupuesto => ({
-  periodo, usuario_id: usuario, etiqueta, categoria: monto === null ? null : 'universitario', monto_centavos: monto, pagado_centavos: pagado, registrado_en: null, exento: false,
+  periodo, concepto: 'pension', usuario_id: usuario, etiqueta, categoria: monto === null ? null : 'universitario', monto_centavos: monto, pagado_centavos: pagado, registrado_en: null, exento: false,
 })
 
 describe('presupuesto de un año', () => {
