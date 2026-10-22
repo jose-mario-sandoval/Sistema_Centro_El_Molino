@@ -28,19 +28,21 @@ beforeEach(() => {
   vi.mocked(exigirRol).mockResolvedValue(perfilDePrueba('administradora', 'administradora'))
 })
 
-it.each([0, 20000])('muestra la fila compartida y los totales mensuales sin contar la donación como persona: %s', async (recibido) => {
-  vi.mocked(obtenerPresupuesto).mockResolvedValue([pension, { ...donacion, pagado_centavos: recibido }])
+it.each([0, 20000])('lista sólo ingresos recibidos y su monto, conservando los totales y conteos: %s', async (recibido) => {
+  vi.mocked(obtenerPresupuesto).mockResolvedValue([pension, { ...pension, usuario_id: 'sin-pago', etiqueta: 'CD', pagado_centavos: 0 }, { ...donacion, pagado_centavos: recibido }])
   const html = renderToStaticMarkup(await PaginaPresupuesto({ searchParams: Promise.resolve({ anio: '2027', mes: '1' }) }))
-  expect(html).toContain('Presupuesto ejecutado')
+  expect(html).toContain('Real mensual')
   expect(html).toContain('Presupuesto mensual')
   expect(html).toContain('Pendiente de recibir')
-  expect(html).toContain('1 persona con pago pendiente')
-  expect(html).not.toContain('2 personas con pagos pendientes')
-  const fila = html.match(/<li aria-label="Ingresos por donaciones">([\s\S]*?)<\/li>/)?.[1]
-  expect(fila).toContain('Esperado: $200.00')
-  expect(fila).toContain(`Recibido: $${recibido === 0 ? '0.00' : '200.00'}`)
-  expect(fila).toContain(recibido === 0 ? 'Pendiente de recibir' : 'Recibido')
-  expect(html).toContain(recibido === 0 ? 'value="50"' : 'value="66.66666666666666"')
+  expect(html).toContain('2 personas con pagos pendientes')
+  expect(html).not.toContain('3 personas con pagos pendientes')
+  const ingresos = html.match(/<section class="card" aria-label="Pagos del período">([\s\S]*?)<\/section>/)?.[1]
+  expect(ingresos).toContain('<strong>AB</strong><span>$600.00</span>')
+  expect(ingresos).not.toContain('CD')
+  expect(ingresos).not.toMatch(/Esperado:|Recibido:|Pendiente de recibir|Pago parcial|Sin monto configurado/)
+  if (recibido > 0) expect(ingresos).toContain('<strong>Ingresos por donaciones</strong><span>$200.00</span>')
+  else expect(ingresos).not.toContain(ETIQUETA_DONACIONES)
+  expect(html).toContain(recibido === 0 ? 'value="27.27272727272727"' : 'value="36.36363636363637"')
   expect(html).toContain('Las personas se identifican únicamente por sus siglas.')
 })
 
@@ -49,8 +51,9 @@ it('la vista anual separa el concepto de las personas y conserva las etiquetas d
     anio: 2027, resumen: resumenAnual([[pension, donacion]]), mesDeHoy: '2027-01-01', rol: 'administradora',
   }))
   expect(html).toContain('Presupuesto anual')
-  expect(html).toContain('Presupuesto ejecutado')
-  expect(html).not.toMatch(/Meta mensual|Meta del año|Falta para la meta|Registrado como pagado/)
+  expect(html).toContain('Real anual')
+  expect(html).toContain('Real mensual')
+  expect(html).not.toMatch(/Meta mensual|Meta del año|Falta para la meta|Registrado como pagado|Presupuesto ejecutado/)
   const personas = html.match(/<section class="card" aria-label="Por persona">([\s\S]*?)<\/section>/)?.[1]
   expect(personas).toContain('AB')
   expect(personas).not.toContain(ETIQUETA_DONACIONES)
@@ -62,4 +65,7 @@ it('la ausencia de configuración se informa sin inventar una persona sin cuota'
   const html = renderToStaticMarkup(await PaginaPresupuesto({ searchParams: Promise.resolve({ anio: '2027', mes: '1' }) }))
   expect(html).toContain('Ingresos por donaciones: sin monto configurado')
   expect(html).not.toContain('persona sin monto asignado')
+  const ingresos = html.match(/<section class="card" aria-label="Pagos del período">([\s\S]*?)<\/section>/)?.[1]
+  expect(ingresos).toContain('No hay ingresos recibidos para este período.')
+  expect(ingresos).not.toContain('<li')
 })

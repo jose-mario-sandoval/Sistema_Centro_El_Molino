@@ -6,20 +6,26 @@
   `/pensiones/reporte`. Se conservan **Resúmenes Económicos**, **Otros documentos**,
   permisos de carga/descarga y retención de 12 PDF por categoría.
 - Las etiquetas compartidas están en `lib/pensiones/etiquetas.ts`: **Presupuesto
-  mensual**, **Presupuesto anual**, **Presupuesto ejecutado**, **Pendiente de recibir**
+  mensual**, **Presupuesto anual**, **Real mensual**, **Real anual**, **Pendiente de recibir**
   e **Ingresos por donaciones**. Se aplican a configuración, recepción, navegación,
   presupuesto y etiquetas accesibles. El panel desplegable del Director conserva su
   separación de Mi pensión y dice «Registrá los pagos a la administración provenientes
   de donativos».
 - `presupuesto_pensiones(date)` devuelve pensiones y un único concepto de donación.
   `concepto` distingue `pension` de `donacion`; la donación tiene `usuario_id = null`,
-  sin perfil, residente, credenciales ni abono personal. Siempre aparece como
-  **Ingresos por donaciones**, incluso si todavía no tiene monto configurado.
+  sin perfil, residente, credenciales ni abono personal. Su etiqueta siempre es
+  **Ingresos por donaciones**, incluso si la consulta devuelve un monto sin configurar.
+  La lista mensual **Ingresos del período** muestra únicamente ingresos con un importe
+  recibido mayor que cero, con su nombre o siglas y ese importe. Los abonos parciales
+  muestran lo ya pagado; la donación aparece después de registrar su recepción.
+  Los importes esperados y pendientes se consultan en el resumen del presupuesto;
+  la vista anual conserva su desglose.
 - El esperado es el snapshot de la recepción existente o, si aún está pendiente, el
   monto de la configuración vigente para ese período. El recibido es el snapshot de
   la recepción o cero. TypeScript suma estas filas una sola vez; no vuelve a sumar
-  `donaciones_pensiones`. Recibir cambia el ejecutado y el pendiente, sin aumentar el
-  esperado. El porcentaje usa recibido / esperado, limitado a 100 %.
+  `donaciones_pensiones`. **Real mensual** muestra lo recibido en el mes y **Real anual**
+  suma los importes recibidos en el año. Recibir cambia ese total y el pendiente, sin
+  aumentar el esperado. El porcentaje usa recibido / esperado, limitado a 100 %.
 - La consulta mensual y las doce consultas del año comparten esas reglas. Los
   conceptos están separados de los conteos y del resumen anual de personas.
   Los abonos parciales y los pagos históricos de cuentas exentas siguen sumándose.
