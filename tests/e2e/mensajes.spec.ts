@@ -71,6 +71,117 @@ test.afterEach(async () => {
   await asegurarUsuariosPrueba()
 })
 
+test('la barra móvil sigue el borde visible al desplazar Mensajes y deja accesible la última tarjeta', async ({ page }) => {
+  const ids = await asegurarUsuariosPrueba()
+  const textos = Array.from({ length: 8 }, (_, i) => textoUnico(`barra móvil ${i}`))
+  const { data: mensajes, error } = await clienteAdminPrueba().from('mensajes').insert(
+    textos.map((texto, i) => ({ autor_id: ids.director, texto, creado_en: new Date(Date.UTC(2000, 0, 1, 0, 0, i)).toISOString() })),
+  ).select('id')
+  if (error) throw error
+  const director = await clienteComo('director')
+  const { error: errorAprobar } = await director.from('mensajes').update({ estado: 'aprobado' }).in('id', mensajes.map((m) => m.id))
+  if (errorAprobar) throw errorAprobar
+
+  await page.setViewportSize({ width: 390, height: 844 })
+  await iniciarSesion(page, 'director')
+  await page.goto('/mensajes')
+  await expect(page.locator('.feed-mensajes')).toHaveAttribute('data-conexion', 'en-vivo', { timeout: 20_000 })
+  const barra = page.locator('.barra-inferior')
+  const ultima = tarjeta(page, textos[0])
+  await expect(page.locator('.feed-mensajes .msg').last()).toHaveAttribute('data-mensaje-id', mensajes[0].id)
+  await expect(ultima.getByRole('button', { name: 'Fijar', exact: true })).toBeVisible()
+
+  async function esperarBarraAlBorde() {
+    await expect(barra).toBeVisible()
+    await expect.poll(() => barra.evaluate((nav) => {
+      const viewport = window.visualViewport!
+      return Math.abs(nav.getBoundingClientRect().bottom - (viewport.offsetTop + viewport.height))
+    }), { message: 'la barra debe quedar en el borde inferior del viewport visible' }).toBeLessThanOrEqual(1)
+  }
+
+  async function desplazar(fraccion: number) {
+    await page.evaluate(async (proporcion) => {
+      // Esperar al layout y a ResizeObserver después de cambiar la letra o el viewport.
+      await new Promise<void>((resolver) => requestAnimationFrame(() => requestAnimationFrame(() => resolver())))
+      window.scrollTo({ top: (document.documentElement.scrollHeight - window.innerHeight) * proporcion, behavior: 'instant' })
+    }, fraccion)
+    if (fraccion > 0) await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0)
+    await esperarBarraAlBorde()
+  }
+
+  // Seis combinaciones en la misma sesión: anchura estrecha y habitual, con las tres letras.
+  for (const ancho of [320, 390]) {
+    for (const texto of [null, 'grande', 'enorme'] as const) {
+      await test.step(`${ancho}px, letra ${texto ?? 'normal'}`, async () => {
+        await page.setViewportSize({ width: ancho, height: 844 })
+        await page.evaluate((valor) => {
+          if (valor === null) document.documentElement.removeAttribute('data-texto')
+          else document.documentElement.dataset.texto = valor
+        }, texto)
+        for (const fraccion of [0, 0.5, 1]) await desplazar(fraccion)
+
+        await expect.poll(() => ultima.evaluate((articulo) => {
+          const nav = document.querySelector('.barra-inferior')!.getBoundingClientRect()
+          const viewport = window.visualViewport!
+          const caja = articulo.getBoundingClientRect()
+          if (caja.top < viewport.offsetTop - 1 || caja.bottom > nav.top + 1) return false
+          return [...articulo.querySelectorAll('button')].every((boton) => {
+            const accion = boton.getBoundingClientRect()
+            const encima = document.elementFromPoint(accion.left + accion.width / 2, accion.top + accion.height / 2)
+            return accion.top >= viewport.offsetTop && accion.bottom <= nav.top && encima !== null && boton.contains(encima)
+          })
+        }), { message: 'la última tarjeta y todos sus botones deben verse y poder tocarse encima de la barra' }).toBe(true)
+      })
+    }
+  }
+
+  // Dimensiones artificiales de teclado: prueba la corrección del visualViewport, no emula Safari completo.
+  // Se modifica el mismo objeto al que el componente ya se suscribió, y se restauran sus propiedades.
+  const restaurarViewport = await page.evaluateHandle(() => {
+    const viewport = window.visualViewport!
+    const altoOriginal = Object.getOwnPropertyDescriptor(viewport, 'height')
+    const superiorOriginal = Object.getOwnPropertyDescriptor(viewport, 'offsetTop')
+    Object.defineProperties(viewport, {
+      height: { configurable: true, value: 360 },
+      offsetTop: { configurable: true, value: 120 },
+    })
+    viewport.dispatchEvent(new Event('resize'))
+    viewport.dispatchEvent(new Event('scroll'))
+    return () => {
+      if (altoOriginal) Object.defineProperty(viewport, 'height', altoOriginal)
+      else Reflect.deleteProperty(viewport, 'height')
+      if (superiorOriginal) Object.defineProperty(viewport, 'offsetTop', superiorOriginal)
+      else Reflect.deleteProperty(viewport, 'offsetTop')
+      viewport.dispatchEvent(new Event('resize'))
+      viewport.dispatchEvent(new Event('scroll'))
+    }
+  })
+  try {
+    await desplazar(1)
+    await expect.poll(() => ultima.evaluate((articulo) => (
+      document.querySelector('.barra-inferior')!.getBoundingClientRect().top - articulo.getBoundingClientRect().bottom
+    )), { message: 'el final de la última tarjeta debe quedar encima de la barra con el teclado abierto' }).toBeGreaterThanOrEqual(-1)
+    await expect.poll(() => ultima.getByRole('button', { name: 'Fijar', exact: true }).evaluate((boton) => {
+      const caja = boton.getBoundingClientRect()
+      const nav = document.querySelector('.barra-inferior')!.getBoundingClientRect()
+      const encima = document.elementFromPoint(caja.left + caja.width / 2, caja.top + caja.height / 2)
+      return caja.top >= window.visualViewport!.offsetTop && caja.bottom <= nav.top && encima !== null && boton.contains(encima)
+    }), { message: 'la última acción debe verse y poder tocarse con el teclado abierto' }).toBe(true)
+  } finally {
+    await restaurarViewport.evaluate((restaurar) => restaurar())
+    await restaurarViewport.dispose()
+  }
+
+  // Giro en la misma página: la barra se adapta sin recargar ni mantener medidas del ancho anterior.
+  await page.setViewportSize({ width: 844, height: 390 })
+  await desplazar(0.5)
+  await desplazar(1)
+  await page.setViewportSize({ width: 1280, height: 800 })
+  await expect(barra).toBeHidden()
+  await expect(page.locator('.sidebar')).toBeVisible()
+  await expect(page.locator('.sidebar').getByRole('link', { name: /^Mensajes/ })).toBeVisible()
+})
+
 test('un residente publica y responde', async ({ page }) => {
   const publicacion = textoUnico('publicación')
   const respuesta = textoUnico('respuesta')

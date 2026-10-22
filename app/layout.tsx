@@ -22,6 +22,7 @@ export const metadata: Metadata = {
 // Pista 06: color de la barra del sistema en la app instalada
 export const viewport: Viewport = {
   themeColor: '#3F5D46',
+  viewportFit: 'cover',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

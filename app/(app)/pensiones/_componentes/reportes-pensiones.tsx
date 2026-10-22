@@ -18,7 +18,7 @@ export function ReportesPensiones({ reportes, puedeSubir }: { reportes: ReporteP
   const [aEliminar, setAEliminar] = useState<ReportePension | null>(null)
   const router = useRouter()
   return <div className="pensiones-reportes">
-    <p>Consultá y descargá los PDF preparados por la Administradora. Se conservan los 12 más recientes de cada categoría.</p>
+    <p>Consultá y descarga los resúmenes económicos u otros documentos. Puedes conservar hasta 12 archivos en cada categoría.</p>
     <button type="button" className="btn ghost" onClick={() => router.refresh()}>Actualizar reportes</button>
     {CATEGORIAS_REPORTE.map((tipo) => {
       const documentos = reportes.filter((reporte) => reporte.categoria === tipo)

@@ -165,6 +165,7 @@ body{
   font-size:var(--t-base);
   line-height:1.55;
   min-height:100vh;
+  min-height:100dvh;
   -webkit-font-smoothing:antialiased;
 }
 h1,h2,h3,h4{font-family:var(--fuente-display);font-weight:600;margin:0;color:var(--tinta);line-height:1.25;text-wrap:balance;}
@@ -258,7 +259,7 @@ a{color:var(--acento);}
 
 /* ---------- 4. Estructura ------------------------------------------------ */
 
-#app-screen{display:flex;min-height:100vh;}
+#app-screen{display:flex;min-height:100vh;min-height:100dvh;}
 
 /* El escudo de El Molino (components/app/escudo.tsx): el alto lo pone cada lugar, el ancho sigue la proporción. */
 .escudo{display:block;flex:0 0 auto;height:3.25rem;width:auto;}
@@ -1766,10 +1767,15 @@ html[data-ofrecer-avisos="si"] .invitacion-avisos{display:block;}
    Por debajo de 56rem: sin lateral, barra superior e inferior de cuatro o cinco destinos. */
 
 @media (max-width:56rem){
+  :root{
+    /* Altura real (incluye safe-area); respaldo antes de hidratar o sin ResizeObserver. */
+    --reserva-barra-inferior:calc(var(--alto-barra-inferior, calc(5rem + env(safe-area-inset-bottom, 0px))) + max(0px, var(--desplazamiento-barra-inferior, 0px)));
+  }
   .sidebar{display:none;}
   .topbar{
     display:flex;align-items:center;gap:.75rem;
-    padding-block:1rem .25rem;padding-inline:var(--canal);
+    padding-block:calc(1rem + env(safe-area-inset-top, 0px)) .25rem;
+    padding-inline:max(var(--canal), env(safe-area-inset-left, 0px)) max(var(--canal), env(safe-area-inset-right, 0px));
   }
   /* La barra superior no crece con la letra: con "Muy grande" en 320px no entraría. El escudo
      y el avatar no se tocan, así que van en px; el nombre cede y se recorta si hace falta. */
@@ -1782,13 +1788,18 @@ html[data-ofrecer-avisos="si"] .invitacion-avisos{display:block;}
   .topbar .apariencia-rapida{position:static;}
   .topbar .panel-apariencia{right:var(--canal);top:calc(100% + .25rem);}
   .topbar .avatar{width:44px;height:44px;font-size:15px;}
-  .content{padding-block:1.25rem calc(6rem + env(safe-area-inset-bottom, 0px));}
+  .content{
+    padding-block:1.25rem calc(1rem + var(--reserva-barra-inferior));
+    padding-inline:max(var(--canal), env(safe-area-inset-left, 0px)) max(var(--canal), env(safe-area-inset-right, 0px));
+  }
   .solo-telefono{display:block;}
 
   .barra-inferior{
-    position:fixed;left:0;right:0;bottom:0;z-index:30;
+    position:fixed;left:var(--izquierda-barra-inferior, 0px);width:var(--ancho-barra-inferior, 100%);
+    bottom:var(--desplazamiento-barra-inferior, 0px);z-index:30;
     display:flex;align-items:stretch;gap:.3rem;
     padding:.5rem .5rem calc(.5rem + env(safe-area-inset-bottom, 0px));
+    padding-inline:max(.5rem, env(safe-area-inset-left, 0px)) max(.5rem, env(safe-area-inset-right, 0px));
     background:var(--fondo);border-top:2px solid var(--borde-elevado);
     box-shadow:0 -6px 16px color-mix(in srgb, var(--sombra) 70%, transparent);
   }
@@ -1816,14 +1827,14 @@ html[data-ofrecer-avisos="si"] .invitacion-avisos{display:block;}
   /* El globito va sobre la esquina del icono: no ensancha la etiqueta ni empuja a las demás. */
   .barra-inferior .insignia-conteo{position:absolute;top:.2rem;left:calc(50% + .3rem);font-size:min(var(--t-xs), 3.6vw);}
 
-  .toast{bottom:calc(6rem + env(safe-area-inset-bottom, 0px));}
+  .toast{bottom:calc(1rem + var(--reserva-barra-inferior));}
   /* Lo que se trae a la vista (la tarjeta de hoy, el panel de quiénes comen) no cuenta como visible
      si lo tapa la barra inferior. */
-  .tarjeta-dia,.panel-casa{scroll-margin-bottom:calc(5.5rem + env(safe-area-inset-bottom, 0px));}
+  .tarjeta-dia,.panel-casa{scroll-margin-bottom:calc(.5rem + var(--reserva-barra-inferior));}
   /* La página se alarga debajo de una burbuja más alta que la pantalla: su final no queda bajo la barra. */
-  .burbuja::after{height:calc(6rem + env(safe-area-inset-bottom, 0px));}
+  .burbuja::after{height:calc(1rem + var(--reserva-barra-inferior));}
   /* Un campo que toma el foco (la hora en la burbuja) no queda tapado por la barra inferior. */
-  html{scroll-padding-bottom:calc(5.5rem + env(safe-area-inset-bottom, 0px));}
+  html{scroll-padding-bottom:calc(.5rem + var(--reserva-barra-inferior));}
 
   /* Calendario: lista por defecto; la cuadrícula a un toque. */
   .cal-alternar{display:block;}

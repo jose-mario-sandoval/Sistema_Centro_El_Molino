@@ -18,6 +18,13 @@ const SECCIONES: readonly { ruta: string; prefijo: string; etiqueta: string; ico
   { ruta: '/configuraciones', prefijo: '/configuraciones', etiqueta: 'Ajustes', icono: 'ajustes' },
 ]
 
+/** Desplaza solo el carril horizontal: enfocar una sección no mueve la página. */
+function mostrarEnlace(fila: HTMLElement, enlace: HTMLElement) {
+  const a = enlace.getBoundingClientRect()
+  const f = fila.getBoundingClientRect()
+  if (a.left < f.left || a.right > f.right) fila.scrollLeft += a.left + a.width / 2 - (f.left + f.width / 2)
+}
+
 function Enlaces({ rol }: { rol: Rol }) {
   const ruta = usePathname()
   return SECCIONES.filter((s) => s.prefijo !== '/pensiones' || puedeVerPensiones(rol)).map((s) => {
@@ -63,6 +70,8 @@ export function NavegacionInferior({ rol }: { rol: Rol }) {
     const fila = carril.current
     const nav = barra.current
     if (!fila || !nav) return
+    // Incluye el área segura y cualquier crecimiento por la letra elegida.
+    document.documentElement.style.setProperty('--alto-barra-inferior', `${nav.getBoundingClientRect().height}px`)
     // ¿Cabe todo en el ancho de la barra (sin contar el botón, que solo aparece si no cabe)?
     const estilo = getComputedStyle(nav)
     const disponible = nav.clientWidth - parseFloat(estilo.paddingLeft) - parseFloat(estilo.paddingRight)
@@ -80,14 +89,55 @@ export function NavegacionInferior({ rol }: { rol: Rol }) {
     return () => observador.disconnect()
   }, [medir])
 
+  // Safari puede desplazar o reducir el viewport visible (teclado, barras del navegador, zoom)
+  // sin cambiar el viewport de layout al que se ancla position:fixed.
+  useLayoutEffect(() => {
+    const nav = barra.current
+    const viewport = window.visualViewport
+    if (!nav) return
+    let cuadro = 0
+
+    function ajustar() {
+      cuadro = 0
+      if (!nav || !viewport || !nav.getClientRects().length) return
+      nav.style.setProperty('--izquierda-barra-inferior', `${viewport.offsetLeft}px`)
+      nav.style.setProperty('--ancho-barra-inferior', `${viewport.width}px`)
+      // Recuperar el borde sin el ajuste anterior evita acumular desplazamientos. Medir
+      // la barra también cubre navegadores que recolocan los fixed por su cuenta.
+      const anterior = parseFloat(getComputedStyle(nav).bottom) || 0
+      const siguiente = anterior + nav.getBoundingClientRect().bottom - (viewport.offsetTop + viewport.height)
+      if (Math.abs(siguiente - anterior) > 0.5) {
+        document.documentElement.style.setProperty('--desplazamiento-barra-inferior', `${siguiente}px`)
+      }
+      medir()
+    }
+
+    function programar() {
+      if (!cuadro) cuadro = requestAnimationFrame(ajustar)
+    }
+
+    ajustar()
+    viewport?.addEventListener('resize', programar)
+    viewport?.addEventListener('scroll', programar)
+    window.addEventListener('resize', programar)
+    window.addEventListener('pageshow', programar)
+    return () => {
+      cancelAnimationFrame(cuadro)
+      viewport?.removeEventListener('resize', programar)
+      viewport?.removeEventListener('scroll', programar)
+      window.removeEventListener('resize', programar)
+      window.removeEventListener('pageshow', programar)
+      document.documentElement.style.removeProperty('--alto-barra-inferior')
+      document.documentElement.style.removeProperty('--desplazamiento-barra-inferior')
+    }
+  }, [medir])
+
   // La sección actual queda a la vista (al entrar, y al cambiar de sección si la fila está desplazada).
   useLayoutEffect(() => {
     const fila = carril.current
     const activa = fila?.querySelector<HTMLElement>('.nav-item.active')
     if (!fila || !activa) return
-    const a = activa.getBoundingClientRect()
-    const f = fila.getBoundingClientRect()
-    if (a.left < f.left || a.right > f.right) fila.scrollLeft += a.left + a.width / 2 - (f.left + f.width / 2)
+    mostrarEnlace(fila, activa)
     medir()
   }, [ruta, desborda, medir])
 
@@ -100,7 +150,10 @@ export function NavegacionInferior({ rol }: { rol: Rol }) {
 
   return (
     <nav ref={barra} className="barra-inferior" aria-label="Secciones">
-      <div ref={carril} className="barra-carril" onScroll={medir}>
+      <div ref={carril} className="barra-carril" onScroll={medir} onFocus={(evento) => {
+        const enlace = evento.target.closest<HTMLElement>('.nav-item')
+        if (enlace) mostrarEnlace(evento.currentTarget, enlace)
+      }}>
         <Enlaces rol={rol} />
       </div>
       {desborda && (
