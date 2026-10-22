@@ -36,7 +36,7 @@ export default async function PaginaPresupuesto({ searchParams }: { searchParams
   const pendientes = filas.filter((f) => f.concepto === 'pension' && saldoMes(f) > 0)
   const sinCuota = filas.filter((f) => f.concepto === 'pension' && !f.exento && f.monto_centavos === null)
   const donacion = filas.find((f) => f.concepto === 'donacion')
-  const ingresos = filas.filter((f) => !f.exento || f.pagado_centavos > 0)
+  const ingresos = filas.filter((f) => f.pagado_centavos > 0)
   return <>
     <h2 className="section-title">Presupuesto</h2>
     {vistas}
@@ -54,15 +54,9 @@ export default async function PaginaPresupuesto({ searchParams }: { searchParams
     </section>
     <section className="card" aria-label="Pagos del período"><h3 className="section-title">Ingresos del período</h3>
       {perfil.rol === 'administradora' && <p>Las personas se identifican únicamente por sus siglas.</p>}
-      {ingresos.length ? <ul className="pensiones-lista">{ingresos.map((f) => {
-        const estado = f.exento ? 'Exento de pensión' : f.monto_centavos === null ? 'Sin monto configurado' : saldoMes(f) === 0 ? 'Recibido' : f.pagado_centavos > 0 ? 'Pago parcial' : 'Pendiente de recibir'
-        return <li key={f.concepto === 'donacion' ? 'donacion' : f.usuario_id} aria-label={f.etiqueta}>
-          <strong>{f.etiqueta}</strong><span>{estado}</span>
-          <span>Esperado: {f.monto_centavos === null ? 'Sin monto configurado' : dolares(f.monto_centavos)}</span>
-          <span>Recibido: {dolares(f.pagado_centavos)}</span>
-          <span>{ETIQUETA_PRESUPUESTO.pendiente}: {dolares(saldoMes(f))}</span>
-        </li>
-      })}</ul> : <p className="empty-state">No hay ingresos configurados para este período.</p>}
+      {ingresos.length ? <ul className="pensiones-lista">{ingresos.map((f) => <li key={f.concepto === 'donacion' ? 'donacion' : f.usuario_id} aria-label={f.etiqueta}>
+        <strong>{f.etiqueta}</strong><span>{dolares(f.pagado_centavos)}</span>
+      </li>)}</ul> : <p className="empty-state">No hay ingresos recibidos para este período.</p>}
     </section>
   </>
 }

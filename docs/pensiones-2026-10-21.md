@@ -13,8 +13,13 @@
   de donativos».
 - `presupuesto_pensiones(date)` devuelve pensiones y un único concepto de donación.
   `concepto` distingue `pension` de `donacion`; la donación tiene `usuario_id = null`,
-  sin perfil, residente, credenciales ni abono personal. Siempre aparece como
-  **Ingresos por donaciones**, incluso si todavía no tiene monto configurado.
+  sin perfil, residente, credenciales ni abono personal. Su etiqueta siempre es
+  **Ingresos por donaciones**, incluso si la consulta devuelve un monto sin configurar.
+  La lista mensual **Ingresos del período** muestra únicamente ingresos con un importe
+  recibido mayor que cero, con su nombre o siglas y ese importe. Los abonos parciales
+  muestran lo ya pagado; la donación aparece después de registrar su recepción.
+  Los importes esperados y pendientes se consultan en el resumen del presupuesto;
+  la vista anual conserva su desglose.
 - El esperado es el snapshot de la recepción existente o, si aún está pendiente, el
   monto de la configuración vigente para ese período. El recibido es el snapshot de
   la recepción o cero. TypeScript suma estas filas una sola vez; no vuelve a sumar

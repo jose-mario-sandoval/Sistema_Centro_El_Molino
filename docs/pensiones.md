@@ -50,8 +50,11 @@ corresponden a esa entrega; no acreditan la aplicación de migraciones ni prueba
   seleccionados, independientemente de la fecha real de registro. La clave primaria del período y
   el candado compartido impiden que dos Directores dupliquen el ingreso. Las recepciones ya
   guardadas aparecen automáticamente y conservan sus snapshots al cambiar la configuración de
-  períodos posteriores. Administradora ve esperado, recibido, pendiente y estado en un elemento
-  propio, sin autor de recepción ni controles de escritura; las personas se muestran solo por siglas.
+  períodos posteriores. Administradora consulta los totales y pendientes en el resumen.
+  La lista mensual «Ingresos del período» muestra únicamente ingresos recibidos, con su etiqueta
+  y monto: las personas aparecen por siglas, los abonos parciales por lo ya pagado y «Ingresos
+  por donaciones» solo después de su recepción. La vista anual conserva su desglose; no se
+  expone el autor de recepción ni se ofrecen controles de escritura a Administradora.
 - La exención de la cuenta «Dani y José» continúa vinculada a su UUID verificado y vigencia,
   sin deducirla del nombre. No crea cuotas de cero para otras cuentas ni elimina cuotas o abonos
   anteriores; los pagos históricos reales permanecen en el presupuesto ejecutado.

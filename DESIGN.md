@@ -609,10 +609,13 @@ Las listas y los formularios se apilan por ancho de contenedor sin scroll latera
 período, monto y «Pendiente de recibir» / «Recibido» escritos. Antes de registrar la recepción se revisa y confirma
 el importe, con foco de teclado y aviso de que el estado será compartido. La falta de un monto
 se anuncia explícitamente. Es un concepto económico de la casa, con configuración y una sola
-recepción por mes y año para todos los Directores; no representa una persona. En Presupuesto
-aparece como elemento propio con esperado, recibido, pendiente y estado. Administradora lo
-consulta sin controles de configuración o recepción y sin conocer quién lo registró; las personas
-continúan identificándose por siglas y los conteos de personas excluyen este concepto.
+recepción por mes y año para todos los Directores; no representa una persona. En Presupuesto,
+la lista mensual «Ingresos del período» muestra solo ingresos con importe recibido mayor que
+cero, con su etiqueta y ese importe. Incluye abonos parciales por lo ya pagado e «Ingresos por
+donaciones» después de registrar su recepción. Los importes esperados y pendientes permanecen
+en el resumen; la vista anual conserva su desglose. Administradora consulta sin controles de
+configuración o recepción y sin conocer quién lo registró; las personas continúan identificándose
+por siglas y los conteos de personas excluyen este concepto.
 «Exento de pensión» acompaña $0.00 y evita ofrecer pagos para
 ese período; conserva el historial y los controles del rol. Las categorías de documentos
 usan las etiquetas «Resúmenes Económicos» y «Otros documentos», dentro de la pestaña
