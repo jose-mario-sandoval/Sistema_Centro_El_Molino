@@ -34,7 +34,7 @@ export async function recibirDonacionPension(entrada: unknown): Promise<Resultad
   const { data, error } = await supabase.rpc('recibir_donacion_pension', {
     p_periodo: datos.data.periodo, p_monto_esperado: datos.data.monto_esperado,
   })
-  if (error || !data?.length) return fallo('No se registró la recepción de ingresos por donaciones. El monto pudo cambiar o faltar. Recargá y revisalo antes de confirmar.')
+  if (error || !data?.length) return fallo('No se registró el envío del dinero de donaciones a la administración. El monto pudo cambiar o faltar. Recargá y revisalo antes de confirmar.')
   revalidatePath('/pensiones', 'layout')
   return exito({ nueva: data[0].nueva })
 }

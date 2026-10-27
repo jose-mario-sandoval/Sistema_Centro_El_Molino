@@ -31,7 +31,7 @@ export default async function PaginaMarcar({ searchParams }: { searchParams: Pro
         <p>Registrá los meses que ya pagaste. Al confirmar, el pago queda registrado inmediatamente.</p>
         <MarcarPensiones key={anio} meses={meses} historial={historial} integrado />
       </PanelPensiones>
-      <PanelPensiones titulo={ETIQUETA_DONACIONES} descripcion="Registrá los pagos a la administración provenientes de donativos"
+      <PanelPensiones titulo={ETIQUETA_DONACIONES} descripcion="Registrá el envío del dinero de donaciones a la administración"
         resumen={resumenDonacion(donaciones.find((m) => m.periodo === periodoResumen), periodoResumen)}>
         <Donacion key={`donaciones-${anio}`} meses={donaciones} integrado />
       </PanelPensiones>

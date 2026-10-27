@@ -1,6 +1,5 @@
 import { dolares, etiquetaPeriodo, saldoMes } from './calculos'
 import type { MesDonacion } from './donaciones'
-import { ETIQUETA_PRESUPUESTO } from './etiquetas'
 import type { MesPension } from './tipos'
 
 /** El período es explícito también al consultar otro año; no se presenta una proyección como el mes actual. */
@@ -18,7 +17,7 @@ export function resumenDonacion(mes: MesDonacion | undefined, periodo: string): 
   const etiqueta = etiquetaPeriodo(periodo)
   if (!mes) return `${etiqueta} · Sin información disponible`
   const monto = mes.monto_centavos === null ? '' : ` · ${dolares(mes.monto_centavos)}`
-  if (mes.recibido_en) return `${etiqueta} · Recibido${monto}`
+  if (mes.recibido_en) return `${etiqueta} · Enviado${monto}`
   if (mes.monto_centavos === null) return `${etiqueta} · Sin monto configurado`
-  return `${etiqueta} · ${ETIQUETA_PRESUPUESTO.pendiente}${monto}`
+  return `${etiqueta} · Pendiente de envío${monto}`
 }

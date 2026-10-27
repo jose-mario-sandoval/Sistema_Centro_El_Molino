@@ -14,6 +14,7 @@ export function apartadosPensiones(rol: Rol) {
   return [
     ...(rol === 'director' ? [{ ruta: '/pensiones/editar', etiqueta: 'Editar' }] : []),
     ...(ROLES_PAGO.includes(rol) ? [{ ruta: '/pensiones/marcar', etiqueta: 'Marcar pensiones' }] : []),
+    ...(rol === 'director' ? [{ ruta: '/pensiones/casa', etiqueta: 'Pensiones de la casa' }] : []),
     ...(ROLES_PRESUPUESTO.includes(rol) ? [
       { ruta: '/pensiones/presupuesto', etiqueta: 'Presupuesto' },
       { ruta: '/pensiones/reporte', etiqueta: ETIQUETA_RESUMENES },

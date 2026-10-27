@@ -7,11 +7,6 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "14"
-  }
   public: {
     Tables: {
       ausencias: {
@@ -23,7 +18,6 @@ export type Database = {
           id: string
           usuario_id: string
         }
-        ComputedFields: never
         Insert: {
           creado_en?: string
           creado_por?: string | null
@@ -63,7 +57,6 @@ export type Database = {
           enviado_en: string
           fecha: string
         }
-        ComputedFields: never
         Insert: {
           comida: Database["public"]["Enums"]["tiempo_comida"]
           enviado_en?: string
@@ -84,7 +77,6 @@ export type Database = {
           suscripcion_id: string
           tipo: string
         }
-        ComputedFields: never
         Insert: {
           mensaje_id: string
           reservado_en?: string
@@ -122,7 +114,6 @@ export type Database = {
           reservado_en: string
           suscripcion_id: string
         }
-        ComputedFields: never
         Insert: {
           pago_id: string
           reservado_en?: string
@@ -156,7 +147,6 @@ export type Database = {
           comida: Database["public"]["Enums"]["tiempo_comida"]
           fecha: string
         }
-        ComputedFields: never
         Insert: {
           cerrada_en?: string
           comida: Database["public"]["Enums"]["tiempo_comida"]
@@ -177,7 +167,6 @@ export type Database = {
           id: string
           nombre: string
         }
-        ComputedFields: never
         Insert: {
           cantidad_personas: number
           creado_en?: string
@@ -212,7 +201,6 @@ export type Database = {
           token: string
           vence_en: string
         }
-        ComputedFields: never
         Insert: {
           creado_en?: string
           creado_por: string
@@ -262,7 +250,6 @@ export type Database = {
           tipo: Database["public"]["Enums"]["tipo_evento"]
           titulo: string
         }
-        ComputedFields: never
         Insert: {
           actualizado_en?: string
           creado_en?: string
@@ -316,7 +303,6 @@ export type Database = {
           nota: string | null
           tiempo_comida: Database["public"]["Enums"]["tiempo_comida"]
         }
-        ComputedFields: never
         Insert: {
           cantidad: number
           creado_en?: string
@@ -351,7 +337,6 @@ export type Database = {
           dia_relativo: number
           hora: string
         }
-        ComputedFields: never
         Insert: {
           comida: Database["public"]["Enums"]["tiempo_comida"]
           dia_relativo: number
@@ -379,7 +364,6 @@ export type Database = {
           solo_director: boolean
           texto: string
         }
-        ComputedFields: never
         Insert: {
           autor_id: string
           aviso_revision?: number
@@ -437,7 +421,6 @@ export type Database = {
           nota: string
           usuario_id: string
         }
-        ComputedFields: never
         Insert: {
           nota: string
           usuario_id: string
@@ -464,7 +447,6 @@ export type Database = {
           monto_centavos: number
           usuario_id: string
         }
-        ComputedFields: never
         Insert: {
           categoria: string
           desde: string
@@ -496,7 +478,6 @@ export type Database = {
           modificado_por: string
           monto_centavos: number
         }
-        ComputedFields: never
         Insert: {
           desde: string
           modificado_en?: string
@@ -526,7 +507,6 @@ export type Database = {
           recibido_en: string
           registrado_por: string
         }
-        ComputedFields: never
         Insert: {
           monto_centavos: number
           periodo: string
@@ -555,7 +535,6 @@ export type Database = {
           unica: boolean
           usuario_id: string
         }
-        ComputedFields: never
         Insert: {
           desde?: string
           unica?: boolean
@@ -584,9 +563,9 @@ export type Database = {
           monto_centavos: number
           periodo: string
           registrado_en: string
+          registrado_por: string
           usuario_id: string
         }
-        ComputedFields: never
         Insert: {
           abono_centavos: number
           categoria: string
@@ -594,6 +573,7 @@ export type Database = {
           monto_centavos: number
           periodo: string
           registrado_en?: string
+          registrado_por: string
           usuario_id: string
         }
         Update: {
@@ -603,9 +583,17 @@ export type Database = {
           monto_centavos?: number
           periodo?: string
           registrado_en?: string
+          registrado_por?: string
           usuario_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "pensiones_pagos_registrado_por_fkey"
+            columns: ["registrado_por"]
+            isOneToOne: false
+            referencedRelation: "perfiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "pensiones_pagos_usuario_id_fkey"
             columns: ["usuario_id"]
@@ -621,7 +609,6 @@ export type Database = {
           creado_en: string
           pago_id: string
         }
-        ComputedFields: never
         Insert: {
           completado: boolean
           creado_en?: string
@@ -648,7 +635,6 @@ export type Database = {
           incluido: boolean
           usuario_id: string
         }
-        ComputedFields: never
         Insert: {
           desde: string
           incluido: boolean
@@ -679,7 +665,6 @@ export type Database = {
           ruta: string
           tamano: number
         }
-        ComputedFields: never
         Insert: {
           cargado_en?: string
           cargado_por?: string | null
@@ -713,7 +698,6 @@ export type Database = {
           creado_en: string
           ruta: string
         }
-        ComputedFields: never
         Insert: {
           creado_en?: string
           ruta: string
@@ -734,7 +718,6 @@ export type Database = {
           tamano: number
           usuario_id: string
         }
-        ComputedFields: never
         Insert: {
           categoria: string
           creado_en?: string
@@ -776,7 +759,6 @@ export type Database = {
           siglas: string
           usuario: string
         }
-        ComputedFields: never
         Insert: {
           activo?: boolean
           apariencia_contraste?: string | null
@@ -828,7 +810,6 @@ export type Database = {
           nota: string | null
           usuario_id: string
         }
-        ComputedFields: never
         Insert: {
           comida: Database["public"]["Enums"]["tiempo_comida"]
           dia_semana: number
@@ -868,7 +849,6 @@ export type Database = {
           mensaje_id: string
           usuario_id: string
         }
-        ComputedFields: never
         Insert: {
           creado_en?: string
           mensaje_id: string
@@ -905,7 +885,6 @@ export type Database = {
           moderador_id: string
           texto_eliminado: string
         }
-        ComputedFields: never
         Insert: {
           autor_id: string
           eliminado_en?: string
@@ -950,7 +929,6 @@ export type Database = {
           origen: Database["public"]["Enums"]["origen_seleccion"]
           usuario_id: string
         }
-        ComputedFields: never
         Insert: {
           actualizado_en?: string
           comida: Database["public"]["Enums"]["tiempo_comida"]
@@ -1005,7 +983,6 @@ export type Database = {
           tipo: Database["public"]["Enums"]["tipo_evento"]
           titulo: string
         }
-        ComputedFields: never
         Insert: {
           creado_en?: string
           creado_por: string
@@ -1057,7 +1034,6 @@ export type Database = {
           p256dh: string
           usuario_id: string
         }
-        ComputedFields: never
         Insert: {
           auth: string
           creado_en?: string
@@ -1251,14 +1227,8 @@ export type Database = {
           vigente: boolean
         }[]
       }
-      llamar_limpieza_reportes_pension: {
-        Args: Record<PropertyKey, never>
-        Returns: number
-      }
-      llamar_recordatorios: {
-        Args: Record<PropertyKey, never>
-        Returns: number
-      }
+      llamar_limpieza_reportes_pension: { Args: never; Returns: number }
+      llamar_recordatorios: { Args: never; Returns: number }
       marcar_pensiones: {
         Args: {
           p_abonos?: number[]
@@ -1273,6 +1243,7 @@ export type Database = {
           monto_centavos: number
           periodo: string
           registrado_en: string
+          registrado_por: string
           usuario_id: string
         }[]
         SetofOptions: {
@@ -1293,14 +1264,20 @@ export type Database = {
           pago_id: string
         }[]
       }
-      mes_actual_pensiones: {
-        Args: Record<PropertyKey, never>
-        Returns: string
+      marcar_pensiones_de_con_movimientos: {
+        Args: {
+          p_abonos?: number[]
+          p_montos_esperados: number[]
+          p_pagados_esperados?: number[]
+          p_periodos: string[]
+          p_usuario_id: string
+        }
+        Returns: {
+          pago_id: string
+        }[]
       }
-      mi_rol: {
-        Args: Record<PropertyKey, never>
-        Returns: Database["public"]["Enums"]["rol"]
-      }
+      mes_actual_pensiones: { Args: never; Returns: string }
+      mi_rol: { Args: never; Returns: Database["public"]["Enums"]["rol"] }
       mis_pensiones: {
         Args: { p_anio: number }
         Returns: {
@@ -1319,12 +1296,23 @@ export type Database = {
         }
         Returns: boolean
       }
+      pensiones_de: {
+        Args: { p_anio: number; p_usuario_id: string }
+        Returns: {
+          categoria: string
+          exento: boolean
+          monto_centavos: number
+          pagado_centavos: number
+          periodo: string
+          registrado_en: string
+        }[]
+      }
       pensiones_es_exento: {
         Args: { p_periodo: string; p_usuario_id: string }
         Returns: boolean
       }
       preparar_limpieza_reportes_pension: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           ruta: string
         }[]
@@ -1357,6 +1345,32 @@ export type Database = {
           registrado_por: string
         }[]
       }
+      registrar_abonos_pension: {
+        Args: {
+          p_abonos: number[]
+          p_de_la_casa: boolean
+          p_montos_esperados: number[]
+          p_pagados_esperados: number[]
+          p_periodos: string[]
+          p_usuario_id: string
+        }
+        Returns: {
+          abono_centavos: number
+          categoria: string
+          id: string
+          monto_centavos: number
+          periodo: string
+          registrado_en: string
+          registrado_por: string
+          usuario_id: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "pensiones_pagos"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       requiere_cocina_valido: {
         Args: { p: Database["public"]["Enums"]["requerimiento_cocina"][] }
         Returns: boolean
@@ -1381,8 +1395,12 @@ export type Database = {
           ruta: string
         }[]
       }
-      soy_activo: { Args: Record<PropertyKey, never>; Returns: boolean }
+      soy_activo: { Args: never; Returns: boolean }
       tiene_comidas: { Args: { p_usuario: string }; Returns: boolean }
+      validar_titular_pension: {
+        Args: { p_de_la_casa: boolean; p_usuario_id: string }
+        Returns: undefined
+      }
       valores_pension: {
         Args: { p_periodo: string; p_usuario_id: string }
         Returns: {
@@ -1407,7 +1425,7 @@ export type Database = {
         }
         Returns: undefined
       }
-      zona_horaria_app: { Args: Record<PropertyKey, never>; Returns: string }
+      zona_horaria_app: { Args: never; Returns: string }
     }
     Enums: {
       estado_comida:
@@ -1580,3 +1598,4 @@ export const Constants = {
     },
   },
 } as const
+

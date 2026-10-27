@@ -456,21 +456,23 @@ export async function eliminarCuenta(entrada: unknown): Promise<Resultado<null>>
     if (!count) return fallo(MENSAJE_DIRECTOR_MINIMO)
   }
 
-  // Las FK de cuotas, pagos, exención y donaciones conservan los registros: esa cuenta se desactiva.
+  // Las FK de cuotas, titular/autor de pagos, exención y donaciones conservan los registros: esa cuenta se desactiva.
   // Se consulta después de validar la sesión, el rol y la cuenta, antes de tocar Auth.
-  const [pagos, cuotas, exencion, configuracionDonacion, recepcionesDonacion] = await Promise.all([
+  const [pagos, cuotas, exencion, configuracionDonacion, recepcionesDonacion, pagosRegistrados] = await Promise.all([
     admin.from('pensiones_pagos').select('usuario_id').eq('usuario_id', id).limit(1).maybeSingle(),
     admin.from('pensiones_cuotas').select('usuario_id').eq('usuario_id', id).limit(1).maybeSingle(),
     admin.from('pensiones_exencion').select('usuario_id').eq('usuario_id', id).limit(1).maybeSingle(),
     admin.from('pensiones_donaciones_configuracion').select('modificado_por').eq('modificado_por', id).limit(1).maybeSingle(),
     admin.from('pensiones_donaciones_recepciones').select('registrado_por').eq('registrado_por', id).limit(1).maybeSingle(),
+    admin.from('pensiones_pagos').select('registrado_por').eq('registrado_por', id).limit(1).maybeSingle(),
   ])
-  const errorHistorial = [pagos, cuotas, exencion, configuracionDonacion, recepcionesDonacion].find((r) => r.error)?.error
+  const errorHistorial = [pagos, cuotas, exencion, configuracionDonacion, recepcionesDonacion, pagosRegistrados].find((r) => r.error)?.error
   if (errorHistorial) {
     console.error(`eliminarCuenta: no se pudo consultar el historial de pensiones (usuario ${id})`, errorHistorial)
     return fallo('No se pudo eliminar la cuenta. Intentá de nuevo.')
   }
   if (pagos.data || cuotas.data) return fallo('Esta cuenta tiene historial de pensiones. Desactivala para conservarlo.')
+  if (pagosRegistrados.data) return fallo('Esta cuenta registró pagos de otras personas. Desactivala para conservar ese historial.')
   if (exencion.data || configuracionDonacion.data || recepcionesDonacion.data) {
     return fallo('Esta cuenta tiene una exención o registros de donaciones. Desactivala para conservarlos.')
   }

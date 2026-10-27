@@ -51,24 +51,24 @@ describe('resumen de Ingresos por donaciones en el panel cerrado', () => {
       .toBe('octubre de 2026 · Sin monto configurado')
   })
 
-  it('muestra el monto pendiente de recibir y no confunde cero con null', () => {
-    expect(resumenDonacion(donacion(), periodo)).toBe('octubre de 2026 · Pendiente de recibir · $150.00')
+  it('muestra el monto pendiente de envío y no confunde cero con null', () => {
+    expect(resumenDonacion(donacion(), periodo)).toBe('octubre de 2026 · Pendiente de envío · $150.00')
     expect(resumenDonacion(donacion({ monto_centavos: 0 }), periodo))
-      .toBe('octubre de 2026 · Pendiente de recibir · $0.00')
+      .toBe('octubre de 2026 · Pendiente de envío · $0.00')
   })
 
-  it('muestra Recibido para una recepción registrada por cualquier Director', () => {
+  it('muestra Enviado para un envío registrado por cualquier Director', () => {
     expect(resumenDonacion(donacion({ recibido_en: '2026-10-21T12:00:00Z', registrado_por: 'otro-director' }), periodo))
-      .toBe('octubre de 2026 · Recibido · $150.00')
+      .toBe('octubre de 2026 · Enviado · $150.00')
   })
 
-  it('conserva Recibido sin inventar un importe cuando no está disponible', () => {
+  it('conserva Enviado sin inventar un importe cuando no está disponible', () => {
     expect(resumenDonacion(donacion({ monto_centavos: null, recibido_en: '2026-10-21T12:00:00Z' }), periodo))
-      .toBe('octubre de 2026 · Recibido')
+      .toBe('octubre de 2026 · Enviado')
   })
 
   it('identifica el período consultado también en otro año', () => {
     expect(resumenDonacion(donacion({ periodo: '2025-12-01' }), '2025-12-01'))
-      .toBe('diciembre de 2025 · Pendiente de recibir · $150.00')
+      .toBe('diciembre de 2025 · Pendiente de envío · $150.00')
   })
 })

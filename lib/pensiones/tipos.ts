@@ -23,6 +23,8 @@ export type FilaPresupuesto = MesPension & { etiqueta: string } & (
 /** Un abono: `abono_centavos` es lo que se pagó en ese momento y `monto_centavos`, la cuota de ese mes. */
 export type PagoPension = {
   id: string
+  usuario_id: string
+  registrado_por: string
   periodo: string
   categoria: string
   monto_centavos: number
