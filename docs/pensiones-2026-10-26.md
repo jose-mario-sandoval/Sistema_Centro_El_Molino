@@ -75,8 +75,9 @@ La migración y el código se preparan en el repositorio; no se aplican a produc
   no hay eventos nuevos ante reintentos ni pagos ficticios para la cuenta exenta.
 - Banco de regresión previo aprobado: pagos, roles, reportes con Storage simulado, presupuesto
   anual, donaciones compartidas (12 registros concurrentes), push y exención.
-- Tipos generados desde la base temporal mediante `@supabase/postgres-meta` oficial;
-  no editados a mano. Confirmar paridad con el artefacto `database-types` del CI.
+- Tipos generados desde la base temporal y sincronizados con el artefacto oficial
+  `database-types` del [CI 40440360084](https://github.com/jose-mario-sandoval/Sistema_Centro_El_Molino/actions/runs/40440360084),
+  correspondiente al commit `11c9dfd`. No editados a mano.
 - QA visual e interacción con página, componentes, CSS y fuentes reales y backend simulado:
   64 combinaciones a 320/375/768/1280 px, letra normal/enorme, claro/oscuro, contraste suave/alto
   y estados normales/exentos. Sin desbordamientos, controles menores de 56 px ni errores JS;

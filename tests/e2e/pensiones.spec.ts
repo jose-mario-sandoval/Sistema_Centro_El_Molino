@@ -262,7 +262,7 @@ test('Director despliega paneles independientes y conserva el abono y la revisi�
   const periodoResumen = `${anio}-${actual.slice(5, 7)}-01`
   for (const [boton, descripcion] of [
     [pension, 'Consultá y registrá tus pagos'],
-    [donaciones, 'Registrá los pagos a la administración provenientes de donativos'],
+    [donaciones, 'Registrá el envío del dinero de donaciones a la administración'],
   ] as const) {
     await expect(boton).toHaveAttribute('aria-expanded', 'false')
     await expect(boton).toContainText(descripcion)
@@ -274,7 +274,7 @@ test('Director despliega paneles independientes y conserva el abono y la revisi�
   }
   await expect(page.getByRole('checkbox')).toHaveCount(0)
   await expect(page.getByRole('button', { name: 'Revisar pagos', exact: true })).toHaveCount(0)
-  await expect(page.getByRole('button', { name: 'Registrar recepción', exact: true })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Registrar envío', exact: true })).toHaveCount(0)
   // Ningún control del contenido plegado se interpone entre los dos encabezados.
   await pension.focus()
   await page.keyboard.press('Tab')
