@@ -29,7 +29,7 @@ export function EditarDonacion({ configuraciones, actual }: { configuraciones: C
   return <section className="card" aria-label={ETIQUETA_DONACIONES}>
     <h2 className="section-title">{ETIQUETA_DONACIONES}</h2>
     <p>{vigente ? `Monto vigente de ingresos por donaciones: ${dolares(vigente.monto_centavos)} al mes.` : 'Todavía no hay un monto de ingresos por donaciones configurado para el mes actual.'}</p>
-    <p>Elegí desde qué mes se aplica el monto. Los ingresos por donaciones ya recibidos conservan su importe original.</p>
+    <p>Elegí desde qué mes se aplica el monto. Los ingresos por donaciones ya enviados a la administración conservan su importe original.</p>
     <form action={guardar} className="pensiones-cuota"><fieldset disabled={ocupado}>
       <div className="field"><label htmlFor="donacion-monto">Monto mensual de ingresos por donaciones en dólares</label><input id="donacion-monto" name="monto" inputMode="decimal" required placeholder="0.00" defaultValue={vigente ? textoMonto(vigente.monto_centavos) : ''} /></div>
       <div className="field"><label htmlFor="donacion-desde-mes">Mes de inicio de ingresos por donaciones</label><select id="donacion-desde-mes" name="desde_mes" required defaultValue={Number(actual.slice(5, 7))}>{MESES.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}</select></div>

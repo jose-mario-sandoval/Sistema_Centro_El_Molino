@@ -9,7 +9,7 @@ import { ROLES_PAGO } from '@/lib/pensiones/permisos'
 import { avisarPagoPension } from '@/lib/push/avisos-pensiones'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { camposConError } from '@/lib/validacion/auth'
-import { esquemaCuotaPension, esquemaMarcarPensiones } from '@/lib/validacion/pensiones'
+import { esquemaCuotaPension, esquemaMarcarPensiones, esquemaMarcarPensionesDe } from '@/lib/validacion/pensiones'
 
 export async function guardarCuotaPension(entrada: unknown): Promise<Resultado<null>> {
   const permiso = await perfilParaAccion('director')
@@ -45,7 +45,35 @@ export async function marcarPensiones(entrada: unknown): Promise<Resultado<{ can
     ...(datos.data.abonos && { p_abonos: datos.data.abonos }),
   })
   if (error) return fallo('No se registraron los pagos. Una cuota o lo ya pagado pudo cambiar, o el monto superar lo que falta. Recargá y revisá los meses antes de confirmar.')
-  // La RPC devuelve solo ids recién creados bajo el mismo candado del pago, sin abonos anteriores.
+  return finalizarPago(data, error)
+}
+
+/** El titular se valida en el servidor y nuevamente bajo el candado de la RPC. */
+export async function marcarPensionesDe(entrada: unknown): Promise<Resultado<{ cantidad: number }>> {
+  const permiso = await perfilParaAccion('director')
+  if (!permiso.ok) return permiso
+  const datos = esquemaMarcarPensionesDe.safeParse(entrada)
+  if (!datos.success) return fallo('Elegí una persona activa y entre uno y doce meses con un monto válido.')
+  if (datos.data.usuario_id === permiso.perfil.id) return fallo('Registrá tu propia pensión en Marcar pensiones.')
+  const supabase = await crearClienteServidor()
+  const { data: persona, error: errorPersona } = await supabase.from('perfiles')
+    .select('id, activo, rol').eq('id', datos.data.usuario_id).maybeSingle()
+  if (errorPersona || !persona?.activo || !ROLES_PAGO.includes(persona.rol)) {
+    return fallo('La persona debe ser una cuenta activa de Residente o Director.')
+  }
+  const { data, error } = await supabase.rpc('marcar_pensiones_de_con_movimientos', {
+    p_usuario_id: persona.id,
+    p_periodos: datos.data.periodos,
+    p_montos_esperados: datos.data.montos,
+    ...(datos.data.pagados && { p_pagados_esperados: datos.data.pagados }),
+    ...(datos.data.abonos && { p_abonos: datos.data.abonos }),
+  })
+  return finalizarPago(data, error)
+}
+
+function finalizarPago(data: { pago_id: string }[] | null, error: unknown): Resultado<{ cantidad: number }> {
+  if (error || !data) return fallo('No se registraron los pagos. La cuenta, su cuota o lo ya pagado pudo cambiar. Recargá y revisá la persona, los meses y el importe antes de confirmar.')
+  // La RPC devuelve solo ids recién creados bajo el mismo candado del titular, sin abonos anteriores.
   if (data.length > 0) after(async () => {
     await Promise.all(data.map(({ pago_id }) => avisarPagoPension(pago_id)))
   })

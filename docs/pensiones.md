@@ -4,6 +4,7 @@ La ampliación del 20 de octubre de 2026 está en [donaciones, exención y aviso
 Esa guía complementa esta entrega inicial e incluye las migraciones nuevas y la activación pendiente por UUID.
 La integración del 21 de octubre está en [presupuesto e ingresos por donaciones](pensiones-2026-10-21.md),
 con su migración, verificaciones y pasos de despliegue.
+La actualización del 26 de octubre está en [Pensiones de la casa y envío de donaciones](pensiones-2026-10-26.md).
 
 La entrega inicial se implementó sobre `b572f76`. Las verificaciones históricas indicadas más abajo
 corresponden a esa entrega; no acreditan la aplicación de migraciones ni pruebas a producción.
@@ -19,7 +20,9 @@ corresponden a esa entrega; no acreditan la aplicación de migraciones ni prueba
   Administración y Administradora comparten la identidad genérica `Administración N` / `AN`,
   sin revelar nombres personales; sus etiquetas de rol son distintas.
 - Administración no tiene acceso a Pensiones, sus acciones, tablas ni archivos. El Director
-  edita cuotas; Director y Residente consultan y registran exclusivamente pagos propios.
+  edita cuotas; Director y Residente consultan y registran sus pagos propios en «Marcar pensiones».
+  Solo el Director puede gestionar los de residentes y otros directores activos desde
+  «Pensiones de la casa», conservando titular y autor del registro por separado.
   Presupuesto y Resúmenes son exclusivos de Director y Administradora; solo esta última sube PDF.
   «Resúmenes» conserva `/pensiones/reporte` y las categorías «Resúmenes Económicos» y
   «Otros documentos», con sus cargas, descargas y máximo de 12 PDF por categoría.
@@ -37,11 +40,12 @@ corresponden a esa entrega; no acreditan la aplicación de migraciones ni prueba
   nunca suma todos los adelantos al mes de registro. No se inventan presupuestos anteriores a la puesta
   en marcha. Las personas participantes sin cuota se anuncian y aportan cero hasta configurarla.
 - «Ingresos por donaciones» es un concepto económico compartido de la casa, con monto mensual
-  esperado y una sola recepción por mes y año. No requiere usuario, credenciales ni residente
+  esperado y un solo registro de envío por mes y año. No requiere usuario, credenciales ni residente
   ficticio, y no forma parte de los conteos de personas. Solo el Director configura el monto con
-  vigencia y registra su recepción. El panel es independiente de «Mi pensión» y conserva el
-  comportamiento desplegable; su descripción es «Registrá los pagos a la administración
-  provenientes de donativos».
+  vigencia y registra el envío del dinero a la administración. El panel es independiente de «Mi pensión»
+  y conserva el comportamiento desplegable. Sus etiquetas son «Registrar envío», «Enviado»,
+  «Pendiente de envío» y «Enviado el…». Las tablas/RPC existentes conservan sus nombres
+  de recepción y todos sus datos; «Pendiente de recibir» sigue usándose en Presupuesto.
 - «Presupuesto mensual» reúne lo esperado por pensiones e ingresos por donaciones del período;
   «Real mensual» suma lo registrado como recibido; «Pendiente de recibir» es su
   diferencia, nunca negativa. El porcentaje usa esos mismos importes, con cero cuando no hay

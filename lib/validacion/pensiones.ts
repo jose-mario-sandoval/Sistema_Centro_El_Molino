@@ -33,3 +33,6 @@ export const esquemaMarcarPensiones = z.object({
     && (e.abonos === undefined || e.abonos.length === e.periodos.length),
   'Revisá los meses y sus montos.',
 ).refine((e) => e.abonos === undefined || e.pagados !== undefined, 'Revisá lo ya pagado antes de confirmar un abono parcial.')
+
+/** Conserva todas las validaciones del pago propio al registrar para otra persona. */
+export const esquemaMarcarPensionesDe = esquemaMarcarPensiones.safeExtend({ usuario_id: z.uuid() })

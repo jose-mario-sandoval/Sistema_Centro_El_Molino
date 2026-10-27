@@ -7,9 +7,14 @@ import { useAviso } from '@/components/ui/avisos'
 import { llamarAccion } from '@/lib/acciones/llamar'
 import { centavosDesdeTexto, dolares, etiquetaPeriodo, saldoMes, seleccionPagable, textoMonto } from '@/lib/pensiones/calculos'
 import { ETIQUETA_CATEGORIA, type CategoriaPension, type MesPension, type PagoPension } from '@/lib/pensiones/tipos'
-import { marcarPensiones } from '../acciones'
+import { marcarPensiones, marcarPensionesDe } from '../acciones'
 
-export function MarcarPensiones({ meses, historial, integrado = false }: { meses: MesPension[]; historial: PagoPension[]; integrado?: boolean }) {
+export function MarcarPensiones({ meses, historial, integrado = false, persona }: {
+  meses: MesPension[]
+  historial: PagoPension[]
+  integrado?: boolean
+  persona?: { id: string; nombre: string }
+}) {
   const [seleccion, setSeleccion] = useState<string[]>([])
   // Lo que la persona escribe en cada mes elegido (texto); sin tocar, paga todo lo que falta.
   const [escritos, setEscritos] = useState<Record<string, string>>({})
@@ -35,23 +40,26 @@ export function MarcarPensiones({ meses, historial, integrado = false }: { meses
     setError(null)
     iniciar(async () => {
       // Se envía la copia revisada, aunque Realtime o el sondeo cambien las props mientras se lee.
-      const resultado = await llamarAccion(() => marcarPensiones({
+      const datos = {
         periodos: revision.meses.map((m) => m.periodo),
         montos: revision.meses.map((m) => m.monto_centavos!),
         pagados: revision.meses.map((m) => m.pagado_centavos),
         abonos: revision.abonos,
-      }))
+      }
+      const resultado = await llamarAccion(() => persona
+        ? marcarPensionesDe({ ...datos, usuario_id: persona.id })
+        : marcarPensiones(datos))
       if (!resultado.ok) { setError(resultado.error); cerrarRevision(); router.refresh(); return }
       setSeleccion([])
       setEscritos({})
       cerrarRevision()
-      aviso(resultado.data.cantidad ? 'Tus pagos quedaron registrados.' : 'Esos meses ya estaban pagados. No se duplicaron los pagos.')
+      aviso(resultado.data.cantidad ? persona ? `Los pagos de ${persona.nombre} quedaron registrados.` : 'Tus pagos quedaron registrados.' : 'Esos meses ya estaban pagados. No se duplicaron los pagos.')
       router.refresh()
     })
   }
   return <>
     <section className={integrado ? 'pensiones-bloque' : 'card'} aria-label="Meses de pensión">
-      <p>La categoría y el monto corresponden a cada mes. Podés pagar un mes completo o solo una parte y completarlo después. Si falta una cuota, pedile al Director que la configure.</p>
+      <p>{persona ? `La categoría y la cuota de cada mes corresponden a ${persona.nombre}. Podés registrar su pago completo o un abono parcial y completar el saldo después. Si falta una cuota, configurala en Editar.` : 'La categoría y el monto corresponden a cada mes. Podés pagar un mes completo o solo una parte y completarlo después. Si falta una cuota, pedile al Director que la configure.'}</p>
       <fieldset disabled={ocupado || revision !== null} className="pensiones-meses"><legend>Elegí uno o varios meses con algo pendiente</legend>
         {meses.map((m) => {
           const saldo = saldoMes(m)
@@ -65,13 +73,13 @@ export function MarcarPensiones({ meses, historial, integrado = false }: { meses
           return <div key={m.periodo} className="pension-mes-bloque">
             <label className="pension-mes" data-disponible={habilitado} data-elegido={elegido}>
               <input type="checkbox" value={m.periodo} disabled={!habilitado} checked={elegido} onChange={(e) => { setError(null); setSeleccion(e.target.checked ? [...pendientes, m.periodo] : pendientes.filter((p) => p !== m.periodo)) }} />
-              <span><strong>{etiquetaPeriodo(m.periodo)}</strong><span>{m.exento ? 'Exento de pensión' : m.categoria ? ETIQUETA_CATEGORIA[m.categoria as CategoriaPension] : 'Sin cuota configurada'}</span><span>{m.exento ? dolares(0) : m.monto_centavos !== null ? dolares(m.monto_centavos) : 'No disponible para registrar'}</span>{parcial && <span>Pagaste {dolares(m.pagado_centavos)} · Falta {dolares(saldo)}</span>}<span>{m.exento ? 'No requiere registrar pagos.' : completo ? <><Icono nombre="si" /> Pagado</> : parcial ? 'Pago parcial' : habilitado ? 'Pendiente' : 'Sin cuota aplicable'}</span></span>
+              <span><strong>{etiquetaPeriodo(m.periodo)}</strong><span>{m.exento ? 'Exento de pensión' : m.categoria ? ETIQUETA_CATEGORIA[m.categoria as CategoriaPension] : 'Sin cuota configurada'}</span><span>{m.exento ? dolares(0) : m.monto_centavos !== null ? `${persona ? 'Cuota: ' : ''}${dolares(m.monto_centavos)}` : 'No disponible para registrar'}</span>{persona ? <span>Pagado: {dolares(m.pagado_centavos)} · Saldo pendiente: {dolares(saldo)}</span> : parcial && <span>Pagaste {dolares(m.pagado_centavos)} · Falta {dolares(saldo)}</span>}<span>{m.exento ? 'No requiere registrar pagos.' : completo ? <><Icono nombre="si" /> Pagado</> : parcial ? 'Pago parcial' : habilitado ? 'Pendiente' : 'Sin cuota aplicable'}</span></span>
             </label>
             {elegido && <div className="field pension-abono">
-              <label htmlFor={`abono-${m.periodo}`}>¿Cuánto pagás de {etiquetaPeriodo(m.periodo)}?</label>
+              <label htmlFor={`abono-${m.periodo}`}>{persona ? `¿Cuánto pagó de ${etiquetaPeriodo(m.periodo)}?` : `¿Cuánto pagás de ${etiquetaPeriodo(m.periodo)}?`}</label>
               <input id={`abono-${m.periodo}`} inputMode="decimal" autoComplete="off" value={texto} disabled={ocupado || revision !== null} aria-invalid={errorMonto ? true : undefined} aria-describedby={`abono-ayuda-${m.periodo}`}
                 onChange={(e) => { setError(null); setEscritos({ ...escritos, [m.periodo]: e.target.value }) }} />
-              <p id={`abono-ayuda-${m.periodo}`} className={errorMonto ? 'campo-error' : 'hint'}>{errorMonto ?? `Falta ${dolares(saldo)}. Si pagás menos, podés completar el mes después.`}</p>
+              <p id={`abono-ayuda-${m.periodo}`} className={errorMonto ? 'campo-error' : 'hint'}>{errorMonto ?? `Falta ${dolares(saldo)}. ${persona ? 'Si registrás una parte, podés completar su pago después.' : 'Si pagás menos, podés completar el mes después.'}`}</p>
             </div>}
           </div>
         })}
@@ -79,15 +87,16 @@ export function MarcarPensiones({ meses, historial, integrado = false }: { meses
       <p className="pensiones-total" aria-live="polite">{resumen.meses.length} meses seleccionados · Total: <strong>{dolares(resumen.total)}</strong></p>
       {!revision && <button ref={botonRevisar} className="btn" disabled={!resumen.valido || ocupado} onClick={() => setRevision({ meses: resumen.meses.map((m) => ({ ...m })), abonos: [...resumen.abonos], total: resumen.total })}>Revisar pagos</button>}
       {revision && <div className="pensiones-confirmacion" role="region" aria-label="Confirmar pagos">
-        <h3 ref={tituloRevision} tabIndex={-1} className="section-title">¿Confirmás que ya pagaste estos montos?</h3>
+        <h3 ref={tituloRevision} tabIndex={-1} className="section-title">{persona ? '¿Confirmás el registro de estos pagos?' : '¿Confirmás que ya pagaste estos montos?'}</h3>
+        {persona && <p>Pensión de: <strong>{persona.nombre}</strong>. El pago quedará en su historial y vos figurarás como quien lo registró.</p>}
         <ul>{revision.meses.map((m, i) => <li key={m.periodo}>{etiquetaPeriodo(m.periodo)}: {dolares(revision.abonos[i])}{revision.abonos[i] < saldoMes(m) && <> (queda pendiente {dolares(saldoMes(m) - revision.abonos[i])})</>}</li>)}</ul>
         <p><strong>Total: {dolares(revision.total)}</strong></p><p>El registro es definitivo. No se puede editar ni revertir desde el sistema.</p>
-        <div className="pensiones-acciones"><button className="btn" aria-busy={ocupado} disabled={ocupado} onClick={confirmar}>{ocupado ? 'Registrando…' : 'Confirmar que ya pagué'}</button><button className="btn ghost" disabled={ocupado} onClick={cerrarRevision}>Volver a elegir</button></div>
+        <div className="pensiones-acciones"><button className="btn" aria-busy={ocupado} disabled={ocupado} onClick={confirmar}>{ocupado ? 'Registrando…' : persona ? 'Confirmar pago de esta persona' : 'Confirmar que ya pagué'}</button><button className="btn ghost" disabled={ocupado} onClick={cerrarRevision}>Volver a elegir</button></div>
       </div>}
       {error && <p className="campo-error" role="alert">{error}</p>}
     </section>
-    <section className={integrado ? 'pensiones-bloque' : 'card'} aria-label="Historial de pagos">{integrado ? <h3 className="section-title">Tu historial de pagos</h3> : <h2 className="section-title">Tu historial de pagos</h2>}
-      {historial.length ? <ul className="pensiones-lista">{historial.map((p) => <li key={p.id}><strong>{etiquetaPeriodo(p.periodo)}</strong><span>{ETIQUETA_CATEGORIA[p.categoria as CategoriaPension]} · {p.abono_centavos < p.monto_centavos ? `Pagaste ${dolares(p.abono_centavos)} (cuota de ${dolares(p.monto_centavos)})` : dolares(p.abono_centavos)}</span><span>Registrado el {new Intl.DateTimeFormat('es-SV', { timeZone: 'America/El_Salvador', dateStyle: 'medium' }).format(new Date(p.registrado_en))}</span></li>)}</ul> : <p className="empty-state">Todavía no registraste pagos.</p>}
+    <section className={integrado ? 'pensiones-bloque' : 'card'} aria-label="Historial de pagos">{integrado || persona ? <h3 className="section-title">{persona ? `Historial de pagos de ${persona.nombre}` : 'Tu historial de pagos'}</h3> : <h2 className="section-title">Tu historial de pagos</h2>}
+      {historial.length ? <ul className="pensiones-lista">{historial.map((p) => <li key={p.id}><strong>{etiquetaPeriodo(p.periodo)}</strong><span>{ETIQUETA_CATEGORIA[p.categoria as CategoriaPension]} · {p.abono_centavos < p.monto_centavos ? `${persona ? 'Pagó' : 'Pagaste'} ${dolares(p.abono_centavos)} (cuota de ${dolares(p.monto_centavos)})` : dolares(p.abono_centavos)}</span><span>Registrado el {new Intl.DateTimeFormat('es-SV', { timeZone: 'America/El_Salvador', dateStyle: 'medium' }).format(new Date(p.registrado_en))}</span>{p.registrado_por !== p.usuario_id && <span>Registrado por el Director</span>}</li>)}</ul> : <p className="empty-state">{persona ? 'Todavía no tiene pagos registrados.' : 'Todavía no registraste pagos.'}</p>}
     </section>
   </>
 }

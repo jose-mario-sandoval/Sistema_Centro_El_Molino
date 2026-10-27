@@ -38,7 +38,10 @@ describe('permisos y validación', () => {
     expect(apartadosPensiones('administradora').map((p) => p.etiqueta)).toEqual(['Presupuesto', 'Resúmenes'])
     for (const rol of ['administradora', 'director'] as const) expect(apartadosPensiones(rol)).toContainEqual({ ruta: '/pensiones/reporte', etiqueta: 'Resúmenes' })
     expect(apartadosPensiones('residente').map((p) => p.etiqueta)).toEqual(['Marcar pensiones'])
-    expect(apartadosPensiones('director')).toHaveLength(4)
+    expect(apartadosPensiones('director')).toHaveLength(5)
+    expect(apartadosPensiones('director')).toContainEqual({ ruta: '/pensiones/casa', etiqueta: 'Pensiones de la casa' })
+    for (const rol of ['residente', 'administracion', 'administradora'] as const)
+      expect(apartadosPensiones(rol).some((p) => p.ruta === '/pensiones/casa')).toBe(false)
   })
   it('limita períodos, tamaño de la selección y montos de confirmación', () => {
     expect(esquemaPeriodoPension.safeParse('2200-12-01').success).toBe(true)

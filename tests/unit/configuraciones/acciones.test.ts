@@ -68,12 +68,13 @@ function clienteFalso(respuestas: { lecturas?: Respuesta[]; escrituras?: Respues
   const auth = [...(respuestas.auth ?? [])]
   const actualizaciones: Record<string, unknown>[] = []
   const inserciones: Record<string, unknown>[] = []
+  const filtros: { tabla: string; columna: string; valor: unknown }[] = []
 
-  function consulta() {
+  function consulta(tabla: string) {
     let escritura: Respuesta | null = null
     const q = {
       select: () => q,
-      eq: () => q,
+      eq: (columna: string, valor: unknown) => { filtros.push({ tabla, columna, valor }); return q },
       neq: () => q,
       like: () => q,
       limit: () => q,
@@ -107,7 +108,7 @@ function clienteFalso(respuestas: { lecturas?: Respuesta[]; escrituras?: Respues
       updateUser: vi.fn(async () => ({ data: { user: {} }, error: null })),
     },
   }
-  return { cliente, actualizaciones, inserciones }
+  return { cliente, actualizaciones, inserciones, filtros }
 }
 
 function usarAdmin(falso: ReturnType<typeof clienteFalso>) {
@@ -450,6 +451,31 @@ describe('eliminarCuenta conserva el historial de pensiones', () => {
     ] }))
     expect(await eliminarCuenta({ id: ID_OTRA })).toEqual({ ok: true, data: null })
     expect(falso.cliente.auth.admin.deleteUser).toHaveBeenCalledWith(ID_OTRA)
+  })
+
+  it('conserva al Director que registró pagos ajenos aunque no tenga pagos ni cuotas propios', async () => {
+    const falso = usarAdmin(clienteFalso({ lecturas: [
+      { data: { activo: false, rol: 'director' }, error: null },
+      LECTURA_VACIA, LECTURA_VACIA, LECTURA_VACIA, LECTURA_VACIA, LECTURA_VACIA,
+      { data: { registrado_por: ID_OTRA }, error: null },
+    ] }))
+    expect(await eliminarCuenta({ id: ID_OTRA })).toEqual({
+      ok: false, error: 'Esta cuenta registró pagos de otras personas. Desactivala para conservar ese historial.',
+    })
+    expect(falso.filtros).toContainEqual({ tabla: 'pensiones_pagos', columna: 'usuario_id', valor: ID_OTRA })
+    expect(falso.filtros).toContainEqual({ tabla: 'pensiones_pagos', columna: 'registrado_por', valor: ID_OTRA })
+    expect(falso.cliente.auth.admin.deleteUser).not.toHaveBeenCalled()
+    expect(revalidatePath).not.toHaveBeenCalled()
+  })
+
+  it('no elimina la cuenta si no pudo comprobar los pagos que registró para otras personas', async () => {
+    const falso = usarAdmin(clienteFalso({ lecturas: [
+      { data: { activo: false, rol: 'director' }, error: null },
+      LECTURA_VACIA, LECTURA_VACIA, LECTURA_VACIA, LECTURA_VACIA, LECTURA_VACIA,
+      { data: null, error: { code: '08006' } },
+    ] }))
+    expect(await eliminarCuenta({ id: ID_OTRA })).toMatchObject({ ok: false, error: 'No se pudo eliminar la cuenta. Intentá de nuevo.' })
+    expect(falso.cliente.auth.admin.deleteUser).not.toHaveBeenCalled()
   })
 
   it.each([

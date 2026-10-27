@@ -584,6 +584,7 @@ export type Database = {
           monto_centavos: number
           periodo: string
           registrado_en: string
+          registrado_por: string
           usuario_id: string
         }
         ComputedFields: never
@@ -594,6 +595,7 @@ export type Database = {
           monto_centavos: number
           periodo: string
           registrado_en?: string
+          registrado_por: string
           usuario_id: string
         }
         Update: {
@@ -603,9 +605,17 @@ export type Database = {
           monto_centavos?: number
           periodo?: string
           registrado_en?: string
+          registrado_por?: string
           usuario_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "pensiones_pagos_registrado_por_fkey"
+            columns: ["registrado_por"]
+            isOneToOne: false
+            referencedRelation: "perfiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "pensiones_pagos_usuario_id_fkey"
             columns: ["usuario_id"]
@@ -1273,6 +1283,7 @@ export type Database = {
           monto_centavos: number
           periodo: string
           registrado_en: string
+          registrado_por: string
           usuario_id: string
         }[]
         SetofOptions: {
@@ -1288,6 +1299,18 @@ export type Database = {
           p_montos_esperados?: number[]
           p_pagados_esperados?: number[]
           p_periodos: string[]
+        }
+        Returns: {
+          pago_id: string
+        }[]
+      }
+      marcar_pensiones_de_con_movimientos: {
+        Args: {
+          p_abonos?: number[]
+          p_montos_esperados: number[]
+          p_pagados_esperados?: number[]
+          p_periodos: string[]
+          p_usuario_id: string
         }
         Returns: {
           pago_id: string
@@ -1318,6 +1341,17 @@ export type Database = {
           p_nota: string
         }
         Returns: boolean
+      }
+      pensiones_de: {
+        Args: { p_anio: number; p_usuario_id: string }
+        Returns: {
+          categoria: string
+          exento: boolean
+          monto_centavos: number
+          pagado_centavos: number
+          periodo: string
+          registrado_en: string
+        }[]
       }
       pensiones_es_exento: {
         Args: { p_periodo: string; p_usuario_id: string }
@@ -1357,6 +1391,32 @@ export type Database = {
           registrado_por: string
         }[]
       }
+      registrar_abonos_pension: {
+        Args: {
+          p_abonos: number[]
+          p_de_la_casa: boolean
+          p_montos_esperados: number[]
+          p_pagados_esperados: number[]
+          p_periodos: string[]
+          p_usuario_id: string
+        }
+        Returns: {
+          abono_centavos: number
+          categoria: string
+          id: string
+          monto_centavos: number
+          periodo: string
+          registrado_en: string
+          registrado_por: string
+          usuario_id: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "pensiones_pagos"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       requiere_cocina_valido: {
         Args: { p: Database["public"]["Enums"]["requerimiento_cocina"][] }
         Returns: boolean
@@ -1383,6 +1443,10 @@ export type Database = {
       }
       soy_activo: { Args: Record<PropertyKey, never>; Returns: boolean }
       tiene_comidas: { Args: { p_usuario: string }; Returns: boolean }
+      validar_titular_pension: {
+        Args: { p_de_la_casa: boolean; p_usuario_id: string }
+        Returns: undefined
+      }
       valores_pension: {
         Args: { p_periodo: string; p_usuario_id: string }
         Returns: {

@@ -87,6 +87,10 @@ Resumen; el detalle completo está en el spec.
 
 ## Activar Administradora y Pensiones
 
+La actualización de **Pensiones de la casa** y **envío de donaciones** del 26 de octubre está
+en [su guía de activación y verificaciones](docs/pensiones-2026-10-26.md). Requiere aplicar la
+nueva migración antes del despliegue; no agrega variables de entorno ni modifica la exención.
+
 Los cambios de donación compartida, exención individual y avisos de pagos del 20 de octubre
 se preparan sin aplicar a producción. Ver [activación y pruebas](docs/pensiones-2026-10-20.md),
 incluida la identificación pendiente del UUID de la cuenta «Dani y José».

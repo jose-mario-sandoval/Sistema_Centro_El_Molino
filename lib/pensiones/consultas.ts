@@ -31,11 +31,44 @@ export async function obtenerMisPensiones(anio: number): Promise<MesPension[]> {
 
 export async function obtenerHistorialPropio(): Promise<PagoPension[]> {
   const perfil = await exigirRol(...ROLES_PAGO)
-  const supabase = await crearClienteServidor()
   // El Director puede leer más filas por RLS: se filtra siempre por la identidad de sesión.
+  return leerHistorialDe(perfil.id)
+}
+
+/** Lista de gestión independiente de las comidas y de fuera_de_conteos. */
+export async function obtenerPersonasPensionesCasa() {
+  const director = await exigirRol('director')
+  const personas = await listarPerfiles({ soloActivos: true, roles: ROLES_PAGO })
+  return personas.filter((p) => p.id !== director.id && p.activo && ROLES_PAGO.includes(p.rol))
+}
+
+async function exigirPersonaCasa(usuarioId: string) {
+  const director = await exigirRol('director')
+  if (usuarioId === director.id) throw new Error('Consultá tu propia pensión en Marcar pensiones.')
+  const supabase = await crearClienteServidor()
+  const { data, error } = await supabase.from('perfiles').select('id, activo, rol').eq('id', usuarioId).maybeSingle()
+  if (error) throw error
+  if (!data?.activo || !ROLES_PAGO.includes(data.rol)) throw new Error('La persona debe ser una cuenta activa de Residente o Director.')
+}
+
+export async function obtenerPensionesDe(usuarioId: string, anio: number): Promise<MesPension[]> {
+  await exigirPersonaCasa(usuarioId)
+  const supabase = await crearClienteServidor()
+  const { data, error } = await supabase.rpc('pensiones_de', { p_usuario_id: usuarioId, p_anio: anio })
+  if (error) throw error
+  return data
+}
+
+export async function obtenerHistorialDe(usuarioId: string): Promise<PagoPension[]> {
+  await exigirPersonaCasa(usuarioId)
+  return leerHistorialDe(usuarioId)
+}
+
+async function leerHistorialDe(usuarioId: string): Promise<PagoPension[]> {
+  const supabase = await crearClienteServidor()
   return leerPaginasPensiones((desde, hasta) => supabase.from('pensiones_pagos')
-    .select('id, periodo, categoria, monto_centavos, abono_centavos, registrado_en')
-    .eq('usuario_id', perfil.id).order('periodo', { ascending: false }).order('registrado_en', { ascending: false }).order('id').range(desde, hasta))
+    .select('id, usuario_id, registrado_por, periodo, categoria, monto_centavos, abono_centavos, registrado_en')
+    .eq('usuario_id', usuarioId).order('periodo', { ascending: false }).order('registrado_en', { ascending: false }).order('id').range(desde, hasta))
 }
 
 export async function obtenerPresupuesto(periodo: string): Promise<FilaPresupuesto[]> {

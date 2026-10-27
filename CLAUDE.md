@@ -191,8 +191,10 @@ opcionales:
 Ver `docs/pensiones-2026-10-20.md` para activación y pruebas de esta ampliación.
 `ETIQUETA_REPORTE` centraliza «Resúmenes Económicos» y «Otros documentos»; las categorías
 siguen siendo `finanzas` / `otras_utilidades`, sin migrar documentos ni cambiar retención.
-La donación pertenece a la casa: configuración mensual con vigencia y recepción única por
-período, ambas exclusivas del Director. Sus snapshots no son abonos personales.
+La donación pertenece a la casa: configuración mensual con vigencia y registro único de envío por
+período, ambos exclusivos del Director. En la vista del Director se usan «Registrar envío»,
+«Enviado», «Pendiente de envío» y «Enviado el…»; las tablas y RPC conservan los nombres históricos
+de recepción. Presupuesto conserva «Pendiente de recibir». Sus snapshots no son abonos personales.
 `pensiones_exencion` vincula una única cuenta a su UUID y mes de activación; no usar nombre
 ni `fuera_de_conteos` como regla. `exento` viene de SQL en las vistas mensual y anual,
 sin borrar cuotas/pagos antiguos ni admitir cuotas normales de cero. Hasta verificar el
@@ -207,7 +209,11 @@ ni `paraCocina()`. Los avisos de cocina conservan su flujo y su privacidad exist
 ## Migraciones: NO se aplican solas a producción
 
 Para Administradora y Pensiones, ver `docs/pensiones.md`: cuotas y participación con vigencia
-mensual; monto/categoría de pagos inmutables; pagos exclusivamente propios mediante RPC;
+mensual; monto/categoría de pagos inmutables; pagos propios mediante RPC y pagos ajenos solo
+por el Director en «Pensiones de la casa» (`/pensiones/casa`). Esa sección excluye al propio
+Director y exige titular activo Residente/Director en servidor y SQL. `usuario_id` es el titular y
+`registrado_por` el autor; las RPC propias y ajenas comparten validación y candado por titular,
+y los avisos a Administradora conservan las siglas del titular. Ver `docs/pensiones-2026-10-26.md`;
 Presupuesto solo Director/Administradora, con etiqueta segura desde SQL. Administradora no lee
 las tablas crudas de cuotas/pagos. Los reportes se descargan por la ruta autorizada, sin URLs
 firmadas reutilizables. Reservar antes de subir y finalizar bajo candado por categoría; la cola
