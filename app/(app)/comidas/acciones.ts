@@ -11,8 +11,13 @@ import { MENSAJE_FUERA_DE_PERIODO } from '@/lib/comidas/periodo'
 import { enVentanaEditable } from '@/lib/comidas/reglas'
 import { mensajeComidaCerrada } from '@/lib/comidas/semana'
 import type { EstadoComida, TiempoComida } from '@/lib/comidas/tipos'
-import type { FechaISO } from '@/lib/fechas'
-import { avisarCambioDelDirector, type CambioDelDirector } from '@/lib/push/avisos-casa'
+import { diaSemana as diaDeLaSemana, fechaISOEn, type FechaISO } from '@/lib/fechas'
+import {
+  avisarCambioComidaCocina,
+  avisarCambioDelDirector,
+  avisarCambioPlanCocina,
+  type CambioDelDirector,
+} from '@/lib/push/avisos-casa'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { camposConError } from '@/lib/validacion/auth'
 import { esquemaNotaDieta, esquemaPlan, esquemaSeleccion, esquemaVolverAPlan } from '@/lib/validacion/comidas'
@@ -56,6 +61,22 @@ export async function guardarNotaDieta(entrada: unknown): Promise<Resultado<null
 function avisarSiEsDeOtra(actorId: string, cambio: CambioDelDirector) {
   if (cambio.personaId === actorId) return
   after(() => avisarCambioDelDirector(cambio))
+}
+
+/**
+ * Una comida de HOY cambió (la persona, o el Director por ella): se le avisa a Administración, que puede ya haber
+ * visto cómo iba a ser el día y si no, no se entera. Las de otros días no: la cocina las ve cuando prepara. Va aparte
+ * del aviso a la persona, y también cuando lo cambia ella misma.
+ */
+function avisarCocinaSiEsDeHoy(cambio: Parameters<typeof avisarCambioComidaCocina>[0]) {
+  if (cambio.fecha !== fechaISOEn(new Date())) return
+  after(() => avisarCambioComidaCocina(cambio))
+}
+
+/** Lo mismo para el plan habitual: solo si la celda es del día de la semana de hoy (el aviso comprueba el resto). */
+function avisarCocinaSiPlanEsDeHoy(cambio: Parameters<typeof avisarCambioPlanCocina>[0]) {
+  if (cambio.diaSemana !== diaDeLaSemana(fechaISOEn(new Date()))) return
+  after(() => avisarCambioPlanCocina(cambio))
 }
 
 type ErrorBase = { code?: string; message?: string }
@@ -132,6 +153,13 @@ export async function guardarPlan(entrada: unknown): Promise<Resultado<null>> {
     comida,
     valor: estado === null ? null : { estado, nota: nota ?? null },
   })
+  avisarCocinaSiPlanEsDeHoy({
+    personaId: objetivo.usuarioId,
+    actorId: permiso.perfil.id,
+    diaSemana,
+    comida,
+    valor: estado === null ? null : { estado, nota: nota ?? null },
+  })
   return exito(null)
 }
 
@@ -176,6 +204,13 @@ export async function guardarSeleccion(entrada: unknown): Promise<Resultado<null
     comida,
     eleccion: { estado, nota: nota ?? null },
   })
+  avisarCocinaSiEsDeHoy({
+    personaId: objetivo.usuarioId,
+    actorId: permiso.perfil.id,
+    fecha,
+    comida,
+    eleccion: { estado, nota: nota ?? null },
+  })
   return exito(null)
 }
 
@@ -207,6 +242,13 @@ export async function volverAPlan(entrada: unknown): Promise<Resultado<null>> {
   revalidatePath('/comidas', 'layout')
   avisarSiEsDeOtra(permiso.perfil.id, {
     tipo: 'comida',
+    personaId: objetivo.usuarioId,
+    actorId: permiso.perfil.id,
+    fecha,
+    comida,
+    eleccion: 'volver',
+  })
+  avisarCocinaSiEsDeHoy({
     personaId: objetivo.usuarioId,
     actorId: permiso.perfil.id,
     fecha,

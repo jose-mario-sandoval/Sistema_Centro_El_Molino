@@ -5,6 +5,8 @@ Esa guía complementa esta entrega inicial e incluye las migraciones nuevas y la
 La integración del 21 de octubre está en [presupuesto e ingresos por donaciones](pensiones-2026-10-21.md),
 con su migración, verificaciones y pasos de despliegue.
 La actualización del 26 de octubre está en [Pensiones de la casa y envío de donaciones](pensiones-2026-10-26.md).
+La del 23 de noviembre ([cuota en $0, Excel y CSV en reportes y aviso a cocina](cambios-2026-11-23.md))
+cambia dos cosas de esta guía: la cuota puede valer $0 y los reportes admiten PDF, Excel y CSV.
 
 La entrega inicial se implementó sobre `b572f76`. Las verificaciones históricas indicadas más abajo
 corresponden a esa entrega; no acreditan la aplicación de migraciones ni pruebas a producción.

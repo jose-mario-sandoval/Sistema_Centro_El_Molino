@@ -167,8 +167,11 @@ opcionales:
   `avisar_cocina`). Un mensaje solo se avisa al público cuando queda `aprobado`; además: pendiente →
   Directores, aprobado/rechazado → autor, cambios del Director → la persona, cambios para la cocina →
   Administración. **Todo lo que va a Administración pasa por `paraCocina()`
-  (`lib/push/cargas-casa.ts`)**: solo fecha, hora, categoría, cantidad y pedido. En producción dependen de las
-  llaves VAPID y `CRON_SECRET` en Vercel y de `url_app` / `cron_secret` en Supabase Vault
+  (`lib/push/cargas-casa.ts`)**: solo fecha, hora, categoría, cantidad y pedido. Una comida de **hoy**
+  que cambia (la persona, el Director por ella, o la celda de hoy del plan si de verdad rige) avisa a
+  Administración con `avisarCambioComidaCocina()` / `avisarCambioPlanCocina()`: solo siglas y cómo
+  quedó, nunca el motivo (plan o ausencia). No cubre ausencias ni otros días. En producción dependen
+  de las llaves VAPID y `CRON_SECRET` en Vercel y de `url_app` / `cron_secret` en Supabase Vault
   (`supabase/snippets/configurar-vault.sql`).
 - **Deduplicación de push de mensajes**: `mensajes.aviso_revision` cambia con contenido o moderación,
   no al fijar. `reservar_avisos_mensaje()` vuelve a comprobar estado, acceso y preferencias y reserva

@@ -1,5 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { avisarCambioDelDirector, avisarExtraCocina, avisarPedidoCocina, avisarSerieCocina } from '@/lib/push/avisos-casa'
+import {
+  avisarCambioComidaCocina,
+  avisarCambioDelDirector,
+  avisarCambioPlanCocina,
+  avisarExtraCocina,
+  avisarPedidoCocina,
+  avisarSerieCocina,
+} from '@/lib/push/avisos-casa'
 import { enviarAUsuarios } from '@/lib/push/enviar'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 
@@ -173,6 +180,138 @@ describe('avisarExtraCocina', () => {
     usarTablas({ perfiles: PERFILES, horas_limite: HORAS })
     await avisarExtraCocina({ actorId: 'dir', fecha: '2026-09-28', comida: 'cena', cantidad: 1, nota: null, accion: 'agregado' })
     expect(enviarAUsuarios).not.toHaveBeenCalled()
+  })
+})
+
+describe('avisarCambioComidaCocina', () => {
+  const HOY_ALMUERZO = { personaId: 'r1', actorId: 'r1', fecha: '2026-09-29', comida: 'cena' as const }
+
+  it('a Administración (con el aviso activado): quién por sus siglas y cómo quedó, sin nombres', async () => {
+    usarTablas({ perfiles: PERFILES })
+    await avisarCambioComidaCocina({ ...HOY_ALMUERZO, eleccion: { estado: 'tarde', nota: '19:30' } })
+    expect(envios()).toEqual([
+      {
+        ids: ['adm'],
+        carga: {
+          titulo: 'Cambio de último momento · Cena de hoy',
+          cuerpo: 'JP: Comer tarde 19:30.',
+          url: '/comidas/semana?semana=2026-09-28',
+          etiqueta: 'cocina-comida-2026-09-29-cena-JP',
+          renotificar: true,
+        },
+      },
+    ])
+    expect(JSON.stringify(envios())).not.toMatch(NOMBRES)
+  })
+
+  it('el Director que cambia la comida de otra persona también avisa a la cocina, con las siglas de esa persona', async () => {
+    usarTablas({ perfiles: PERFILES })
+    await avisarCambioComidaCocina({ ...HOY_ALMUERZO, actorId: 'dir', eleccion: { estado: 'no', nota: null } })
+    expect(envios().map((e) => ({ ids: e.ids, cuerpo: e.carga.cuerpo }))).toEqual([{ ids: ['adm'], cuerpo: 'JP: No comer.' }])
+  })
+
+  it('nunca a residentes ni Directores, ni a la cuenta de cocina que apagó "Cambios para la cocina"', async () => {
+    usarTablas({ perfiles: PERFILES })
+    await avisarCambioComidaCocina({ ...HOY_ALMUERZO, eleccion: { estado: 'si', nota: null } })
+    const todos = envios().flatMap((e) => e.ids)
+    expect(todos).toEqual(['adm'])
+    expect(todos).not.toContain('adm2')
+    for (const otro of ['dir', 'r1', 'r2']) expect(todos).not.toContain(otro)
+  })
+
+  it('sin nadie en cocina que quiera el aviso, no envía nada', async () => {
+    usarTablas({ perfiles: PERFILES.map((p) => (p.rol === 'administracion' ? { ...p, avisar_cocina: false } : p)) })
+    await avisarCambioComidaCocina({ ...HOY_ALMUERZO, eleccion: { estado: 'si', nota: null } })
+    expect(enviarAUsuarios).not.toHaveBeenCalled()
+  })
+
+  it('"Volver a su plan" dice cómo quedó la comida, sin decir si fue por el plan o por una ausencia', async () => {
+    const volver = { ...HOY_ALMUERZO, eleccion: 'volver' as const }
+    usarTablas({ perfiles: PERFILES, plan_semanal: [{ usuario_id: 'r1', dia_semana: 2, comida: 'cena', estado: 'lonchera', nota: null }] })
+    await avisarCambioComidaCocina(volver)
+    usarTablas({ perfiles: PERFILES, ausencias: [{ usuario_id: 'r1', desde: '2026-09-28', hasta: '2026-09-30' }] })
+    await avisarCambioComidaCocina(volver)
+    usarTablas({ perfiles: PERFILES })
+    await avisarCambioComidaCocina(volver)
+    expect(envios().map((e) => e.carga.cuerpo)).toEqual(['JP: Lonchera.', 'JP: No comer.', 'JP: sin definir.'])
+    expect(JSON.stringify(envios())).not.toMatch(/ausencia|plan/i)
+  })
+
+  it('una persona que ya no existe no rompe nada', async () => {
+    usarTablas({ perfiles: PERFILES })
+    await avisarCambioComidaCocina({ ...HOY_ALMUERZO, personaId: 'nadie', eleccion: { estado: 'si', nota: null } })
+    expect(enviarAUsuarios).not.toHaveBeenCalled()
+  })
+
+  it('nunca lanza', async () => {
+    vi.mocked(crearClienteAdmin).mockImplementation(() => {
+      throw new Error('caída')
+    })
+    await expect(avisarCambioComidaCocina({ ...HOY_ALMUERZO, eleccion: { estado: 'si', nota: null } })).resolves.toBeUndefined()
+    expect(console.error).toHaveBeenCalled()
+  })
+})
+
+describe('avisarCambioPlanCocina', () => {
+  // Martes 29/9/2026 a las 11:00 (el almuerzo cerró a las 10:00; la cena cierra a las 16:00).
+  const CENA_DEL_MARTES = { personaId: 'r1', actorId: 'r1', diaSemana: 2, comida: 'cena' as const, valor: { estado: 'bolsa' as const, nota: null } }
+
+  it('cambiar la celda de hoy, si la comida sigue abierta y nada manda sobre el plan, avisa a la cocina', async () => {
+    usarTablas({ perfiles: PERFILES, horas_limite: HORAS })
+    await avisarCambioPlanCocina(CENA_DEL_MARTES)
+    expect(envios().map((e) => ({ ids: e.ids, titulo: e.carga.titulo, cuerpo: e.carga.cuerpo }))).toEqual([
+      { ids: ['adm'], titulo: 'Cambio de último momento · Cena de hoy', cuerpo: 'JP: En bolsa.' },
+    ])
+  })
+
+  it('dejar la celda sin definir también se avisa', async () => {
+    usarTablas({ perfiles: PERFILES, horas_limite: HORAS })
+    await avisarCambioPlanCocina({ ...CENA_DEL_MARTES, valor: null as never })
+    expect(envios().map((e) => e.carga.cuerpo)).toEqual(['JP: sin definir.'])
+  })
+
+  it('otro día de la semana no cambia nada de hoy y ni siquiera consulta', async () => {
+    usarTablas({ perfiles: PERFILES, horas_limite: HORAS })
+    await avisarCambioPlanCocina({ ...CENA_DEL_MARTES, diaSemana: 3 })
+    expect(enviarAUsuarios).not.toHaveBeenCalled()
+    expect(crearClienteAdmin).not.toHaveBeenCalled()
+  })
+
+  it('una comida que ya cerró quedó congelada: el plan solo rige desde la próxima semana', async () => {
+    usarTablas({ perfiles: PERFILES, horas_limite: HORAS })
+    await avisarCambioPlanCocina({ ...CENA_DEL_MARTES, comida: 'almuerzo' })
+    expect(enviarAUsuarios).not.toHaveBeenCalled()
+  })
+
+  it('un cambio puntual de esa comida o una ausencia mandan sobre el plan: la comida de hoy no cambió', async () => {
+    usarTablas({ perfiles: PERFILES, horas_limite: HORAS, selecciones_comida: [{ usuario_id: 'r1', fecha: '2026-09-29', comida: 'cena' }] })
+    await avisarCambioPlanCocina(CENA_DEL_MARTES)
+    usarTablas({ perfiles: PERFILES, horas_limite: HORAS, ausencias: [{ usuario_id: 'r1', desde: '2026-09-28', hasta: '2026-09-30' }] })
+    await avisarCambioPlanCocina(CENA_DEL_MARTES)
+    expect(enviarAUsuarios).not.toHaveBeenCalled()
+  })
+
+  it('el cambio puntual de otra comida, de otro día o de otra persona no impide el aviso', async () => {
+    usarTablas({
+      perfiles: PERFILES,
+      horas_limite: HORAS,
+      selecciones_comida: [
+        { usuario_id: 'r1', fecha: '2026-09-29', comida: 'almuerzo' },
+        { usuario_id: 'r1', fecha: '2026-09-30', comida: 'cena' },
+        { usuario_id: 'r2', fecha: '2026-09-29', comida: 'cena' },
+      ],
+      ausencias: [{ usuario_id: 'r1', desde: '2026-10-05', hasta: '2026-10-06' }],
+    })
+    await avisarCambioPlanCocina(CENA_DEL_MARTES)
+    expect(envios().map((e) => e.carga.cuerpo)).toEqual(['JP: En bolsa.'])
+  })
+
+  it('nunca lanza', async () => {
+    vi.mocked(crearClienteAdmin).mockImplementation(() => {
+      throw new Error('caída')
+    })
+    await expect(avisarCambioPlanCocina(CENA_DEL_MARTES)).resolves.toBeUndefined()
+    expect(console.error).toHaveBeenCalled()
   })
 })
 

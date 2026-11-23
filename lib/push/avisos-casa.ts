@@ -1,5 +1,5 @@
 import 'server-only'
-import { VALOR_POR_AUSENCIA } from '@/lib/comidas/reglas'
+import { cierreDe, VALOR_POR_AUSENCIA } from '@/lib/comidas/reglas'
 import type { TiempoComida, ValorComida } from '@/lib/comidas/tipos'
 import { diaSemana, fechaISOEn, type FechaISO } from '@/lib/fechas'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
@@ -8,6 +8,7 @@ import {
   cambioPedidoCocina,
   cargaAusencia,
   cargaCambioComida,
+  cargaCambioComidaCocina,
   cargaCambioPlan,
   cargaExtraCocina,
   cargaPedidoCocina,
@@ -79,6 +80,84 @@ export async function avisarCambioDelDirector(cambio: CambioDelDirector): Promis
     console.log('[push] cambio del Director', { tipo: cambio.tipo, destinatarios: ids.length, ...resumen })
   } catch (error) {
     console.error('[push] aviso de cambio del Director', { tipo: cambio.tipo, error })
+  }
+}
+
+/** El aviso a Administración de que una comida de hoy quedó así (por sus siglas; nunca a quien hizo el cambio). */
+async function avisarComidaDeHoyACocina(p: {
+  personaId: string
+  actorId: string
+  fecha: FechaISO
+  comida: TiempoComida
+  /** Cómo quedó la comida (null = sin definir). */
+  valor: ValorComida | null
+}): Promise<void> {
+  const perfiles = await leerPerfiles()
+  const persona = perfiles.find((perfil) => perfil.id === p.personaId)
+  if (!persona) return
+  const ids = destinatariosCocina({ actorId: p.actorId, perfiles })
+  if (ids.length === 0) return
+
+  const carga = cargaCambioComidaCocina({ siglas: persona.siglas, fecha: p.fecha, comida: p.comida, valor: p.valor, hoy: fechaISOEn(new Date()) })
+  const resumen = await enviarAUsuarios(ids, carga)
+  console.log('[push] cambio de comida para la cocina', { comida: p.comida, destinatarios: ids.length, ...resumen })
+}
+
+/**
+ * Alguien cambió una comida de un día (la persona, o el Director por ella): a Administración, nunca a quien lo
+ * hizo. La acción solo lo pide para las comidas de hoy, que son las que la cocina puede no ver a tiempo. Dice
+ * quién por sus siglas y cómo quedó la comida (tras "Volver a mi plan", lo que rige: la ausencia manda sobre
+ * el plan), sin nombres ni el motivo del resultado.
+ */
+export async function avisarCambioComidaCocina(p: {
+  personaId: string
+  actorId: string
+  fecha: FechaISO
+  comida: TiempoComida
+  eleccion: ValorComida | 'volver'
+}): Promise<void> {
+  try {
+    const valor = p.eleccion === 'volver' ? (await resultadoDeVolver(p.personaId, p.fecha, p.comida)).valor : p.eleccion
+    await avisarComidaDeHoyACocina({ personaId: p.personaId, actorId: p.actorId, fecha: p.fecha, comida: p.comida, valor })
+  } catch (error) {
+    console.error('[push] aviso de cambio de comida para la cocina', { comida: p.comida, error })
+  }
+}
+
+/**
+ * Alguien cambió una celda de su plan habitual (o el Director la de otra persona): a Administración solo si eso
+ * cambia la comida de HOY. Es así cuando el día de la semana es el de hoy, la comida todavía no cerró y no hay
+ * nada que mande sobre el plan: ni un cambio puntual de esa comida ni una ausencia (lib/comidas/reglas.ts).
+ */
+export async function avisarCambioPlanCocina(p: {
+  personaId: string
+  actorId: string
+  diaSemana: number
+  comida: TiempoComida
+  /** Cómo quedó la celda del plan (null = sin definir). */
+  valor: ValorComida | null
+}): Promise<void> {
+  try {
+    const ahora = new Date()
+    const hoy = fechaISOEn(ahora)
+    if (diaSemana(hoy) !== p.diaSemana) return
+
+    const admin = crearClienteAdmin()
+    const [horas, puntual, ausencia] = await Promise.all([
+      admin.from('horas_limite').select('comida, dia_relativo, hora'),
+      admin.from('selecciones_comida').select('comida').eq('usuario_id', p.personaId).eq('fecha', hoy).eq('comida', p.comida),
+      admin.from('ausencias').select('id').eq('usuario_id', p.personaId).lte('desde', hoy).gte('hasta', hoy),
+    ])
+    if (horas.error) throw horas.error
+    if (puntual.error) throw puntual.error
+    if (ausencia.error) throw ausencia.error
+    // Ya cerró: lo de hoy quedó congelado y el cambio del plan solo rige desde la próxima semana.
+    if (ahora.getTime() >= cierreDe(hoy, p.comida, horasLimiteDesdeFilas(horas.data)).getTime()) return
+    if (puntual.data.length > 0 || ausencia.data.length > 0) return
+
+    await avisarComidaDeHoyACocina({ personaId: p.personaId, actorId: p.actorId, fecha: hoy, comida: p.comida, valor: p.valor })
+  } catch (error) {
+    console.error('[push] aviso de cambio de plan para la cocina', { comida: p.comida, error })
   }
 }
 

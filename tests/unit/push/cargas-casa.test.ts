@@ -4,6 +4,7 @@ import {
   cambioPedidoCocina,
   cargaAusencia,
   cargaCambioComida,
+  cargaCambioComidaCocina,
   cargaCambioPlan,
   cargaExtraCocina,
   cargaPedidoCocina,
@@ -137,6 +138,49 @@ describe('(d) extras para la cocina', () => {
     expect(
       cargaExtraCocina({ fecha: HOY, comida: 'cena', cantidad: 2, nota: null, accion: 'quitado', total: 1, ultimoMomento: true, hoy: HOY }).titulo,
     ).toBe('Extra quitado a último momento')
+  })
+})
+
+describe('(d) cambio de una comida de hoy, para la cocina', () => {
+  it('dice qué comida, quién (solo siglas) y cómo quedó; abre la semana', () => {
+    expect(
+      cargaCambioComidaCocina({ siglas: 'JP', fecha: HOY, comida: 'almuerzo', valor: { estado: 'bolsa', nota: 'Sin sal' }, hoy: HOY }),
+    ).toEqual({
+      titulo: 'Cambio de último momento · Almuerzo de hoy',
+      cuerpo: 'JP: En bolsa, Sin sal.',
+      url: '/comidas/semana?semana=2026-09-28',
+      etiqueta: 'cocina-comida-2026-09-29-almuerzo-JP',
+      renotificar: true,
+    })
+  })
+
+  it('cada estado se lee como en el resto de la app: con su hora, o que ya no come', () => {
+    const cuerpo = (valor: Parameters<typeof cargaCambioComidaCocina>[0]['valor']) =>
+      cargaCambioComidaCocina({ siglas: 'AT', fecha: HOY, comida: 'cena', valor, hoy: HOY }).cuerpo
+    expect(cuerpo({ estado: 'tarde', nota: '19:30' })).toBe('AT: Comer tarde 19:30.')
+    expect(cuerpo({ estado: 'lonchera', nota: null })).toBe('AT: Lonchera.')
+    expect(cuerpo({ estado: 'enfermo', nota: 'Solo sopa' })).toBe('AT: Enfermo, Solo sopa.')
+    expect(cuerpo({ estado: 'no', nota: null })).toBe('AT: No comer.')
+    expect(cuerpo(null)).toBe('AT: sin definir.')
+  })
+
+  it('la etiqueta es por comida y persona: el cambio de alguien no tapa el de otra persona', () => {
+    const etiqueta = (siglas: string, comida: 'almuerzo' | 'cena') =>
+      cargaCambioComidaCocina({ siglas, fecha: HOY, comida, valor: null, hoy: HOY }).etiqueta
+    expect(etiqueta('JP', 'almuerzo')).not.toBe(etiqueta('AT', 'almuerzo'))
+    expect(etiqueta('JP', 'almuerzo')).not.toBe(etiqueta('JP', 'cena'))
+    expect(etiqueta('JP', 'almuerzo')).toBe(etiqueta('JP', 'almuerzo'))
+  })
+
+  it('el título dice el día con las mismas palabras que los avisos de extras', () => {
+    const titulo = (fecha: string) => cargaCambioComidaCocina({ siglas: 'JP', fecha, comida: 'desayuno', valor: null, hoy: HOY }).titulo
+    expect(titulo('2026-09-30')).toBe('Cambio de último momento · Desayuno de mañana')
+    expect(titulo('2026-10-01')).toBe('Cambio de último momento · Desayuno del jueves 1/10')
+  })
+
+  it('una nota larguísima se recorta al largo de un aviso', () => {
+    const { cuerpo } = cargaCambioComidaCocina({ siglas: 'JP', fecha: HOY, comida: 'cena', valor: { estado: 'bolsa', nota: 'x'.repeat(500) }, hoy: HOY })
+    expect(Array.from(cuerpo).length).toBeLessThanOrEqual(LARGO_MAXIMO_CUERPO)
   })
 })
 
