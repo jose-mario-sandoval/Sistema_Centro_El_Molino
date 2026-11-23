@@ -620,7 +620,7 @@ por siglas y los conteos de personas excluyen este concepto.
 ese período; conserva el historial y los controles del rol. Las categorías de documentos
 usan las etiquetas «Resúmenes Económicos» y «Otros documentos», dentro de la pestaña
 «Resúmenes» de Director y Administradora. Conservan la ruta, los permisos y el límite de
-12 PDF por categoría.
+12 archivos (PDF, Excel o CSV) por categoría.
 
 En Marcar pensiones, solo el Director ve «Mi pensión» e «Ingresos por donaciones» como dos paneles
 independientes, cerrados al entrar. Siguen la barra de Ausencias: botón con `aria-expanded`,

@@ -100,8 +100,8 @@ Aplicá primero las cuatro migraciones `20261019…`, en orden de timestamp, y d
 las pantallas. El valor del enum se agrega en una migración independiente. No se modifican roles
 de cuentas existentes ni se crean cuotas ficticias.
 
-Los reportes usan el bucket privado `pensiones-reportes` creado por la migración, con PDF de
-hasta 3 MiB y 12 documentos por categoría. La limpieza durable requiere `CRON_SECRET` y los
+Los reportes usan el bucket privado `pensiones-reportes` creado por la migración, con PDF, Excel
+(.xlsx o .xls) o CSV sin macros, de hasta 3 MiB y 12 documentos por categoría. La limpieza durable requiere `CRON_SECRET` y los
 secretos Vault `url_app` / `cron_secret` ya usados por los avisos. La guía detalla su verificación.
 
 ## Activar los tres meses editables de comidas

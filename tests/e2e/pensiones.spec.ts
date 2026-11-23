@@ -1,6 +1,7 @@
 import { expect, test, type Page } from '@playwright/test'
 import { mesActual, etiquetaPeriodo } from '../../lib/pensiones/calculos'
 import { BUCKET_REPORTES } from '../../lib/pensiones/reportes'
+import { PARTES_XLSX, zipConPartes } from '../soporte/archivos-reporte'
 import { esperarAltoMinimo, esperarSinScrollLateral } from '../soporte/medidas-e2e'
 import {
   asegurarUsuariosPrueba,
@@ -18,6 +19,9 @@ const actual = mesActual()
 const anio = Number(actual.slice(0, 4)) + 1
 const enero = `${anio}-01-01`
 const febrero = `${anio}-02-01`
+const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+const EXCEL = Buffer.from(zipConPartes(PARTES_XLSX))
+const EXCEL_CON_MACROS = Buffer.from(zipConPartes([...PARTES_XLSX, 'xl/vbaProject.bin']))
 const PDF = Buffer.from('%PDF-1.7\n1 0 obj\n<< /Type /Catalog >>\nendobj\ntrailer\n<< /Root 1 0 R >>\n%%EOF\n')
 let ids: Record<ClaveUsuario, string>
 
@@ -126,10 +130,6 @@ test('Director configura cuotas individuales distintas de una misma categoría, 
   ]))
 })
 
-test('confirmar varios meses propios guarda importes por vigencia, persiste y conserva el historial al cambiar de año', async ({ page }) => {
-  await configurar('residente', 30000, enero)
-  await configurar('residente', 40000, febrero)
-  await iniciarSesion(page, 'residente')
 test('Director deja una cuota en $0 y la persona ve que ese mes no hay nada que pagar', async ({ page, browser, baseURL }) => {
   await iniciarSesion(page, 'director')
   await page.goto('/pensiones/editar')
@@ -159,6 +159,10 @@ test('Director deja una cuota en $0 y la persona ve que ese mes no hay nada que 
   } finally { await contexto.close() }
 })
 
+test('confirmar varios meses propios guarda importes por vigencia, persiste y conserva el historial al cambiar de año', async ({ page }) => {
+  await configurar('residente', 30000, enero)
+  await configurar('residente', 40000, febrero)
+  await iniciarSesion(page, 'residente')
   await page.goto(`/pensiones/marcar?anio=${anio}`)
   const primerMes = page.locator(`.pension-mes:has(input[value="${enero}"])`)
   const segundoMes = page.locator(`.pension-mes:has(input[value="${febrero}"])`)
@@ -401,20 +405,20 @@ test('Presupuesto del año completo: total, mes por mes y por persona, con sigla
   } finally { await contexto.close() }
 })
 
-test('Administradora sube PDF validado y Director consulta y descarga sin controles de carga', async ({ page, browser, baseURL }) => {
+test('Administradora sube PDF y Excel validados y Director los consulta y descarga sin controles de carga', async ({ page, browser, baseURL }) => {
   await iniciarSesion(page, 'administradora')
   await page.goto('/pensiones/reporte')
   await expect(page.getByRole('link', { name: 'Resúmenes', exact: true })).toHaveAttribute('href', '/pensiones/reporte')
   await expect(page.getByRole('link', { name: 'Resúmenes', exact: true })).toHaveAttribute('aria-current', 'page')
   await expect(page.getByRole('heading', { name: 'Resúmenes Económicos', exact: true })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Otros documentos', exact: true })).toBeVisible()
-  await page.getByRole('button', { name: 'Subir PDF · Resúmenes Económicos', exact: true }).click()
-  const modal = page.getByRole('dialog', { name: 'Subir PDF · Resúmenes Económicos', exact: true })
-  await modal.getByLabel('Documento PDF').setInputFiles({ name: 'e2e-pensiones-invalido.pdf', mimeType: 'application/pdf', buffer: Buffer.from('Esto no es un PDF') })
-  await modal.getByRole('button', { name: 'Guardar PDF', exact: true }).click()
+  await page.getByRole('button', { name: 'Subir archivo · Resúmenes Económicos', exact: true }).click()
+  const modal = page.getByRole('dialog', { name: 'Subir archivo · Resúmenes Económicos', exact: true })
+  await modal.getByLabel('Archivo (PDF o Excel)').setInputFiles({ name: 'e2e-pensiones-invalido.pdf', mimeType: 'application/pdf', buffer: Buffer.from('Esto no es un PDF') })
+  await modal.getByRole('button', { name: 'Guardar archivo', exact: true }).click()
   await expect(modal.getByRole('alert')).toContainText('no es un PDF válido')
-  await modal.getByLabel('Documento PDF').setInputFiles({ name: 'e2e-pensiones-finanzas.pdf', mimeType: 'application/pdf', buffer: PDF })
-  await modal.getByRole('button', { name: 'Guardar PDF', exact: true }).click()
+  await modal.getByLabel('Archivo (PDF o Excel)').setInputFiles({ name: 'e2e-pensiones-finanzas.pdf', mimeType: 'application/pdf', buffer: PDF })
+  await modal.getByRole('button', { name: 'Guardar archivo', exact: true }).click()
   await expect(modal).toHaveCount(0)
   const enlace = page.getByRole('link', { name: 'Descargar e2e-pensiones-finanzas.pdf', exact: true })
   await expect(enlace).toBeVisible()
@@ -424,13 +428,31 @@ test('Administradora sube PDF validado y Director consulta y descarga sin contro
   expect(autorizado.status()).toBe(200)
   expect(autorizado.headers()['content-type']).toBe('application/pdf')
   expect(await autorizado.body()).toEqual(PDF)
+
+  // Excel: el mismo flujo, sin macros, y se descarga con su propio tipo de contenido.
+  await page.getByRole('button', { name: 'Subir archivo · Otros documentos', exact: true }).click()
+  const modalExcel = page.getByRole('dialog', { name: 'Subir archivo · Otros documentos', exact: true })
+  await modalExcel.getByLabel('Archivo (PDF o Excel)').setInputFiles({ name: 'e2e-pensiones-con-macros.xlsx', mimeType: XLSX_MIME, buffer: EXCEL_CON_MACROS })
+  await modalExcel.getByRole('button', { name: 'Guardar archivo', exact: true }).click()
+  await expect(modalExcel.getByRole('alert')).toContainText('No se aceptan archivos de Excel con macros')
+  await modalExcel.getByLabel('Archivo (PDF o Excel)').setInputFiles({ name: 'e2e-pensiones-balance.xlsx', mimeType: XLSX_MIME, buffer: EXCEL })
+  await modalExcel.getByRole('button', { name: 'Guardar archivo', exact: true }).click()
+  await expect(modalExcel).toHaveCount(0)
+  const enlaceExcel = page.getByRole('link', { name: 'Descargar e2e-pensiones-balance.xlsx', exact: true })
+  await expect(enlaceExcel).toBeVisible()
+  await expect(page.getByText(/Excel · Cargado el/)).toBeVisible()
+  const excelDescargado = await page.request.get((await enlaceExcel.getAttribute('href'))!)
+  expect(excelDescargado.status()).toBe(200)
+  expect(excelDescargado.headers()['content-type']).toBe(XLSX_MIME)
+  expect(await excelDescargado.body()).toEqual(EXCEL)
+
   const contextoDirector = await browser.newContext({ baseURL })
   try {
     const director = await contextoDirector.newPage()
     await iniciarSesion(director, 'director')
     await director.goto('/pensiones/reporte')
     await expect(director.getByRole('link', { name: 'Resúmenes', exact: true })).toHaveAttribute('href', '/pensiones/reporte')
-    await expect(director.getByRole('button', { name: /^Subir PDF/ })).toHaveCount(0)
+    await expect(director.getByRole('button', { name: /^Subir archivo/ })).toHaveCount(0)
     const [descarga] = await Promise.all([
       director.waitForEvent('download'),
       director.getByRole('link', { name: 'Descargar e2e-pensiones-finanzas.pdf', exact: true }).click(),

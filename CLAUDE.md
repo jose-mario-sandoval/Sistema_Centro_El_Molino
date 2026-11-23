@@ -218,7 +218,8 @@ y los avisos a Administradora conservan las siglas del titular. Ver `docs/pensio
 Presupuesto solo Director/Administradora, con etiqueta segura desde SQL. Administradora no lee
 las tablas crudas de cuotas/pagos. Los reportes se descargan por la ruta autorizada, sin URLs
 firmadas reutilizables. Reservar antes de subir y finalizar bajo candado por categoría; la cola
-durable borra bytes retirados después de publicar correctamente el PDF nuevo. No borrar una
+durable borra bytes retirados después de publicar correctamente el archivo nuevo (PDF, Excel o CSV, sin
+macros, con firma comprobada por formato: `FORMATOS_REPORTE`). No borrar una
 cuenta con cuotas o pagos: desactivarla para conservar historial y metas.
 
 `.github/workflows/migraciones.yml` tiene `if: vars.SUPABASE_PROJECT_REF != ''`, y esa variable de
