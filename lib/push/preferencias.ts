@@ -30,7 +30,7 @@ export function opcionesAvisos(rol: Rol): OpcionAviso[] {
         clave: 'avisarCocina',
         id: 'avisar-cocina',
         etiqueta: 'Cambios para la cocina',
-        ayuda: 'Extras que se agregan o se quitan, y pedidos de eventos nuevos, cambiados o cancelados.',
+        ayuda: 'Extras que se agregan o se quitan, pedidos de eventos nuevos, cambiados o cancelados, y comidas de hoy que alguien cambia.',
       },
     ]
     if (rol === 'administradora') opciones.push({

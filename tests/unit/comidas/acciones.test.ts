@@ -5,7 +5,7 @@ import { fallo } from '@/lib/acciones/resultado'
 import { perfilParaAccion, type Perfil } from '@/lib/auth/sesion'
 import { obtenerHorasLimite } from '@/lib/comidas/consultas'
 import { HORAS_LIMITE_POR_DEFECTO } from '@/lib/comidas/tipos'
-import { avisarCambioDelDirector, avisarExtraCocina } from '@/lib/push/avisos-casa'
+import { avisarCambioComidaCocina, avisarCambioDelDirector, avisarCambioPlanCocina, avisarExtraCocina } from '@/lib/push/avisos-casa'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { clienteSupabaseFalso, perfilDePrueba } from '@/tests/soporte/supabase-falso'
 
@@ -16,7 +16,12 @@ vi.mock('@/lib/supabase/admin', () => ({ crearClienteAdmin: vi.fn() }))
 vi.mock('@/lib/supabase/servidor', () => ({ crearClienteServidor: vi.fn() }))
 vi.mock('@/lib/comidas/consultas', () => ({ obtenerHorasLimite: vi.fn() }))
 vi.mock('next/server', () => ({ after: vi.fn() }))
-vi.mock('@/lib/push/avisos-casa', () => ({ avisarCambioDelDirector: vi.fn(), avisarExtraCocina: vi.fn() }))
+vi.mock('@/lib/push/avisos-casa', () => ({
+  avisarCambioComidaCocina: vi.fn(),
+  avisarCambioDelDirector: vi.fn(),
+  avisarCambioPlanCocina: vi.fn(),
+  avisarExtraCocina: vi.fn(),
+}))
 
 const { revalidatePath } = await import('next/cache')
 const { after } = await import('next/server')
@@ -392,6 +397,133 @@ describe('quitarExtra', () => {
     sesionDe(DIRECTOR)
     expect(await quitarExtra({ id: 'x' })).toMatchObject({ ok: false, error: 'Extra inválido.' })
     expect(falso.operaciones).toEqual([])
+  })
+})
+
+describe('avisos push a la cocina: comidas que cambian el mismo día', () => {
+  // beforeEach fija "hoy": miércoles 16/9/2026, 08:00 en la casa.
+  const HOY = '2026-09-16'
+
+  it('una persona que cambia su comida de hoy: se le avisa a la cocina (y a ella no, porque lo hizo ella)', async () => {
+    sesionDe(RESIDENTE)
+    usarCliente(clienteSupabaseFalso())
+    await guardarSeleccion({ ...SELECCION, fecha: HOY, estado: 'tarde', nota: ' 13:30 ' })
+    expect(after).toHaveBeenCalledTimes(1)
+    await correrAfter()
+    expect(avisarCambioComidaCocina).toHaveBeenCalledWith({
+      personaId: RESIDENTE.id,
+      actorId: RESIDENTE.id,
+      fecha: HOY,
+      comida: 'almuerzo',
+      eleccion: { estado: 'tarde', nota: '13:30' },
+    })
+    expect(avisarCambioDelDirector).not.toHaveBeenCalled()
+  })
+
+  it('el Director que cambia la comida de hoy de otra persona avisa a la cocina y, aparte, a esa persona', async () => {
+    sesionDe(DIRECTOR)
+    usarCliente(clienteSupabaseFalso())
+    await guardarSeleccion({ ...SELECCION, fecha: HOY, estado: 'no', usuarioId: OTRA })
+    expect(after).toHaveBeenCalledTimes(2)
+    await correrAfter()
+    expect(avisarCambioDelDirector).toHaveBeenCalledTimes(1)
+    expect(avisarCambioComidaCocina).toHaveBeenCalledWith({
+      personaId: OTRA,
+      actorId: DIRECTOR.id,
+      fecha: HOY,
+      comida: 'almuerzo',
+      eleccion: { estado: 'no', nota: null },
+    })
+  })
+
+  it('volver a su plan, hoy, también avisa a la cocina', async () => {
+    sesionDe(RESIDENTE)
+    usarCliente(clienteSupabaseFalso())
+    await volverAPlan({ fecha: HOY, comida: 'cena' })
+    await correrAfter()
+    expect(avisarCambioComidaCocina).toHaveBeenCalledWith({
+      personaId: RESIDENTE.id,
+      actorId: RESIDENTE.id,
+      fecha: HOY,
+      comida: 'cena',
+      eleccion: 'volver',
+    })
+  })
+
+  it('las comidas de otros días no se avisan: la cocina las ve cuando prepara', async () => {
+    sesionDe(RESIDENTE)
+    usarCliente(clienteSupabaseFalso())
+    await guardarSeleccion({ ...SELECCION, fecha: '2026-09-17' })
+    await guardarSeleccion({ ...SELECCION, fecha: '2026-09-30' })
+    await volverAPlan({ fecha: '2026-09-17', comida: 'cena' })
+    expect(after).not.toHaveBeenCalled()
+    expect(avisarCambioComidaCocina).not.toHaveBeenCalled()
+  })
+
+  it('"hoy" es el de la casa (El Salvador), no el del servidor en UTC', async () => {
+    sesionDe(RESIDENTE)
+    usarCliente(clienteSupabaseFalso())
+    // 17/9 03:00 UTC = 16/9 21:00 en la casa: la comida del 16 sigue siendo de hoy, la del 17 no.
+    vi.setSystemTime(new Date('2026-09-17T03:00:00Z'))
+    await guardarSeleccion({ ...SELECCION, fecha: '2026-09-17' })
+    expect(after).not.toHaveBeenCalled()
+    await guardarSeleccion({ ...SELECCION, fecha: '2026-09-16' })
+    expect(after).toHaveBeenCalledTimes(1)
+  })
+
+  it('si la base rechaza el cambio, no se avisa a nadie', async () => {
+    sesionDe(RESIDENTE)
+    usarCliente(clienteSupabaseFalso({ rpc: [{ data: null, error: { code: '42501', message: 'no' } }] }))
+    await guardarSeleccion({ ...SELECCION, fecha: HOY })
+    usarCliente(clienteSupabaseFalso({ rpc: [{ data: null, error: { code: 'MOL01' } }] }))
+    await volverAPlan({ fecha: HOY, comida: 'cena' })
+    expect(after).not.toHaveBeenCalled()
+  })
+
+  it('un cambio que la base deja fuera de la ventana editable no se avisa', async () => {
+    sesionDe(RESIDENTE)
+    usarCliente(clienteSupabaseFalso())
+    await guardarSeleccion({ ...SELECCION, fecha: '2026-09-15' })
+    expect(after).not.toHaveBeenCalled()
+  })
+
+  it('el plan: si la celda es del día de la semana de hoy (miércoles), el aviso decide si cambió la comida de hoy', async () => {
+    sesionDe(RESIDENTE)
+    usarCliente(clienteSupabaseFalso())
+    await guardarPlan({ diaSemana: 3, comida: 'cena', estado: 'bolsa', nota: null })
+    expect(after).toHaveBeenCalledTimes(1)
+    await correrAfter()
+    expect(avisarCambioPlanCocina).toHaveBeenCalledWith({
+      personaId: RESIDENTE.id,
+      actorId: RESIDENTE.id,
+      diaSemana: 3,
+      comida: 'cena',
+      valor: { estado: 'bolsa', nota: null },
+    })
+  })
+
+  it('el plan de otro día de la semana no pregunta nada, y borrar la celda de hoy avisa que quedó sin definir', async () => {
+    sesionDe(DIRECTOR)
+    usarCliente(clienteSupabaseFalso())
+    await guardarPlan({ diaSemana: 2, comida: 'cena', estado: 'bolsa', nota: null })
+    await guardarPlan({ diaSemana: 6, comida: 'cena', estado: 'bolsa', nota: null })
+    expect(after).not.toHaveBeenCalled()
+    // El Director por otra persona: un aviso para ella (el de siempre) y otro, aparte, para la cocina.
+    usarCliente(clienteSupabaseFalso({ consultas: [{ data: [{ comida: 'cena' }], error: null }] }))
+    await guardarPlan({ diaSemana: 3, comida: 'cena', estado: null, nota: null, usuarioId: OTRA })
+    expect(after).toHaveBeenCalledTimes(2)
+    await correrAfter()
+    expect(avisarCambioDelDirector).toHaveBeenCalledTimes(1)
+    expect(avisarCambioPlanCocina).toHaveBeenCalledWith({
+      personaId: OTRA, actorId: DIRECTOR.id, diaSemana: 3, comida: 'cena', valor: null,
+    })
+  })
+
+  it('si la base rechaza el plan, no se avisa', async () => {
+    sesionDe(RESIDENTE)
+    usarCliente(clienteSupabaseFalso({ consultas: [{ data: null, error: { code: '42501', message: 'no' } }] }))
+    await guardarPlan({ diaSemana: 3, comida: 'cena', estado: 'bolsa', nota: null })
+    expect(after).not.toHaveBeenCalled()
   })
 })
 

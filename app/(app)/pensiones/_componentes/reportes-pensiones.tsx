@@ -6,7 +6,7 @@ import { Modal } from '@/components/ui/modal'
 import { useAviso } from '@/components/ui/avisos'
 import { llamarAccion } from '@/lib/acciones/llamar'
 import { ZONA_HORARIA } from '@/lib/fechas'
-import { CATEGORIAS_REPORTE, ETIQUETA_REPORTE, type CategoriaReporte, type ReportePension } from '@/lib/pensiones/reportes'
+import { ACEPTAR_REPORTES, CATEGORIAS_REPORTE, ETIQUETA_REPORTE, etiquetaFormatoReporte, type CategoriaReporte, type ReportePension } from '@/lib/pensiones/reportes'
 import { eliminarReportePension, subirReportePension } from '../acciones-reporte'
 
 const fechaCarga = new Intl.DateTimeFormat('es-SV', {
@@ -27,15 +27,15 @@ export function ReportesPensiones({ reportes, puedeSubir }: { reportes: ReporteP
           <h2 id={`titulo-${tipo}`}>{ETIQUETA_REPORTE[tipo]}</h2>
           <p>{documentos.length} de 12 documentos</p>
         </div>
-        {puedeSubir && <button type="button" className="btn" onClick={() => setCategoria(tipo)}>Subir PDF · {ETIQUETA_REPORTE[tipo]}</button>}
+        {puedeSubir && <button type="button" className="btn" onClick={() => setCategoria(tipo)}>Subir archivo · {ETIQUETA_REPORTE[tipo]}</button>}
         {documentos.length === 0 ? <p className="empty-state">Todavía no hay documentos en esta categoría.</p> : <ul className="pensiones-reporte-lista">
           {documentos.map((reporte) => <li key={reporte.id}>
             <div>
               <strong>{reporte.nombre}</strong>
-              <p className="pensiones-reporte-meta">Cargado el {fechaCarga.format(new Date(reporte.cargadoEn))} · {(reporte.tamano / 1024 / 1024).toFixed(2)} MiB</p>
+              <p className="pensiones-reporte-meta">{etiquetaFormatoReporte(reporte.nombre) && `${etiquetaFormatoReporte(reporte.nombre)} · `}Cargado el {fechaCarga.format(new Date(reporte.cargadoEn))} · {(reporte.tamano / 1024 / 1024).toFixed(2)} MiB</p>
             </div>
             <div className="pensiones-acciones">
-              <a className="btn ghost" href={`/api/pensiones/reportes/${reporte.id}`} download aria-label={`Descargar ${reporte.nombre}`}>Descargar PDF</a>
+              <a className="btn ghost" href={`/api/pensiones/reportes/${reporte.id}`} download aria-label={`Descargar ${reporte.nombre}`}>Descargar</a>
               {puedeSubir && <button type="button" className="btn danger" aria-label={`Eliminar ${reporte.nombre}`} onClick={() => setAEliminar(reporte)}>Eliminar</button>}
             </div>
           </li>)}
@@ -55,7 +55,7 @@ function CargarReporte({ categoria, cantidad, alCerrar }: { categoria: Categoria
   const [nombreArchivo, setNombreArchivo] = useState('Ningún archivo seleccionado.')
   const aviso = useAviso()
   const router = useRouter()
-  return <Modal titulo={`Subir PDF · ${ETIQUETA_REPORTE[categoria]}`} abierto alCerrar={alCerrar} bloquearCierre={pendiente} enfocarDialogo>
+  return <Modal titulo={`Subir archivo · ${ETIQUETA_REPORTE[categoria]}`} abierto alCerrar={alCerrar} bloquearCierre={pendiente} enfocarDialogo>
     <form ref={formulario} className="pensiones-reporte-carga" noValidate onSubmit={(evento) => {
       evento.preventDefault()
       if (pendiente || !formulario.current) return
@@ -71,17 +71,17 @@ function CargarReporte({ categoria, cantidad, alCerrar }: { categoria: Categoria
     }} aria-busy={pendiente}>
       <input type="hidden" name="categoria" value={categoria} />
       <div className="field">
-        <label htmlFor="reporte-archivo">Documento PDF</label>
-        <input ref={archivoElegido} className="sr-only" tabIndex={-1} id="reporte-archivo" name="archivo" type="file" accept="application/pdf,.pdf" required aria-describedby="reporte-ayuda" disabled={pendiente} onChange={(e) => setNombreArchivo(e.target.files?.[0]?.name ?? 'Ningún archivo seleccionado.')} />
-        <button type="button" className="btn ghost" disabled={pendiente} onClick={() => archivoElegido.current?.click()}>Elegir PDF</button>
+        <label htmlFor="reporte-archivo">Archivo (PDF o Excel)</label>
+        <input ref={archivoElegido} className="sr-only" tabIndex={-1} id="reporte-archivo" name="archivo" type="file" accept={ACEPTAR_REPORTES} required aria-describedby="reporte-ayuda" disabled={pendiente} onChange={(e) => setNombreArchivo(e.target.files?.[0]?.name ?? 'Ningún archivo seleccionado.')} />
+        <button type="button" className="btn ghost" disabled={pendiente} onClick={() => archivoElegido.current?.click()}>Elegir archivo</button>
         <p role="status" className="pensiones-archivo-nombre">{nombreArchivo}</p>
-        <p id="reporte-ayuda" className="hint">Hasta 3 MiB. Prepará el documento fuera del sistema y subilo aquí.</p>
+        <p id="reporte-ayuda" className="hint">Hasta 3 MiB. Se aceptan PDF, Excel (.xlsx o .xls) y CSV, sin macros. Prepará el documento fuera del sistema y subilo aquí.</p>
       </div>
-      {cantidad >= 12 && <p>Al guardar este PDF se retirará el documento más antiguo de esta categoría. Los reportes de la otra categoría se conservan.</p>}
+      {cantidad >= 12 && <p>Al guardar este archivo se retirará el documento más antiguo de esta categoría. Los reportes de la otra categoría se conservan.</p>}
       {error && <p className="campo-error" role="alert">{error}</p>}
       <div className="modal-foot">
         <button type="button" className="btn ghost" onClick={() => { if (!pendiente) alCerrar() }} aria-disabled={pendiente}>Cancelar</button>
-        <button type="submit" className="btn" aria-disabled={pendiente}>{pendiente ? 'Subiendo PDF…' : 'Guardar PDF'}</button>
+        <button type="submit" className="btn" aria-disabled={pendiente}>{pendiente ? 'Subiendo archivo…' : 'Guardar archivo'}</button>
       </div>
     </form>
   </Modal>

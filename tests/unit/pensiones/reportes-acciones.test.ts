@@ -4,6 +4,7 @@ import { perfilParaAccion } from '@/lib/auth/sesion'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { perfilDePrueba } from '@/tests/soporte/supabase-falso'
+import { oleConFlujos, PARTES_XLSX, zipConPartes } from '@/tests/soporte/archivos-reporte'
 import { revalidatePath } from 'next/cache'
 import { after } from 'next/server'
 
@@ -89,6 +90,50 @@ describe('carga de reportes', () => {
     expect((await subirReportePension(formulario())).ok).toBe(false)
     expect(rpc).toHaveBeenCalledWith('abandonar_reporte_pension', { p_id: id })
     expect(revalidatePath).not.toHaveBeenCalled()
+  })
+})
+
+describe('carga de Excel y CSV', () => {
+  const XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+  function archivo(contenido: Uint8Array<ArrayBuffer> | string, nombre: string) {
+    const datos = new FormData()
+    datos.set('categoria', 'finanzas')
+    datos.set('archivo', new File([contenido], nombre, { type: 'application/octet-stream' }))
+    return datos
+  }
+  function reservarCon(extension: string) {
+    rpc.mockImplementation(async (nombre: string) => ({
+      error: null, data: nombre === 'reservar_reporte_pension' ? [{ id, ruta: `finanzas/${id}.${extension}` }] : id,
+    }))
+  }
+
+  it('sube un Excel con su tipo de contenido y en la ruta con la extensión que reservó la base', async () => {
+    reservarCon('xlsx')
+    expect(await subirReportePension(archivo(zipConPartes(PARTES_XLSX), 'Balance octubre.xlsx'))).toEqual({ ok: true, data: { id } })
+    expect(rpc).toHaveBeenCalledWith('reservar_reporte_pension', { p_categoria: 'finanzas', p_nombre: 'Balance octubre.xlsx', p_tamano: expect.any(Number) })
+    expect(upload).toHaveBeenCalledWith(`finanzas/${id}.xlsx`, expect.any(Uint8Array), { contentType: XLSX, upsert: false, cacheControl: '0' })
+    expect(rpc.mock.calls.map(([nombre]) => nombre)).toEqual(['reservar_reporte_pension', 'finalizar_reporte_pension'])
+  })
+
+  it('un .xls antiguo y un CSV se suben con su propio tipo de contenido', async () => {
+    reservarCon('xls')
+    expect((await subirReportePension(archivo(oleConFlujos('Root Entry', 'Workbook'), 'viejo.xls'))).ok).toBe(true)
+    reservarCon('csv')
+    expect((await subirReportePension(archivo('Concepto,Monto\nPensión,300.00\n', 'octubre.csv'))).ok).toBe(true)
+    expect(upload.mock.calls.map(([, , opciones]) => opciones.contentType)).toEqual(['application/vnd.ms-excel', 'text/csv'])
+  })
+
+  it('un Excel con macros, un .xlsm o un archivo que no es lo que dice se rechazan antes de reservar o subir', async () => {
+    for (const [contenido, nombre] of [
+      [zipConPartes([...PARTES_XLSX, 'xl/vbaProject.bin']), 'con-macros.xlsx'],
+      [zipConPartes(PARTES_XLSX), 'macros.xlsm'],
+      ['texto renombrado', 'falso.xlsx'],
+    ] as const) {
+      expect((await subirReportePension(archivo(contenido, nombre))).ok).toBe(false)
+    }
+    expect(rpc).not.toHaveBeenCalled()
+    expect(crearClienteAdmin).not.toHaveBeenCalled()
+    expect(upload).not.toHaveBeenCalled()
   })
 })
 

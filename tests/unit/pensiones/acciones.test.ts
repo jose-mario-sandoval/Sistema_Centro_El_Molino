@@ -36,6 +36,13 @@ describe('acciones de pensiones', () => {
     expect(falso.rpcs[0]).toEqual({ nombre: 'guardar_cuota_pension', args: { p_usuario_id: ID, p_desde: '2099-01-01', p_categoria: 'universitario', p_monto_centavos: 30029 } })
     expect(revalidatePath).toHaveBeenCalledWith('/pensiones', 'layout')
   })
+  it('una cuota de $0 llega a SQL como 0 centavos', async () => {
+    const falso = clienteSupabaseFalso({ rpc: [{ data: null, error: null }] })
+    vi.mocked(crearClienteServidor).mockResolvedValue(falso.cliente as never)
+    expect(await guardarCuotaPension({ usuario_id: ID, desde: '2099-01-01', categoria: 'universitario', monto: '0.00' })).toEqual({ ok: true, data: null })
+    expect(falso.rpcs[0]).toEqual({ nombre: 'guardar_cuota_pension', args: { p_usuario_id: ID, p_desde: '2099-01-01', p_categoria: 'universitario', p_monto_centavos: 0 } })
+    expect(revalidatePath).toHaveBeenCalledWith('/pensiones', 'layout')
+  })
   it('pago exige rol personal y omite toda identidad o categoría enviada por navegador', async () => {
     const falso = clienteSupabaseFalso({ rpc: [{ data: [{ pago_id: 'pago-nuevo' }], error: null }] })
     vi.mocked(crearClienteServidor).mockResolvedValue(falso.cliente as never)

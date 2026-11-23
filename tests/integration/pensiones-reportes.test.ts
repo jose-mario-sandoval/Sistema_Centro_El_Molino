@@ -174,3 +174,47 @@ describe('eliminar un reporte subido por error', () => {
     expect((await listado()).some((r) => r.id === documento.id)).toBe(true)
   })
 })
+
+describe('formatos admitidos: PDF, Excel y CSV', () => {
+  const XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+
+  it('la base arma la ruta con la extensión del archivo y Storage lo guarda con su tipo MIME', async () => {
+    for (const [nombre, extension, tipo] of [
+      ['Balance octubre.XLSX', 'xlsx', XLSX],
+      ['viejo.xls', 'xls', 'application/vnd.ms-excel'],
+      ['octubre.csv', 'csv', 'text/csv'],
+    ] as const) {
+      const reserva = await reservar('otras_utilidades', nombre)
+      expect(reserva.ruta).toMatch(new RegExp(`^otras_utilidades/[0-9a-f-]{36}\\.${extension}$`))
+      const carga = await admin.storage.from(BUCKET_REPORTES).upload(reserva.ruta, pdf, { contentType: tipo, upsert: false })
+      expect(carga.error).toBeNull()
+      expect((await administradora.rpc('finalizar_reporte_pension', { p_id: reserva.id })).error).toBeNull()
+      expect((await listado()).some((r) => r.id === reserva.id && r.ruta === reserva.ruta)).toBe(true)
+    }
+  })
+
+  it('los reportes en PDF siguen terminando en .pdf', async () => {
+    const reserva = await reservar('finanzas', 'Resumen.PDF')
+    expect(reserva.ruta).toMatch(/^finanzas\/[0-9a-f-]{36}\.pdf$/)
+  })
+
+  it('un formato fuera de la lista no se reserva (22023) y el bucket rechaza otros tipos MIME', async () => {
+    for (const nombre of ['programa.exe', 'macros.xlsm', 'pagina.html', 'sin_extension']) {
+      const rechazo = await administradora.rpc('reservar_reporte_pension', { p_categoria: 'finanzas', p_nombre: nombre, p_tamano: 10 })
+      expect(rechazo.error?.code).toBe('22023')
+    }
+    const reserva = await reservar('finanzas', 'valido.csv')
+    for (const tipo of ['text/html', 'application/zip', 'application/x-msdownload']) {
+      const carga = await admin.storage.from(BUCKET_REPORTES).upload(reserva.ruta, pdf, { contentType: tipo, upsert: false })
+      expect(carga.error).not.toBeNull()
+    }
+  })
+
+  it('solo la Administradora reserva un Excel, igual que un PDF', async () => {
+    for (const clave of ['director', 'residente', 'administracion'] as const) {
+      const cliente = await clienteComo(clave)
+      const reserva = await cliente.rpc('reservar_reporte_pension', { p_categoria: 'finanzas', p_nombre: 'balance.xlsx', p_tamano: 10 })
+      expect(reserva.error?.code).toBe('42501')
+    }
+  })
+})

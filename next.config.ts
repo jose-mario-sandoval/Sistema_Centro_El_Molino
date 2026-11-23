@@ -6,7 +6,7 @@ const nextConfig: NextConfig = {
   agentRules: false,
 
   experimental: {
-    // PDF de Pensiones: 3 MiB de archivo y margen para los campos de FormData.
+    // Archivos de Pensiones (PDF, Excel, CSV): 3 MiB de archivo y margen para los campos de FormData.
     serverActions: { bodySizeLimit: '4mb' },
   },
 

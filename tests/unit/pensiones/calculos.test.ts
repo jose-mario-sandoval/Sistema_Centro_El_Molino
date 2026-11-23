@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { centavosDesdeTexto, mesActual, nombreMes, resumenAnual, resumenPresupuesto, seleccionPagable } from '@/lib/pensiones/calculos'
+import { centavosCuotaDesdeTexto, centavosDesdeTexto, mesActual, nombreMes, resumenAnual, resumenPresupuesto, saldoMes, seleccionPagable } from '@/lib/pensiones/calculos'
 import { apartadosPensiones, puedeVerPensiones } from '@/lib/pensiones/permisos'
 import { esquemaCuotaPension, esquemaMarcarPensiones, esquemaPeriodoPension } from '@/lib/validacion/pensiones'
 import type { FilaPresupuesto, MesPension } from '@/lib/pensiones/tipos'
@@ -11,6 +11,21 @@ describe('dinero y selección de pensiones', () => {
     expect(centavosDesdeTexto('300.1')).toBe(30010)
     expect(centavosDesdeTexto('1000000.00')).toBe(100000000)
     for (const n of ['0', '-3', '1.001', '1e2', '1,20', 'NaN', 'Infinity', '1000000.01', '']) expect(centavosDesdeTexto(n)).toBeNull()
+  })
+  it('la cuota mensual admite $0; un pago o una donación siguen pidiendo al menos un centavo', () => {
+    for (const [texto, centavos] of [['0', 0], ['0.00', 0], ['0.5', 50], ['300.29', 30029], ['1000000', 100000000]] as const) {
+      expect(centavosCuotaDesdeTexto(texto)).toBe(centavos)
+    }
+    for (const n of ['-3', '1.001', '1e2', '1,20', 'NaN', 'Infinity', '1000000.01', '', '   ']) expect(centavosCuotaDesdeTexto(n)).toBeNull()
+    expect(centavosDesdeTexto('0')).toBeNull()
+    expect(centavosDesdeTexto('0.00')).toBeNull()
+  })
+  it('un mes con cuota de $0 no deja saldo, no se puede elegir para pagar y suma cero a la meta', () => {
+    const sinPago = mes('2026-10-01', 0)
+    expect(saldoMes(sinPago)).toBe(0)
+    expect(seleccionPagable([sinPago], [sinPago.periodo])).toMatchObject({ valido: false, total: 0 })
+    expect(seleccionPagable([sinPago], [sinPago.periodo], { [sinPago.periodo]: 1 }).valido).toBe(false)
+    expect(resumenPresupuesto([sinPago, mes('2026-10-01', 30000)])).toEqual({ meta: 30000, pagado: 0, falta: 30000, porcentaje: 0 })
   })
   it('permite cuotas distintas de una misma categoría y calcula cada mes', () => {
     const meses = [mes('2026-10-01', 30000), mes('2026-11-01', 40000)]
@@ -53,6 +68,13 @@ describe('permisos y validación', () => {
     const base = { usuario_id: '0b8f7c4e-1a2b-4c3d-8e9f-0a1b2c3d4e5f', desde: '2026-10-01', categoria: 'universitario' }
     expect(esquemaCuotaPension.parse({ ...base, monto: '300' }).monto).toBe(30000)
     expect(esquemaCuotaPension.parse({ ...base, monto: '400' }).monto).toBe(40000)
+  })
+  it('la cuota acepta $0 y sigue rechazando negativos, exceso y más de dos decimales', () => {
+    const base = { usuario_id: '0b8f7c4e-1a2b-4c3d-8e9f-0a1b2c3d4e5f', desde: '2026-10-01', categoria: 'universitario' }
+    for (const monto of ['0', '0.00', ' 0 ']) expect(esquemaCuotaPension.parse({ ...base, monto }).monto).toBe(0)
+    for (const monto of ['-1', '1000000.01', '0.001', '', 'cero']) expect(esquemaCuotaPension.safeParse({ ...base, monto }).success).toBe(false)
+    const rechazo = esquemaCuotaPension.safeParse({ ...base, monto: '-1' })
+    expect(rechazo.success ? '' : rechazo.error.issues[0].message).toBe('Ingresá un monto desde $0 hasta $1,000,000 y con un máximo de dos decimales.')
   })
 })
 

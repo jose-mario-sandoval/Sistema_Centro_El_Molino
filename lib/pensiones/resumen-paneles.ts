@@ -8,6 +8,8 @@ export function resumenMiPension(mes: MesPension | undefined, periodo: string): 
   if (!mes) return `${etiqueta} · Sin información disponible`
   if (mes.exento) return `${etiqueta} · Exento de pensión · ${dolares(0)}`
   if (mes.monto_centavos === null) return `${etiqueta} · Sin cuota configurada`
+  // Una cuota de $0 no es una deuda saldada: ese mes simplemente no hay nada que pagar.
+  if (mes.monto_centavos === 0) return `${etiqueta} · Sin pago este mes · ${dolares(0)}`
   const saldo = saldoMes(mes)
   if (saldo > 0) return `${etiqueta} · ${mes.pagado_centavos > 0 ? 'Pago parcial' : 'Pendiente'} · Falta ${dolares(saldo)}`
   return `${etiqueta} · Pagado · ${dolares(mes.pagado_centavos)}`

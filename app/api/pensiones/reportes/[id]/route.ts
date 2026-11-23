@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { perfilParaAccion } from '@/lib/auth/sesion'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
-import { BUCKET_REPORTES, disposicionDescarga } from '@/lib/pensiones/reportes'
+import { BUCKET_REPORTES, disposicionDescarga, tipoContenidoReporte } from '@/lib/pensiones/reportes'
 
 export const dynamic = 'force-dynamic'
 
@@ -23,7 +23,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   if (archivo.error || !archivo.data) return NextResponse.json({ error: 'No se pudo descargar el documento. Intentá de nuevo.' }, { status: 503 })
   return new NextResponse(archivo.data, {
     headers: {
-      'Content-Type': 'application/pdf',
+      // Por la extensión de la ruta que generó la base (no por el nombre que escribió quien subió el archivo).
+      'Content-Type': tipoContenidoReporte(data.ruta),
       'Content-Disposition': disposicionDescarga(data.nombre),
       'Content-Length': String(archivo.data.size),
       'Cache-Control': 'private, no-store, max-age=0',

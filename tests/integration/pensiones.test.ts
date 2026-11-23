@@ -58,7 +58,7 @@ describe('Pensiones: autorización y datos históricos', () => {
     const director = await clienteComo('director')
     for (const cambio of [
       { p_desde: PASADO }, { p_desde: ACTUAL.slice(0, 8) + '02' },
-      { p_categoria: 'residente' }, { p_monto_centavos: 0 }, { p_monto_centavos: 100000001 },
+      { p_categoria: 'residente' }, { p_monto_centavos: -1 }, { p_monto_centavos: 100000001 },
     ]) {
       const { error } = await director.rpc('guardar_cuota_pension', {
         p_usuario_id: ids.residente, p_desde: ACTUAL, p_categoria: 'universitario', p_monto_centavos: 30000, ...cambio,
@@ -67,6 +67,22 @@ describe('Pensiones: autorización y datos históricos', () => {
     }
     await cuota('director', 50000, ACTUAL, 'profesional')
     await cuota('residente', 30000)
+  })
+
+  it('una cuota de $0 queda configurada, no deja saldo y no inventa un pago de cero', async () => {
+    await cuota('residente', 0)
+    expect((await admin.from('pensiones_cuotas').select('monto_centavos').eq('usuario_id', ids.residente)).data).toEqual([{ monto_centavos: 0 }])
+    const residente = await clienteComo('residente')
+    const anio = await residente.rpc('mis_pensiones', { p_anio: Number(ACTUAL.slice(0, 4)) })
+    expect(anio.error).toBeNull()
+    expect(anio.data.find((f: { periodo: string }) => f.periodo === ACTUAL)).toMatchObject({ categoria: 'universitario', monto_centavos: 0, pagado_centavos: 0 })
+    expect((await presupuesto(ACTUAL)).find((f) => f.usuario_id === ids.residente)).toMatchObject({ monto_centavos: 0, pagado_centavos: 0 })
+    // Confirmar ese mes no falla ni registra nada: un pago exige al menos un centavo.
+    expect((await residente.rpc('marcar_pensiones', { p_periodos: [ACTUAL], p_montos_esperados: [0] })).error).toBeNull()
+    expect((await admin.from('pensiones_pagos').select('id').eq('usuario_id', ids.residente)).data).toEqual([])
+    // Y se puede volver a una cuota normal desde un mes futuro.
+    await cuota('residente', 30000, FUTURO)
+    expect((await presupuesto(FUTURO)).find((f) => f.usuario_id === ids.residente)).toMatchObject({ monto_centavos: 30000 })
   })
 
   it('Administración, anónimos e inactivos no acceden a Pensiones; Administradora no marca pagos', async () => {

@@ -2,13 +2,24 @@ import { fechaISOEn } from '@/lib/fechas'
 import { MESES } from '@/lib/fechas/etiquetas'
 import type { FilaPresupuesto, MesPension } from './tipos'
 
-/** Dólares decimales → centavos exactos; nunca se multiplica un float monetario. */
-export function centavosDesdeTexto(valor: string): number | null {
+/** Dólares decimales → centavos exactos (de $0 a $1,000,000); nunca se multiplica un float monetario. */
+function centavosExactos(valor: string): number | null {
   const texto = valor.trim()
   if (!/^(0|[1-9]\d{0,6})(\.\d{1,2})?$/.test(texto)) return null
   const [entero, decimales = ''] = texto.split('.')
   const centavos = Number(entero) * 100 + Number(decimales.padEnd(2, '0'))
-  return centavos >= 1 && centavos <= 100_000_000 ? centavos : null
+  return centavos <= 100_000_000 ? centavos : null
+}
+
+/** Un pago o una donación: al menos un centavo. */
+export function centavosDesdeTexto(valor: string): number | null {
+  const centavos = centavosExactos(valor)
+  return centavos !== null && centavos >= 1 ? centavos : null
+}
+
+/** La cuota mensual de una persona: también puede ser $0.00 (ese mes no paga pensión). */
+export function centavosCuotaDesdeTexto(valor: string): number | null {
+  return centavosExactos(valor)
 }
 
 export function dolares(centavos: number): string {

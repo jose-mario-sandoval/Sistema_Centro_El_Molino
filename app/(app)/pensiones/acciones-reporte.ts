@@ -6,7 +6,7 @@ import { perfilParaAccion } from '@/lib/auth/sesion'
 import { exito, fallo, type Resultado } from '@/lib/acciones/resultado'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
-import { BUCKET_REPORTES } from '@/lib/pensiones/reportes'
+import { BUCKET_REPORTES, FORMATOS_REPORTE } from '@/lib/pensiones/reportes'
 import { limpiarArchivosReportes } from '@/lib/pensiones/reportes-limpieza'
 import { esquemaEliminarReporte, validarCargaReporte } from '@/lib/validacion/reportes-pensiones'
 
@@ -15,7 +15,7 @@ export async function subirReportePension(formulario: FormData): Promise<Resulta
   if (!permiso.ok) return permiso
   const validado = await validarCargaReporte(formulario)
   if (!validado.ok) return validado
-  const { categoria, nombre, bytes, tamano } = validado.data
+  const { categoria, nombre, formato, bytes, tamano } = validado.data
   const cliente = await crearClienteServidor()
   let reserva: { id: string; ruta: string } | undefined
   try {
@@ -25,7 +25,7 @@ export async function subirReportePension(formulario: FormData): Promise<Resulta
     // La llave secreta sólo se crea después de la autorización y de reservar la ruta en la base.
     const admin = crearClienteAdmin()
     const carga = await admin.storage.from(BUCKET_REPORTES).upload(reserva.ruta, bytes, {
-      contentType: 'application/pdf', upsert: false, cacheControl: '0',
+      contentType: FORMATOS_REPORTE[formato].mime, upsert: false, cacheControl: '0',
     })
     if (carga.error) throw carga.error
     const finalizado = await cliente.rpc('finalizar_reporte_pension', { p_id: reserva.id })

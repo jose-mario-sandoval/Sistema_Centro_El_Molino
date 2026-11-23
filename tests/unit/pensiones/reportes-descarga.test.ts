@@ -46,6 +46,29 @@ describe('descarga de reportes con sesión por solicitud', () => {
     expect(descargar).toHaveBeenCalledWith(`finanzas/${id}.pdf`)
   })
 
+  it.each([
+    ['Balance octubre.xlsx', 'xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'],
+    ['viejo.xls', 'xls', 'application/vnd.ms-excel'],
+    ['octubre.csv', 'csv', 'text/csv'],
+  ])('sirve %s como adjunto con el Content-Type de su formato, según la ruta que armó la base', async (nombre, extension, tipo) => {
+    consultar.mockResolvedValue({ data: { nombre, ruta: `finanzas/${id}.${extension}` }, error: null })
+    descargar.mockResolvedValue({ data: new Blob(['contenido']), error: null })
+    const respuesta = await solicitar()
+    expect(respuesta.status).toBe(200)
+    expect(respuesta.headers.get('content-type')).toBe(tipo)
+    expect(respuesta.headers.get('content-disposition')).toMatch(/^attachment;/)
+    expect(respuesta.headers.get('x-content-type-options')).toBe('nosniff')
+    expect(respuesta.headers.get('content-security-policy')).toContain('sandbox')
+    expect(descargar).toHaveBeenCalledWith(`finanzas/${id}.${extension}`)
+  })
+
+  it('una ruta con una extensión desconocida nunca se sirve como algo que el navegador pueda ejecutar', async () => {
+    consultar.mockResolvedValue({ data: { nombre: 'pagina.html', ruta: `finanzas/${id}.html` }, error: null })
+    const respuesta = await solicitar()
+    expect(respuesta.headers.get('content-type')).toBe('application/octet-stream')
+    expect(respuesta.headers.get('content-disposition')).toMatch(/^attachment;/)
+  })
+
   it('un ID inventado o un documento retirado no obtiene acceso a Storage', async () => {
     expect((await solicitar('../finanzas/archivo.pdf')).status).toBe(404)
     consultar.mockResolvedValue({ data: null, error: null })

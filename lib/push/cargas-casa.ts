@@ -143,6 +143,30 @@ export function cargaExtraCocina(p: {
   }
 }
 
+/**
+ * Alguien cambió una comida de hoy: la cocina puede haber visto ya cómo iba a ser el día, y esto es lo único
+ * que se lo cuenta. Dice quién (solo siglas, como en la lista de asistentes de la Semana) y cómo quedó, sin el
+ * motivo: ni "volvió a su plan" ni "por su ausencia", porque las ausencias son privadas y a la cocina solo le
+ * importa el resultado. La etiqueta es por comida y persona: el cambio nuevo de alguien reemplaza el anterior
+ * suyo (y suena), sin tapar los de otras personas.
+ */
+export function cargaCambioComidaCocina(p: {
+  siglas: string
+  fecha: FechaISO
+  comida: TiempoComida
+  /** Cómo quedó la comida (null = sin definir). */
+  valor: ValorComida | null
+  hoy: FechaISO
+}): CargaPush {
+  return {
+    titulo: `Cambio de último momento · ${queComida(p.fecha, p.comida, p.hoy)}`,
+    cuerpo: recortar(`${p.siglas}: ${p.valor ? textoValor(p.valor) : 'sin definir'}.`),
+    url: `/comidas/semana?semana=${lunesDe(p.fecha)}`,
+    etiqueta: `cocina-comida-${p.fecha}-${p.comida}-${p.siglas}`,
+    renotificar: true,
+  }
+}
+
 /** Lo que la cocina sabe de un evento (`eventos_para_cocina()` sin el id): cuándo, de qué categoría y qué preparar. */
 export type PedidoCocina = Omit<EventoParaCocina, 'id' | 'titulo'>
 

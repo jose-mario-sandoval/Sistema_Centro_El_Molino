@@ -167,8 +167,11 @@ opcionales:
   `avisar_cocina`). Un mensaje solo se avisa al público cuando queda `aprobado`; además: pendiente →
   Directores, aprobado/rechazado → autor, cambios del Director → la persona, cambios para la cocina →
   Administración. **Todo lo que va a Administración pasa por `paraCocina()`
-  (`lib/push/cargas-casa.ts`)**: solo fecha, hora, categoría, cantidad y pedido. En producción dependen de las
-  llaves VAPID y `CRON_SECRET` en Vercel y de `url_app` / `cron_secret` en Supabase Vault
+  (`lib/push/cargas-casa.ts`)**: solo fecha, hora, categoría, cantidad y pedido. Una comida de **hoy**
+  que cambia (la persona, el Director por ella, o la celda de hoy del plan si de verdad rige) avisa a
+  Administración con `avisarCambioComidaCocina()` / `avisarCambioPlanCocina()`: solo siglas y cómo
+  quedó, nunca el motivo (plan o ausencia). No cubre ausencias ni otros días. En producción dependen
+  de las llaves VAPID y `CRON_SECRET` en Vercel y de `url_app` / `cron_secret` en Supabase Vault
   (`supabase/snippets/configurar-vault.sql`).
 - **Deduplicación de push de mensajes**: `mensajes.aviso_revision` cambia con contenido o moderación,
   no al fijar. `reservar_avisos_mensaje()` vuelve a comprobar estado, acceso y preferencias y reserva
@@ -197,7 +200,8 @@ período, ambos exclusivos del Director. En la vista del Director se usan «Regi
 de recepción. Presupuesto conserva «Pendiente de recibir». Sus snapshots no son abonos personales.
 `pensiones_exencion` vincula una única cuenta a su UUID y mes de activación; no usar nombre
 ni `fuera_de_conteos` como regla. `exento` viene de SQL en las vistas mensual y anual,
-sin borrar cuotas/pagos antiguos ni admitir cuotas normales de cero. Hasta verificar el
+sin borrar cuotas/pagos antiguos. Una cuota normal sí puede valer $0 (no deja saldo ni registra pagos;
+es distinta de la exención, ver `docs/cambios-2026-11-23.md`). Hasta verificar el
 UUID de «Dani y José», la exención queda preparada y sin activar.
 Los pagos usan `marcar_pensiones_con_movimientos()`: filtra abonos anteriores bajo el mismo
 candado que la RPC original. Solo esos nuevos movimientos programan `after()`; el evento
@@ -217,7 +221,8 @@ y los avisos a Administradora conservan las siglas del titular. Ver `docs/pensio
 Presupuesto solo Director/Administradora, con etiqueta segura desde SQL. Administradora no lee
 las tablas crudas de cuotas/pagos. Los reportes se descargan por la ruta autorizada, sin URLs
 firmadas reutilizables. Reservar antes de subir y finalizar bajo candado por categoría; la cola
-durable borra bytes retirados después de publicar correctamente el PDF nuevo. No borrar una
+durable borra bytes retirados después de publicar correctamente el archivo nuevo (PDF, Excel o CSV, sin
+macros, con firma comprobada por formato: `FORMATOS_REPORTE`). No borrar una
 cuenta con cuotas o pagos: desactivarla para conservar historial y metas.
 
 `.github/workflows/migraciones.yml` tiene `if: vars.SUPABASE_PROJECT_REF != ''`, y esa variable de

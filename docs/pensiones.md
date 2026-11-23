@@ -5,6 +5,8 @@ Esa guía complementa esta entrega inicial e incluye las migraciones nuevas y la
 La integración del 21 de octubre está en [presupuesto e ingresos por donaciones](pensiones-2026-10-21.md),
 con su migración, verificaciones y pasos de despliegue.
 La actualización del 26 de octubre está en [Pensiones de la casa y envío de donaciones](pensiones-2026-10-26.md).
+La del 23 de noviembre ([cuota en $0, Excel y CSV en reportes y aviso a cocina](cambios-2026-11-23.md))
+cambia dos cosas de esta guía: la cuota puede valer $0 y los reportes admiten PDF, Excel y CSV.
 
 La entrega inicial se implementó sobre `b572f76`. Las verificaciones históricas indicadas más abajo
 corresponden a esa entrega; no acreditan la aplicación de migraciones ni pruebas a producción.
@@ -23,12 +25,13 @@ corresponden a esa entrega; no acreditan la aplicación de migraciones ni prueba
   edita cuotas; Director y Residente consultan y registran sus pagos propios en «Marcar pensiones».
   Solo el Director puede gestionar los de residentes y otros directores activos desde
   «Pensiones de la casa», conservando titular y autor del registro por separado.
-  Presupuesto y Resúmenes son exclusivos de Director y Administradora; solo esta última sube PDF.
+  Presupuesto y Resúmenes son exclusivos de Director y Administradora; solo esta última sube archivos (PDF, Excel o CSV).
   «Resúmenes» conserva `/pensiones/reporte` y las categorías «Resúmenes Económicos» y
-  «Otros documentos», con sus cargas, descargas y máximo de 12 PDF por categoría.
+  «Otros documentos», con sus cargas, descargas y máximo de 12 archivos por categoría.
 - Categoría y monto son individuales e independientes del rol. Los montos se almacenan en
-  centavos enteros, entre 1 y 100 000 000 ($0.01–$1,000,000.00), sin multiplicar decimales de
-  punto flotante. Sin cuota aplicable no se puede marcar un pago.
+  centavos enteros, sin multiplicar decimales de punto flotante: las **cuotas** entre 0 y 100 000 000
+  ($0.00–$1,000,000.00; una cuota de $0 no deja nada por pagar) y los pagos y donaciones entre
+  1 y 100 000 000 ($0.01–$1,000,000.00). Sin cuota aplicable no se puede marcar un pago.
 - Una cuota entra en vigor el primer día del mes elegido, desde el mes actual en adelante.
   Se permite sustituir su configuración en ese mismo mes de vigencia. No hay cambios retroactivos.
   La participación se registra por mes al crear, desactivar, reactivar o cambiar el rol de la
@@ -117,7 +120,8 @@ producción puede estar omitido por `SUPABASE_PROJECT_REF`; comprobar su ejecuci
 
 ## Almacenamiento y reportes
 
-La migración crea el bucket **privado** `pensiones-reportes`, MIME `application/pdf`, máximo
+La migración crea el bucket **privado** `pensiones-reportes`, MIME `application/pdf` (desde el 23 de
+noviembre también Excel y CSV: ver [la guía](cambios-2026-11-23.md)), máximo
 **3 MiB (3 145 728 bytes)** por archivo. No hacerlo público ni agregar políticas de acceso
 directo: una política restrictiva bloquea ese bucket para `anon` y `authenticated`, incluso
 si posteriormente se agregan políticas permisivas generales. El servidor usa la llave secreta
@@ -129,7 +133,8 @@ Cada categoría conserva hasta 12 documentos disponibles. El archivo 13 se almac
 finalizar una transacción que conserva el nuevo, retira el más antiguo de esa categoría y
 encola su borrado físico. Un candado por categoría serializa cargas simultáneas.
 
-La validación del servidor comprueba extensión, tamaño, cabecera `%PDF-…` y terminador `%%EOF`;
+La validación del servidor comprueba extensión, tamaño y la estructura de cada formato (en un PDF, cabecera
+`%PDF-…` y terminador `%%EOF`; en Excel y CSV, ver la guía del 23 de noviembre);
 no confía en el MIME enviado. Es validación de formato, no un análisis antivirus ni un parser
 completo del contenido PDF. `serverActions.bodySizeLimit = '4mb'` deja margen a FormData sin
 superar el límite habitual del proveedor; el límite de documento sigue siendo 3 MiB.
