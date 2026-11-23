@@ -25,6 +25,11 @@ describe('resumen de Mi pensión en el panel cerrado', () => {
       .toBe('octubre de 2026 · Pago parcial · Falta $224.65')
   })
 
+  it('una cuota de $0 no se muestra como pagada: ese mes no hay nada que pagar', () => {
+    expect(resumenMiPension(pension({ monto_centavos: 0 }), periodo))
+      .toBe('octubre de 2026 · Sin pago este mes · $0.00')
+  })
+
   it('reconoce un pago completo sin pedir más dinero', () => {
     expect(resumenMiPension(pension({ pagado_centavos: 30000 }), periodo))
       .toBe('octubre de 2026 · Pagado · $300.00')

@@ -197,7 +197,8 @@ período, ambos exclusivos del Director. En la vista del Director se usan «Regi
 de recepción. Presupuesto conserva «Pendiente de recibir». Sus snapshots no son abonos personales.
 `pensiones_exencion` vincula una única cuenta a su UUID y mes de activación; no usar nombre
 ni `fuera_de_conteos` como regla. `exento` viene de SQL en las vistas mensual y anual,
-sin borrar cuotas/pagos antiguos ni admitir cuotas normales de cero. Hasta verificar el
+sin borrar cuotas/pagos antiguos. Una cuota normal sí puede valer $0 (no deja saldo ni registra pagos;
+es distinta de la exención, ver `docs/cambios-2026-11-23.md`). Hasta verificar el
 UUID de «Dani y José», la exención queda preparada y sin activar.
 Los pagos usan `marcar_pensiones_con_movimientos()`: filtra abonos anteriores bajo el mismo
 candado que la RPC original. Solo esos nuevos movimientos programan `after()`; el evento

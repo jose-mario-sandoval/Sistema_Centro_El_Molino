@@ -38,9 +38,14 @@ describe('exención individual de pensión', () => {
     expect(resumen.personas[0]).toMatchObject({ exento: true, falta: 0 })
   })
 
-  it('mantiene la validación positiva habitual para todas las cuotas, sin aceptar $0', () => {
+  it('una cuota de $0 es una cuota configurada, distinta de la exención: no se paga, pero no se confunde con "sin cuota"', () => {
+    const normalEnCero = fila('2026-10-01', false, 0)
+    expect(saldoMes(normalEnCero)).toBe(0)
+    expect(resumenAnual([[normalEnCero]]).sinCuota).toEqual([])
+    expect(resumenAnual([[normalEnCero]]).personas[0]).toMatchObject({ exento: false, exentoDesde: null, meta: 0 })
+    // Los pagos y las donaciones siguen exigiendo al menos un centavo; solo la cuota admite $0.
     expect(centavosDesdeTexto('0.00')).toBeNull()
-    expect(esquemaCuotaPension.safeParse({ usuario_id: '0b8f7c4e-1a2b-4c3d-8e9f-0a1b2c3d4e5f', desde: '2026-10-01', categoria: 'profesional', monto: '0' }).success).toBe(false)
+    expect(esquemaCuotaPension.safeParse({ usuario_id: '0b8f7c4e-1a2b-4c3d-8e9f-0a1b2c3d4e5f', desde: '2026-10-01', categoria: 'profesional', monto: '0' }).success).toBe(true)
     expect(seleccionPagable([fila('2026-10-01', false, 30000, 10000)], ['2026-10-01'])).toMatchObject({ valido: true, total: 20000 })
   })
 })

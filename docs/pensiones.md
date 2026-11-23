@@ -27,8 +27,9 @@ corresponden a esa entrega; no acreditan la aplicación de migraciones ni prueba
   «Resúmenes» conserva `/pensiones/reporte` y las categorías «Resúmenes Económicos» y
   «Otros documentos», con sus cargas, descargas y máximo de 12 PDF por categoría.
 - Categoría y monto son individuales e independientes del rol. Los montos se almacenan en
-  centavos enteros, entre 1 y 100 000 000 ($0.01–$1,000,000.00), sin multiplicar decimales de
-  punto flotante. Sin cuota aplicable no se puede marcar un pago.
+  centavos enteros, sin multiplicar decimales de punto flotante: las **cuotas** entre 0 y 100 000 000
+  ($0.00–$1,000,000.00; una cuota de $0 no deja nada por pagar) y los pagos y donaciones entre
+  1 y 100 000 000 ($0.01–$1,000,000.00). Sin cuota aplicable no se puede marcar un pago.
 - Una cuota entra en vigor el primer día del mes elegido, desde el mes actual en adelante.
   Se permite sustituir su configuración en ese mismo mes de vigencia. No hay cambios retroactivos.
   La participación se registra por mes al crear, desactivar, reactivar o cambiar el rol de la

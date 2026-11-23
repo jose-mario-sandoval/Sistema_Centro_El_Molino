@@ -31,11 +31,11 @@ export function EditarCuota({ persona, actual }: { persona: PersonaCuota; actual
     <p>{exenta ? `Exento de pensión · ${dolares(0)} desde ${etiquetaPeriodo(persona.exenta_desde!)}.` : vigente ? `Cuota vigente: ${ETIQUETA_CATEGORIA[vigente.categoria as CategoriaPension]} · ${dolares(vigente.monto_centavos)}` : 'Sin cuota vigente configurada.'}</p>
     {!exenta && <form action={guardar} className="pensiones-cuota"><fieldset disabled={ocupado}>
       <div className="field"><label htmlFor={`categoria-${persona.id}`}>Categoría</label><select id={`categoria-${persona.id}`} name="categoria" defaultValue={vigente?.categoria ?? ''} required><option value="" disabled>Elegí una categoría</option>{CATEGORIAS_PENSION.map((c) => <option key={c} value={c}>{ETIQUETA_CATEGORIA[c]}</option>)}</select></div>
-      <div className="field"><label htmlFor={`monto-${persona.id}`}>Monto mensual en dólares</label><input id={`monto-${persona.id}`} name="monto" inputMode="decimal" required placeholder="0.00" defaultValue={vigente ? (vigente.monto_centavos / 100).toFixed(2) : ''} /></div>
+      <div className="field"><label htmlFor={`monto-${persona.id}`}>Monto mensual en dólares</label><input id={`monto-${persona.id}`} name="monto" inputMode="decimal" required placeholder="0.00" aria-describedby={`monto-ayuda-${persona.id}`} defaultValue={vigente ? (vigente.monto_centavos / 100).toFixed(2) : ''} /></div>
       <div className="field"><label htmlFor={`mes-${persona.id}`}>Mes de inicio</label><select id={`mes-${persona.id}`} name="desde_mes" required defaultValue={Number(actual.slice(5, 7))}>{MESES.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}</select></div>
       <div className="field"><label htmlFor={`anio-${persona.id}`}>Año de inicio</label><input id={`anio-${persona.id}`} name="desde_anio" type="number" required min={actual.slice(0, 4)} max="2200" defaultValue={Number(actual.slice(0, 4))} /></div>
       <button className="btn" type="submit" aria-busy={ocupado}>{ocupado ? 'Guardando…' : 'Guardar cuota'}</button>
-    </fieldset></form>}
+    </fieldset><p id={`monto-ayuda-${persona.id}`} className="hint">Escribí 0 si esta persona no paga pensión desde el mes de inicio.</p></form>}
     {error && <p className="campo-error" role="alert">{error}</p>}
     {persona.cuotas.length > 0 && <details><summary>Vigencias registradas</summary><ul className="pensiones-lista">{persona.cuotas.map((c) => <li key={c.desde}><span>Desde {etiquetaPeriodo(c.desde)}</span><span>{ETIQUETA_CATEGORIA[c.categoria as CategoriaPension]} · {dolares(c.monto_centavos)}</span></li>)}</ul></details>}
   </section>
